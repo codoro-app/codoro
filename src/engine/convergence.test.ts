@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import process from 'node:process'
+import prettier from 'prettier'
 import { INITIAL_RATING, roundForDisplay } from './rating'
 import { createRng, simulate } from './convergence'
 import type { SimulationResult } from './convergence'
@@ -75,9 +76,15 @@ function buildReport(): string {
 }
 
 describe('convergence simulation', () => {
-  it('writes the human-readable convergence report', () => {
+  it('writes the human-readable convergence report', async () => {
+    // Runs the raw report through Prettier before writing, matching what
+    // lint-staged applies on commit — otherwise every `pnpm test` rewrites
+    // this tracked file (different table-column padding) and leaves the
+    // working tree dirty even though the underlying data is unchanged.
     const reportPath = resolve(process.cwd(), 'src/engine/CONVERGENCE.md')
-    writeFileSync(reportPath, buildReport())
+    const config = await prettier.resolveConfig(reportPath)
+    const formatted = await prettier.format(buildReport(), { ...config, filepath: reportPath })
+    writeFileSync(reportPath, formatted)
     expect(results).toHaveLength(TRUE_RATINGS.length)
   })
 
