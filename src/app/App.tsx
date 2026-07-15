@@ -1,4 +1,5 @@
 export function App() {
+  const x: any = 5
   return (
     <main
       style={{

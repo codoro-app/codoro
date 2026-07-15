@@ -281,4 +281,33 @@
 
 *Measurement*
 - [ ] PostHog dashboards prebuilt for §9's metrics: day-2 return, session length, puzzles/session — built *before* launch so day-1 data lands somewhere useful
-- [ ] Error events flowing; you know where you'd
+- [ ] Error events flowing; you know where you'd look when someone reports "it's broken"
+
+*Legal/misc (per PRD §12)*
+- [ ] `pnpm licenses list` — dependency license check (MIT/Apache/BSD fine; flag anything GPL/unusual)
+- [ ] One-paragraph privacy note (anonymous analytics disclosure) linked in the footer — cheap, and preempts the first Reddit comment about tracking
+- [ ] Share cards and OG previews render in Discord, Slack, iMessage, and a Reddit post preview (your actual launch surfaces)
+
+*Launch assets*
+- [ ] Demo clip recorded (per PRD §10)
+- [ ] Launch posts drafted for r/leetcode, r/cscareerquestions, r/csMajors — lead with the chess.com-puzzles framing; it's the hook the original thread asked for
+
+**Done means:** every box checked, and you'd be comfortable with a stranger's traffic spike hitting the site tonight.
+
+---
+
+## Timeline reality check
+
+Fits the PRD's 5-week build: Phase 0–1 (Week 1), 2–4 (Weeks 2–3), 5 (late Week 3), 6–7 (Week 4), 8 converging + 9 (Week 5). The schedule risk is exactly where the PRD said: content. Phase 3's author-one-puzzle timing test is the early warning — take it seriously and cut the launch count rather than the calibration quality if it's tight.
+
+## Standing risks (monitored, not blocking)
+
+1. **iOS storage eviction** — mitigated (IndexedDB + persist() + export), but the Phase 5 week-long survival test is the only real proof. If it fails, escalate export/import prominence in the UI before launch.
+2. **Ad-blockers eating telemetry** — your audience over-indexes on them. Expect PostHog to undercount; treat metrics as directional, not exact.
+3. **Difficulty calibration drift** — fixed ratings are fine for V1 (a bad one costs a user ±30 points once), and attempt telemetry gives you the actual-vs-expected solve-rate data to hand-fix outliers within weeks of launch.
+4. **Client-seeded Daily is spoilable** — accepted consciously; revisit only if sharing takes off enough that cheating matters.
+5. **Binary-swipe guess floor** — swipe-binary puzzles are 50% guessable, which compresses their Elo signal. Mitigated by the calibration rubric rule (Phase 3) and monitored post-launch via telemetry: any binary puzzle whose actual solve rate hugs 50% regardless of solver rating is a coin-flip — rewrite or recalibrate it.
+
+## Named V2 flagship: the execution scrubber
+
+Drag a playhead through a code snippet and watch variable state update live, then predict the output. The most novel interaction on the roadmap and a real differentiator — deferred from V1 only because each puzzle needs a hand-authored per-step state trace, which multiplies the content bottleneck. Revisit once the V1 loop is proven; a partial route is generating traces programmatically by actually executing instrumented snippets at build time, which turns it back into an engineering problem instead of an authoring one.
