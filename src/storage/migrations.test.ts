@@ -1,0 +1,57 @@
+import { describe, expect, it } from 'vitest'
+import type { Migration } from './migrations'
+import { runMigrations } from './migrations'
+
+describe('runMigrations', () => {
+  it('applies a single migration and stamps the new version + field', () => {
+    const testMigrations: Record<number, Migration> = {
+      1: (raw) => ({ ...raw, schema_version: 2, newField: 'default-value' }),
+    }
+    const v1Fixture = { schema_version: 1, rating: 1200 }
+    const migrated = runMigrations(v1Fixture, 1, testMigrations)
+    expect(migrated).toEqual({ ...v1Fixture, schema_version: 2, newField: 'default-value' })
+  })
+
+  it('passes through unchanged when no migration exists for the version', () => {
+    const testMigrations: Record<number, Migration> = {
+      1: (raw) => ({ ...raw, schema_version: 2 }),
+    }
+    const v5 = { schema_version: 5, rating: 1300 }
+    expect(runMigrations(v5, 5, testMigrations)).toEqual(v5)
+  })
+
+  it('passes through unchanged with an empty migration map', () => {
+    const v1 = { schema_version: 1, rating: 1200 }
+    expect(runMigrations(v1, 1, {})).toBe(v1)
+  })
+
+  it('chains a multi-step migration (1 -> 2 -> 3) in order', () => {
+    const testMigrations: Record<number, Migration> = {
+      1: (raw) => ({ ...raw, schema_version: 2, addedAtV2: true }),
+      2: (raw) => ({ ...raw, schema_version: 3, addedAtV3: 'x' }),
+    }
+    const migrated = runMigrations({ schema_version: 1, rating: 1200 }, 1, testMigrations)
+    expect(migrated).toEqual({
+      schema_version: 3,
+      rating: 1200,
+      addedAtV2: true,
+      addedAtV3: 'x',
+    })
+  })
+
+  it('runs migrations strictly in ascending version order', () => {
+    const order: number[] = []
+    const testMigrations: Record<number, Migration> = {
+      1: (raw) => {
+        order.push(1)
+        return { ...raw, schema_version: 2 }
+      },
+      2: (raw) => {
+        order.push(2)
+        return { ...raw, schema_version: 3 }
+      },
+    }
+    runMigrations({ schema_version: 1 }, 1, testMigrations)
+    expect(order).toEqual([1, 2])
+  })
+})
