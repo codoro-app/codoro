@@ -68,6 +68,17 @@ describe('listAttempts', () => {
     expect(result.map((a) => a.id)).toEqual(['a-early', 'a-mid', 'a-late'])
   })
 
+  it('preserves both entries when two attempts share the same createdAt', async () => {
+    const same = '2026-07-10T00:00:00.000Z'
+    const a = makeAttempt({ id: 'a-same-1', createdAt: same })
+    const b = makeAttempt({ id: 'a-same-2', createdAt: same })
+    await appendAttempt(a)
+    await appendAttempt(b)
+
+    const result = await listAttempts()
+    expect(result.map((r) => r.id).sort()).toEqual(['a-same-1', 'a-same-2'])
+  })
+
   it('silently drops a manually-inserted invalid row while keeping valid ones', async () => {
     const before = makeAttempt({ id: 'a-before', createdAt: '2026-07-01T00:00:00.000Z' })
     const after = makeAttempt({ id: 'a-after', createdAt: '2026-07-20T00:00:00.000Z' })

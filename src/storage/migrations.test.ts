@@ -39,6 +39,16 @@ describe('runMigrations', () => {
     })
   })
 
+  it('stops without looping forever if a key is explicitly set to undefined', () => {
+    // Object.prototype.hasOwnProperty is true here even though the value is
+    // undefined (as opposed to the key being absent) — the runner's guard
+    // against that must be exercised directly, since normal migration maps
+    // never construct entries this way.
+    const testMigrations: Record<number, Migration> = { 1: undefined as unknown as Migration }
+    const v1 = { schema_version: 1, rating: 1200 }
+    expect(runMigrations(v1, 1, testMigrations)).toBe(v1)
+  })
+
   it('runs migrations strictly in ascending version order', () => {
     const order: number[] = []
     const testMigrations: Record<number, Migration> = {

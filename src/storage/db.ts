@@ -21,6 +21,16 @@ export async function getDb(): Promise<IDBPDatabase> {
     upgrade(db) {
       // Out-of-line keys: profile records are written with explicit string keys
       // (PROFILE_KEY, plus corrupt-<timestamp> backups on recovery).
+      //
+      // The `contains` guards below are untestable under today's fixed
+      // DB_VERSION=1: per the IndexedDB spec, `upgrade` only fires when
+      // opening a brand-new database or bumping the version, never on a
+      // same-version reopen of an existing one — so within a single version
+      // there is no way to invoke this callback a second time against a DB
+      // that already has these stores. They exist for the real scenario
+      // they guard against: a future DB_VERSION bump whose upgrade path adds
+      // a new store while these two already exist from v1. Coverage on this
+      // branch will become achievable (and expected) the day that happens.
       if (!db.objectStoreNames.contains(PROFILE_STORE)) {
         db.createObjectStore(PROFILE_STORE)
       }

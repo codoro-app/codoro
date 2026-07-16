@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import { deleteDB } from 'idb'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RATING_FLOOR } from '../engine'
 import { DB_NAME } from './db'
 import type { Attempt, UserProfile } from './schema'
@@ -119,5 +119,23 @@ describe('importData rejects malformed/tampered input', () => {
 
     expect(await loadProfile()).toEqual(profile)
     expect(await listAttempts()).toEqual([attempt])
+  })
+
+  it('falls back to String(err) when JSON.parse throws a non-Error value', async () => {
+    // JSON.parse only ever throws a real SyntaxError in practice, but the
+    // fallback exists for defensive correctness — exercise it directly by
+    // making JSON.parse throw a bare string, the way a hostile/synthetic
+    // environment might.
+    const spy = vi.spyOn(JSON, 'parse').mockImplementation(() => {
+      // eslint-disable-next-line @typescript-eslint/only-throw-error -- deliberately non-Error, to exercise the String(err) fallback
+      throw 'not an Error instance'
+    })
+    try {
+      await expect(importData('irrelevant')).rejects.toThrow(
+        /Import failed: invalid JSON \(not an Error instance\)/,
+      )
+    } finally {
+      spy.mockRestore()
+    }
   })
 })

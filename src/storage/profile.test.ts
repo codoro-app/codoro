@@ -93,4 +93,27 @@ describe('corrupt-data recovery', () => {
       expect(backup).toBe('not an object')
     })
   })
+
+  it('routes a stale schema_version through the migration runner before validating', async () => {
+    // schema_version 0 predates any version this app has ever shipped, so
+    // MIGRATIONS (empty today) has nothing registered for it — runMigrations
+    // is still invoked and correctly no-ops, and the subsequently-still-stale
+    // object fails final validation, landing in the same corrupt-recovery
+    // path exercised above. This proves loadProfile's `< CURRENT_SCHEMA_VERSION`
+    // branch actually calls the migration runner, not just the "already
+    // current" passthrough.
+    const stale = { schema_version: 0, rating: 1200 }
+    await withDb((db) => db.put(PROFILE_STORE, stale, PROFILE_KEY))
+
+    const recovered = await loadProfile()
+    expect(recovered).toEqual(createDefaultProfile())
+
+    await withDb(async (db) => {
+      const keys = await db.getAllKeys(PROFILE_STORE)
+      const corruptKey = keys.find((k) => typeof k === 'string' && k.startsWith('corrupt-'))
+      expect(corruptKey).toBeDefined()
+      const backup: unknown = await db.get(PROFILE_STORE, corruptKey as string)
+      expect(backup).toEqual(stale)
+    })
+  })
 })
