@@ -12,7 +12,7 @@ export function App() {
       }}
     >
       <h1>Codoro</h1>
-      <p>Chess.com-style puzzles for spotting bugs. Coming soon.</p>
+      <p>Coding puzzles for spotting bugs. Coming soon.</p>
     </main>
   )
 }
