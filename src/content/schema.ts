@@ -37,20 +37,25 @@ const BaseSchema = z.object({
   snippet: z.string().min(1),
 })
 
-const McqSchema = BaseSchema.extend({
+// Exported (in addition to PuzzleSchema) so generatePuzzles.ts can request
+// structured output against a single flat variant — Claude's structured
+// outputs don't support the $defs shape zodOutputFormat produces for
+// PuzzleSchema's discriminated union. The union + superRefine remain the
+// authoritative validation; these are the same schemas, not a fork of them.
+export const McqSchema = BaseSchema.extend({
   interaction: z.literal('mcq'),
   choices: z.array(z.string().min(1)).min(2).max(5),
   correct_choice: z.number().int().nonnegative(),
 })
 
-const SwipeBinarySchema = BaseSchema.extend({
+export const SwipeBinarySchema = BaseSchema.extend({
   interaction: z.literal('swipe-binary'),
   left_label: z.string().min(1),
   right_label: z.string().min(1),
   correct_direction: z.enum(['left', 'right']),
 })
 
-const TapLineSchema = BaseSchema.extend({
+export const TapLineSchema = BaseSchema.extend({
   interaction: z.literal('tap-line'),
   correct_line: z.number().int().nonnegative(),
 })
