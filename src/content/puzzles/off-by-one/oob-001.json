@@ -1,0 +1,17 @@
+{
+  "id": "oob-001",
+  "pattern": "off-by-one",
+  "difficulty_rating": 1000,
+  "explanation": "`items[len(items)]` indexes one position past the last valid index — for a list of length n, valid indices run from 0 to n-1, so `len(items)` is out of range and raises an IndexError. It should be `items[len(items) - 1]` (or simply `items[-1]`).",
+  "prompt": "This function is supposed to return the last element of a list. What's actually wrong with it?",
+  "language": "python",
+  "snippet": "def get_last_element(items):\n    return items[len(items)]",
+  "interaction": "mcq",
+  "choices": [
+    "`len(items)` is one past the last valid index, so this raises an IndexError instead of returning the last element",
+    "The function forgot to import the `len` builtin before using it",
+    "Lists in Python only support 0-based indexing for slices, not for direct element access, so this always fails",
+    "The parameter name `items` shadows a Python builtin and causes a runtime error"
+  ],
+  "correct_choice": 0
+}

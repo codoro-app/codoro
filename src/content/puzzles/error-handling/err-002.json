@@ -1,0 +1,11 @@
+{
+  "id": "err-002",
+  "pattern": "error-handling",
+  "difficulty_rating": 1000,
+  "explanation": "The catch block on line 4 silently swallows any JSON parsing error without logging, rethrowing, or setting a fallback value. When `JSON.parse` throws, `config` stays `undefined`, and the very next line (`config.settings`) throws a confusing `TypeError` that masks the real parsing failure instead of surfacing a clear error.",
+  "prompt": "Tap the line responsible for the error-handling bug.",
+  "language": "javascript",
+  "snippet": "function parseConfig(json) {\n  let config\n  try {\n    config = JSON.parse(json)\n  } catch (e) {\n  }\n  return config.settings\n}",
+  "interaction": "tap-line",
+  "correct_line": 4
+}

@@ -1,0 +1,13 @@
+{
+  "id": "str-001",
+  "pattern": "string-formatting",
+  "difficulty_rating": 1550,
+  "explanation": "Java's `%d` conversion in `String.format` only accepts integral types (int, long, Integer, Long, BigInteger, short, byte). Passing a `double` — even one that holds a whole number — compiles fine but throws `java.util.IllegalFormatConversionException` at runtime for every call. It should use `%.2f` (or round/cast explicitly) to format a price.",
+  "prompt": "Is this price formatter safe to call, or does it break?",
+  "language": "java",
+  "snippet": "public class Report {\n    public static String formatPrice(double price) {\n        return String.format(\"Price: $%d\", price);\n    }\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Safe",
+  "right_label": "Crashes at runtime",
+  "correct_direction": "right"
+}

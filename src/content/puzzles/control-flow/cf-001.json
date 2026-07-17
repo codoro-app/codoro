@@ -1,0 +1,17 @@
+{
+  "id": "cf-001",
+  "pattern": "control-flow",
+  "difficulty_rating": 1100,
+  "explanation": "The `case 'gold':` branch is missing a `break` statement, so execution falls through into `case 'silver':` and overwrites `discount` with 10 instead of stopping at 20. Gold-tier customers end up receiving the silver discount rate.",
+  "prompt": "What's the bug in this discount calculator?",
+  "language": "javascript",
+  "snippet": "function getDiscount(tier) {\n  let discount = 0;\n  switch (tier) {\n    case 'gold':\n      discount = 20;\n    case 'silver':\n      discount = 10;\n      break;\n    default:\n      discount = 0;\n  }\n  return discount;\n}",
+  "interaction": "mcq",
+  "choices": [
+    "Missing `break` after `case 'gold':` causes fall-through into the 'silver' case, so gold customers get a 10% discount instead of 20%",
+    "The `default` case should come before the other cases",
+    "`discount` should be declared with `const` instead of `let`",
+    "The function should use `if/else` instead of `switch` because strings can't be compared with `case`"
+  ],
+  "correct_choice": 0
+}

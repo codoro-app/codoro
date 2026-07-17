@@ -1,0 +1,17 @@
+{
+  "id": "tc-002",
+  "pattern": "type-coercion",
+  "difficulty_rating": 1600,
+  "explanation": "Array.prototype.sort() with no comparator function converts each element to a string and compares them lexicographically (UTF-16 code unit order), not numerically. For [10, 2, 33, 4], the string comparison sees \"10\" < \"2\" < \"33\" < \"4\" because '1' < '2' < '3' < '4' as characters, so the result is [10, 2, 33, 4] rather than the numerically sorted [2, 4, 10, 33]. A numeric comparator like (a, b) => a - b is required.",
+  "prompt": "This function is supposed to sort an array of numbers in ascending order. What's actually wrong with it?",
+  "language": "javascript",
+  "snippet": "function sortScores(scores) {\n  return scores.sort();\n}\n\nconsole.log(sortScores([10, 2, 33, 4]));",
+  "interaction": "mcq",
+  "choices": [
+    "sort() with no comparator converts elements to strings and sorts lexicographically, so a numeric array like [10, 2, 33, 4] ends up in the wrong order (e.g. 10 sorts before 2)",
+    "sort() mutates the original array in place instead of returning a new array, which silently changes the caller's reference",
+    "The function should call scores.reverse() before sorting to get ascending order instead of descending",
+    "Array.prototype.sort() throws a TypeError whenever the array contains duplicate numeric values"
+  ],
+  "correct_choice": 0
+}

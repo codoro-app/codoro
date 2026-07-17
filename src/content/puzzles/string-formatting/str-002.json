@@ -1,0 +1,13 @@
+{
+  "id": "str-002",
+  "pattern": "string-formatting",
+  "difficulty_rating": 1575,
+  "explanation": "printf's %d specifier tells the variadic function to read the next argument as an int, but `price` is a double. C's default argument promotion rules mean the compiler does not coerce the double into an int for you here — the bytes printf reads are interpreted according to %d's expectations, which mismatches how the double was actually passed (often in a floating-point register). The result is garbage or wildly wrong output, not an automatic conversion. The fix is to use `%f` or `%.2f` (or `%lf` in scanf) for a double argument, e.g. `printf(\"Price: $%.2f\\n\", price);`.",
+  "prompt": "Does this printf call correctly print the price?",
+  "language": "c",
+  "snippet": "#include <stdio.h>\n\nvoid printPrice(double price) {\n    printf(\"Price: $%d\\n\", price);\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Correct",
+  "right_label": "Undefined behavior",
+  "correct_direction": "right"
+}

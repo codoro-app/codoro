@@ -1,0 +1,17 @@
+{
+  "id": "res-001",
+  "pattern": "resource-management",
+  "difficulty_rating": 1000,
+  "explanation": "The file opened with `open(path)` is never closed. Without a `with` block or an explicit `f.close()`, the file handle stays open after the function returns, leaking a file descriptor on every call.",
+  "prompt": "What's wrong with this function?",
+  "language": "python",
+  "snippet": "def read_config(path):\n    f = open(path)\n    data = f.read()\n    return data",
+  "interaction": "mcq",
+  "choices": [
+    "The file handle is never closed, leaking a file descriptor",
+    "`f.read()` should be called twice to get all the data",
+    "The function should return `f` instead of `data`",
+    "`open(path)` needs a second argument for read mode"
+  ],
+  "correct_choice": 0
+}

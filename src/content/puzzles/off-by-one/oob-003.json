@@ -1,0 +1,11 @@
+{
+  "id": "oob-003",
+  "pattern": "off-by-one",
+  "difficulty_rating": 1000,
+  "explanation": "The loop starts at `i = 1` instead of `i = 0`, so the first element (`arr[0]`) is never copied, and the condition `i <= arr.length` lets the loop run one iteration too far, pushing `arr[arr.length]` (which is `undefined`) onto the result. It should be `for (let i = 0; i < arr.length; i++)`.",
+  "prompt": "Tap the line with the off-by-one bug.",
+  "language": "javascript",
+  "snippet": "function copyArray(arr) {\n  const result = [];\n  for (let i = 1; i <= arr.length; i++) {\n    result.push(arr[i]);\n  }\n  return result;\n}",
+  "interaction": "tap-line",
+  "correct_line": 2
+}

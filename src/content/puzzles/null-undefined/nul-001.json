@@ -1,0 +1,17 @@
+{
+  "id": "nul-001",
+  "pattern": "null-undefined",
+  "difficulty_rating": 1600,
+  "explanation": "`config.timeout || 5000` falls back to `5000` whenever `config.timeout` is falsy — not just when it's `null` or `undefined`. If a caller explicitly sets `timeout: 0` (a valid, intentional value meaning 'no timeout'), the `||` operator treats that `0` the same as a missing value and silently overrides it with `5000`. The fix is a nullish check (`config.timeout ?? 5000` or `config.timeout != null ? config.timeout : 5000`) so only actual `null`/`undefined` triggers the default.",
+  "prompt": "This function is meant to default the timeout only when it's missing. What's the bug?",
+  "language": "javascript",
+  "snippet": "function getTimeout(config) {\n  const timeout = config.timeout || 5000;\n  return timeout;\n}",
+  "interaction": "mcq",
+  "choices": [
+    "`config.timeout || 5000` falls back to 5000 whenever `config.timeout` is falsy, so an explicitly set `timeout: 0` gets silently overridden to 5000",
+    "`config.timeout || 5000` evaluates `5000` first due to operator precedence, so `timeout` is always 5000",
+    "The property access `config.timeout` will throw if `config` doesn't have a `timeout` key defined",
+    "The function should use `typeof config.timeout === 'number'` before returning, otherwise it returns a string"
+  ],
+  "correct_choice": 0
+}

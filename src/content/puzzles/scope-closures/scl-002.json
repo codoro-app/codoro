@@ -1,0 +1,13 @@
+{
+  "id": "scl-002",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1650,
+  "explanation": "`var` is function-scoped, not block-scoped, so all three closures pushed into `counters` share the same `i` binding. By the time any of them is invoked, the loop has finished and `i` is 3, so every counter returns 3 instead of the expected 0, 1, 2. Using `let` would give each iteration its own binding and fix it.",
+  "prompt": "Will calling each function in `counters` return 0, 1, 2 as intended?",
+  "language": "javascript",
+  "snippet": "function makeCounters() {\n  const counters = [];\n  for (var i = 0; i < 3; i++) {\n    counters.push(function() {\n      return i;\n    });\n  }\n  return counters;\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Works as intended",
+  "right_label": "All return the same value",
+  "correct_direction": "right"
+}
