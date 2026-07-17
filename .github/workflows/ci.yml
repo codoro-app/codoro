@@ -26,6 +26,9 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Validate content
+        run: pnpm validate:content
+
       - name: Test
         run: pnpm test:coverage
 
