@@ -21,6 +21,7 @@
     "test:coverage": "vitest run --coverage",
     "validate:content": "tsx src/content/tools/validateContent.ts",
     "content:stats": "tsx src/content/tools/contentStats.ts",
+    "generate:puzzles": "tsx --env-file=.env src/content/tools/generatePuzzles.ts",
     "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm validate:content && pnpm build",
     "prepare": "husky"
   },
@@ -40,6 +41,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.112.1",
     "@eslint/js": "^10.0.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
