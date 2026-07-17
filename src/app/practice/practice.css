@@ -81,6 +81,97 @@
   background: var(--bg-success);
 }
 
+/* --- syntax highlighting (Prism .token* classes, see highlightSnippet.ts) --
+ * Class names below are the ones actually emitted by the prismjs core
+ * (markup/css/clike/javascript) plus the python/java/c grammars this app
+ * loads, confirmed against every snippet in src/content/puzzles/**. Colors
+ * are grouped by role (keyword / string / call-like / type-like / literal /
+ * de-emphasized / meta) and contrast-checked (WCAG relative-luminance
+ * formula) against --surface-0, the background .code-snippet renders on:
+ * every color below clears >=4.6:1 in both light and dark. Comment,
+ * punctuation, and operator reuse --text-muted instead of a new hardcoded
+ * color since they're already de-emphasized the same way muted UI text is,
+ * and it means they pick up index.css's dark override for free. */
+.token.keyword {
+  color: #cf222e;
+}
+
+.token.string {
+  color: #116329;
+}
+
+.token.function {
+  color: #6639ba;
+}
+
+.token.class-name,
+.token.builtin {
+  color: #953800;
+}
+
+.token.number,
+.token.boolean,
+.token.constant,
+.token.property,
+.token.literal-property {
+  color: #0550ae;
+}
+
+.token.comment {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.token.punctuation,
+.token.operator {
+  color: var(--text-muted);
+}
+
+.token.parameter,
+.token.annotation,
+.token.macro,
+.token.directive,
+.token.directive-hash,
+.token.generics {
+  color: #0e7490;
+}
+
+@media (prefers-color-scheme: dark) {
+  .token.keyword {
+    color: #ff7b72;
+  }
+
+  .token.string {
+    color: #7ee787;
+  }
+
+  .token.function {
+    color: #d2a8ff;
+  }
+
+  .token.class-name,
+  .token.builtin {
+    color: #ffa657;
+  }
+
+  .token.number,
+  .token.boolean,
+  .token.constant,
+  .token.property,
+  .token.literal-property {
+    color: #79c0ff;
+  }
+
+  .token.parameter,
+  .token.annotation,
+  .token.macro,
+  .token.directive,
+  .token.directive-hash,
+  .token.generics {
+    color: #56d4dd;
+  }
+}
+
 /* --- mcq -------------------------------------------------------------- */
 
 .mcq-choices {
