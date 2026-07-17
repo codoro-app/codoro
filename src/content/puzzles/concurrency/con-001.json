@@ -1,0 +1,13 @@
+{
+  "id": "con-001",
+  "pattern": "concurrency",
+  "difficulty_rating": 2000,
+  "explanation": "`count++` is not a single atomic operation — it compiles to a read of `count`, an increment, and a write back. If two threads call `increment()` concurrently without synchronization, both can read the same value before either writes back, so one increment gets silently lost (e.g., two threads both read 5, both compute 6, and the final value is 6 instead of 7). Making the field volatile would not fix this either, since volatile only guarantees visibility, not atomicity of the read-modify-write; the method needs to be synchronized or use an AtomicInteger.",
+  "prompt": "Multiple threads call increment() concurrently on the same Counter instance. Is this safe?",
+  "language": "java",
+  "snippet": "public class Counter {\n    private int count = 0;\n\n    public void increment() {\n        count++;\n    }\n\n    public int getCount() {\n        return count;\n    }\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Thread-safe",
+  "right_label": "Race condition",
+  "correct_direction": "right"
+}

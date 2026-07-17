@@ -1,0 +1,13 @@
+{
+  "id": "err-001",
+  "pattern": "error-handling",
+  "difficulty_rating": 1650,
+  "explanation": "A `return` statement inside a `finally` block always executes last and unconditionally overrides any return value from the `try` or `catch` blocks. Here, no matter what `input` is — valid, invalid, or throwing — the function always returns 0, silently discarding both the successfully parsed value and the -1 error sentinel.",
+  "prompt": "Does this parsing function correctly return the parsed value or -1 on failure?",
+  "language": "java",
+  "snippet": "public int parseAmount(String input) {\n    try {\n        return Integer.parseInt(input);\n    } catch (NumberFormatException e) {\n        return -1;\n    } finally {\n        return 0;\n    }\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Works as expected",
+  "right_label": "Always returns 0",
+  "correct_direction": "right"
+}

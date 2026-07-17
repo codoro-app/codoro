@@ -1,0 +1,17 @@
+{
+  "id": "rec-001",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 900,
+  "explanation": "The function has no base case at all — it always calls itself with `n - 1` regardless of the value of `n`, so it never stops recursing and will overflow the call stack for any input, including negative numbers where it never even reaches zero.",
+  "prompt": "What's wrong with this recursive countdown function?",
+  "language": "javascript",
+  "snippet": "function countdown(n) {\n  console.log(n);\n  countdown(n - 1);\n}",
+  "interaction": "mcq",
+  "choices": [
+    "There is no base case, so the recursion never terminates and overflows the stack",
+    "console.log(n) should be called after the recursive call, not before",
+    "n - 1 should be n + 1 to count up instead of down",
+    "The function should return a value instead of just logging"
+  ],
+  "correct_choice": 0
+}

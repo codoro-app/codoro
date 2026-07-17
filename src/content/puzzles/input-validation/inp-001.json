@@ -1,0 +1,13 @@
+{
+  "id": "inp-001",
+  "pattern": "input-validation",
+  "difficulty_rating": 2075,
+  "explanation": "The handler passes `username` and `password` straight from `req.body` into the MongoDB query without checking their types. Because Express parses JSON bodies, an attacker can send `password: {\"$ne\": null}` instead of a string. MongoDB then interprets that as the query operator '$ne' (not-equal), so the condition becomes 'password not equal to null' — which is true for any user with a set password — bypassing authentication entirely. Validating that both fields are strings (or using a schema validator / sanitizer) before building the query would prevent this NoSQL operator-injection bypass.",
+  "prompt": "Swipe to judge this login handler: is it safe from malicious input, or injectable?",
+  "language": "javascript",
+  "snippet": "function login(req, res) {\n  const { username, password } = req.body\n  db.users.findOne(\n    { username: username, password: password },\n    (err, user) => {\n      if (user) {\n        res.send('Logged in')\n      } else {\n        res.send('Invalid credentials')\n      }\n    }\n  )\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Safe",
+  "right_label": "Injectable",
+  "correct_direction": "right"
+}

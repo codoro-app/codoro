@@ -1,0 +1,13 @@
+{
+  "id": "mut-002",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1600,
+  "explanation": "`const cartWithTax = cart` doesn't create a new array — it just copies the reference, so `cartWithTax` and `cart` point to the exact same array of objects. The subsequent `forEach` mutates each item's `price` in place, which means the caller's `originalCart` is silently modified too, even though the function looks like it's building a separate taxed version.",
+  "prompt": "Does this function safely produce a new taxed cart, or does it mutate the caller's original data?",
+  "language": "javascript",
+  "snippet": "function addTax(cart) {\n  const cartWithTax = cart;\n  cartWithTax.forEach(item => {\n    item.price = item.price * 1.08;\n  });\n  return cartWithTax;\n}\n\nconst originalCart = [{ price: 10 }, { price: 20 }];\nconst taxedCart = addTax(originalCart);",
+  "interaction": "swipe-binary",
+  "left_label": "Independent copy",
+  "right_label": "Mutates original via alias",
+  "correct_direction": "right"
+}

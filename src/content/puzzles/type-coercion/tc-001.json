@@ -1,0 +1,11 @@
+{
+  "id": "tc-001",
+  "pattern": "type-coercion",
+  "difficulty_rating": 1100,
+  "explanation": "The check uses loose equality (`==`), which triggers JavaScript's type coercion rules before comparing. Because `\"\" == 0` and `false == 0` both evaluate to true, calling `isZero(\"\")` or `isZero(false)` incorrectly returns `true` even though neither value is actually the number zero. Using strict equality (`===`) would avoid this unintended coercion.",
+  "prompt": "Tap the line that causes a hidden type-coercion bug.",
+  "language": "javascript",
+  "snippet": "function isZero(value) {\n  if (value == 0) {\n    return true\n  }\n  return false\n}",
+  "interaction": "tap-line",
+  "correct_line": 1
+}

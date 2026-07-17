@@ -1,0 +1,11 @@
+{
+  "id": "dsm-003",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 1900,
+  "explanation": "Point overrides equals() (line 5) but never overrides hashCode(). HashSet uses hashCode() first to pick a bucket and only calls equals() on objects that land in the same bucket. Since hashCode() falls back to the default identity-based implementation, two Point instances with identical x/y values almost always hash to different buckets, so seen.add(p) never detects them as duplicates even though equals() would say they're the same — hasDuplicate() can silently return false when logical duplicates exist.",
+  "prompt": "Tap the line that causes this duplicate-detection logic to silently fail.",
+  "language": "java",
+  "snippet": "class Point {\n    int x, y;\n    Point(int x, int y) { this.x = x; this.y = y; }\n\n    @Override\n    public boolean equals(Object o) {\n        if (!(o instanceof Point)) return false;\n        Point p = (Point) o;\n        return x == p.x && y == p.y;\n    }\n}\n\npublic boolean hasDuplicate(List<Point> points) {\n    Set<Point> seen = new HashSet<>();\n    for (Point p : points) {\n        if (!seen.add(p)) {\n            return true;\n        }\n    }\n    return false;\n}",
+  "interaction": "tap-line",
+  "correct_line": 5
+}

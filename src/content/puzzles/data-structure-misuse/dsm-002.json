@@ -1,0 +1,17 @@
+{
+  "id": "dsm-002",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 1100,
+  "explanation": "Python dictionaries require hashable keys, and lists are mutable and therefore unhashable. `results[arg_list] = result` will raise `TypeError: unhashable type: 'list'` whenever `arg_list` is a list — the code should convert it to a tuple (e.g. `tuple(arg_list)`) before using it as a key.",
+  "prompt": "This function crashes when called with a list argument. What's the bug?",
+  "language": "python",
+  "snippet": "def store_result(arg_list, result):\n    results = {}\n    results[arg_list] = result\n    return results",
+  "interaction": "mcq",
+  "choices": [
+    "Lists are unhashable and can't be used as dictionary keys, so this raises a TypeError",
+    "The function should use a tuple entirely instead of a dict",
+    "`results` should be initialized as a list, not a dict",
+    "The function is missing a return statement"
+  ],
+  "correct_choice": 0
+}

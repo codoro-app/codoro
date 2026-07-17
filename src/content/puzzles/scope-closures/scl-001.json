@@ -1,0 +1,18 @@
+{
+  "id": "scl-001",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1700,
+  "explanation": "`var` is function-scoped, not block-scoped, so there is only one `i` shared by every iteration of the loop. By the time any click handler actually runs, the loop has already finished and `i` holds its final value (`buttons.length`). All handlers close over that same variable, so every one logs the same number instead of the index it was attached to. Using `let i` would create a fresh binding per iteration and fix it.",
+  "prompt": "Users report every button logs the same number when clicked, no matter which one they press. What's the bug?",
+  "language": "javascript",
+  "snippet": "function setupHandlers() {\n  const buttons = document.querySelectorAll('.btn')\n  for (var i = 0; i < buttons.length; i++) {\n    buttons[i].addEventListener('click', function() {\n      console.log('Button ' + i + ' clicked')\n    })\n  }\n}",
+  "interaction": "mcq",
+  "choices": [
+    "`var i` is shared across all loop iterations, so every click handler closes over the same variable and logs its final value after the loop ends",
+    "addEventListener does not support anonymous functions as listeners, so the handlers silently fail to bind correctly",
+    "buttons.length is evaluated once before the loop, so buttons added to the DOM later never receive a click listener",
+    "The click event fires before `i` is incremented, so the first handler always logs undefined instead of 0",
+    "String concatenation with `+` coerces `i` to NaN inside console.log, so every handler prints the same NaN value"
+  ],
+  "correct_choice": 0
+}
