@@ -1,0 +1,69 @@
+import { describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import type { Attempt } from '../../storage'
+
+const listAttemptsMock = vi.fn<() => Promise<Attempt[]>>()
+
+vi.mock('../../storage', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../storage')>()
+  return { ...actual, listAttempts: listAttemptsMock }
+})
+
+const { MasteryView } = await import('./MasteryView')
+
+function makeAttempt(puzzleId: string, correct: boolean): Attempt {
+  return {
+    id: `${puzzleId}-${String(Math.random())}`,
+    puzzleId,
+    puzzleRating: 1200,
+    mode: 'practice',
+    correct,
+    time_ms: 1000,
+    choice_index: null,
+    userRatingBefore: 1200,
+    userRatingAfter: 1200,
+    localDateString: '2026-07-17',
+    createdAt: '2026-07-17T00:00:00.000Z',
+  }
+}
+
+describe('MasteryView', () => {
+  it('fetches attempts, computes mastery, and renders a row with "not enough data" below the threshold', async () => {
+    listAttemptsMock.mockResolvedValue([makeAttempt('oob-001', true), makeAttempt('oob-002', true)])
+
+    render(<MasteryView onBack={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/off-by-one/i)).toBeInTheDocument()
+    })
+    const row = screen.getByText(/off-by-one/i).closest('li')
+    expect(row).not.toBeNull()
+    expect(row).toHaveTextContent(/not enough data/i)
+  })
+
+  it('renders an accuracy percentage once the minimum-attempts threshold is met', async () => {
+    listAttemptsMock.mockResolvedValue(
+      Array.from({ length: 5 }, (_, i) => makeAttempt('oob-001', i < 4)),
+    )
+
+    render(<MasteryView onBack={vi.fn()} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('80%')).toBeInTheDocument()
+    })
+  })
+
+  it('calls onBack when the back control is used', async () => {
+    listAttemptsMock.mockResolvedValue([])
+    const onBack = vi.fn()
+    const user = userEvent.setup()
+    render(<MasteryView onBack={onBack} />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /back/i })).toBeInTheDocument()
+    })
+    await user.click(screen.getByRole('button', { name: /back/i }))
+    expect(onBack).toHaveBeenCalledTimes(1)
+  })
+})

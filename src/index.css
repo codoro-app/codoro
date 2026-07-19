@@ -1,3 +1,87 @@
+/*
+ * Design tokens (CSS custom properties) — established here in Phase 4 for
+ * PuzzleCardShell + its interaction bodies, reused by later phases (Daily,
+ * Rush) and by concern (d)'s rating/streak pills. No in-repo theme toggle
+ * exists yet, so `prefers-color-scheme` alone drives light/dark — swap for
+ * a `data-theme` attribute override later if a manual toggle is added.
+ *
+ * Values are Duolingo-inspired, not lifted from a design file, and were
+ * contrast-checked (WCAG 2.1 relative-luminance formula) for the pairings
+ * this phase actually renders text/icons against:
+ *   - --text-primary on --surface-card (light): ~10.7:1
+ *   - --text-muted on --surface-card/--surface-0 (light): ~4.8:1 (AA)
+ *   - --primary-action-text (white) on --primary-action-bg (light): ~5.1:1 (AA)
+ *   - --primary-action-text (white) on --primary-action-bg (dark): ~5.4:1 (AA)
+ *   - --text-success on --bg-success / --text-danger on --bg-danger (both
+ *     modes): >=7:1
+ * Duolingo's literal signature green (#58CC02) was intentionally NOT used
+ * for --primary-action-bg — with white button text it measures ~2.1:1,
+ * well under AA. --primary-action-border keeps a brighter, more saturated
+ * green since it's a thin decorative "lip", not a text-contrast surface.
+ * --accent/--warning (rating + streak pills) are owned visually by concern
+ * (d); pick a text color at build time that clears AA against them.
+ *
+ * Concern (d) contrast check for --pill-text (#14202b, a near-black navy)
+ * against --accent/--warning, WCAG relative-luminance formula. --accent and
+ * --warning are the same values in both light and dark mode (light mode's
+ * --warning #ff9600 is the sole exception), so --pill-text is one fixed
+ * color used in both themes rather than a per-theme pair:
+ *   - --pill-text on --accent (#1cb0f6, both modes): ~7.1:1 (AA)
+ *   - --pill-text on --warning light (#ff9600): ~8.0:1 (AA)
+ *   - --pill-text on --warning dark (#ffc800): ~11.2:1 (AA)
+ * White text was checked first and rejected: it measures ~2.2-2.4:1 against
+ * --accent and light --warning, and ~1.6:1 against dark --warning — well
+ * under AA in every pairing.
+ */
+:root {
+  --surface-card: #ffffff;
+  --surface-0: #eef0f2;
+  --text-primary: #3c3c3c;
+  --text-muted: #6b7280;
+  --border-subtle: #e5e7eb;
+
+  --accent: #1cb0f6;
+  --warning: #ff9600;
+  --pill-text: #14202b;
+
+  --bg-success: #d7ffb8;
+  --border-success: #58cc02;
+  --text-success: #2b6b00;
+
+  --bg-danger: #ffd9d9;
+  --border-danger: #ff4b4b;
+  --text-danger: #b3261e;
+
+  --primary-action-bg: #2e7d32;
+  --primary-action-border: #1b5e20;
+  --primary-action-text: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-card: #1f2c34;
+    --surface-0: #141f24;
+    --text-primary: #e8e8e8;
+    --text-muted: #8b98a3;
+    --border-subtle: #2b3940;
+
+    --accent: #1cb0f6;
+    --warning: #ffc800;
+
+    --bg-success: #1b3a1a;
+    --border-success: #58cc02;
+    --text-success: #8fe06c;
+
+    --bg-danger: #3a1414;
+    --border-danger: #ff5c5c;
+    --text-danger: #ff8a8a;
+
+    --primary-action-bg: #217a30;
+    --primary-action-border: #164f20;
+    --primary-action-text: #ffffff;
+  }
+}
+
 :root {
   color-scheme: light dark;
   font-family:

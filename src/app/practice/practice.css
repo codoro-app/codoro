@@ -1,0 +1,387 @@
+/*
+ * PuzzleCardShell + interaction-body styles. Mobile-first at 375px: all tap
+ * targets are >=44px tall, the snippet scrolls horizontally on overflow
+ * rather than wrapping. Duolingo-style "3D" press effect uses
+ * border-bottom, never box-shadow (design-system rule — see
+ * PuzzleCardShell.tsx's module doc).
+ */
+
+.puzzle-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.puzzle-card__prompt {
+  margin: 0;
+  text-align: center;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.puzzle-card__interaction {
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- code snippet --------------------------------------------------- */
+
+.code-snippet {
+  background: var(--surface-0);
+  border-radius: 12px;
+  padding: 0.625rem 0;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.code-snippet__line {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.0625rem 1rem;
+  white-space: pre;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.code-snippet__line--interactive {
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.code-snippet__line-number {
+  min-width: 1.5rem;
+  flex-shrink: 0;
+  text-align: right;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.code-snippet__line-code {
+  white-space: pre;
+}
+
+.code-snippet__line--wrong {
+  background: var(--bg-danger);
+}
+
+.code-snippet__line--reveal-correct {
+  background: var(--bg-success);
+}
+
+/* --- syntax highlighting (Prism .token* classes, see highlightSnippet.ts) --
+ * Class names below are the ones actually emitted by the prismjs core
+ * (markup/css/clike/javascript) plus the python/java/c grammars this app
+ * loads, confirmed against every snippet in src/content/puzzles/**. Colors
+ * are grouped by role (keyword / string / call-like / type-like / literal /
+ * de-emphasized / meta) and contrast-checked (WCAG relative-luminance
+ * formula) against --surface-0, the background .code-snippet renders on:
+ * every color below clears >=4.6:1 in both light and dark. Comment,
+ * punctuation, and operator reuse --text-muted instead of a new hardcoded
+ * color since they're already de-emphasized the same way muted UI text is,
+ * and it means they pick up index.css's dark override for free. */
+.token.keyword {
+  color: #cf222e;
+}
+
+.token.string {
+  color: #116329;
+}
+
+.token.function {
+  color: #6639ba;
+}
+
+.token.class-name,
+.token.builtin {
+  color: #953800;
+}
+
+.token.number,
+.token.boolean,
+.token.constant,
+.token.property,
+.token.literal-property {
+  color: #0550ae;
+}
+
+.token.comment {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.token.punctuation,
+.token.operator {
+  color: var(--text-muted);
+}
+
+.token.parameter,
+.token.annotation,
+.token.macro,
+.token.directive,
+.token.directive-hash,
+.token.generics {
+  color: #0e7490;
+}
+
+@media (prefers-color-scheme: dark) {
+  .token.keyword {
+    color: #ff7b72;
+  }
+
+  .token.string {
+    color: #7ee787;
+  }
+
+  .token.function {
+    color: #d2a8ff;
+  }
+
+  .token.class-name,
+  .token.builtin {
+    color: #ffa657;
+  }
+
+  .token.number,
+  .token.boolean,
+  .token.constant,
+  .token.property,
+  .token.literal-property {
+    color: #79c0ff;
+  }
+
+  .token.parameter,
+  .token.annotation,
+  .token.macro,
+  .token.directive,
+  .token.directive-hash,
+  .token.generics {
+    color: #56d4dd;
+  }
+}
+
+/* --- mcq -------------------------------------------------------------- */
+
+.mcq-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mcq-choice {
+  min-height: 44px;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  border: 2px solid var(--border-subtle);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mcq-choice:disabled {
+  cursor: default;
+}
+
+.mcq-choice--correct,
+.mcq-choice--reveal-correct {
+  border-color: var(--border-success);
+  background: var(--bg-success);
+  color: var(--text-success);
+}
+
+.mcq-choice--wrong {
+  border-color: var(--border-danger);
+  background: var(--bg-danger);
+  color: var(--text-danger);
+}
+
+/* --- swipe-binary fallback --------------------------------------------- */
+
+.swipe-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.swipe-fallback__hint {
+  margin: 0;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.swipe-fallback__buttons {
+  display: flex;
+  gap: 0.75rem;
+  /* This row doubles as the @use-gesture drag surface (see SwipeBinary.tsx).
+   * The practice card sits in a vertically-scrolling page while the drag
+   * gesture itself is horizontal, so pan-y keeps native vertical page
+   * scroll working via touch while the gesture handler owns horizontal
+   * drags — without this, mobile Safari/Chrome fight between interpreting
+   * a touch as a page-scroll vs. a card-drag. */
+  touch-action: pan-y;
+}
+
+.swipe-fallback__button {
+  flex: 1;
+  min-height: 44px;
+  padding: 0.75rem 0.5rem;
+  border-radius: 12px;
+  border: 2px solid var(--border-subtle);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.swipe-fallback__button:disabled {
+  cursor: default;
+}
+
+.swipe-fallback__button--left {
+  border-color: var(--border-danger);
+}
+
+.swipe-fallback__button--right {
+  border-color: var(--border-success);
+}
+
+.swipe-fallback__button--correct,
+.swipe-fallback__button--reveal-correct {
+  border-color: var(--border-success);
+  background: var(--bg-success);
+  color: var(--text-success);
+}
+
+.swipe-fallback__button--wrong {
+  border-color: var(--border-danger);
+  background: var(--bg-danger);
+  color: var(--text-danger);
+}
+
+/* Live "you're about to pick this" preview while dragging — reuses the same
+ * semantic success/danger background tokens as the post-commit reveal
+ * states above, at a lighter visual weight than a full commit, and never
+ * shown once committed (see SwipeBinary.tsx's classFor). */
+.swipe-fallback__button--previewing.swipe-fallback__button--left {
+  background: var(--bg-danger);
+}
+
+.swipe-fallback__button--previewing.swipe-fallback__button--right {
+  background: var(--bg-success);
+}
+
+/* --- feedback panel ----------------------------------------------------- */
+
+.feedback-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 16px;
+  animation: feedback-panel-slide-in 0.18s ease-out;
+}
+
+@keyframes feedback-panel-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.feedback-panel--correct {
+  background: var(--bg-success);
+}
+
+.feedback-panel--wrong {
+  background: var(--bg-danger);
+}
+
+.feedback-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.feedback-panel--correct .feedback-panel__icon,
+.feedback-panel--correct .feedback-panel__verdict,
+.feedback-panel--correct .feedback-panel__delta {
+  color: var(--text-success);
+}
+
+.feedback-panel--wrong .feedback-panel__icon,
+.feedback-panel--wrong .feedback-panel__verdict,
+.feedback-panel--wrong .feedback-panel__delta {
+  color: var(--text-danger);
+}
+
+.feedback-panel__icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.feedback-panel__verdict {
+  flex: 1;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.feedback-panel__delta {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.feedback-panel__explanation {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+.feedback-panel__continue {
+  min-height: 44px;
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: none;
+  border-bottom: 4px solid var(--primary-action-border);
+  border-radius: 12px;
+  background: var(--primary-action-bg);
+  color: var(--primary-action-text);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 0.05s ease-out,
+    border-bottom-width 0.05s ease-out,
+    margin-bottom 0.05s ease-out;
+}
+
+/* The Duolingo "3D" press: push the button down and shrink its
+   border-bottom "lip" instead of using box-shadow (forbidden by the design
+   system). border-bottom-width dropping keeps the button's outer box the
+   same total height, so the surrounding layout doesn't jump. */
+.feedback-panel__continue:active {
+  transform: translateY(3px);
+  border-bottom-width: 1px;
+  margin-bottom: 3px;
+}
