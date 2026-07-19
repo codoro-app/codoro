@@ -129,6 +129,38 @@ describe('PracticePage', () => {
     })
   })
 
+  it('scrolls to the top when a new puzzle is served (Continue and pattern-filter switch)', async () => {
+    const user = userEvent.setup()
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
+
+    render(<PracticePage />)
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+    // The initial serve on mount also counts as "a puzzle was served".
+    expect(scrollToSpy).toHaveBeenCalledWith({ top: 0 })
+    scrollToSpy.mockClear()
+
+    await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+
+    expect(scrollToSpy).toHaveBeenCalledWith({ top: 0 })
+    scrollToSpy.mockClear()
+
+    await user.click(screen.getByRole('button', { name: /browse patterns/i }))
+    await user.click(screen.getByText(PATTERN_LABELS['null-undefined']))
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /pattern: null/i })).toBeInTheDocument()
+    })
+
+    expect(scrollToSpy).toHaveBeenCalledWith({ top: 0 })
+
+    scrollToSpy.mockRestore()
+  })
+
   it('a load failure renders a friendly error with a working retry (not a stuck loading state)', async () => {
     const user = userEvent.setup()
     vi.mocked(loadProfile).mockRejectedValueOnce(new Error('IndexedDB blocked'))
