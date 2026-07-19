@@ -265,11 +265,23 @@ export function usePracticeSession(): PracticeSession {
   const setPatternFilter = useCallback(
     (pattern: PatternSlug | null) => {
       if (!profile) return
-      recentIdsRef.current = []
+      // Switching the filter is not itself a "continue" past the puzzle on
+      // screen — the user may not have pressed Continue yet (e.g. they tap
+      // Browse Patterns right after seeing the feedback panel). Without
+      // this, the currently-displayed puzzle was never added to
+      // recentIdsRef (only handleContinue does that), so selectNext had no
+      // reason to exclude it and could immediately re-serve the exact
+      // puzzle just solved. Previously this also reset recentIdsRef to
+      // `[]`, dropping the whole no-repeat window on every filter switch —
+      // that exclusion should carry over across entry points, not just
+      // within one, so it's preserved here instead.
+      if (puzzle) {
+        recentIdsRef.current = [puzzle.id, ...recentIdsRef.current].slice(0, RECENT_IDS_WINDOW)
+      }
       setPatternFilterState(pattern)
       serveNext(profile, pattern)
     },
-    [profile, serveNext],
+    [profile, puzzle, serveNext],
   )
 
   return {

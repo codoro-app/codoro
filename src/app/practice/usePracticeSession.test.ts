@@ -193,6 +193,38 @@ describe('usePracticeSession', () => {
     expect(result.current.puzzle?.pattern).toBe('null-undefined')
   })
 
+  it('setPatternFilter does not immediately re-serve the puzzle currently on screen, even without a prior Continue', async () => {
+    // Deterministic: forces pickFromWindow's sample() to always pick
+    // whatever candidate lands at index 0, both for the initial serve and
+    // the pattern-filtered re-serve. If the puzzle on screen is correctly
+    // excluded, index 0 of the *filtered* candidate list can never be that
+    // same puzzle (it's been removed from the list) — reproduces the
+    // reported bug (solve in general practice, switch to Browse Patterns
+    // for that puzzle's own pattern, same puzzle comes back) without
+    // depending on real randomness.
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0)
+
+    const { result } = renderHook(() => usePracticeSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    const onScreenPuzzle = result.current.puzzle
+    if (!onScreenPuzzle) throw new Error('expected a puzzle to be served')
+
+    // No handleContinue call here — this is the exact reported repro:
+    // switching the filter while the just-answered puzzle is still on
+    // screen (e.g. tapping "Browse Patterns" right from the feedback
+    // panel), not after advancing past it.
+    act(() => {
+      result.current.setPatternFilter(onScreenPuzzle.pattern)
+    })
+
+    expect(result.current.puzzle?.id).not.toBe(onScreenPuzzle.id)
+
+    randomSpy.mockRestore()
+  })
+
   it('a rejected loadProfile() on mount transitions to an error status (not a stuck loading state), reports via trackError, and retryLoad recovers', async () => {
     vi.mocked(loadProfile).mockRejectedValueOnce(new Error('IndexedDB blocked'))
 
