@@ -27,6 +27,21 @@ Element.prototype.releasePointerCapture = () => undefined
 // that's a real no-op instead of console noise on every test in this file.
 window.scrollTo = () => undefined
 
+// jsdom doesn't implement window.matchMedia at all — PwaPrompts calls it
+// (via iosInstall.ts's currentIosEnvironment) on every mount to check for
+// display-mode: standalone, which every App.test.tsx render exercises.
+// Stubbed to "never matches", same reasoning as the stubs above.
+window.matchMedia = (query: string) => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addListener: () => undefined,
+  removeListener: () => undefined,
+  addEventListener: () => undefined,
+  removeEventListener: () => undefined,
+  dispatchEvent: () => false,
+})
+
 // vitest.config.ts doesn't set `test.globals: true` (this repo imports
 // describe/it/expect explicitly everywhere), so @testing-library/react's
 // automatic per-test cleanup — which relies on a global `afterEach` —
