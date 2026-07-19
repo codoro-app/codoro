@@ -31,3 +31,8 @@ dist-ssr
 # Build info / coverage
 *.tsbuildinfo
 coverage
+
+# Claude Code local state
+.claude/
+
+todo.md

@@ -14,6 +14,16 @@ vi.mock('../storage', async (importOriginal) => {
 
 vi.mock('../telemetry', () => ({ trackAttempt: vi.fn() }))
 
+// vite-plugin-pwa only generates the real 'virtual:pwa-register/react' module
+// for an actual dev server or build — stub it here so App.test.tsx doesn't
+// depend on that machinery. useUpdatePrompt.test.ts covers the hook itself.
+vi.mock('virtual:pwa-register/react', () => ({
+  useRegisterSW: () => ({
+    needRefresh: [false, vi.fn()],
+    updateServiceWorker: vi.fn(() => Promise.resolve()),
+  }),
+}))
+
 const { App } = await import('./App')
 
 describe('App', () => {
