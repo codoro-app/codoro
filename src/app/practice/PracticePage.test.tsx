@@ -137,8 +137,13 @@ describe('PracticePage', () => {
     await waitFor(() => {
       expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
     })
-    // The initial serve on mount also counts as "a puzzle was served".
-    expect(scrollToSpy).toHaveBeenCalledWith({ top: 0 })
+    // The initial serve on mount also counts as "a puzzle was served". The
+    // scroll-reset effect is a separate (passive) effect from the one that
+    // renders the prompt text, so it can flush a tick later — wait for the
+    // spy directly rather than assuming it landed by the time the text did.
+    await waitFor(() => {
+      expect(scrollToSpy).toHaveBeenCalledWith({ top: 0 })
+    })
     scrollToSpy.mockClear()
 
     await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
@@ -147,7 +152,9 @@ describe('PracticePage', () => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })
 
-    expect(scrollToSpy).toHaveBeenCalledWith({ top: 0 })
+    await waitFor(() => {
+      expect(scrollToSpy).toHaveBeenCalledWith({ top: 0 })
+    })
     scrollToSpy.mockClear()
 
     await user.click(screen.getByRole('button', { name: /browse patterns/i }))
@@ -156,7 +163,9 @@ describe('PracticePage', () => {
       expect(screen.getByRole('button', { name: /pattern: null/i })).toBeInTheDocument()
     })
 
-    expect(scrollToSpy).toHaveBeenCalledWith({ top: 0 })
+    await waitFor(() => {
+      expect(scrollToSpy).toHaveBeenCalledWith({ top: 0 })
+    })
 
     scrollToSpy.mockRestore()
   })
