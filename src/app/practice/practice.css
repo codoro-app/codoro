@@ -228,6 +228,13 @@
 .swipe-fallback__buttons {
   display: flex;
   gap: 0.75rem;
+  /* This row doubles as the @use-gesture drag surface (see SwipeBinary.tsx).
+   * The practice card sits in a vertically-scrolling page while the drag
+   * gesture itself is horizontal, so pan-y keeps native vertical page
+   * scroll working via touch while the gesture handler owns horizontal
+   * drags — without this, mobile Safari/Chrome fight between interpreting
+   * a touch as a page-scroll vs. a card-drag. */
+  touch-action: pan-y;
 }
 
 .swipe-fallback__button {
@@ -266,6 +273,18 @@
   border-color: var(--border-danger);
   background: var(--bg-danger);
   color: var(--text-danger);
+}
+
+/* Live "you're about to pick this" preview while dragging — reuses the same
+ * semantic success/danger background tokens as the post-commit reveal
+ * states above, at a lighter visual weight than a full commit, and never
+ * shown once committed (see SwipeBinary.tsx's classFor). */
+.swipe-fallback__button--previewing.swipe-fallback__button--left {
+  background: var(--bg-danger);
+}
+
+.swipe-fallback__button--previewing.swipe-fallback__button--right {
+  background: var(--bg-success);
 }
 
 /* --- feedback panel ----------------------------------------------------- */
