@@ -85,4 +85,40 @@ describe('Mcq', () => {
 
     expect(onCommit).toHaveBeenCalledTimes(1)
   })
+
+  it('renders choices in a shuffled order rather than always authored order', () => {
+    // Regression guard for the reported bug: every seed MCQ puzzle authors
+    // correct_choice: 0, so rendering puzzle.choices in place would put the
+    // correct answer first every single time. With a non-identity rng, the
+    // first rendered button must not be the first authored choice.
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0)
+
+    render(<Harness />)
+    const buttons = screen.getAllByRole('button')
+
+    expect(buttons[0]).not.toHaveTextContent('Missing break after gold')
+    expect(buttons.map((b) => b.textContent)).toEqual([
+      'Wrong order',
+      'Should use const',
+      'Should use if/else',
+      'Missing break after gold',
+    ])
+
+    randomSpy.mockRestore()
+  })
+
+  it('still commits the correct choice by content, regardless of its shuffled screen position', async () => {
+    const onCommit = vi.fn()
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0)
+    const user = userEvent.setup()
+    render(<Harness onCommit={onCommit} />)
+
+    // With Math.random mocked to 0, "Missing break after gold" (the
+    // authored-correct choice, index 0) renders last, not first.
+    await user.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+
+    expect(onCommit).toHaveBeenCalledWith({ correct: true, choiceIndex: 0 })
+
+    randomSpy.mockRestore()
+  })
 })

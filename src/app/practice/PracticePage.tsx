@@ -23,7 +23,7 @@ import { PatternPicker } from './PatternPicker'
 import { MasteryView } from './MasteryView'
 import { usePracticeSession } from './usePracticeSession'
 import { PATTERN_LABELS } from '../../content'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './practicePage.css'
 
 type View = 'practice' | 'patterns' | 'mastery'
@@ -31,6 +31,21 @@ type View = 'practice' | 'patterns' | 'mastery'
 export function PracticePage() {
   const [view, setView] = useState<View>('practice')
   const session = usePracticeSession()
+  const puzzleId = session.puzzle?.id
+
+  // The page (not a nested container — practicePage.css has no overflow-y
+  // scroll region) scrolls with whatever height the previous puzzle's
+  // feedback/explanation panel left behind. Without this, tapping Continue
+  // can leave a new (shorter) puzzle rendered below the current scroll
+  // position, showing blank space until the user manually scrolls back up.
+  // Keyed on puzzle id specifically (not e.g. `view`) so this only fires
+  // when a genuinely new puzzle is served — via Continue or a pattern
+  // filter switch — not on every render.
+  useEffect(() => {
+    if (puzzleId) {
+      window.scrollTo({ top: 0 })
+    }
+  }, [puzzleId])
 
   // Checked before the loading branch below: on a load failure, profile is
   // also null and status would otherwise fall through into "Loading your

@@ -20,6 +20,13 @@ Element.prototype.hasPointerCapture = () => false
 Element.prototype.setPointerCapture = () => undefined
 Element.prototype.releasePointerCapture = () => undefined
 
+// jsdom doesn't implement window.scrollTo (it logs "Not implemented" and
+// no-ops) — PracticePage calls it to reset scroll position whenever a new
+// puzzle is served, which every one of its tests exercises via the mount
+// effect. Stubbed globally, same as the pointer-capture methods above, so
+// that's a real no-op instead of console noise on every test in this file.
+window.scrollTo = () => undefined
+
 // vitest.config.ts doesn't set `test.globals: true` (this repo imports
 // describe/it/expect explicitly everywhere), so @testing-library/react's
 // automatic per-test cleanup — which relies on a global `afterEach` —

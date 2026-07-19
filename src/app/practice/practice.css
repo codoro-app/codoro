@@ -33,13 +33,33 @@
 /* --- code snippet --------------------------------------------------- */
 
 .code-snippet {
+  position: relative;
   background: var(--surface-0);
   border-radius: 12px;
   padding: 0.625rem 0;
   overflow-x: auto;
   font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
-  font-size: 0.8125rem;
+  /* CodeSnippet.tsx measures the widest line and sets this custom property
+   * (down to a floor) so most snippets shrink to fit instead of overflowing
+   * with only a scrollbar as the affordance — see its own doc comment. */
+  font-size: calc(0.8125rem * var(--code-snippet-font-scale, 1));
   line-height: 1.5;
+}
+
+/* A snippet that still doesn't fit at the floor scale keeps native
+ * horizontal scroll, but gets a visible right-edge fade instead of relying
+ * on a scrollbar alone — easy to miss at a glance on a thumb-driven,
+ * quick-answer interaction. */
+.code-snippet--scrollable::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1.5rem;
+  background: linear-gradient(to right, transparent, var(--surface-0));
+  pointer-events: none;
+  border-radius: 0 12px 12px 0;
 }
 
 .code-snippet__line {
@@ -225,16 +245,23 @@
   color: var(--text-muted);
 }
 
-.swipe-fallback__buttons {
+.swipe-fallback__card {
   display: flex;
+  flex-direction: column;
   gap: 0.75rem;
-  /* This row doubles as the @use-gesture drag surface (see SwipeBinary.tsx).
+  /* The whole card (snippet + buttons) doubles as the @use-gesture drag
+   * surface (see SwipeBinary.tsx) — Tinder-style, not just the buttons row.
    * The practice card sits in a vertically-scrolling page while the drag
    * gesture itself is horizontal, so pan-y keeps native vertical page
    * scroll working via touch while the gesture handler owns horizontal
    * drags — without this, mobile Safari/Chrome fight between interpreting
    * a touch as a page-scroll vs. a card-drag. */
   touch-action: pan-y;
+}
+
+.swipe-fallback__buttons {
+  display: flex;
+  gap: 0.75rem;
 }
 
 .swipe-fallback__button {

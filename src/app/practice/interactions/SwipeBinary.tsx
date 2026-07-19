@@ -1,4 +1,4 @@
-import { useState, type ComponentPropsWithoutRef } from 'react'
+import { useMemo, useState, type ComponentPropsWithoutRef } from 'react'
 import { animate, motion, useMotionValue, useMotionValueEvent, useTransform } from 'framer-motion'
 import { useDrag } from '@use-gesture/react'
 import type { InteractionBodyProps } from '../interactionTypes'
@@ -6,6 +6,8 @@ import type { SwipeBinaryPuzzle } from '../../../content'
 import type { AnswerState } from '../answerState'
 import { DEFAULT_SWIPE_THRESHOLD, resolveSwipeCommit } from '../gestureThreshold'
 import type { SwipeCommitDirection } from '../gestureThreshold'
+import { highlightSnippet } from '../highlightSnippet'
+import { CodeSnippet } from '../CodeSnippet'
 
 /**
  * How far offscreen (px) the card animates on a successful drag commit —
@@ -41,12 +43,16 @@ const MAX_TILT_DEG = 10
  * never goes through the drag-threshold math below; it commits immediately,
  * exactly as before.
  *
- * On top of that fallback, the same buttons row is also a
- * `@use-gesture/react`-bound drag surface: it tilts and previews a side as
- * the user drags, springs back to center below threshold, and flies off in
- * the drag direction (then resets to center to show the reveal) once
- * `resolveSwipeCommit` (gestureThreshold.ts) says the drag both traveled
- * far enough AND was released fast enough, in the same direction.
+ * On top of that fallback, the whole card — the syntax-highlighted snippet
+ * plus the buttons row below it, not just the buttons — is a single
+ * `@use-gesture/react`-bound drag surface (the "Tinder-style card" the brief
+ * calls for): it tilts and previews a side as the user drags, springs back
+ * to center below threshold, and flies off in the drag direction (then
+ * resets to center to show the reveal) once `resolveSwipeCommit`
+ * (gestureThreshold.ts) says the drag both traveled far enough AND was
+ * released fast enough, in the same direction. Rendering the snippet here
+ * (rather than PuzzleCardShell's usual static copy) is what lets it move
+ * with the drag; see PuzzleCardShell's `staticLines` doc comment.
  *
  * `CommitPayload.choiceIndex` is `null` for swipe-binary by contract — but
  * since this is a strictly binary choice, `correct` + `puzzle.correct_direction`
@@ -60,6 +66,11 @@ export function SwipeBinary({
   committedPayload,
   onCommit,
 }: InteractionBodyProps<SwipeBinaryPuzzle>) {
+  const lines = useMemo(
+    () => highlightSnippet(puzzle.snippet, puzzle.language),
+    [puzzle.snippet, puzzle.language],
+  )
+
   const handlePick = (direction: 'left' | 'right') => {
     if (committed) return
     onCommit({ correct: direction === puzzle.correct_direction, choiceIndex: null })
@@ -176,32 +187,35 @@ export function SwipeBinary({
 
   return (
     <div className="swipe-fallback">
-      <p className="swipe-fallback__hint">Drag a side, or tap a button.</p>
+      <p className="swipe-fallback__hint">Drag the card, or tap a button.</p>
       <motion.div
         {...dragSurfaceProps}
-        className="swipe-fallback__buttons"
+        className="swipe-fallback__card"
         style={{ x, rotate, touchAction: 'pan-y' }}
       >
-        <button
-          type="button"
-          className={classFor('left')}
-          onClick={() => {
-            handlePick('left')
-          }}
-          disabled={committed}
-        >
-          {puzzle.left_label}
-        </button>
-        <button
-          type="button"
-          className={classFor('right')}
-          onClick={() => {
-            handlePick('right')
-          }}
-          disabled={committed}
-        >
-          {puzzle.right_label}
-        </button>
+        <CodeSnippet lines={lines} />
+        <div className="swipe-fallback__buttons">
+          <button
+            type="button"
+            className={classFor('left')}
+            onClick={() => {
+              handlePick('left')
+            }}
+            disabled={committed}
+          >
+            {puzzle.left_label}
+          </button>
+          <button
+            type="button"
+            className={classFor('right')}
+            onClick={() => {
+              handlePick('right')
+            }}
+            disabled={committed}
+          >
+            {puzzle.right_label}
+          </button>
+        </div>
       </motion.div>
     </div>
   )

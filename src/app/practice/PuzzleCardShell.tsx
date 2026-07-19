@@ -63,10 +63,14 @@ export function PuzzleCardShell({
   }
 
   // tap-line renders the snippet itself, as its interactive tap-target
-  // surface — a separate static copy from the shell would just be a
-  // confusing duplicate, so the shell skips it for that interaction type.
+  // surface, and swipe-binary renders it inside its own draggable card
+  // surface (the snippet has to move/tilt with the drag, Tinder-style) — a
+  // separate static copy from the shell would just be a confusing duplicate
+  // for either, so the shell skips both.
   const staticLines =
-    puzzle.interaction === 'tap-line' ? null : highlightSnippet(puzzle.snippet, puzzle.language)
+    puzzle.interaction === 'tap-line' || puzzle.interaction === 'swipe-binary'
+      ? null
+      : highlightSnippet(puzzle.snippet, puzzle.language)
 
   return (
     <div className="puzzle-card">
