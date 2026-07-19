@@ -32,6 +32,23 @@ export function PracticePage() {
   const [view, setView] = useState<View>('practice')
   const session = usePracticeSession()
 
+  // Checked before the loading branch below: on a load failure, profile is
+  // also null and status would otherwise fall through into "Loading your
+  // practice session…" forever (the bug this branch fixes — see
+  // usePracticeSession's SessionStatus doc comment).
+  if (session.status === 'error') {
+    return (
+      <div className="practice-page">
+        <p className="practice-page__status">
+          We couldn&apos;t load your practice session. Please try again.
+        </p>
+        <button type="button" className="practice-page__link" onClick={session.retryLoad}>
+          Try again
+        </button>
+      </div>
+    )
+  }
+
   if (session.status === 'loading' || session.profile === null) {
     return (
       <div className="practice-page">

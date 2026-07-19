@@ -35,12 +35,12 @@ vi.mock('../../storage', async (importOriginal) => {
   }
 })
 
-vi.mock('../../telemetry', () => ({ trackAttempt: vi.fn() }))
+vi.mock('../../telemetry', () => ({ trackAttempt: vi.fn(), trackError: vi.fn() }))
 
 // Imported after the mocks above so we get the mocked bindings.
 const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
   await import('../../storage')
-const { trackAttempt } = await import('../../telemetry')
+const { trackAttempt, trackError } = await import('../../telemetry')
 
 describe('usePracticeSession', () => {
   beforeEach(() => {
@@ -191,5 +191,68 @@ describe('usePracticeSession', () => {
 
     expect(result.current.patternFilter).toBe('null-undefined')
     expect(result.current.puzzle?.pattern).toBe('null-undefined')
+  })
+
+  it('a rejected loadProfile() on mount transitions to an error status (not a stuck loading state), reports via trackError, and retryLoad recovers', async () => {
+    vi.mocked(loadProfile).mockRejectedValueOnce(new Error('IndexedDB blocked'))
+
+    const { result } = renderHook(() => usePracticeSession())
+
+    expect(result.current.status).toBe('loading')
+    await waitFor(() => {
+      expect(result.current.status).toBe('error')
+    })
+
+    expect(trackError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.stringContaining('loadProfile'),
+    )
+    expect(result.current.puzzle).toBeNull()
+
+    // Recovery: a subsequent loadProfile() call succeeds.
+    vi.mocked(loadProfile).mockResolvedValueOnce(createDefaultProfile())
+
+    act(() => {
+      result.current.retryLoad()
+    })
+
+    expect(result.current.status).toBe('loading')
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+    expect(result.current.puzzle).not.toBeNull()
+    expect(loadProfile).toHaveBeenCalledTimes(2)
+  })
+
+  it('appendAttempt/saveProfile failures are reported via trackError without blocking the answer-feedback UI', async () => {
+    vi.mocked(appendAttempt).mockRejectedValueOnce(new Error('quota exceeded'))
+    vi.mocked(saveProfile).mockRejectedValueOnce(new Error('quota exceeded'))
+
+    const { result } = renderHook(() => usePracticeSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    act(() => {
+      result.current.handleAnswered({ correct: true, choiceIndex: 0 })
+    })
+
+    // Feedback state updates synchronously regardless of the (async,
+    // rejecting) persistence calls below.
+    expect(result.current.ratingDelta).not.toBeNull()
+    expect(result.current.combo).toBe(1)
+
+    await waitFor(() => {
+      expect(trackError).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.stringContaining('appendAttempt'),
+      )
+    })
+    await waitFor(() => {
+      expect(trackError).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.stringContaining('saveProfile'),
+      )
+    })
   })
 })

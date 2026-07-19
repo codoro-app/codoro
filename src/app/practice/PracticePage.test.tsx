@@ -40,7 +40,7 @@ vi.mock('../../storage', async (importOriginal) => {
   }
 })
 
-vi.mock('../../telemetry', () => ({ trackAttempt: vi.fn() }))
+vi.mock('../../telemetry', () => ({ trackAttempt: vi.fn(), trackError: vi.fn() }))
 
 const { loadProfile, saveProfile, appendAttempt, listAttempts, createDefaultProfile } =
   await import('../../storage')
@@ -126,6 +126,25 @@ describe('PracticePage', () => {
     // state flush — so wait for it to actually leave the DOM.
     await waitFor(() => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+  })
+
+  it('a load failure renders a friendly error with a working retry (not a stuck loading state)', async () => {
+    const user = userEvent.setup()
+    vi.mocked(loadProfile).mockRejectedValueOnce(new Error('IndexedDB blocked'))
+
+    render(<PracticePage />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/couldn.t load your practice session/i)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/loading/i)).not.toBeInTheDocument()
+
+    vi.mocked(loadProfile).mockResolvedValueOnce(createDefaultProfile())
+    await user.click(screen.getByRole('button', { name: /try again/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
     })
   })
 })

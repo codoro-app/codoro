@@ -19,7 +19,7 @@ import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, UserProfile } from '../../storage'
 import { puzzlePool } from '../../content'
 import type { Puzzle as ContentPuzzle, PatternSlug } from '../../content'
-import { trackAttempt } from '../../telemetry'
+import { trackAttempt, trackError } from '../../telemetry'
 import type { CommitPayload } from './interactionTypes'
 import { hapticTick } from './haptics'
 
@@ -43,7 +43,12 @@ function poolForPattern(pattern: PatternSlug | null): ContentPuzzle[] {
   return pattern === null ? puzzlePool : puzzlePool.filter((puzzle) => puzzle.pattern === pattern)
 }
 
-export type SessionStatus = 'loading' | 'ready' | 'empty'
+// 'error': loadProfile() rejected on mount (e.g. IndexedDB blocked in private
+// browsing, quota exceeded, a corrupt store that fails even storage's own
+// recovery). Without this state the mount effect's unhandled rejection would
+// leave status stuck at 'loading' forever with no way for the user to
+// recover — see retryLoad below.
+export type SessionStatus = 'loading' | 'ready' | 'empty' | 'error'
 
 export interface PracticeSession {
   status: SessionStatus
@@ -58,6 +63,8 @@ export interface PracticeSession {
   setPatternFilter: (pattern: PatternSlug | null) => void
   handleAnswered: (payload: CommitPayload) => void
   handleContinue: () => void
+  /** Re-attempts loadProfile() after a mount-time load failure (status === 'error'). */
+  retryLoad: () => void
 }
 
 export function usePracticeSession(): PracticeSession {
@@ -112,6 +119,7 @@ export function usePracticeSession(): PracticeSession {
   }, [])
 
   const cancelledRef = useRef(false)
+
   useEffect(() => {
     // A ref, not a plain `let` closure var: typescript-eslint's
     // no-unnecessary-condition otherwise narrows a `let cancelled = false`
@@ -119,11 +127,24 @@ export function usePracticeSession(): PracticeSession {
     // that the cleanup function below (a different closure, invoked later
     // by React) is the one that flips it.
     cancelledRef.current = false
+    // try/catch around the await: a rejected loadProfile() (IndexedDB
+    // blocked in private browsing, quota exceeded, a corrupt store that
+    // fails even storage's own recovery) used to be an unhandled rejection
+    // here, leaving status stuck at 'loading' forever with no way to
+    // recover. Kept as an inline IIFE (not a shared named callback also
+    // invoked from retryLoad below) so react-hooks/set-state-in-effect can
+    // verify every setState call here happens after the `await`.
     void (async () => {
-      const loaded = await loadProfile()
-      if (cancelledRef.current) return
-      setProfile(loaded)
-      serveNext(loaded, null)
+      try {
+        const loaded = await loadProfile()
+        if (cancelledRef.current) return
+        setProfile(loaded)
+        serveNext(loaded, null)
+      } catch (error) {
+        if (cancelledRef.current) return
+        trackError(error, 'usePracticeSession: loadProfile failed on mount')
+        setStatus('error')
+      }
     })()
     return () => {
       cancelledRef.current = true
@@ -131,6 +152,27 @@ export function usePracticeSession(): PracticeSession {
     // Mount-only: subsequent puzzle changes go through handleContinue/setPatternFilter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Re-attempts loadProfile() from the error state (the "Try again" button
+  // in PracticePage). Not called from the mount effect above — kept
+  // separate so each call site's setState calls are easy for
+  // react-hooks/set-state-in-effect to verify independently.
+  const retryLoad = useCallback(() => {
+    cancelledRef.current = false
+    setStatus('loading')
+    void (async () => {
+      try {
+        const loaded = await loadProfile()
+        if (cancelledRef.current) return
+        setProfile(loaded)
+        serveNext(loaded, null)
+      } catch (error) {
+        if (cancelledRef.current) return
+        trackError(error, 'usePracticeSession: loadProfile failed on mount')
+        setStatus('error')
+      }
+    })()
+  }, [serveNext])
 
   const handleAnswered = useCallback(
     (payload: CommitPayload) => {
@@ -188,8 +230,16 @@ export function usePracticeSession(): PracticeSession {
         setSolvedThisSession((s) => s + 1)
       }
 
-      void appendAttempt(attempt)
-      void saveProfile(updatedProfile)
+      // Persistence failures here are non-fatal: the UI/telemetry below must
+      // still run so the user sees their feedback even if the background
+      // write to storage failed (e.g. IndexedDB quota exceeded). Reported via
+      // trackError rather than silently swallowed.
+      appendAttempt(attempt).catch((error: unknown) => {
+        trackError(error, 'usePracticeSession: appendAttempt failed')
+      })
+      saveProfile(updatedProfile).catch((error: unknown) => {
+        trackError(error, 'usePracticeSession: saveProfile failed')
+      })
 
       trackAttempt({
         puzzle_id: puzzle.id,
@@ -233,5 +283,6 @@ export function usePracticeSession(): PracticeSession {
     setPatternFilter,
     handleAnswered,
     handleContinue,
+    retryLoad,
   }
 }
