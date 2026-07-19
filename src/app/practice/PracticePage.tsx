@@ -132,6 +132,8 @@ export function PracticePage() {
         </button>
       </div>
 
+      <p className="practice-page__version">codoro v0.0.1-test</p>
+
       {session.status === 'empty' || session.puzzle === null ? (
         <p className="practice-page__status">No puzzles available for this pattern yet.</p>
       ) : (
