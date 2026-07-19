@@ -1,0 +1,135 @@
+/*
+ * Shared styles for UpdatePrompt and IosInstallSheet — both are fixed
+ * bottom overlays, so they share layout/token choices. No box-shadow
+ * (design-system rule, see practice.css), >=44px tap targets, Duolingo
+ * "3D press" button treatment reused from practice.css's feedback panel.
+ */
+
+.update-prompt,
+.ios-install-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  box-sizing: border-box;
+  padding: 0.875rem 1rem calc(0.875rem + env(safe-area-inset-bottom));
+  background: var(--surface-card);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.update-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.update-prompt__message {
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.update-prompt__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.update-prompt__refresh {
+  min-height: 44px;
+  padding: 0.625rem 1.25rem;
+  border: none;
+  border-bottom: 4px solid var(--primary-action-border);
+  border-radius: 12px;
+  background: var(--primary-action-bg);
+  color: var(--primary-action-text);
+  font-size: 0.9375rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 0.05s ease-out,
+    border-bottom-width 0.05s ease-out,
+    margin-bottom 0.05s ease-out;
+}
+
+.update-prompt__refresh:active {
+  transform: translateY(3px);
+  border-bottom-width: 1px;
+  margin-bottom: 3px;
+}
+
+.update-prompt__refresh:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.update-prompt__dismiss {
+  min-height: 44px;
+  padding: 0.625rem 0.75rem;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ios-install-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ios-install-sheet__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ios-install-sheet__title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.ios-install-sheet__close {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ios-install-sheet__steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ios-install-sheet__step {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+
+.ios-install-sheet__step-icon {
+  flex: none;
+  font-size: 1.125rem;
+}

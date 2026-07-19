@@ -1,5 +1,6 @@
 import { ErrorBoundary } from './ErrorBoundary'
 import { PracticePage } from './practice/PracticePage'
+import { UpdatePrompt } from './pwa/UpdatePrompt'
 
 export function App() {
   return (
@@ -7,6 +8,7 @@ export function App() {
       <main>
         <PracticePage />
       </main>
+      <UpdatePrompt />
     </ErrorBoundary>
   )
 }
