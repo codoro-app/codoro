@@ -5,11 +5,16 @@
  * clicking refresh. See vite.config.ts's registerType comment for why: a
  * silent auto-reload mid-puzzle is the specific failure this avoids.
  *
- * Update checks happen on a timer and whenever the tab regains focus, since
- * relying on Workbox's default (checks once per navigation) would leave a
- * long-lived open tab never noticing a new deploy — the "swap the shell
- * out from under a mid-session user" case is exactly what registerType
- * 'prompt' exists to prevent, but only if a check actually happens.
+ * Update checks happen immediately on registration, on a timer, whenever the
+ * tab regains focus, and on `pageshow` with `event.persisted` — that last one
+ * specifically for iOS: a standalone home-screen PWA is typically suspended
+ * rather than terminated when backgrounded/switched away from, so reopening
+ * it resumes the frozen page (a bfcache-style restore) rather than a real
+ * navigation or `visibilitychange` firing, and `pageshow`/`persisted` is the
+ * one signal iOS reliably delivers on that resume. Without an immediate
+ * check + this listener, an already-installed iOS PWA can go a full hour (or
+ * until the OS itself evicts and cold-launches it) without ever noticing a
+ * new deploy.
  */
 import { useCallback, useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
@@ -39,9 +44,18 @@ export function useUpdatePrompt(): UseUpdatePromptResult {
         void registration.update()
       }
 
+      checkForUpdate()
       window.setInterval(checkForUpdate, UPDATE_CHECK_INTERVAL_MS)
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') checkForUpdate()
+      })
+      // iOS standalone PWAs are typically suspended (not terminated) when
+      // backgrounded, so reopening one resumes it from a bfcache-style
+      // snapshot rather than firing a real navigation or (reliably)
+      // visibilitychange. `pageshow` with `persisted: true` is the signal
+      // iOS does deliver on that resume — see this file's doc comment.
+      window.addEventListener('pageshow', (event) => {
+        if (event.persisted) checkForUpdate()
       })
     },
   })
