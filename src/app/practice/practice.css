@@ -225,16 +225,23 @@
   color: var(--text-muted);
 }
 
-.swipe-fallback__buttons {
+.swipe-fallback__card {
   display: flex;
+  flex-direction: column;
   gap: 0.75rem;
-  /* This row doubles as the @use-gesture drag surface (see SwipeBinary.tsx).
+  /* The whole card (snippet + buttons) doubles as the @use-gesture drag
+   * surface (see SwipeBinary.tsx) — Tinder-style, not just the buttons row.
    * The practice card sits in a vertically-scrolling page while the drag
    * gesture itself is horizontal, so pan-y keeps native vertical page
    * scroll working via touch while the gesture handler owns horizontal
    * drags — without this, mobile Safari/Chrome fight between interpreting
    * a touch as a page-scroll vs. a card-drag. */
   touch-action: pan-y;
+}
+
+.swipe-fallback__buttons {
+  display: flex;
+  gap: 0.75rem;
 }
 
 .swipe-fallback__button {
