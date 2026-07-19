@@ -54,6 +54,13 @@
   cursor: pointer;
 }
 
+.practice-page__version {
+  margin: 0;
+  text-align: center;
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
 /* --- status bar ---------------------------------------------------- */
 
 .status-bar {
