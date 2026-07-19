@@ -13,7 +13,12 @@
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  padding: 1rem;
+  /* iOS standalone mode draws the status bar over the page (index.html sets
+   * apple-mobile-web-app-status-bar-style: black-translucent), so the top
+   * padding needs env(safe-area-inset-top) on top of the base spacing or
+   * content renders under the status bar/notch. Resolves to 0px without
+   * viewport-fit=cover on the viewport meta tag (see index.html). */
+  padding: calc(1rem + env(safe-area-inset-top)) 1rem 1rem;
   box-sizing: border-box;
 }
 
