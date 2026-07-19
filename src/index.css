@@ -20,6 +20,18 @@
  * green since it's a thin decorative "lip", not a text-contrast surface.
  * --accent/--warning (rating + streak pills) are owned visually by concern
  * (d); pick a text color at build time that clears AA against them.
+ *
+ * Concern (d) contrast check for --pill-text (#14202b, a near-black navy)
+ * against --accent/--warning, WCAG relative-luminance formula. --accent and
+ * --warning are the same values in both light and dark mode (light mode's
+ * --warning #ff9600 is the sole exception), so --pill-text is one fixed
+ * color used in both themes rather than a per-theme pair:
+ *   - --pill-text on --accent (#1cb0f6, both modes): ~7.1:1 (AA)
+ *   - --pill-text on --warning light (#ff9600): ~8.0:1 (AA)
+ *   - --pill-text on --warning dark (#ffc800): ~11.2:1 (AA)
+ * White text was checked first and rejected: it measures ~2.2-2.4:1 against
+ * --accent and light --warning, and ~1.6:1 against dark --warning — well
+ * under AA in every pairing.
  */
 :root {
   --surface-card: #ffffff;
@@ -30,6 +42,7 @@
 
   --accent: #1cb0f6;
   --warning: #ff9600;
+  --pill-text: #14202b;
 
   --bg-success: #d7ffb8;
   --border-success: #58cc02;
