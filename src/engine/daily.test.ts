@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getDailyPuzzleIndex, hashDateString } from './daily'
+import { DAILY_EPOCH, getDailyNumber, getDailyPuzzleIndex, hashDateString } from './daily'
 
 // 2028 is a leap year, so this covers all 366 possible MM-DD combinations,
 // including Feb 29.
@@ -82,5 +82,23 @@ describe('hashDateString / getDailyPuzzleIndex', () => {
     expect(Number.isInteger(hash)).toBe(true)
     expect(hash).toBeGreaterThanOrEqual(0)
     expect(hash).toBeLessThanOrEqual(0xffffffff)
+  })
+})
+
+describe('getDailyNumber', () => {
+  it('returns 1 on the epoch date itself', () => {
+    expect(getDailyNumber(DAILY_EPOCH)).toBe(1)
+  })
+
+  it('increases by exactly 1 per elapsed calendar day', () => {
+    const n1 = getDailyNumber(DAILY_EPOCH)
+    const dayAfter = new Date(`${DAILY_EPOCH}T00:00:00Z`)
+    dayAfter.setUTCDate(dayAfter.getUTCDate() + 1)
+    const n2 = getDailyNumber(dayAfter.toISOString().slice(0, 10))
+    expect(n2).toBe(n1 + 1)
+  })
+
+  it('is deterministic for the same date string', () => {
+    expect(getDailyNumber('2026-07-19')).toBe(getDailyNumber('2026-07-19'))
   })
 })
