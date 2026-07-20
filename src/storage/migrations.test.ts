@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Migration } from './migrations'
-import { runMigrations } from './migrations'
+import { MIGRATIONS, runMigrations } from './migrations'
 
 describe('runMigrations', () => {
   it('applies a single migration and stamps the new version + field', () => {
@@ -63,5 +63,26 @@ describe('runMigrations', () => {
     }
     runMigrations({ schema_version: 1 }, 1, testMigrations)
     expect(order).toEqual([1, 2])
+  })
+})
+
+describe('MIGRATIONS[1]: v1 -> v2 (adds dailyCompletion)', () => {
+  it('stamps schema_version 2, adds a null dailyCompletion, and preserves every existing field untouched', () => {
+    const v1Profile = {
+      schema_version: 1,
+      rating: 1342.75,
+      ratedAttemptCount: 7,
+      streak: { currentStreak: 3, longestStreak: 9, lastActiveDate: '2026-07-14' },
+      requeueState: [{ puzzleId: 'p9', stage: 2, served: 12 }],
+      storagePersisted: true,
+    }
+
+    const migrated = runMigrations(v1Profile, 1, MIGRATIONS)
+
+    expect(migrated).toEqual({
+      ...v1Profile,
+      schema_version: 2,
+      dailyCompletion: null,
+    })
   })
 })
