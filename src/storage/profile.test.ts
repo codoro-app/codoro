@@ -34,12 +34,13 @@ describe('loadProfile', () => {
 
   it('round-trips a saved profile exactly', async () => {
     const profile: UserProfile = {
-      schema_version: 1,
+      schema_version: 2,
       rating: 1342.75,
       ratedAttemptCount: 7,
       streak: { currentStreak: 3, longestStreak: 9, lastActiveDate: '2026-07-14' },
       requeueState: [{ puzzleId: 'p9', stage: 2, served: 12 }],
       storagePersisted: true,
+      dailyCompletion: { date: '2026-07-14', attemptId: 'a1', correct: true },
     }
     await saveProfile(profile)
     expect(await loadProfile()).toEqual(profile)
@@ -115,5 +116,35 @@ describe('corrupt-data recovery', () => {
       const backup: unknown = await db.get(PROFILE_STORE, corruptKey as string)
       expect(backup).toEqual(stale)
     })
+  })
+})
+
+describe('schema migration on load', () => {
+  it('migrates a v1 stored profile to v2 on load, preserving rating/streak/ratedAttemptCount and persisting the upgrade', async () => {
+    const v1Profile = {
+      schema_version: 1,
+      rating: 1389.25,
+      ratedAttemptCount: 14,
+      streak: { currentStreak: 6, longestStreak: 11, lastActiveDate: '2026-07-18' },
+      requeueState: [{ puzzleId: 'p3', stage: 0, served: 1 }],
+      storagePersisted: true,
+    }
+    await withDb((db) => db.put(PROFILE_STORE, v1Profile, PROFILE_KEY))
+
+    const migrated = await loadProfile()
+
+    expect(migrated).toEqual({
+      ...v1Profile,
+      schema_version: 2,
+      dailyCompletion: null,
+    })
+
+    // loadProfile migrates in-memory only — it does not write the upgraded
+    // shape back to disk itself (the raw bytes stay v1 until the next
+    // saveProfile call, e.g. any Practice/Daily attempt). runMigrations is
+    // idempotent and cheap, so re-migrating from the same v1 raw bytes on
+    // every load is correct, not a bug.
+    const stored = await withDb<unknown>((db) => db.get(PROFILE_STORE, PROFILE_KEY))
+    expect(stored).toEqual(v1Profile)
   })
 })
