@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 vi.mock('../storage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../storage')>()
@@ -36,6 +37,21 @@ describe('App', () => {
     // the starting rating once usePracticeSession finishes loading.
     await waitFor(() => {
       expect(screen.getByText('1200')).toBeInTheDocument()
+    })
+  })
+
+  it('defaults to Practice, and switches to the Daily UI via the mode switcher', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText('1200')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Daily' }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/Codoro Daily #/)).toBeInTheDocument()
     })
   })
 })

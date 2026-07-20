@@ -1,0 +1,29 @@
+/*
+ * App-shell-level chrome: the mode switcher. Same design-system rules as
+ * practicePage.css/dailyPage.css: no box-shadow anywhere, >=44px tap
+ * targets.
+ */
+
+.mode-switcher {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  padding: calc(0.5rem + env(safe-area-inset-top)) 1rem 0;
+}
+
+.mode-switcher__tab {
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mode-switcher__tab--active {
+  background: var(--surface-card);
+  color: var(--text-primary);
+}
