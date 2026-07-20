@@ -122,6 +122,22 @@ describe('usePracticeSession', () => {
     )
   })
 
+  it('does not change the streak on a practice attempt (Daily-only anchors the streak)', async () => {
+    const { result } = renderHook(() => usePracticeSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    const streakBefore = result.current.profile?.streak
+    expect(streakBefore).toEqual({ currentStreak: 0, longestStreak: 0, lastActiveDate: null })
+
+    act(() => {
+      result.current.handleAnswered({ correct: true, choiceIndex: 0 })
+    })
+
+    expect(result.current.profile?.streak).toEqual(streakBefore)
+  })
+
   it('a wrong answer resets combo to 0, records a miss, and the puzzle resurfaces via requeue after 3 continues', async () => {
     const { result } = renderHook(() => usePracticeSession())
     await waitFor(() => {

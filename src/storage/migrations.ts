@@ -38,8 +38,19 @@ export function runMigrations(
 }
 
 /**
- * Empty by design: CURRENT_SCHEMA_VERSION is 1 and this app has no version 0 in
- * its real history, so there is nothing to migrate from yet. The first real
- * schema bump adds an entry here keyed by the version it migrates *from*.
+ * v1 -> v2: adds `dailyCompletion` (nullable) for Phase 6's Daily mode —
+ * see src/storage/schema.ts's UserProfile doc comment. Every existing field
+ * is passed through unchanged; this migration only adds the new one.
  */
-export const MIGRATIONS: Record<number, Migration> = {}
+function migrateV1ToV2(raw: Record<string, unknown>): Record<string, unknown> {
+  return { ...raw, schema_version: 2, dailyCompletion: null }
+}
+
+/**
+ * Keyed by the version each migration migrates *from*. The first real entry:
+ * schema v1 predates Daily mode, so any profile still on v1 gets a null
+ * dailyCompletion (equivalent to "no Daily attempt recorded yet").
+ */
+export const MIGRATIONS: Record<number, Migration> = {
+  1: migrateV1ToV2,
+}

@@ -8,7 +8,6 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  recordActivity,
   recordMiss,
   roundForDisplay,
   selectNext,
@@ -199,13 +198,11 @@ export function usePracticeSession(): PracticeSession {
       const newRequeueState = payload.correct
         ? profile.requeueState
         : recordMiss(profile.requeueState, puzzle.id)
-      const newStreak = recordActivity(profile.streak, today)
 
       const updatedProfile: UserProfile = {
         ...profile,
         rating: newRating,
         ratedAttemptCount: profile.ratedAttemptCount + 1,
-        streak: newStreak,
         requeueState: newRequeueState,
       }
 

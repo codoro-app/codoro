@@ -13,6 +13,7 @@ const validProfile = {
   streak: { currentStreak: 2, longestStreak: 5, lastActiveDate: '2026-07-15' },
   requeueState: [{ puzzleId: 'p1', stage: 1, served: 4 }],
   storagePersisted: true,
+  dailyCompletion: { date: '2026-07-19', attemptId: 'a1', correct: true },
 }
 
 const validAttempt = {
@@ -45,7 +46,7 @@ describe('UserProfileSchema', () => {
   })
 
   it('rejects a wrong schema_version', () => {
-    expect(() => UserProfileSchema.parse({ ...validProfile, schema_version: 2 })).toThrow()
+    expect(() => UserProfileSchema.parse({ ...validProfile, schema_version: 3 })).toThrow()
   })
 
   it('rejects a missing required field', () => {
@@ -68,6 +69,17 @@ describe('UserProfileSchema', () => {
         ...validProfile,
         requeueState: [{ puzzleId: 'p1', stage: 3, served: 0 }],
       }),
+    ).toThrow()
+  })
+
+  it('accepts a null dailyCompletion (no attempt today yet)', () => {
+    const parsed = UserProfileSchema.parse({ ...validProfile, dailyCompletion: null })
+    expect(parsed.dailyCompletion).toBeNull()
+  })
+
+  it('rejects a dailyCompletion missing required fields', () => {
+    expect(() =>
+      UserProfileSchema.parse({ ...validProfile, dailyCompletion: { date: '2026-07-19' } }),
     ).toThrow()
   })
 })

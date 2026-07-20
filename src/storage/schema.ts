@@ -15,7 +15,7 @@ import { INITIAL_RATING, emptyRequeueState } from '../engine'
  * needs a migration (see migrations.ts). A fully-validated profile is always on
  * this exact version — migration runs before schema validation, never after.
  */
-export const CURRENT_SCHEMA_VERSION = 1
+export const CURRENT_SCHEMA_VERSION = 2
 
 /** Mirrors engine's StreakState shape. */
 export const StreakStateSchema = z.object({
@@ -33,6 +33,19 @@ export const RequeueEntrySchema = z.object({
 
 export const RequeueStateSchema = z.array(RequeueEntrySchema)
 
+/** Which daily puzzle (by calendar date) already has a recorded first attempt this day — the rating/streak/share gate for Daily mode. */
+export const DailyCompletionSchema = z.object({
+  date: z.string().min(1),
+  attemptId: z.string().min(1),
+  correct: z.boolean(),
+})
+
+export interface DailyCompletion {
+  date: string
+  attemptId: string
+  correct: boolean
+}
+
 export const UserProfileSchema = z.object({
   // z.literal, not z.number(): reaching full validation implies migration has
   // already brought the record onto the current version.
@@ -42,6 +55,7 @@ export const UserProfileSchema = z.object({
   streak: StreakStateSchema,
   requeueState: RequeueStateSchema,
   storagePersisted: z.boolean().nullable(),
+  dailyCompletion: DailyCompletionSchema.nullable(),
 })
 
 export interface UserProfile {
@@ -52,6 +66,8 @@ export interface UserProfile {
   streak: StreakState
   requeueState: RequeueState
   storagePersisted: boolean | null
+  /** Non-null once today's Daily puzzle has a recorded first (rated) attempt. Date-scoped: a stale date from a previous day means "not completed today" even though the field is non-null. */
+  dailyCompletion: DailyCompletion | null
 }
 
 export const AttemptSchema = z.object({
@@ -94,5 +110,6 @@ export function createDefaultProfile(): UserProfile {
     streak: { currentStreak: 0, longestStreak: 0, lastActiveDate: null },
     requeueState: emptyRequeueState,
     storagePersisted: null,
+    dailyCompletion: null,
   }
 }

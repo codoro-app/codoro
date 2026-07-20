@@ -1,0 +1,85 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import type { Puzzle } from '../../content'
+
+const { FIXTURE_POOL } = vi.hoisted(() => ({
+  FIXTURE_POOL: Array.from({ length: 12 }, (_, i) => ({
+    id: `p${String(i)}`,
+    pattern: i % 2 === 0 ? 'off-by-one' : 'null-undefined',
+    difficulty_rating: 1150 + i * 10,
+    explanation: `explanation ${String(i)}`,
+    prompt: `prompt ${String(i)}`,
+    language: 'javascript',
+    snippet: 'const x = 1',
+    interaction: 'mcq',
+    choices: ['a', 'b'],
+    correct_choice: 0,
+  })) as unknown as Puzzle[],
+}))
+
+vi.mock('../../content', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../content')>()
+  return { ...actual, puzzlePool: FIXTURE_POOL }
+})
+
+vi.mock('../../storage', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../storage')>()
+  return {
+    ...actual,
+    loadProfile: vi.fn(),
+    saveProfile: vi.fn(),
+    appendAttempt: vi.fn(),
+    listAttempts: vi.fn(),
+  }
+})
+
+vi.mock('../../telemetry', () => ({ trackAttempt: vi.fn(), trackError: vi.fn() }))
+
+const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
+  await import('../../storage')
+const { DailyPage } = await import('./DailyPage')
+
+describe('DailyPage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(loadProfile).mockResolvedValue(createDefaultProfile())
+    vi.mocked(saveProfile).mockResolvedValue(undefined)
+    vi.mocked(appendAttempt).mockResolvedValue(undefined)
+  })
+
+  it("renders today's puzzle without a share card before any attempt", async () => {
+    render(<DailyPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Codoro Daily #/)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/Copy share text/i)).not.toBeInTheDocument()
+  })
+
+  it('reveals the share card after the first attempt, with a working copy button', async () => {
+    const user = userEvent.setup()
+    render(<DailyPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Codoro Daily #/)).toBeInTheDocument()
+    })
+
+    const choiceButtons = screen.getAllByRole('button', { name: /^[ab]$/i })
+    const firstChoice = choiceButtons[0]
+    if (!firstChoice) throw new Error('expected at least one choice button')
+    await user.click(firstChoice)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Copy share text/i)).toBeInTheDocument()
+    })
+
+    const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
+    await user.click(screen.getByText(/Copy share text/i))
+
+    expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('Codoro Daily #'))
+    await waitFor(() => {
+      expect(screen.getByText(/Copied!/i)).toBeInTheDocument()
+    })
+  })
+})

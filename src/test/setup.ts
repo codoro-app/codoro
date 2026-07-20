@@ -42,6 +42,16 @@ window.matchMedia = (query: string) => ({
   dispatchEvent: () => false,
 })
 
+// jsdom doesn't implement navigator.clipboard — ShareCard (Daily mode) calls
+// writeText on copy. Stubbed as a resolving no-op, same pattern as the
+// pointer-capture/scrollTo/matchMedia stubs above; tests that assert the
+// copy behavior spy on this via vi.spyOn(navigator.clipboard, 'writeText').
+Object.defineProperty(navigator, 'clipboard', {
+  value: { writeText: () => Promise.resolve() },
+  writable: true,
+  configurable: true,
+})
+
 // vitest.config.ts doesn't set `test.globals: true` (this repo imports
 // describe/it/expect explicitly everywhere), so @testing-library/react's
 // automatic per-test cleanup — which relies on a global `afterEach` —
