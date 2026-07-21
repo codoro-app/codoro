@@ -97,11 +97,15 @@ describe('Mcq', () => {
     const buttons = screen.getAllByRole('button')
 
     expect(buttons[0]).not.toHaveTextContent('Missing break after gold')
+    // Each button's textContent is prefixed with its on-screen A/B/C/D
+    // badge letter (see Mcq.tsx's ChoiceBadge) — the letter tracks display
+    // *position*, not the original authored index, so it's always A, B, C,
+    // D in that order regardless of the shuffle.
     expect(buttons.map((b) => b.textContent)).toEqual([
-      'Wrong order',
-      'Should use const',
-      'Should use if/else',
-      'Missing break after gold',
+      'AWrong order',
+      'BShould use const',
+      'CShould use if/else',
+      'DMissing break after gold',
     ])
 
     randomSpy.mockRestore()

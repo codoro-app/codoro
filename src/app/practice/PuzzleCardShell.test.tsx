@@ -302,7 +302,10 @@ describe('PuzzleCardShell', () => {
 
     // var(--text-1)-based token classes — jsdom can't resolve these via
     // getComputedStyle, so this is the only mechanical guard for them.
-    expect(css).toMatch(/\.token\.comment\s*\{[^}]*color:\s*var\(--text-1\)/)
+    // .token.comment is the one exception: decision #9 (v2 Arena plan)
+    // gives comments their own dedicated --syn-cm hue rather than falling
+    // back to --text-1.
+    expect(css).toMatch(/\.token\.comment\s*\{[^}]*color:\s*var\(--syn-cm\)/)
     expect(css).toMatch(
       /\.token\.punctuation,[\s\S]*?\.token\.operator\s*\{[^}]*color:\s*var\(--text-1\)/,
     )
