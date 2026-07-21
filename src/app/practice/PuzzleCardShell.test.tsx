@@ -237,13 +237,18 @@ describe('PuzzleCardShell', () => {
   // `.token*` markup, but that markup is only useful if practice.css
   // actually colors it — otherwise every snippet renders in flat
   // --text-primary despite the highlighting work. Two layers of assertion:
-  // (1) real cascade resolution via getComputedStyle for the token classes
-  // that get literal hex colors (jsdom's CSSOM resolves those correctly —
-  // verified experimentally), and (2) a source-level check on practice.css
-  // for the classes styled via var(--text-muted), since jsdom's
-  // getComputedStyle does not resolve CSS custom properties (it returns the
-  // literal string "var(--text-muted)" instead of the computed color), which
-  // would make a getComputedStyle assertion on those classes unreliable.
+  // (1) getComputedStyle on the token classes styled via var(--syntax-*).
+  // jsdom's CSSOM does NOT resolve var() — it returns the literal unresolved
+  // reference string (e.g. "var(--syntax-keyword)") rather than a computed
+  // color (verified experimentally). That's still a useful assertion: since
+  // each token type resolves to a *different* var(--syntax-*) reference
+  // string, distinctness across keyword/string/number proves each token
+  // class maps to its own custom property rather than all sharing one. It
+  // does not prove the referenced custom property itself resolves to a
+  // sensible color at runtime. (2) a source-level check on practice.css for
+  // the classes styled via var(--text-muted), since a getComputedStyle
+  // assertion there would be equally unable to resolve the custom property
+  // and would just assert the same unresolved string back at itself.
   it('colors syntax-highlighted tokens instead of leaving them flat --text-primary', () => {
     const { container } = render(
       <PuzzleCardShell

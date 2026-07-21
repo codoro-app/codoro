@@ -41,7 +41,7 @@
 .daily-page__heading {
   margin: 0;
   text-align: center;
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-xl);
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -67,7 +67,7 @@
 .share-card__button {
   min-height: var(--tap-target-min);
   border: none;
-  border-radius: var(--space-2);
+  border-radius: var(--radius-sm);
   background: var(--primary-action-bg);
   border-bottom: 3px solid var(--primary-action-border);
   color: var(--primary-action-text);

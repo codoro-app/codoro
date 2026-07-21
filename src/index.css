@@ -70,6 +70,7 @@
   --font-size-2xl: 1.25rem;
 
   /* --- radius --- */
+  --radius-sm: 0.5rem;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-full: 999px;
