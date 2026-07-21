@@ -118,26 +118,44 @@ export function PracticePage() {
   return (
     <>
       <div className="practice-page app-shell__main">
-        <StatusBar
-          rating={session.profile.rating}
-          streak={session.profile.streak.currentStreak}
-          combo={session.combo}
-          solvedThisSession={session.solvedThisSession}
-        />
+        {!isDesktop && (
+          <StatusBar
+            rating={session.profile.rating}
+            streak={session.profile.streak.currentStreak}
+            combo={session.combo}
+            solvedThisSession={session.solvedThisSession}
+          />
+        )}
 
-        <div className="practice-page__nav">
-          <button
-            type="button"
-            className="practice-page__link"
-            onClick={() => {
-              setView('patterns')
-            }}
-          >
-            {session.patternFilter
-              ? `Pattern: ${PATTERN_LABELS[session.patternFilter]}`
-              : 'Browse patterns'}
-          </button>
-          {!isDesktop && (
+        {!isDesktop && (
+          <div className="practice-page__nav">
+            <button
+              type="button"
+              className="practice-page__browse"
+              onClick={() => {
+                setView('patterns')
+              }}
+            >
+              <span>
+                {session.patternFilter
+                  ? `Pattern: ${PATTERN_LABELS[session.patternFilter]}`
+                  : 'Browse patterns'}
+              </span>
+              <svg
+                aria-hidden="true"
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--accent)"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            </button>
             <button
               type="button"
               className="practice-page__link"
@@ -147,10 +165,8 @@ export function PracticePage() {
             >
               Mastery
             </button>
-          )}
-        </div>
-
-        <p className="practice-page__version">codoro v0.0.1-test</p>
+          </div>
+        )}
 
         {session.status === 'empty' || session.puzzle === null ? (
           <p className="practice-page__status">No puzzles available for this pattern yet.</p>

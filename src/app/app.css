@@ -1,34 +1,37 @@
 /*
- * App-shell-level chrome: the mode switcher. Same design-system rules as
- * practicePage.css/dailyPage.css: Elevation: box-shadow is allowed for
- * chrome regions only (nav rail, right-panel sidebar) via --shadow-card —
- * see src/index.css's token doc comment. Interactive cards/buttons stay
- * flat (border + press-lip). >=44px tap targets.
+ * App-shell-level chrome: the mode switcher, nav rail, and responsive shell
+ * grid. Elevation: v2 Arena retires box-shadow chrome entirely — the rail
+ * is flat, `border-right` only, no background (see the v2 plan's
+ * "Elevation" decision). Interactive cards/buttons stay flat too. >=44px
+ * tap targets.
  */
 
 .mode-switcher {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  justify-content: center;
-  padding: calc(var(--space-2) + env(safe-area-inset-top)) var(--space-4) 0;
+  gap: 4px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px;
 }
 
 .mode-switcher__tab {
+  flex: 1;
   min-height: var(--tap-target-min);
   padding: var(--space-2) var(--space-4);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   background: transparent;
   color: var(--text-1);
   font-size: var(--font-size-md);
   font-weight: 600;
+  text-align: center;
   cursor: pointer;
 }
 
 .mode-switcher__tab--active {
-  background: var(--surface-1);
-  color: var(--text-0);
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 .mode-switcher__tab--disabled,
@@ -54,6 +57,11 @@
 
 .app-shell__mobile-nav {
   display: block;
+  /* iOS standalone mode draws the status bar over the page (see
+   * practicePage.css's matching comment) — this top padding used to live on
+   * `.mode-switcher` itself, but v2's pill-tab-strip needs a tight 4px
+   * padding all around, so the safe-area inset moved up to this wrapper. */
+  padding: calc(var(--space-2) + env(safe-area-inset-top)) var(--space-4) 0;
 }
 
 @media (min-width: 1024px) {
@@ -94,12 +102,32 @@
   padding: var(--space-6) var(--space-4);
   height: 100%;
   box-sizing: border-box;
-  background: var(--surface-2);
   border-right: 1px solid var(--border);
 }
 
-.nav-rail__logo {
-  margin: 0 0 var(--space-4);
+.nav-rail__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2-5);
+  padding: 0 var(--space-2) var(--space-4);
+}
+
+.nav-rail__logo-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--font-size-md);
+}
+
+.nav-rail__wordmark {
   font-size: var(--font-size-xl);
   font-weight: 700;
   color: var(--text-0);
@@ -109,7 +137,7 @@
   min-height: var(--tap-target-min);
   padding: var(--space-3) var(--space-4);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-1);
   font-size: var(--font-size-md);
@@ -119,8 +147,8 @@
 }
 
 .nav-rail__item--active {
-  background: var(--surface-1);
-  color: var(--text-0);
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 .nav-rail__item--disabled,
@@ -128,4 +156,26 @@
   color: var(--text-1);
   opacity: 0.55;
   cursor: default;
+}
+
+.nav-rail__footer {
+  margin-top: auto;
+}
+
+.nav-rail__browse {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--tap-target-min);
+  padding: 13px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-0);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  cursor: pointer;
 }

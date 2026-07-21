@@ -77,11 +77,38 @@ export function DailyPage() {
         <aside className="app-shell__sidebar daily-page__sidebar">
           <div className="status-bar">
             <div className="status-bar__pill status-bar__pill--rating" title="Rating">
-              <span aria-hidden="true">🏆</span>
+              <svg
+                aria-hidden="true"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--accent)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                <path d="M4 22h16" />
+                <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+              </svg>
               <span>{Math.round(session.profile.rating)}</span>
             </div>
             <div className="status-bar__pill status-bar__pill--streak" title="Daily streak">
-              <span aria-hidden="true">🔥</span>
+              <svg
+                aria-hidden="true"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke={session.profile.streak.currentStreak > 0 ? 'var(--warn)' : 'var(--text-2)'}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+              </svg>
               <span>{session.profile.streak.currentStreak}</span>
             </div>
           </div>

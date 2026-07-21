@@ -2,11 +2,10 @@
  * Practice-page-level chrome: status bar (rating/streak pills, combo badge),
  * browse-by-pattern picker, mastery view, and page layout. Separate from
  * practice.css (concern a/b's card + interaction-body styles) to keep
- * ownership boundaries clean between concerns. Same design-system rules as
- * practice.css: Elevation: box-shadow is allowed for chrome regions only
- * (nav rail, right-panel sidebar) via --shadow-card — see src/index.css's
- * token doc comment. Interactive cards/buttons stay flat (border + press-lip).
- * Mobile-first, >=44px tap targets.
+ * ownership boundaries clean between concerns. Elevation: v2 Arena retires
+ * box-shadow chrome entirely — the sidebar is flat, `border-left` only, no
+ * background (see the v2 plan's "Elevation" decision). Interactive
+ * cards/buttons stay flat too. Mobile-first, >=44px tap targets.
  */
 
 .practice-page {
@@ -48,8 +47,8 @@
 
 .practice-page__nav {
   display: flex;
-  gap: var(--space-3);
-  justify-content: center;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .practice-page__link {
@@ -63,11 +62,25 @@
   cursor: pointer;
 }
 
-.practice-page__version {
-  margin: 0;
-  text-align: center;
-  font-size: var(--font-size-xs);
-  color: var(--text-1);
+/* Entry-point "Browse patterns" affordance — a bordered button, not a bare
+   text link (matches the reference's designed affordance, both here on
+   mobile and in NavRail.tsx's rail-bottom instance on desktop). */
+.practice-page__browse {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--tap-target-min);
+  padding: 13px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-0);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  cursor: pointer;
 }
 
 /* --- status bar ---------------------------------------------------- */
@@ -86,17 +99,11 @@
   min-height: var(--tap-target-min);
   padding: var(--space-1-5) var(--space-3);
   border-radius: var(--radius-full);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  color: var(--text-0);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--accent-ink);
-}
-
-.status-bar__pill--rating {
-  background: var(--accent);
-}
-
-.status-bar__pill--streak {
-  background: var(--warn);
 }
 
 .status-bar__solved {
@@ -257,7 +264,6 @@ button.mastery-row {
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-6) var(--space-4);
-  border-radius: var(--radius-lg);
-  background: var(--surface-2);
+  border-left: 1px solid var(--border);
   align-self: start;
 }
