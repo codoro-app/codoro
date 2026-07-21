@@ -23,7 +23,7 @@
   text-align: center;
   font-size: var(--font-size-xl);
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text-0);
 }
 
 .puzzle-card__interaction {
@@ -73,7 +73,7 @@
   text-align: left;
   border: none;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--text-0);
   font: inherit;
 }
 
@@ -86,7 +86,7 @@
   min-width: var(--space-6);
   flex-shrink: 0;
   text-align: right;
-  color: var(--text-muted);
+  color: var(--text-1);
   user-select: none;
 }
 
@@ -95,28 +95,28 @@
 }
 
 .code-snippet__line--wrong {
-  background: var(--bg-danger);
+  background: var(--danger-dim);
 }
 
 .code-snippet__line--reveal-correct {
-  background: var(--bg-success);
+  background: var(--ok-dim);
 }
 
 .token.keyword {
-  color: var(--syntax-keyword);
+  color: var(--syn-kw);
 }
 
 .token.string {
-  color: var(--syntax-string);
+  color: var(--syn-str);
 }
 
 .token.function {
-  color: var(--syntax-function);
+  color: var(--syn-fn);
 }
 
 .token.class-name,
 .token.builtin {
-  color: var(--syntax-type);
+  color: var(--syn-num);
 }
 
 .token.number,
@@ -124,17 +124,17 @@
 .token.constant,
 .token.property,
 .token.literal-property {
-  color: var(--syntax-literal);
+  color: var(--syn-num);
 }
 
 .token.comment {
-  color: var(--text-muted);
+  color: var(--text-1);
   font-style: italic;
 }
 
 .token.punctuation,
 .token.operator {
-  color: var(--text-muted);
+  color: var(--text-1);
 }
 
 .token.parameter,
@@ -143,7 +143,7 @@
 .token.directive,
 .token.directive-hash,
 .token.generics {
-  color: var(--syntax-meta);
+  color: var(--text-1);
 }
 
 /* --- mcq -------------------------------------------------------------- */
@@ -159,9 +159,9 @@
   width: 100%;
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
-  border: 2px solid var(--border-subtle);
-  background: var(--surface-card);
-  color: var(--text-primary);
+  border: 2px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-0);
   font-size: var(--font-size-md);
   text-align: left;
   cursor: pointer;
@@ -173,15 +173,15 @@
 
 .mcq-choice--correct,
 .mcq-choice--reveal-correct {
-  border-color: var(--border-success);
-  background: var(--bg-success);
-  color: var(--text-success);
+  border-color: var(--accent);
+  background: var(--ok-dim);
+  color: var(--accent);
 }
 
 .mcq-choice--wrong {
-  border-color: var(--border-danger);
-  background: var(--bg-danger);
-  color: var(--text-danger);
+  border-color: var(--danger);
+  background: var(--danger-dim);
+  color: var(--danger);
 }
 
 /* --- swipe-binary fallback --------------------------------------------- */
@@ -196,7 +196,7 @@
   margin: 0;
   text-align: center;
   font-size: var(--font-size-sm);
-  color: var(--text-muted);
+  color: var(--text-1);
 }
 
 .swipe-fallback__card {
@@ -223,9 +223,9 @@
   min-height: var(--tap-target-min);
   padding: var(--space-3) var(--space-2);
   border-radius: var(--radius-md);
-  border: 2px solid var(--border-subtle);
-  background: var(--surface-card);
-  color: var(--text-primary);
+  border: 2px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-0);
   font-weight: 600;
   font-size: var(--font-size-md);
   cursor: pointer;
@@ -236,24 +236,24 @@
 }
 
 .swipe-fallback__button--left {
-  border-color: var(--border-danger);
+  border-color: var(--danger);
 }
 
 .swipe-fallback__button--right {
-  border-color: var(--border-success);
+  border-color: var(--accent);
 }
 
 .swipe-fallback__button--correct,
 .swipe-fallback__button--reveal-correct {
-  border-color: var(--border-success);
-  background: var(--bg-success);
-  color: var(--text-success);
+  border-color: var(--accent);
+  background: var(--ok-dim);
+  color: var(--accent);
 }
 
 .swipe-fallback__button--wrong {
-  border-color: var(--border-danger);
-  background: var(--bg-danger);
-  color: var(--text-danger);
+  border-color: var(--danger);
+  background: var(--danger-dim);
+  color: var(--danger);
 }
 
 /* Live "you're about to pick this" preview while dragging — reuses the same
@@ -261,11 +261,11 @@
  * states above, at a lighter visual weight than a full commit, and never
  * shown once committed (see SwipeBinary.tsx's classFor). */
 .swipe-fallback__button--previewing.swipe-fallback__button--left {
-  background: var(--bg-danger);
+  background: var(--danger-dim);
 }
 
 .swipe-fallback__button--previewing.swipe-fallback__button--right {
-  background: var(--bg-success);
+  background: var(--ok-dim);
 }
 
 /* --- feedback panel ----------------------------------------------------- */
@@ -291,11 +291,11 @@
 }
 
 .feedback-panel--correct {
-  background: var(--bg-success);
+  background: var(--ok-dim);
 }
 
 .feedback-panel--wrong {
-  background: var(--bg-danger);
+  background: var(--danger-dim);
 }
 
 .feedback-panel__header {
@@ -307,13 +307,13 @@
 .feedback-panel--correct .feedback-panel__icon,
 .feedback-panel--correct .feedback-panel__verdict,
 .feedback-panel--correct .feedback-panel__delta {
-  color: var(--text-success);
+  color: var(--accent);
 }
 
 .feedback-panel--wrong .feedback-panel__icon,
 .feedback-panel--wrong .feedback-panel__verdict,
 .feedback-panel--wrong .feedback-panel__delta {
-  color: var(--text-danger);
+  color: var(--danger);
 }
 
 .feedback-panel__icon {
@@ -334,7 +334,7 @@
 
 .feedback-panel__explanation {
   margin: 0;
-  color: var(--text-primary);
+  color: var(--text-0);
   font-size: 0.9375rem;
   line-height: 1.45;
 }
@@ -344,10 +344,9 @@
   width: 100%;
   padding: 0.875rem 1rem;
   border: none;
-  border-bottom: 4px solid var(--primary-action-border);
   border-radius: 12px;
-  background: var(--primary-action-bg);
-  color: var(--primary-action-text);
+  background: var(--accent);
+  color: var(--accent-ink);
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;

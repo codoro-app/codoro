@@ -26,7 +26,7 @@
 
 .daily-page__status {
   text-align: center;
-  color: var(--text-muted);
+  color: var(--text-1);
   padding: 2rem 0;
 }
 
@@ -46,7 +46,7 @@
   text-align: center;
   font-size: var(--font-size-xl);
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--text-0);
 }
 
 .share-card {
@@ -55,14 +55,14 @@
   gap: var(--space-2);
   padding: var(--space-3-5) var(--space-4);
   border-radius: var(--radius-md);
-  background: var(--surface-card);
-  border: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
 }
 
 .share-card__text {
   margin: 0;
   font-size: var(--font-size-md);
-  color: var(--text-primary);
+  color: var(--text-0);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -71,9 +71,8 @@
   min-height: var(--tap-target-min);
   border: none;
   border-radius: var(--radius-sm);
-  background: var(--primary-action-bg);
-  border-bottom: 3px solid var(--primary-action-border);
-  color: var(--primary-action-text);
+  background: var(--accent);
+  color: var(--accent-ink);
   font-weight: 700;
   cursor: pointer;
 }
