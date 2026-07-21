@@ -15,6 +15,14 @@
  * puzzles share the same interaction type, so a full remount on every
  * puzzle change is required — confirmed safe by PuzzleCardShell's own doc
  * comment.
+ *
+ * Desktop (>=1024px) sidebar: the main practice view (not the loading/error/
+ * patterns/mastery-view branches) additionally renders `.app-shell__sidebar`
+ * with StatusBar + a backless MasteryView, gated on useMediaQuery so mobile
+ * mounts neither (no extra MasteryView attempt-fetch on phones). The mobile
+ * "Mastery" nav link is hidden at desktop widths since the sidebar already
+ * shows it persistently — a deliberate scope call for this phase (see the
+ * Phase 6.5 plan's Task 1 notes); it stays fully functional on mobile.
  */
 import { AnimatePresence, motion } from 'framer-motion'
 import { PuzzleCardShell } from './PuzzleCardShell'
@@ -22,6 +30,7 @@ import { StatusBar } from './StatusBar'
 import { PatternPicker } from './PatternPicker'
 import { MasteryView } from './MasteryView'
 import { usePracticeSession } from './usePracticeSession'
+import { useMediaQuery } from '../useMediaQuery'
 import { PATTERN_LABELS } from '../../content'
 import { useEffect, useState } from 'react'
 import './practicePage.css'
@@ -32,6 +41,7 @@ export function PracticePage() {
   const [view, setView] = useState<View>('practice')
   const session = usePracticeSession()
   const puzzleId = session.puzzle?.id
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
 
   // The page (not a nested container — practicePage.css has no overflow-y
   // scroll region) scrolls with whatever height the previous puzzle's
@@ -53,7 +63,7 @@ export function PracticePage() {
   // usePracticeSession's SessionStatus doc comment).
   if (session.status === 'error') {
     return (
-      <div className="practice-page">
+      <div className="practice-page app-shell__main">
         <p className="practice-page__status">
           We couldn&apos;t load your practice session. Please try again.
         </p>
@@ -66,7 +76,7 @@ export function PracticePage() {
 
   if (session.status === 'loading' || session.profile === null) {
     return (
-      <div className="practice-page">
+      <div className="practice-page app-shell__main">
         <p className="practice-page__status">Loading your practice session…</p>
       </div>
     )
@@ -74,7 +84,7 @@ export function PracticePage() {
 
   if (view === 'patterns') {
     return (
-      <div className="practice-page">
+      <div className="practice-page app-shell__main">
         <PatternPicker
           onSelect={(pattern) => {
             session.setPatternFilter(pattern)
@@ -90,7 +100,7 @@ export function PracticePage() {
 
   if (view === 'mastery') {
     return (
-      <div className="practice-page">
+      <div className="practice-page app-shell__main">
         <MasteryView
           onBack={() => {
             setView('practice')
@@ -101,60 +111,76 @@ export function PracticePage() {
   }
 
   return (
-    <div className="practice-page">
-      <StatusBar
-        rating={session.profile.rating}
-        streak={session.profile.streak.currentStreak}
-        combo={session.combo}
-        solvedThisSession={session.solvedThisSession}
-      />
+    <>
+      <div className="practice-page app-shell__main">
+        <StatusBar
+          rating={session.profile.rating}
+          streak={session.profile.streak.currentStreak}
+          combo={session.combo}
+          solvedThisSession={session.solvedThisSession}
+        />
 
-      <div className="practice-page__nav">
-        <button
-          type="button"
-          className="practice-page__link"
-          onClick={() => {
-            setView('patterns')
-          }}
-        >
-          {session.patternFilter
-            ? `Pattern: ${PATTERN_LABELS[session.patternFilter]}`
-            : 'Browse patterns'}
-        </button>
-        <button
-          type="button"
-          className="practice-page__link"
-          onClick={() => {
-            setView('mastery')
-          }}
-        >
-          Mastery
-        </button>
+        <div className="practice-page__nav">
+          <button
+            type="button"
+            className="practice-page__link"
+            onClick={() => {
+              setView('patterns')
+            }}
+          >
+            {session.patternFilter
+              ? `Pattern: ${PATTERN_LABELS[session.patternFilter]}`
+              : 'Browse patterns'}
+          </button>
+          {!isDesktop && (
+            <button
+              type="button"
+              className="practice-page__link"
+              onClick={() => {
+                setView('mastery')
+              }}
+            >
+              Mastery
+            </button>
+          )}
+        </div>
+
+        <p className="practice-page__version">codoro v0.0.1-test</p>
+
+        {session.status === 'empty' || session.puzzle === null ? (
+          <p className="practice-page__status">No puzzles available for this pattern yet.</p>
+        ) : (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={session.puzzle.id}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+            >
+              <PuzzleCardShell
+                key={session.puzzle.id}
+                puzzle={session.puzzle}
+                ratingDelta={session.ratingDelta}
+                onAnswered={session.handleAnswered}
+                onContinue={session.handleContinue}
+              />
+            </motion.div>
+          </AnimatePresence>
+        )}
       </div>
 
-      <p className="practice-page__version">codoro v0.0.1-test</p>
-
-      {session.status === 'empty' || session.puzzle === null ? (
-        <p className="practice-page__status">No puzzles available for this pattern yet.</p>
-      ) : (
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={session.puzzle.id}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 32 }}
-          >
-            <PuzzleCardShell
-              key={session.puzzle.id}
-              puzzle={session.puzzle}
-              ratingDelta={session.ratingDelta}
-              onAnswered={session.handleAnswered}
-              onContinue={session.handleContinue}
-            />
-          </motion.div>
-        </AnimatePresence>
+      {isDesktop && (
+        <aside className="app-shell__sidebar practice-page__sidebar">
+          <StatusBar
+            rating={session.profile.rating}
+            streak={session.profile.streak.currentStreak}
+            combo={session.combo}
+            solvedThisSession={session.solvedThisSession}
+          />
+          <MasteryView />
+        </aside>
       )}
-    </div>
+    </>
   )
 }

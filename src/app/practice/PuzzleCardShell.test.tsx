@@ -237,13 +237,18 @@ describe('PuzzleCardShell', () => {
   // `.token*` markup, but that markup is only useful if practice.css
   // actually colors it — otherwise every snippet renders in flat
   // --text-primary despite the highlighting work. Two layers of assertion:
-  // (1) real cascade resolution via getComputedStyle for the token classes
-  // that get literal hex colors (jsdom's CSSOM resolves those correctly —
-  // verified experimentally), and (2) a source-level check on practice.css
-  // for the classes styled via var(--text-muted), since jsdom's
-  // getComputedStyle does not resolve CSS custom properties (it returns the
-  // literal string "var(--text-muted)" instead of the computed color), which
-  // would make a getComputedStyle assertion on those classes unreliable.
+  // (1) getComputedStyle on the token classes styled via var(--syntax-*).
+  // jsdom's CSSOM does NOT resolve var() — it returns the literal unresolved
+  // reference string (e.g. "var(--syntax-keyword)") rather than a computed
+  // color (verified experimentally). That's still a useful assertion: since
+  // each token type resolves to a *different* var(--syntax-*) reference
+  // string, distinctness across keyword/string/number proves each token
+  // class maps to its own custom property rather than all sharing one. It
+  // does not prove the referenced custom property itself resolves to a
+  // sensible color at runtime. (2) a source-level check on practice.css for
+  // the classes styled via var(--text-muted), since a getComputedStyle
+  // assertion there would be equally unable to resolve the custom property
+  // and would just assert the same unresolved string back at itself.
   it('colors syntax-highlighted tokens instead of leaving them flat --text-primary', () => {
     const { container } = render(
       <PuzzleCardShell
@@ -275,11 +280,12 @@ describe('PuzzleCardShell', () => {
     expect(new Set([keywordColor, stringColor, numberColor]).size).toBe(3)
   })
 
-  it("practice.css defines dark-mode-aware color rules for every Prism token class this app's grammars emit", () => {
+  it("practice.css defines color rules for every Prism token class this app's grammars emit (with dark values in index.css)", () => {
     const css = readFileSync(practiceCssPath, 'utf-8')
 
-    // Literal-hex-color token classes (cross-checked with the
-    // getComputedStyle assertions above for keyword/string/number).
+    // Token-variable-based token classes (light and dark values now live in
+    // index.css via --syntax-* tokens, cross-checked with the getComputedStyle
+    // assertions above for keyword/string/number).
     for (const cls of [
       'keyword',
       'string',
@@ -290,7 +296,7 @@ describe('PuzzleCardShell', () => {
       'builtin',
     ]) {
       expect(css).toMatch(
-        new RegExp(`\\.token\\.${cls}[,\\s][\\s\\S]{0,120}?color:\\s*#[0-9a-fA-F]{6}`),
+        new RegExp(`\\.token\\.${cls}[,\\s][\\s\\S]{0,120}?color:\\s*var\\(--syntax-`),
       )
     }
 
@@ -301,14 +307,11 @@ describe('PuzzleCardShell', () => {
       /\.token\.punctuation,[\s\S]*?\.token\.operator\s*\{[^}]*color:\s*var\(--text-muted\)/,
     )
 
-    // A dark-mode override block exists (following index.css's established
-    // prefers-color-scheme convention) and recolors the literal-hex classes.
-    // The closing brace matched here is the one that starts a line (i.e.
-    // un-indented) — the first such brace after the opening one, since every
-    // rule nested inside the media block is indented.
-    const darkBlock = /@media \(prefers-color-scheme: dark\)\s*\{([\s\S]*?)\n\}/.exec(css)
-    expect(darkBlock).not.toBeNull()
-    expect(darkBlock?.[1]).toMatch(/\.token\.keyword\s*\{[^}]*color:\s*#[0-9a-fA-F]{6}/)
-    expect(darkBlock?.[1]).toMatch(/\.token\.string\s*\{[^}]*color:\s*#[0-9a-fA-F]{6}/)
+    // No dark-mode override block in practice.css (dark values now live in
+    // index.css's prefers-color-scheme: dark block, driving the same
+    // var(--syntax-*) references automatically).
+    const darkBlockInPracticeCSS =
+      /@media \(prefers-color-scheme: dark\)\s*\{([\s\S]*?)\.token\.keyword/.exec(css)
+    expect(darkBlockInPracticeCSS).toBeNull()
   })
 })

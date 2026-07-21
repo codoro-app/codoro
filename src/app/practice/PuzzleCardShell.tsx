@@ -6,9 +6,10 @@
  * concerns (b) and (d) build against; see the Phase 4 concern-a report for
  * the full rationale.
  *
- * Design system rule: no box-shadow anywhere. The Continue button's
- * Duolingo-style "3D" press uses a border-bottom "lip" instead — see
- * practice.css.
+ * Elevation: box-shadow is allowed for chrome regions only (nav rail,
+ * right-panel sidebar) via --shadow-card — see src/index.css's token doc
+ * comment. The Continue button's Duolingo-style "3D" press uses a
+ * border-bottom "lip" instead to stay flat — see practice.css.
  */
 import { useState } from 'react'
 import type { Puzzle } from '../../content'

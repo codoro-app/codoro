@@ -2,6 +2,11 @@
  * Per-pattern mastery view: fetches the full attempt history, runs it
  * through mastery.ts's pure computeMastery, and renders one row per pattern
  * (label, accuracy or "not enough data", attempt count considered).
+ *
+ * `onBack` is optional: the mobile "Mastery" nav view (PracticePage) passes
+ * it to return to the practice view; the desktop always-visible sidebar
+ * copy (PracticePage/DailyPage, >=1024px) omits it since there's nowhere to
+ * "go back" from a persistent panel — the header simply drops the button.
  */
 import { useEffect, useRef, useState } from 'react'
 import { listAttempts } from '../../storage'
@@ -12,7 +17,7 @@ import type { PatternMastery } from './mastery'
 import './practicePage.css'
 
 export interface MasteryViewProps {
-  onBack: () => void
+  onBack?: () => void
 }
 
 export function MasteryView({ onBack }: MasteryViewProps) {
@@ -37,9 +42,11 @@ export function MasteryView({ onBack }: MasteryViewProps) {
   return (
     <div className="mastery-view">
       <div className="mastery-view__header">
-        <button type="button" className="practice-page__link" onClick={onBack}>
-          ← Back
-        </button>
+        {onBack && (
+          <button type="button" className="practice-page__link" onClick={onBack}>
+            ← Back
+          </button>
+        )}
         <h2 className="mastery-view__title">Mastery by pattern</h2>
       </div>
 

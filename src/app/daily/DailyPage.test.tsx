@@ -36,7 +36,7 @@ vi.mock('../../storage', async (importOriginal) => {
 
 vi.mock('../../telemetry', () => ({ trackAttempt: vi.fn(), trackError: vi.fn() }))
 
-const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
+const { loadProfile, saveProfile, appendAttempt, listAttempts, createDefaultProfile } =
   await import('../../storage')
 const { DailyPage } = await import('./DailyPage')
 
@@ -46,6 +46,7 @@ describe('DailyPage', () => {
     vi.mocked(loadProfile).mockResolvedValue(createDefaultProfile())
     vi.mocked(saveProfile).mockResolvedValue(undefined)
     vi.mocked(appendAttempt).mockResolvedValue(undefined)
+    vi.mocked(listAttempts).mockResolvedValue([])
   })
 
   it("renders today's puzzle without a share card before any attempt", async () => {
@@ -81,5 +82,30 @@ describe('DailyPage', () => {
     await waitFor(() => {
       expect(screen.getByText(/Copied!/i)).toBeInTheDocument()
     })
+  })
+
+  it('shows a desktop sidebar (rating/streak pills + mastery) at >=1024px, without navigating', async () => {
+    // Same mockMatchMedia shape as useMediaQuery.test.ts — reports a match
+    // for every query, standing in for a >=1024px viewport.
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({
+        matches: true,
+        media: '(min-width: 1024px)',
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    )
+
+    render(<DailyPage />)
+    await waitFor(() => {
+      expect(screen.getByText(/Codoro Daily #/)).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Mastery by pattern')).toBeInTheDocument()
+    expect(screen.getAllByText('1200').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('0').length).toBeGreaterThan(0)
+
+    vi.unstubAllGlobals()
   })
 })
