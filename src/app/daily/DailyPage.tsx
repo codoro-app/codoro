@@ -85,7 +85,7 @@ export function DailyPage() {
               <span>{session.profile.streak.currentStreak}</span>
             </div>
           </div>
-          <MasteryView />
+          <MasteryView refreshKey={session.attemptVersion} />
         </aside>
       )}
     </>

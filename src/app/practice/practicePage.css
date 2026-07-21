@@ -214,9 +214,22 @@
   justify-content: space-between;
   gap: var(--space-2);
   min-height: var(--tap-target-min);
+  width: 100%;
   padding: var(--space-2-5) var(--space-4);
   border-radius: var(--radius-md);
   background: var(--surface-0);
+}
+
+/* Rows are a <button> only when the mastery panel is interactive
+   (PracticePage passes onSelectPattern; DailyPage doesn't) — reset the
+   button-specific browser defaults .mastery-row doesn't already cover, same
+   look either way. */
+button.mastery-row {
+  border: none;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
 }
 
 .mastery-row__label {

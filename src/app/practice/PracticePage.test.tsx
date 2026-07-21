@@ -6,6 +6,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PATTERN_LABELS } from '../../content'
 import { nth } from '../../test/nth'
+import type { Attempt } from '../../storage'
 
 const practicePagePath = join(dirname(fileURLToPath(import.meta.url)), 'PracticePage.tsx')
 
@@ -187,6 +188,105 @@ describe('PracticePage', () => {
     await waitFor(() => {
       expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
     })
+  })
+
+  it('regression: mastery panel and session counter update immediately after an answer, no refresh (desktop sidebar)', async () => {
+    // Stateful storage stand-in: appendAttempt records into the same array
+    // listAttempts reads back from, so a real refetch (and only a real
+    // refetch) can observe the new attempt — this is what distinguishes the
+    // bug (MasteryView fetches once on mount and never again) from a fix.
+    const attemptsStore: Attempt[] = []
+    vi.mocked(appendAttempt).mockImplementation((attempt) => {
+      attemptsStore.push(attempt)
+      return Promise.resolve()
+    })
+    vi.mocked(listAttempts).mockImplementation(() => Promise.resolve([...attemptsStore]))
+
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({
+        matches: true,
+        media: '(min-width: 1024px)',
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    )
+
+    const user = userEvent.setup()
+    render(<PracticePage />)
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+
+    // Sums every mastery row's "N attempts" count — pattern-agnostic since
+    // selectNext serves from a real (unmocked) rng, so which pattern the
+    // served puzzle belongs to isn't fixed across runs.
+    const totalMasteryAttempts = () =>
+      Array.from(document.querySelectorAll('.mastery-row__count')).reduce((sum, el) => {
+        const match = /\d+/.exec(el.textContent)
+        return sum + (match ? Number(match[0]) : 0)
+      }, 0)
+
+    // Before answering: sidebar shows 0 solved and no attempts recorded yet.
+    expect(screen.getAllByText(/0 solved this session/i).length).toBeGreaterThan(0)
+    await waitFor(() => {
+      expect(screen.queryByText(/loading mastery/i)).not.toBeInTheDocument()
+    })
+    expect(totalMasteryAttempts()).toBe(0)
+
+    await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/1 solved this session/i).length).toBeGreaterThan(0)
+    })
+    await waitFor(() => {
+      expect(totalMasteryAttempts()).toBe(1)
+    })
+
+    vi.unstubAllGlobals()
+  })
+
+  it('clicking a mastery row starts practicing that pattern (mobile "Mastery" view)', async () => {
+    const user = userEvent.setup()
+    render(<PracticePage />)
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /^mastery$/i }))
+    await waitFor(() => {
+      expect(screen.getByText(/mastery by pattern/i)).toBeInTheDocument()
+    })
+
+    const row = screen.getByText(PATTERN_LABELS['null-undefined']).closest('button')
+    expect(row).not.toBeNull()
+    await user.click(row as HTMLElement)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /pattern: null/i })).toBeInTheDocument()
+    })
+    // Back on the practice view, not stuck on the mastery view.
+    expect(screen.queryByText(/mastery by pattern/i)).not.toBeInTheDocument()
+  })
+
+  it('an interactive mastery row is a real <button> (keyboard-focusable, carries the tap-target-min sizing class)', async () => {
+    const user = userEvent.setup()
+    render(<PracticePage />)
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /^mastery$/i }))
+    await waitFor(() => {
+      expect(screen.getByText(/mastery by pattern/i)).toBeInTheDocument()
+    })
+
+    const row = screen.getByText(PATTERN_LABELS['off-by-one']).closest('button')
+    expect(row).not.toBeNull()
+    expect(row?.tagName).toBe('BUTTON')
+    expect(row).toHaveClass('mastery-row')
+    row?.focus()
+    expect(row).toHaveFocus()
   })
 
   it('shows a desktop sidebar (rating + mastery) alongside the practice view at >=1024px, without any click', async () => {
