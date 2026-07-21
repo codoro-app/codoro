@@ -127,35 +127,41 @@ export function PracticePage() {
           />
         )}
 
-        {!isDesktop && (
-          <div className="practice-page__nav">
-            <button
-              type="button"
-              className="practice-page__browse"
-              onClick={() => {
-                setView('patterns')
-              }}
+        {/* Browse-patterns stays reachable at every width — NavRail (desktop)
+            has no visibility into this page's internal `view` state, so it
+            cannot deep-link into the pattern picker itself; this remains the
+            one working entry point on both mobile and desktop. Mastery stays
+            mobile-only since desktop already shows it persistently in the
+            sidebar (below). */}
+        <div className="practice-page__nav">
+          <button
+            type="button"
+            className="practice-page__browse"
+            onClick={() => {
+              setView('patterns')
+            }}
+          >
+            <span>
+              {session.patternFilter
+                ? `Pattern: ${PATTERN_LABELS[session.patternFilter]}`
+                : 'Browse patterns'}
+            </span>
+            <svg
+              aria-hidden="true"
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--accent)"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              <span>
-                {session.patternFilter
-                  ? `Pattern: ${PATTERN_LABELS[session.patternFilter]}`
-                  : 'Browse patterns'}
-              </span>
-              <svg
-                aria-hidden="true"
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="var(--accent)"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="5" y1="12" x2="19" y2="12" />
-                <polyline points="12 5 19 12 12 19" />
-              </svg>
-            </button>
+              <line x1="5" y1="12" x2="19" y2="12" />
+              <polyline points="12 5 19 12 12 19" />
+            </svg>
+          </button>
+          {!isDesktop && (
             <button
               type="button"
               className="practice-page__link"
@@ -165,8 +171,8 @@ export function PracticePage() {
             >
               Mastery
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
         {session.status === 'empty' || session.puzzle === null ? (
           <p className="practice-page__status">No puzzles available for this pattern yet.</p>

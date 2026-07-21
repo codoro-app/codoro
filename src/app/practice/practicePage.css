@@ -63,8 +63,10 @@
 }
 
 /* Entry-point "Browse patterns" affordance — a bordered button, not a bare
-   text link (matches the reference's designed affordance, both here on
-   mobile and in NavRail.tsx's rail-bottom instance on desktop). */
+   text link (matches the reference's designed affordance). Visible at every
+   width: NavRail can't deep-link into this page's internal view state (see
+   NavRail.tsx's doc comment), so this is the one working entry point on
+   both mobile and desktop, not just mobile. */
 .practice-page__browse {
   display: flex;
   align-items: center;
