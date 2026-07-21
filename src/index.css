@@ -1,41 +1,21 @@
 /*
- * Design tokens (CSS custom properties) — established here in Phase 4 for
- * PuzzleCardShell + its interaction bodies, reused by later phases (Daily,
- * Rush) and by concern (d)'s rating/streak pills. No in-repo theme toggle
- * exists yet, so `prefers-color-scheme` alone drives light/dark — swap for
- * a `data-theme` attribute override later if a manual toggle is added.
+ * Design tokens (CSS custom properties). Every color/spacing/radius/type
+ * value any feature CSS file needs lives here as a named custom property —
+ * no other file may hardcode a literal color, and spacing/type/radius
+ * values should prefer a token over a bare literal too. This is what makes
+ * a future palette or scale pass a `:root` edit instead of a file-by-file
+ * hunt (see the Phase 6.5 plan).
  *
- * Values are Duolingo-inspired, not lifted from a design file, and were
- * contrast-checked (WCAG 2.1 relative-luminance formula) for the pairings
- * this phase actually renders text/icons against:
- *   - --text-primary on --surface-card (light): ~10.7:1
- *   - --text-muted on --surface-card/--surface-0 (light): ~4.8:1 (AA)
- *   - --primary-action-text (white) on --primary-action-bg (light): ~5.1:1 (AA)
- *   - --primary-action-text (white) on --primary-action-bg (dark): ~5.4:1 (AA)
- *   - --text-success on --bg-success / --text-danger on --bg-danger (both
- *     modes): >=7:1
- * Duolingo's literal signature green (#58CC02) was intentionally NOT used
- * for --primary-action-bg — with white button text it measures ~2.1:1,
- * well under AA. --primary-action-border keeps a brighter, more saturated
- * green since it's a thin decorative "lip", not a text-contrast surface.
- * --accent/--warning (rating + streak pills) are owned visually by concern
- * (d); pick a text color at build time that clears AA against them.
- *
- * Concern (d) contrast check for --pill-text (#14202b, a near-black navy)
- * against --accent/--warning, WCAG relative-luminance formula. --accent and
- * --warning are the same values in both light and dark mode (light mode's
- * --warning #ff9600 is the sole exception), so --pill-text is one fixed
- * color used in both themes rather than a per-theme pair:
- *   - --pill-text on --accent (#1cb0f6, both modes): ~7.1:1 (AA)
- *   - --pill-text on --warning light (#ff9600): ~8.0:1 (AA)
- *   - --pill-text on --warning dark (#ffc800): ~11.2:1 (AA)
- * White text was checked first and rejected: it measures ~2.2-2.4:1 against
- * --accent and light --warning, and ~1.6:1 against dark --warning — well
- * under AA in every pairing.
+ * Palette values below are still the Phase 4 Duolingo-inspired ones as of
+ * this commit — Task 3 of the Phase 6.5 plan swaps the *values* to a new,
+ * dark-first, non-Duolingo palette without renaming anything here. See that
+ * commit for the new contrast-check numbers.
  */
 :root {
+  /* --- color: surfaces / text / borders --- */
   --surface-card: #ffffff;
   --surface-0: #eef0f2;
+  --surface-raised: #eef0f2;
   --text-primary: #3c3c3c;
   --text-muted: #6b7280;
   --border-subtle: #e5e7eb;
@@ -56,14 +36,59 @@
   --primary-action-border: #1b5e20;
   --primary-action-text: #ffffff;
 
+  /* --- color: syntax highlighting (Prism .token* classes) --- */
+  --syntax-keyword: #cf222e;
+  --syntax-string: #116329;
+  --syntax-function: #6639ba;
+  --syntax-type: #953800;
+  --syntax-literal: #0550ae;
+  --syntax-meta: #0e7490;
+
+  /* --- elevation --- */
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.1), 0 1px 2px rgba(15, 23, 42, 0.06);
+
+  /* --- spacing scale --- */
+  --space-px: 0.0625rem;
+  --space-1: 0.25rem;
+  --space-1-5: 0.375rem;
+  --space-2: 0.5rem;
+  --space-2-5: 0.625rem;
+  --space-3: 0.75rem;
+  --space-3-5: 0.875rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  /* --- type scale (font-size) --- */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.8125rem;
+  --font-size-base: 0.875rem;
+  --font-size-md: 0.9375rem;
+  --font-size-lg: 1rem;
+  --font-size-xl: 1.125rem;
+  --font-size-2xl: 1.25rem;
+
+  /* --- radius --- */
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+
+  /* --- tap targets (mobile-first minimum, never shrink below this) --- */
+  --tap-target-min: 44px;
+
+  /* --- shell layout widths --- */
   --nav-rail-width: 240px;
   --sidebar-width: 320px;
+  --content-width-mobile: 480px;
+  --content-width-desktop: 720px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --surface-card: #1f2c34;
     --surface-0: #141f24;
+    --surface-raised: #24333c;
     --text-primary: #e8e8e8;
     --text-muted: #8b98a3;
     --border-subtle: #2b3940;
@@ -82,6 +107,15 @@
     --primary-action-bg: #217a30;
     --primary-action-border: #164f20;
     --primary-action-text: #ffffff;
+
+    --syntax-keyword: #ff7b72;
+    --syntax-string: #7ee787;
+    --syntax-function: #d2a8ff;
+    --syntax-type: #ffa657;
+    --syntax-literal: #79c0ff;
+    --syntax-meta: #56d4dd;
+
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
   }
 }
 

@@ -7,12 +7,18 @@
 .daily-page {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-4);
   width: 100%;
-  max-width: 480px;
+  max-width: var(--content-width-mobile);
   margin: 0 auto;
-  padding: calc(1rem + env(safe-area-inset-top)) 1rem 1rem;
+  padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--space-4) var(--space-4);
   box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+  .daily-page {
+    max-width: var(--content-width-desktop);
+  }
 }
 
 .daily-page__status {
@@ -22,12 +28,12 @@
 }
 
 .daily-page__link {
-  min-height: 44px;
-  padding: 0.5rem 0.75rem;
+  min-height: var(--tap-target-min);
+  padding: var(--space-2) var(--space-3);
   border: none;
   background: transparent;
   color: var(--accent);
-  font-size: 0.9375rem;
+  font-size: var(--font-size-md);
   font-weight: 600;
   cursor: pointer;
 }
@@ -35,7 +41,7 @@
 .daily-page__heading {
   margin: 0;
   text-align: center;
-  font-size: 1.125rem;
+  font-size: var(--font-size-lg);
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -43,25 +49,25 @@
 .share-card {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.875rem 1rem;
-  border-radius: 0.75rem;
+  gap: var(--space-2);
+  padding: var(--space-3-5) var(--space-4);
+  border-radius: var(--radius-md);
   background: var(--surface-card);
   border: 1px solid var(--border-subtle);
 }
 
 .share-card__text {
   margin: 0;
-  font-size: 0.9375rem;
+  font-size: var(--font-size-md);
   color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .share-card__button {
-  min-height: 44px;
+  min-height: var(--tap-target-min);
   border: none;
-  border-radius: 0.5rem;
+  border-radius: var(--space-2);
   background: var(--primary-action-bg);
   border-bottom: 3px solid var(--primary-action-border);
   color: var(--primary-action-text);

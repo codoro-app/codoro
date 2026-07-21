@@ -9,18 +9,18 @@
 .puzzle-card {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-4);
   width: 100%;
-  max-width: 480px;
+  max-width: var(--content-width-mobile);
   margin: 0 auto;
-  padding: 1rem;
+  padding: var(--space-4);
   box-sizing: border-box;
 }
 
 .puzzle-card__prompt {
   margin: 0;
   text-align: center;
-  font-size: 1.0625rem;
+  font-size: var(--font-size-xl);
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -35,14 +35,14 @@
 .code-snippet {
   position: relative;
   background: var(--surface-0);
-  border-radius: 12px;
-  padding: 0.625rem 0;
+  border-radius: var(--radius-md);
+  padding: var(--space-2-5) 0;
   overflow-x: auto;
   font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
   /* CodeSnippet.tsx measures the widest line and sets this custom property
    * (down to a floor) so most snippets shrink to fit instead of overflowing
    * with only a scrollbar as the affordance — see its own doc comment. */
-  font-size: calc(0.8125rem * var(--code-snippet-font-scale, 1));
+  font-size: calc(var(--font-size-sm) * var(--code-snippet-font-scale, 1));
   line-height: 1.5;
 }
 
@@ -56,18 +56,18 @@
   top: 0;
   right: 0;
   bottom: 0;
-  width: 1.5rem;
+  width: var(--space-6);
   background: linear-gradient(to right, transparent, var(--surface-0));
   pointer-events: none;
-  border-radius: 0 12px 12px 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
 .code-snippet__line {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-3);
   width: 100%;
-  padding: 0.0625rem 1rem;
+  padding: var(--space-px) var(--space-4);
   white-space: pre;
   text-align: left;
   border: none;
@@ -78,11 +78,11 @@
 
 .code-snippet__line--interactive {
   cursor: pointer;
-  min-height: 44px;
+  min-height: var(--tap-target-min);
 }
 
 .code-snippet__line-number {
-  min-width: 1.5rem;
+  min-width: var(--space-6);
   flex-shrink: 0;
   text-align: right;
   color: var(--text-muted);
@@ -101,32 +101,21 @@
   background: var(--bg-success);
 }
 
-/* --- syntax highlighting (Prism .token* classes, see highlightSnippet.ts) --
- * Class names below are the ones actually emitted by the prismjs core
- * (markup/css/clike/javascript) plus the python/java/c grammars this app
- * loads, confirmed against every snippet in src/content/puzzles/**. Colors
- * are grouped by role (keyword / string / call-like / type-like / literal /
- * de-emphasized / meta) and contrast-checked (WCAG relative-luminance
- * formula) against --surface-0, the background .code-snippet renders on:
- * every color below clears >=4.6:1 in both light and dark. Comment,
- * punctuation, and operator reuse --text-muted instead of a new hardcoded
- * color since they're already de-emphasized the same way muted UI text is,
- * and it means they pick up index.css's dark override for free. */
 .token.keyword {
-  color: #cf222e;
+  color: var(--syntax-keyword);
 }
 
 .token.string {
-  color: #116329;
+  color: var(--syntax-string);
 }
 
 .token.function {
-  color: #6639ba;
+  color: var(--syntax-function);
 }
 
 .token.class-name,
 .token.builtin {
-  color: #953800;
+  color: var(--syntax-type);
 }
 
 .token.number,
@@ -134,7 +123,7 @@
 .token.constant,
 .token.property,
 .token.literal-property {
-  color: #0550ae;
+  color: var(--syntax-literal);
 }
 
 .token.comment {
@@ -153,43 +142,7 @@
 .token.directive,
 .token.directive-hash,
 .token.generics {
-  color: #0e7490;
-}
-
-@media (prefers-color-scheme: dark) {
-  .token.keyword {
-    color: #ff7b72;
-  }
-
-  .token.string {
-    color: #7ee787;
-  }
-
-  .token.function {
-    color: #d2a8ff;
-  }
-
-  .token.class-name,
-  .token.builtin {
-    color: #ffa657;
-  }
-
-  .token.number,
-  .token.boolean,
-  .token.constant,
-  .token.property,
-  .token.literal-property {
-    color: #79c0ff;
-  }
-
-  .token.parameter,
-  .token.annotation,
-  .token.macro,
-  .token.directive,
-  .token.directive-hash,
-  .token.generics {
-    color: #56d4dd;
-  }
+  color: var(--syntax-meta);
 }
 
 /* --- mcq -------------------------------------------------------------- */
@@ -197,18 +150,18 @@
 .mcq-choices {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .mcq-choice {
-  min-height: 44px;
+  min-height: var(--tap-target-min);
   width: 100%;
-  padding: 0.75rem 1rem;
-  border-radius: 12px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
   border: 2px solid var(--border-subtle);
   background: var(--surface-card);
   color: var(--text-primary);
-  font-size: 0.9375rem;
+  font-size: var(--font-size-md);
   text-align: left;
   cursor: pointer;
 }
@@ -235,20 +188,20 @@
 .swipe-fallback {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 
 .swipe-fallback__hint {
   margin: 0;
   text-align: center;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-sm);
   color: var(--text-muted);
 }
 
 .swipe-fallback__card {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--space-3);
   /* The whole card (snippet + buttons) doubles as the @use-gesture drag
    * surface (see SwipeBinary.tsx) — Tinder-style, not just the buttons row.
    * The practice card sits in a vertically-scrolling page while the drag
@@ -261,19 +214,19 @@
 
 .swipe-fallback__buttons {
   display: flex;
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 
 .swipe-fallback__button {
   flex: 1;
-  min-height: 44px;
-  padding: 0.75rem 0.5rem;
-  border-radius: 12px;
+  min-height: var(--tap-target-min);
+  padding: var(--space-3) var(--space-2);
+  border-radius: var(--radius-md);
   border: 2px solid var(--border-subtle);
   background: var(--surface-card);
   color: var(--text-primary);
   font-weight: 600;
-  font-size: 0.9375rem;
+  font-size: var(--font-size-md);
   cursor: pointer;
 }
 
