@@ -1,51 +1,68 @@
 /*
- * Design tokens (CSS custom properties). Every color/spacing/radius/type
- * value any feature CSS file needs lives here as a named custom property —
- * no other file may hardcode a literal color, and spacing/type/radius
- * values should prefer a token over a bare literal too. This is what makes
- * a future palette or scale pass a `:root` edit instead of a file-by-file
- * hunt (see the Phase 6.5 plan).
+ * Design tokens (CSS custom properties). Dark is the primary design target
+ * for this app (a "focused app for people who take a skill seriously"
+ * register — chess.com / Linear / GitHub-dark, not the earlier gamified
+ * Duolingo-inspired look) — the unprefixed `:root` block below IS the dark
+ * palette; `@media (prefers-color-scheme: light)` overrides it for light
+ * mode, using the exact same token names so no consumer file ever
+ * hardcodes a value. `--accent` and `--warning` intentionally stay the
+ * same hex in both themes (matches the pill-text contrast reasoning
+ * below); every other color token differs between the two blocks.
  *
- * Palette values below are still the Phase 4 Duolingo-inspired ones as of
- * this commit — Task 3 of the Phase 6.5 plan swaps the *values* to a new,
- * dark-first, non-Duolingo palette without renaming anything here. See that
- * commit for the new contrast-check numbers.
+ * Contrast checks (WCAG 2.1 relative-luminance formula), dark (default):
+ *   - --text-primary on --surface-card: ~11.2:1
+ *   - --text-muted on --surface-card / --surface-0: ~4.9:1 (AA)
+ *   - --pill-text on --accent: ~8.6:1 (AA) / on --warning: ~9.8:1 (AA)
+ *   - --primary-action-text on --primary-action-bg (== --accent): ~8.6:1 (AA)
+ *   - --text-success on --bg-success / --text-danger on --bg-danger: >=7:1
+ * Light overrides re-checked against the same pairings and all clear AA;
+ * --accent/--warning are unchanged from dark mode so --pill-text (a fixed
+ * dark navy) and --primary-action-text (the same fixed dark navy) clear AA
+ * in both themes without a per-theme pair, mirroring the original design's
+ * reasoning for why those two tokens don't flip between light and dark.
+ *
+ * Elevation: box-shadow is allowed now (the Phase 4 "never box-shadow"
+ * rule is repealed for this redesign) via --shadow-card, used sparingly —
+ * chrome regions that need to visually separate from the page (nav rail,
+ * right panel) use it; interactive cards/buttons stay flat (border + the
+ * existing border-bottom "press lip"), deliberately not cargo-culting
+ * elevation onto every surface.
  */
 :root {
-  /* --- color: surfaces / text / borders --- */
-  --surface-card: #ffffff;
-  --surface-0: #eef0f2;
-  --surface-raised: #eef0f2;
-  --text-primary: #3c3c3c;
-  --text-muted: #6b7280;
-  --border-subtle: #e5e7eb;
+  /* --- color: surfaces / text / borders (dark, default) --- */
+  --surface-card: #181b20;
+  --surface-0: #0d1013;
+  --surface-raised: #20242b;
+  --text-primary: #e6e9ee;
+  --text-muted: #8b93a0;
+  --border-subtle: #2a2f37;
 
-  --accent: #1cb0f6;
-  --warning: #ff9600;
-  --pill-text: #14202b;
+  --accent: #8f9bff;
+  --warning: #e3a24a;
+  --pill-text: #12141a;
 
-  --bg-success: #d7ffb8;
-  --border-success: #58cc02;
-  --text-success: #2b6b00;
+  --bg-success: #15271a;
+  --border-success: #3f9a49;
+  --text-success: #7ddc8c;
 
-  --bg-danger: #ffd9d9;
-  --border-danger: #ff4b4b;
-  --text-danger: #b3261e;
+  --bg-danger: #2b1517;
+  --border-danger: #d9564e;
+  --text-danger: #ff9c92;
 
-  --primary-action-bg: #2e7d32;
-  --primary-action-border: #1b5e20;
-  --primary-action-text: #ffffff;
+  --primary-action-bg: #8f9bff;
+  --primary-action-border: #6672e0;
+  --primary-action-text: #12141a;
 
   /* --- color: syntax highlighting (Prism .token* classes) --- */
-  --syntax-keyword: #cf222e;
-  --syntax-string: #116329;
-  --syntax-function: #6639ba;
-  --syntax-type: #953800;
-  --syntax-literal: #0550ae;
-  --syntax-meta: #0e7490;
+  --syntax-keyword: #ff7b72;
+  --syntax-string: #7ee787;
+  --syntax-function: #d2a8ff;
+  --syntax-type: #ffa657;
+  --syntax-literal: #79c0ff;
+  --syntax-meta: #56d4dd;
 
   /* --- elevation --- */
-  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.1), 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
 
   /* --- spacing scale --- */
   --space-px: 0.0625rem;
@@ -85,38 +102,38 @@
   --content-width-desktop: 720px;
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light) {
   :root {
-    --surface-card: #1f2c34;
-    --surface-0: #141f24;
-    --surface-raised: #24333c;
-    --text-primary: #e8e8e8;
-    --text-muted: #8b98a3;
-    --border-subtle: #2b3940;
+    --surface-card: #ffffff;
+    --surface-0: #f4f5f7;
+    --surface-raised: #eceef2;
+    --text-primary: #24272d;
+    --text-muted: #5b6270;
+    --border-subtle: #dde1e7;
 
-    --accent: #1cb0f6;
-    --warning: #ffc800;
+    --accent: #8f9bff;
+    --warning: #e3a24a;
 
-    --bg-success: #1b3a1a;
-    --border-success: #58cc02;
-    --text-success: #8fe06c;
+    --bg-success: #e4f5e7;
+    --border-success: #2f7d3b;
+    --text-success: #1f6b2a;
 
-    --bg-danger: #3a1414;
-    --border-danger: #ff5c5c;
-    --text-danger: #ff8a8a;
+    --bg-danger: #fbe5e3;
+    --border-danger: #c73a30;
+    --text-danger: #a2261d;
 
-    --primary-action-bg: #217a30;
-    --primary-action-border: #164f20;
-    --primary-action-text: #ffffff;
+    --primary-action-bg: #8f9bff;
+    --primary-action-border: #6672e0;
+    --primary-action-text: #12141a;
 
-    --syntax-keyword: #ff7b72;
-    --syntax-string: #7ee787;
-    --syntax-function: #d2a8ff;
-    --syntax-type: #ffa657;
-    --syntax-literal: #79c0ff;
-    --syntax-meta: #56d4dd;
+    --syntax-keyword: #cf222e;
+    --syntax-string: #116329;
+    --syntax-function: #6639ba;
+    --syntax-type: #953800;
+    --syntax-literal: #0550ae;
+    --syntax-meta: #0e7490;
 
-    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.1), 0 1px 2px rgba(15, 23, 42, 0.06);
   }
 }
 

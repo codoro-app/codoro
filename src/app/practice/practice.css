@@ -2,8 +2,9 @@
  * PuzzleCardShell + interaction-body styles. Mobile-first at 375px: all tap
  * targets are >=44px tall, the snippet scrolls horizontally on overflow
  * rather than wrapping. Duolingo-style "3D" press effect uses
- * border-bottom, never box-shadow (design-system rule — see
- * PuzzleCardShell.tsx's module doc).
+ * border-bottom. Elevation: box-shadow is allowed for chrome regions only
+ * (nav rail, right-panel sidebar) via --shadow-card — see src/index.css's
+ * token doc comment. Interactive cards/buttons stay flat (border + press-lip).
  */
 
 .puzzle-card {

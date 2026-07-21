@@ -1,7 +1,9 @@
 /*
  * App-shell-level chrome: the mode switcher. Same design-system rules as
- * practicePage.css/dailyPage.css: no box-shadow anywhere, >=44px tap
- * targets.
+ * practicePage.css/dailyPage.css: Elevation: box-shadow is allowed for
+ * chrome regions only (nav rail, right-panel sidebar) via --shadow-card —
+ * see src/index.css's token doc comment. Interactive cards/buttons stay
+ * flat (border + press-lip). >=44px tap targets.
  */
 
 .mode-switcher {
@@ -93,6 +95,7 @@
   box-sizing: border-box;
   background: var(--surface-raised);
   border-right: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-card);
 }
 
 .nav-rail__logo {

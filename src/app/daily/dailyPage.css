@@ -1,7 +1,10 @@
 /*
  * Daily-page-level chrome: page layout, heading, and the share card.
- * Same design-system rules as practicePage.css: no box-shadow anywhere,
- * mobile-first, >=44px tap targets.
+ * Same design-system rules as practicePage.css: Elevation: box-shadow is
+ * allowed for chrome regions only (nav rail, right-panel sidebar) via
+ * --shadow-card — see src/index.css's token doc comment. Interactive
+ * cards/buttons stay flat (border + press-lip). Mobile-first, >=44px tap
+ * targets.
  */
 
 .daily-page {
