@@ -49,7 +49,7 @@ export default defineConfig({
         // Puzzle content is bundled into the JS chunks (see src/content/index.ts's
         // import.meta.glob), so the default JS/CSS/HTML/image globs below already
         // precache app shell + content together — no separate content fetch to cache.
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
         navigateFallback: '/index.html',
         cleanupOutdatedCaches: true,
       },
