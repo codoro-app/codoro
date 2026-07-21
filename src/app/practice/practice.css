@@ -358,8 +358,9 @@
 }
 
 /* The Duolingo "3D" press: push the button down and shrink its
-   border-bottom "lip" instead of using box-shadow (forbidden by the design
-   system). border-bottom-width dropping keeps the button's outer box the
+   border-bottom "lip". This button stays flat (no box-shadow) even though
+   elevation is now allowed for chrome regions — see src/index.css's token
+   doc comment. border-bottom-width dropping keeps the button's outer box the
    same total height, so the surrounding layout doesn't jump. */
 .feedback-panel__continue:active {
   transform: translateY(3px);

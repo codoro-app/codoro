@@ -1,7 +1,8 @@
 /*
  * Shared styles for UpdatePrompt and IosInstallSheet — both are fixed
- * bottom overlays, so they share layout/token choices. No box-shadow
- * (design-system rule, see practice.css), >=44px tap targets, Duolingo
+ * bottom overlays, so they share layout/token choices. These stay flat
+ * (no box-shadow) even though elevation is allowed for chrome regions —
+ * see src/index.css's token doc comment. >=44px tap targets. Duolingo
  * "3D press" button treatment reused from practice.css's feedback panel.
  */
 
