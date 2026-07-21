@@ -35,7 +35,7 @@ export function AppShell({ mode, onModeChange, children }: AppShellProps) {
       <div className="app-shell__rail">
         <NavRail mode={mode} onChange={onModeChange} />
       </div>
-      <div className="app-shell__content">{children}</div>
+      <main className="app-shell__content">{children}</main>
     </div>
   )
 }
