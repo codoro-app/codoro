@@ -66,4 +66,14 @@ describe('MasteryView', () => {
     await user.click(screen.getByRole('button', { name: /back/i }))
     expect(onBack).toHaveBeenCalledTimes(1)
   })
+
+  it('renders without a back button when onBack is omitted', async () => {
+    listAttemptsMock.mockResolvedValue([])
+    render(<MasteryView />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Mastery by pattern')).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: /back/i })).not.toBeInTheDocument()
+  })
 })

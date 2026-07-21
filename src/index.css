@@ -55,6 +55,9 @@
   --primary-action-bg: #2e7d32;
   --primary-action-border: #1b5e20;
   --primary-action-text: #ffffff;
+
+  --nav-rail-width: 240px;
+  --sidebar-width: 320px;
 }
 
 @media (prefers-color-scheme: dark) {

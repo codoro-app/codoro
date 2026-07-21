@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { nth } from '../test/nth'
 
 vi.mock('../storage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../storage')>()
@@ -31,7 +32,10 @@ describe('App', () => {
   it('renders the practice UI inside the ErrorBoundary wrapper (no placeholder copy)', async () => {
     render(<App />)
 
-    expect(screen.queryByText(/coming soon/i)).not.toBeInTheDocument()
+    // Guards against the original stub landing page copy — not a check that
+    // no UI anywhere says "coming soon" (the disabled Rush nav entry now
+    // legitimately does, in both ModeSwitcher and NavRail).
+    expect(screen.queryByText(/coding puzzles for spotting bugs/i)).not.toBeInTheDocument()
 
     // Real content pool + a fresh default profile: the rating pill renders
     // the starting rating once usePracticeSession finishes loading.
@@ -48,7 +52,10 @@ describe('App', () => {
       expect(screen.getByText('1200')).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: 'Daily' }))
+    // AppShell mounts both ModeSwitcher (mobile) and NavRail (desktop)
+    // unconditionally — CSS alone decides which is visible — so both have a
+    // "Daily" button; either one flips `mode`, per Step 17's guidance.
+    await user.click(nth(screen.getAllByRole('button', { name: 'Daily' }), 0))
 
     await waitFor(() => {
       expect(screen.getByText(/Codoro Daily #/)).toBeInTheDocument()

@@ -2,7 +2,9 @@
  * Minimal two-tab switcher between Practice and Daily — no routing library,
  * per the build plan's "keep it minimal" instruction for reaching a second
  * screen. Plain-text tabs, same no-icon-library convention as StatusBar's
- * pills.
+ * pills. A third, disabled "Rush" slot is visible now so Phase 7 (which
+ * adds real Rush mode) is an enablement of this button, not a nav layout
+ * change.
  */
 import './app.css'
 
@@ -35,6 +37,15 @@ export function ModeSwitcher({ mode, onChange }: ModeSwitcherProps) {
         }}
       >
         Daily
+      </button>
+      <button
+        type="button"
+        className="mode-switcher__tab mode-switcher__tab--disabled"
+        disabled
+        aria-disabled="true"
+        title="Coming soon"
+      >
+        Rush — coming soon
       </button>
     </nav>
   )

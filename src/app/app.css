@@ -27,3 +27,102 @@
   background: var(--surface-card);
   color: var(--text-primary);
 }
+
+.mode-switcher__tab--disabled,
+.mode-switcher__tab--disabled:disabled {
+  color: var(--text-muted);
+  opacity: 0.55;
+  cursor: default;
+}
+
+/*
+ * Responsive shell grid. <1024px: `.app-shell` is plain block flow — the
+ * rail is hidden, the mobile mode-switcher shows, `.app-shell__content`
+ * (and whatever the active page renders inside it) is the only visible
+ * region, unchanged from pre-shell behavior. >=1024px: a fixed-width rail
+ * plus a fluid content column; the content column's own internal
+ * main/sidebar split (if any) is each page's responsibility, not this
+ * shell's — see PracticePage.tsx/DailyPage.tsx and their `.app-shell__main`
+ * / `.app-shell__sidebar` grid-area assignments below.
+ */
+.app-shell__rail {
+  display: none;
+}
+
+.app-shell__mobile-nav {
+  display: block;
+}
+
+@media (min-width: 1024px) {
+  .app-shell {
+    display: grid;
+    grid-template-columns: var(--nav-rail-width) 1fr;
+    min-height: 100vh;
+  }
+
+  .app-shell__mobile-nav {
+    display: none;
+  }
+
+  .app-shell__rail {
+    display: block;
+  }
+
+  .app-shell__content {
+    display: grid;
+    grid-template-columns: 1fr var(--sidebar-width);
+    align-items: start;
+    grid-template-areas: 'main sidebar';
+  }
+
+  .app-shell__main {
+    grid-area: main;
+  }
+
+  .app-shell__sidebar {
+    grid-area: sidebar;
+  }
+}
+
+.nav-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  height: 100%;
+  box-sizing: border-box;
+  background: var(--surface-raised);
+  border-right: 1px solid var(--border-subtle);
+}
+
+.nav-rail__logo {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.nav-rail__item {
+  min-height: var(--tap-target-min);
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nav-rail__item--active {
+  background: var(--surface-card);
+  color: var(--text-primary);
+}
+
+.nav-rail__item--disabled,
+.nav-rail__item--disabled:disabled {
+  color: var(--text-muted);
+  opacity: 0.55;
+  cursor: default;
+}

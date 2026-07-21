@@ -188,4 +188,28 @@ describe('PracticePage', () => {
       expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
     })
   })
+
+  it('shows a desktop sidebar (rating + mastery) alongside the practice view at >=1024px, without any click', async () => {
+    // Same mockMatchMedia shape as useMediaQuery.test.ts — reports a match
+    // for every query, standing in for a >=1024px viewport.
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({
+        matches: true,
+        media: '(min-width: 1024px)',
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    )
+
+    render(<PracticePage />)
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+
+    expect(screen.getByText('Mastery by pattern')).toBeInTheDocument()
+    expect(screen.getAllByText('1200').length).toBeGreaterThan(0)
+
+    vi.unstubAllGlobals()
+  })
 })
