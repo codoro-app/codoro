@@ -50,6 +50,8 @@ export interface DailySession {
   ratingDelta: number | null
   /** Bumped by handleRetry to force PuzzleCardShell to remount for another (unrated) attempt at the same puzzle. */
   attemptNonce: number
+  /** Bumped on every recorded attempt (first-of-day or retry) — MasteryView takes this as a prop so it can refetch attempts instead of only reading them once on mount. */
+  attemptVersion: number
   handleAnswered: (payload: CommitPayload) => void
   handleRetry: () => void
   retryLoad: () => void
@@ -60,6 +62,7 @@ export function useDailySession(): DailySession {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [ratingDelta, setRatingDelta] = useState<number | null>(null)
   const [attemptNonce, setAttemptNonce] = useState(0)
+  const [attemptVersion, setAttemptVersion] = useState(0)
 
   const today = todayDateString()
   const dayNumber = getDailyNumber(today)
@@ -156,6 +159,7 @@ export function useDailySession(): DailySession {
 
       setProfile(updatedProfile)
       setRatingDelta(delta)
+      setAttemptVersion((v) => v + 1)
 
       appendAttempt(attempt).catch((error: unknown) => {
         trackError(error, 'useDailySession: appendAttempt failed')
@@ -191,6 +195,7 @@ export function useDailySession(): DailySession {
     completedToday: profile?.dailyCompletion?.date === today,
     ratingDelta,
     attemptNonce,
+    attemptVersion,
     handleAnswered,
     handleRetry,
     retryLoad,

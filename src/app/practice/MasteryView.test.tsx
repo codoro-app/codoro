@@ -76,4 +76,63 @@ describe('MasteryView', () => {
     })
     expect(screen.queryByRole('button', { name: /back/i })).not.toBeInTheDocument()
   })
+
+  it('refetches attempts when refreshKey changes (the mastery-panel-sync fix)', async () => {
+    listAttemptsMock.mockResolvedValueOnce([])
+    const { rerender } = render(<MasteryView refreshKey={0} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/off-by-one/i).closest('li')).toHaveTextContent('0 attempts')
+    })
+
+    listAttemptsMock.mockResolvedValueOnce([makeAttempt('oob-001', true)])
+    rerender(<MasteryView refreshKey={1} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/off-by-one/i).closest('li')).toHaveTextContent('1 attempts')
+    })
+  })
+
+  it('does not refetch on a re-render where refreshKey is unchanged', async () => {
+    listAttemptsMock.mockResolvedValue([])
+    const { rerender } = render(<MasteryView refreshKey={0} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/off-by-one/i)).toBeInTheDocument()
+    })
+    listAttemptsMock.mockClear()
+
+    rerender(<MasteryView refreshKey={0} onBack={vi.fn()} />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /back/i })).toBeInTheDocument()
+    })
+    expect(listAttemptsMock).not.toHaveBeenCalled()
+  })
+
+  it('renders rows as plain (non-interactive) elements when onSelectPattern is omitted', async () => {
+    listAttemptsMock.mockResolvedValue([])
+    render(<MasteryView />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/off-by-one/i)).toBeInTheDocument()
+    })
+    expect(screen.getByText(/off-by-one/i).closest('button')).toBeNull()
+  })
+
+  it('calls onSelectPattern with the row pattern when an interactive row is clicked', async () => {
+    listAttemptsMock.mockResolvedValue([])
+    const onSelectPattern = vi.fn()
+    const user = userEvent.setup()
+    render(<MasteryView onSelectPattern={onSelectPattern} />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/off-by-one/i)).toBeInTheDocument()
+    })
+    const row = screen.getByText(/off-by-one/i).closest('button')
+    expect(row).not.toBeNull()
+    await user.click(row as HTMLElement)
+
+    expect(onSelectPattern).toHaveBeenCalledTimes(1)
+    expect(onSelectPattern).toHaveBeenCalledWith('off-by-one')
+  })
 })

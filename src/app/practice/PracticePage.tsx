@@ -105,6 +105,11 @@ export function PracticePage() {
           onBack={() => {
             setView('practice')
           }}
+          refreshKey={session.attemptVersion}
+          onSelectPattern={(pattern) => {
+            session.setPatternFilter(pattern)
+            setView('practice')
+          }}
         />
       </div>
     )
@@ -178,7 +183,12 @@ export function PracticePage() {
             combo={session.combo}
             solvedThisSession={session.solvedThisSession}
           />
-          <MasteryView />
+          <MasteryView
+            refreshKey={session.attemptVersion}
+            onSelectPattern={(pattern) => {
+              session.setPatternFilter(pattern)
+            }}
+          />
         </aside>
       )}
     </>

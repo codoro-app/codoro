@@ -58,6 +58,8 @@ export interface PracticeSession {
   combo: number
   /** Count of correct answers this session (page load). Session-only, not persisted — see PracticePage's progress-indicator doc comment for why this replaces a fixed-length "out of N" progress bar. */
   solvedThisSession: number
+  /** Bumped on every recorded attempt (correct or not) — MasteryView takes this as a prop so it can refetch attempts instead of only reading them once on mount. */
+  attemptVersion: number
   patternFilter: PatternSlug | null
   setPatternFilter: (pattern: PatternSlug | null) => void
   handleAnswered: (payload: CommitPayload) => void
@@ -73,6 +75,7 @@ export function usePracticeSession(): PracticeSession {
   const [ratingDelta, setRatingDelta] = useState<number | null>(null)
   const [combo, setCombo] = useState(0)
   const [solvedThisSession, setSolvedThisSession] = useState(0)
+  const [attemptVersion, setAttemptVersion] = useState(0)
   const [patternFilter, setPatternFilterState] = useState<PatternSlug | null>(null)
 
   // Plain refs, not state: these feed the *next* selection call rather than
@@ -226,6 +229,7 @@ export function usePracticeSession(): PracticeSession {
       if (payload.correct) {
         setSolvedThisSession((s) => s + 1)
       }
+      setAttemptVersion((v) => v + 1)
 
       // Persistence failures here are non-fatal: the UI/telemetry below must
       // still run so the user sees their feedback even if the background
@@ -288,6 +292,7 @@ export function usePracticeSession(): PracticeSession {
     ratingDelta,
     combo,
     solvedThisSession,
+    attemptVersion,
     patternFilter,
     setPatternFilter,
     handleAnswered,
