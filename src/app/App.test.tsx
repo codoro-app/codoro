@@ -61,4 +61,42 @@ describe('App', () => {
       expect(screen.getByText(/Codoro Daily #/)).toBeInTheDocument()
     })
   })
+
+  it('boots straight into Practice (not Home) — the cold-start path is untouched', async () => {
+    render(<App />)
+
+    // Practice's own loading copy renders on first paint, before Home's
+    // separate profile fetch could ever run — the fastest reliable signal
+    // that Home isn't in the initial render path.
+    expect(screen.getByText(/loading your practice session/i)).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.getByText('1200')).toBeInTheDocument()
+    })
+  })
+
+  it('opens Home when the logo is clicked, and can navigate back to Practice from there', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText('1200')).toBeInTheDocument()
+    })
+
+    await user.click(nth(screen.getAllByRole('button', { name: 'Home', hidden: true }), 0))
+
+    // Home's own "Practice" card, not NavRail's nav-rail__item of the same
+    // name (both are present at once, so name-based queries are ambiguous —
+    // scope by the card's title text, same closest-button pattern this
+    // codebase already uses for mastery rows).
+    const practiceCard = await screen.findByText('Practice', { selector: '.home__card-title' })
+    await user.click(practiceCard.closest('button') as HTMLElement)
+
+    // Back on Practice: usePracticeSession remounts and reloads (mocked
+    // loadProfile resolves a fresh default profile each call), so the same
+    // rating-pill signal the first test uses confirms we're really there.
+    await waitFor(() => {
+      expect(screen.getByText('1200')).toBeInTheDocument()
+    })
+  })
 })

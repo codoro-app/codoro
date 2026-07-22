@@ -44,4 +44,19 @@ describe('AppShell', () => {
     await user.click(nth(screen.getAllByRole('button', { name: 'Daily' }), 0))
     expect(onModeChange).toHaveBeenCalledWith('daily')
   })
+
+  it('opens Home when the logo/brand is clicked, from either the mobile bar or the desktop rail', async () => {
+    const onModeChange = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <AppShell mode="practice" onModeChange={onModeChange}>
+        <p>page content</p>
+      </AppShell>,
+    )
+    const homeButtons = screen.getAllByRole('button', { name: 'Home', hidden: true })
+    expect(homeButtons.length).toBe(2)
+
+    await user.click(nth(homeButtons, 0))
+    expect(onModeChange).toHaveBeenCalledWith('home')
+  })
 })

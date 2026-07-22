@@ -157,6 +157,24 @@
   padding: 0 var(--space-2) var(--space-4);
 }
 
+.nav-rail__brand--button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  min-height: var(--tap-target-min);
+}
+
+.app-shell__mobile-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-target-min);
+  padding: var(--space-2) 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
 .nav-rail__logo-mark {
   display: flex;
   align-items: center;

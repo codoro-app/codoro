@@ -70,12 +70,19 @@ export function NavRail({ mode, onChange }: NavRailProps) {
 
   return (
     <nav className={`nav-rail${collapsed ? ' nav-rail--collapsed' : ''}`} aria-label="Mode">
-      <div className="nav-rail__brand">
+      <button
+        type="button"
+        className="nav-rail__brand nav-rail__brand--button"
+        aria-label="Home"
+        onClick={() => {
+          onChange('home')
+        }}
+      >
         <div className="nav-rail__logo-mark" aria-hidden="true">
           C
         </div>
         {!collapsed && <span className="nav-rail__wordmark">Codoro</span>}
-      </div>
+      </button>
       <button
         type="button"
         className={`nav-rail__item${mode === 'practice' ? ' nav-rail__item--active' : ''}`}

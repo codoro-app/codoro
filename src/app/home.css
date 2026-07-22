@@ -1,0 +1,90 @@
+/*
+ * Home screen: composed entirely from existing v2 tokens/classes (see
+ * Home.tsx's doc comment) — this file only adds the layout grid and the
+ * two card modifiers (primary/disabled) that don't already exist on
+ * pattern-picker__button.
+ */
+
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  width: 100%;
+  max-width: var(--content-width-mobile);
+  margin: 0 auto;
+  padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--space-4) var(--space-4);
+  box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+  .home {
+    max-width: var(--content-width-desktop);
+  }
+}
+
+.home__status {
+  text-align: center;
+  color: var(--text-1);
+  padding: 2rem 0;
+}
+
+.home__streak-icon {
+  display: inline-flex;
+  color: var(--text-2);
+}
+
+.home__streak-icon[data-active='true'] {
+  color: var(--warn);
+}
+
+.home__cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+@media (min-width: 640px) {
+  .home__cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.home__card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-height: var(--tap-target-min);
+  width: 100%;
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-0);
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.home__card--primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+.home__card--disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.home__card-title {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+}
+
+.home__card-desc {
+  font-size: var(--font-size-sm);
+  color: inherit;
+  opacity: 0.85;
+}

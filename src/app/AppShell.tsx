@@ -30,6 +30,19 @@ export function AppShell({ mode, onModeChange, children }: AppShellProps) {
   return (
     <div className="app-shell">
       <div className="app-shell__mobile-nav">
+        <button
+          type="button"
+          className="app-shell__mobile-brand"
+          aria-label="Home"
+          onClick={() => {
+            onModeChange('home')
+          }}
+        >
+          <div className="nav-rail__logo-mark" aria-hidden="true">
+            C
+          </div>
+          <span className="nav-rail__wordmark">Codoro</span>
+        </button>
         <ModeSwitcher mode={mode} onChange={onModeChange} />
       </div>
       <div className="app-shell__rail">
