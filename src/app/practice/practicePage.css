@@ -2,11 +2,10 @@
  * Practice-page-level chrome: status bar (rating/streak pills, combo badge),
  * browse-by-pattern picker, mastery view, and page layout. Separate from
  * practice.css (concern a/b's card + interaction-body styles) to keep
- * ownership boundaries clean between concerns. Same design-system rules as
- * practice.css: Elevation: box-shadow is allowed for chrome regions only
- * (nav rail, right-panel sidebar) via --shadow-card — see src/index.css's
- * token doc comment. Interactive cards/buttons stay flat (border + press-lip).
- * Mobile-first, >=44px tap targets.
+ * ownership boundaries clean between concerns. Elevation: v2 Arena retires
+ * box-shadow chrome entirely — the sidebar is flat, `border-left` only, no
+ * background (see the v2 plan's "Elevation" decision). Interactive
+ * cards/buttons stay flat too. Mobile-first, >=44px tap targets.
  */
 
 .practice-page {
@@ -33,7 +32,7 @@
 
 .practice-page__status {
   text-align: center;
-  color: var(--text-muted);
+  color: var(--text-1);
   padding: 2rem 0;
 }
 
@@ -43,13 +42,13 @@
   justify-content: space-between;
   gap: var(--space-2);
   font-size: var(--font-size-base);
-  color: var(--text-muted);
+  color: var(--text-1);
 }
 
 .practice-page__nav {
   display: flex;
-  gap: var(--space-3);
-  justify-content: center;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .practice-page__link {
@@ -63,11 +62,27 @@
   cursor: pointer;
 }
 
-.practice-page__version {
-  margin: 0;
-  text-align: center;
-  font-size: var(--font-size-xs);
-  color: var(--text-muted);
+/* Entry-point "Browse patterns" affordance — a bordered button, not a bare
+   text link (matches the reference's designed affordance). Visible at every
+   width: NavRail can't deep-link into this page's internal view state (see
+   NavRail.tsx's doc comment), so this is the one working entry point on
+   both mobile and desktop, not just mobile. */
+.practice-page__browse {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--tap-target-min);
+  padding: 13px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-0);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  cursor: pointer;
 }
 
 /* --- status bar ---------------------------------------------------- */
@@ -86,24 +101,18 @@
   min-height: var(--tap-target-min);
   padding: var(--space-1-5) var(--space-3);
   border-radius: var(--radius-full);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  color: var(--text-0);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--pill-text);
-}
-
-.status-bar__pill--rating {
-  background: var(--accent);
-}
-
-.status-bar__pill--streak {
-  background: var(--warning);
 }
 
 .status-bar__solved {
   display: flex;
   align-items: center;
   gap: var(--space-1-5);
-  color: var(--text-muted);
+  color: var(--text-1);
   font-size: var(--font-size-sm);
 }
 
@@ -114,8 +123,8 @@
   min-height: var(--tap-target-min);
   padding: var(--space-1-5) var(--space-3);
   border-radius: var(--radius-full);
-  background: var(--bg-success);
-  color: var(--text-success);
+  background: var(--ok-dim);
+  color: var(--accent);
   font-weight: 700;
   animation: combo-badge-pop 0.18s ease-out;
 }
@@ -153,12 +162,25 @@
 .pattern-picker__all {
   min-height: var(--tap-target-min);
   padding: var(--space-3) var(--space-4);
+  border: none;
   border-radius: var(--radius-md);
-  border: 2px solid var(--border-success);
-  background: var(--bg-success);
-  color: var(--text-success);
+  background: var(--accent);
+  color: var(--accent-ink);
   font-weight: 700;
   cursor: pointer;
+  transition:
+    transform 0.05s ease-out,
+    opacity 0.05s ease-out;
+}
+
+.pattern-picker__all:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}
+
+.pattern-picker__all:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .pattern-picker__grid {
@@ -167,17 +189,111 @@
   gap: var(--space-2);
 }
 
+@media (min-width: 1024px) {
+  .pattern-picker__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+}
+
 .pattern-picker__button {
   min-height: var(--tap-target-min);
   width: 100%;
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
-  border: 2px solid var(--border-subtle);
-  background: var(--surface-card);
-  color: var(--text-primary);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-0);
   text-align: left;
   font-size: var(--font-size-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
   cursor: pointer;
+}
+
+/* Weak state (accuracy < 0.4) is the only state that recolors the whole
+   card — decision #10 in the UI v2 Arena plan. */
+.pattern-picker__button--weak {
+  background: var(--danger-dim);
+  border-color: var(--danger);
+}
+
+.pattern-picker__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.pattern-picker__name {
+  font-weight: 600;
+  font-size: var(--font-size-base);
+  color: var(--text-0);
+}
+
+.pattern-picker__badge {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+}
+
+.pattern-picker__badge--new {
+  color: var(--text-2);
+}
+
+.pattern-picker__badge--mastered {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.pattern-picker__badge--learning {
+  color: var(--warn);
+  background: var(--warn-dim);
+}
+
+.pattern-picker__badge--weak {
+  color: var(--danger);
+}
+
+.pattern-picker__caption {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--text-2);
+}
+
+/* --- shared progress track (also used by MasteryView rows) ------------- */
+
+.progress-track {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.progress-track__fill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.progress-track__fill--mastered {
+  background: var(--accent);
+}
+
+.progress-track__fill--learning {
+  background: var(--warn);
+}
+
+.progress-track__fill--weak {
+  background: var(--danger);
+}
+
+.progress-track__fill--new {
+  background: var(--border-strong);
 }
 
 /* --- mastery view ------------------------------------------------------ */
@@ -210,14 +326,23 @@
 
 .mastery-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   gap: var(--space-2);
   min-height: var(--tap-target-min);
   width: 100%;
   padding: var(--space-2-5) var(--space-4);
   border-radius: var(--radius-md);
+  border: 1px solid transparent;
   background: var(--surface-0);
+}
+
+/* Weak state (accuracy < 0.4) is the only state that recolors the whole
+   row — decision #10 in the UI v2 Arena plan (matches 2m's "Concurrency ·
+   weak" treatment). Two-class selector to out-specificity `button.mastery-row`
+   below, which would otherwise win the `border` cascade on interactive rows. */
+.mastery-row.mastery-row--weak {
+  background: var(--danger-dim);
+  border-color: var(--danger);
 }
 
 /* Rows are a <button> only when the mastery panel is interactive
@@ -225,28 +350,101 @@
    button-specific browser defaults .mastery-row doesn't already cover, same
    look either way. */
 button.mastery-row {
-  border: none;
+  border: 1px solid transparent;
   font: inherit;
   text-align: left;
   color: inherit;
   cursor: pointer;
 }
 
+.mastery-row__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
 .mastery-row__label {
   flex: 1;
-  color: var(--text-primary);
+  color: var(--text-0);
   font-size: var(--font-size-base);
 }
 
-.mastery-row__accuracy {
+.mastery-row__weak-tag {
+  font-size: var(--font-size-xs);
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--danger);
+}
+
+.mastery-row__accuracy {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
+/* Only the mastered/learning states get a pill background — "no data" and
+   "weak" stay plain colored text (decision #10: "no pill background"). */
+.mastery-row__accuracy--new {
+  color: var(--text-2);
+}
+
+.mastery-row__accuracy--mastered {
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.mastery-row__accuracy--learning {
+  color: var(--warn);
+  background: var(--warn-dim);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.mastery-row__accuracy--weak {
+  color: var(--danger);
+}
+
 .mastery-row__count {
-  color: var(--text-muted);
+  color: var(--text-1);
   font-size: var(--font-size-xs);
+}
+
+/* --- mastery view empty state (2k) -------------------------------------- */
+
+.mastery-view__empty {
+  text-align: center;
+  padding: var(--space-5) var(--space-3) var(--space-6);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.mastery-view__empty-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.mastery-view__empty-title {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  margin: var(--space-3) 0 0;
+}
+
+.mastery-view__empty-copy {
+  font-size: var(--font-size-xs);
+  color: var(--text-1);
+  line-height: 1.5;
+  margin: var(--space-1-5) 0 0;
 }
 
 /* --- sidebar (>=1024px) ------------------------------------------------- */
@@ -257,8 +455,6 @@ button.mastery-row {
   flex-direction: column;
   gap: var(--space-4);
   padding: var(--space-6) var(--space-4);
-  box-shadow: var(--shadow-card);
-  border-radius: var(--radius-lg);
-  background: var(--surface-raised);
+  border-left: 1px solid var(--border);
   align-self: start;
 }

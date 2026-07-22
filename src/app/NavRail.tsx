@@ -9,6 +9,17 @@
  * vertical logo+nav block, not a horizontal tab strip, and forcing one
  * component to render both shapes via className soup was harder to follow
  * than two small components sharing app.css tokens.
+ *
+ * The reference design (2a/2c/2d) shows a "Browse patterns" affordance
+ * pinned to the rail footer. It isn't rendered here: NavRail has no
+ * visibility into PracticePage's internal "view" state (patterns/mastery/
+ * practice) — that's owned by usePracticeSession's caller, several
+ * component boundaries away — so a rail-footer button here could only ever
+ * switch to Practice mode, not actually open the pattern picker. Rather
+ * than ship a button that looks actionable but does nothing new, the one
+ * working "Browse patterns" entry point stays in PracticePage.tsx's own
+ * nav row (practicePage.css), visible at every width. Revisit if/when
+ * that view state is worth lifting up to bridge NavRail and PracticePage.
  */
 import type { AppMode } from './ModeSwitcher'
 
@@ -20,7 +31,12 @@ export interface NavRailProps {
 export function NavRail({ mode, onChange }: NavRailProps) {
   return (
     <nav className="nav-rail" aria-label="Mode">
-      <p className="nav-rail__logo">Codoro</p>
+      <div className="nav-rail__brand">
+        <div className="nav-rail__logo-mark" aria-hidden="true">
+          C
+        </div>
+        <span className="nav-rail__wordmark">Codoro</span>
+      </div>
       <button
         type="button"
         className={`nav-rail__item${mode === 'practice' ? ' nav-rail__item--active' : ''}`}

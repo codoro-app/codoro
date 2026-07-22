@@ -5,6 +5,61 @@ import type { AnswerState } from '../answerState'
 import { shuffledIndices } from './shuffleChoices'
 
 /**
+ * Leading A/B/C/D badge per choice (v2 Arena design, purely presentational
+ * — see task-4 brief's decision to key the letter off on-screen *position*,
+ * not the original authored index, so it always reads A/B/C/D top-to-bottom
+ * regardless of the per-attempt shuffle below). Once committed, the chosen
+ * choice's badge swaps to a checkmark/X (matching the feedback panel's icon
+ * treatment) instead of a persistent glyph. `aria-hidden` because the
+ * letter/icon carries no information the choice's own text doesn't already
+ * give a screen reader — it must not affect the button's accessible name.
+ */
+function ChoiceBadge({ state, letter }: { state: AnswerState; letter: string }) {
+  if (state === 'correct' || state === 'reveal-correct') {
+    return (
+      <span className="mcq-choice__badge" aria-hidden="true">
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </span>
+    )
+  }
+  if (state === 'wrong') {
+    return (
+      <span className="mcq-choice__badge" aria-hidden="true">
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </span>
+    )
+  }
+  return (
+    <span className="mcq-choice__badge" aria-hidden="true">
+      {letter}
+    </span>
+  )
+}
+
+/**
  * Vertical list of full-width tappable choice buttons. Close to final —
  * mcq doesn't need gesture work, unlike swipe-binary/tap-line.
  *
@@ -43,7 +98,7 @@ export function Mcq({
 
   return (
     <div className="mcq-choices">
-      {displayOrder.map((originalIndex) => {
+      {displayOrder.map((originalIndex, position) => {
         const choiceText = puzzle.choices[originalIndex]
         if (choiceText === undefined) {
           throw new Error(`Mcq: shuffled index ${String(originalIndex)} out of range`)
@@ -62,6 +117,7 @@ export function Mcq({
             }}
             disabled={committed}
           >
+            <ChoiceBadge state={state} letter={String.fromCharCode(65 + position)} />
             {choiceText}
           </button>
         )

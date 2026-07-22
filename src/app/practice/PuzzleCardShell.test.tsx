@@ -296,15 +296,18 @@ describe('PuzzleCardShell', () => {
       'builtin',
     ]) {
       expect(css).toMatch(
-        new RegExp(`\\.token\\.${cls}[,\\s][\\s\\S]{0,120}?color:\\s*var\\(--syntax-`),
+        new RegExp(`\\.token\\.${cls}[,\\s][\\s\\S]{0,120}?color:\\s*var\\(--syn-`),
       )
     }
 
-    // var(--text-muted)-based token classes — jsdom can't resolve these via
+    // var(--text-1)-based token classes — jsdom can't resolve these via
     // getComputedStyle, so this is the only mechanical guard for them.
-    expect(css).toMatch(/\.token\.comment\s*\{[^}]*color:\s*var\(--text-muted\)/)
+    // .token.comment is the one exception: decision #9 (v2 Arena plan)
+    // gives comments their own dedicated --syn-cm hue rather than falling
+    // back to --text-1.
+    expect(css).toMatch(/\.token\.comment\s*\{[^}]*color:\s*var\(--syn-cm\)/)
     expect(css).toMatch(
-      /\.token\.punctuation,[\s\S]*?\.token\.operator\s*\{[^}]*color:\s*var\(--text-muted\)/,
+      /\.token\.punctuation,[\s\S]*?\.token\.operator\s*\{[^}]*color:\s*var\(--text-1\)/,
     )
 
     // No dark-mode override block in practice.css (dark values now live in

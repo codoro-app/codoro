@@ -6,10 +6,11 @@
  * concerns (b) and (d) build against; see the Phase 4 concern-a report for
  * the full rationale.
  *
- * Elevation: box-shadow is allowed for chrome regions only (nav rail,
- * right-panel sidebar) via --shadow-card — see src/index.css's token doc
- * comment. The Continue button's Duolingo-style "3D" press uses a
- * border-bottom "lip" instead to stay flat — see practice.css.
+ * Elevation (box-shadow) is retired in the v2 Arena design system — every
+ * surface here (code snippet, mcq choices, feedback panel) uses a flat
+ * border instead. The Continue button is a flat CTA (no border, no
+ * Duolingo-style "lip"): `:active` scale/opacity + `:focus-visible` outline
+ * — see practice.css.
  */
 import { useState } from 'react'
 import type { Puzzle } from '../../content'
@@ -113,7 +114,34 @@ export function PuzzleCardShell({
         >
           <div className="feedback-panel__header">
             <span className="feedback-panel__icon" aria-hidden="true">
-              {committedPayload.correct ? '✓' : '✕'}
+              {committedPayload.correct ? (
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--accent)"
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--danger)"
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              )}
             </span>
             <span className="feedback-panel__verdict">
               {committedPayload.correct ? 'Nice — correct' : 'Not quite'}

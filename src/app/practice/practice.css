@@ -1,10 +1,12 @@
 /*
  * PuzzleCardShell + interaction-body styles. Mobile-first at 375px: all tap
  * targets are >=44px tall, the snippet scrolls horizontally on overflow
- * rather than wrapping. Duolingo-style "3D" press effect uses
- * border-bottom. Elevation: box-shadow is allowed for chrome regions only
- * (nav rail, right-panel sidebar) via --shadow-card — see src/index.css's
- * token doc comment. Interactive cards/buttons stay flat (border + press-lip).
+ * rather than wrapping. v2 Arena: primary CTAs (Continue) are flat —
+ * `border: none` + `:active` scale/opacity + `:focus-visible` outline, no
+ * Duolingo-style border-bottom "lip" — see decision #6 in
+ * docs/superpowers/plans/2026-07-21-ui-v2-arena.md. Elevation (box-shadow)
+ * is retired entirely per decision #3; every surface here uses a flat
+ * border instead.
  */
 
 .puzzle-card {
@@ -23,7 +25,7 @@
   text-align: center;
   font-size: var(--font-size-xl);
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text-0);
 }
 
 .puzzle-card__interaction {
@@ -35,7 +37,8 @@
 
 .code-snippet {
   position: relative;
-  background: var(--surface-0);
+  background: var(--surface-code);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-2-5) 0;
   overflow-x: auto;
@@ -58,7 +61,7 @@
   right: 0;
   bottom: 0;
   width: var(--space-6);
-  background: linear-gradient(to right, transparent, var(--surface-0));
+  background: linear-gradient(to right, transparent, var(--surface-code));
   pointer-events: none;
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
@@ -73,7 +76,7 @@
   text-align: left;
   border: none;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--text-0);
   font: inherit;
 }
 
@@ -82,11 +85,20 @@
   min-height: var(--tap-target-min);
 }
 
+.code-snippet__line--interactive:hover {
+  background: var(--surface-1);
+}
+
+.code-snippet__line--interactive:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .code-snippet__line-number {
   min-width: var(--space-6);
   flex-shrink: 0;
   text-align: right;
-  color: var(--text-muted);
+  color: var(--text-2);
   user-select: none;
 }
 
@@ -95,28 +107,28 @@
 }
 
 .code-snippet__line--wrong {
-  background: var(--bg-danger);
+  background: var(--danger-dim);
 }
 
 .code-snippet__line--reveal-correct {
-  background: var(--bg-success);
+  background: var(--ok-dim);
 }
 
 .token.keyword {
-  color: var(--syntax-keyword);
+  color: var(--syn-kw);
 }
 
 .token.string {
-  color: var(--syntax-string);
+  color: var(--syn-str);
 }
 
 .token.function {
-  color: var(--syntax-function);
+  color: var(--syn-fn);
 }
 
 .token.class-name,
 .token.builtin {
-  color: var(--syntax-type);
+  color: var(--syn-num);
 }
 
 .token.number,
@@ -124,17 +136,16 @@
 .token.constant,
 .token.property,
 .token.literal-property {
-  color: var(--syntax-literal);
+  color: var(--syn-num);
 }
 
 .token.comment {
-  color: var(--text-muted);
-  font-style: italic;
+  color: var(--syn-cm);
 }
 
 .token.punctuation,
 .token.operator {
-  color: var(--text-muted);
+  color: var(--text-1);
 }
 
 .token.parameter,
@@ -143,7 +154,7 @@
 .token.directive,
 .token.directive-hash,
 .token.generics {
-  color: var(--syntax-meta);
+  color: var(--text-1);
 }
 
 /* --- mcq -------------------------------------------------------------- */
@@ -155,13 +166,16 @@
 }
 
 .mcq-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
   min-height: var(--tap-target-min);
   width: 100%;
   padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-md);
-  border: 2px solid var(--border-subtle);
-  background: var(--surface-card);
-  color: var(--text-primary);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-0);
   font-size: var(--font-size-md);
   text-align: left;
   cursor: pointer;
@@ -171,17 +185,52 @@
   cursor: default;
 }
 
+.mcq-choice__badge {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  border-radius: var(--radius-xs);
+  color: var(--text-1);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--font-size-xs);
+  padding: 2px 8px;
+}
+
 .mcq-choice--correct,
 .mcq-choice--reveal-correct {
-  border-color: var(--border-success);
-  background: var(--bg-success);
-  color: var(--text-success);
+  border: 1.5px solid var(--accent);
+  background: var(--ok-dim);
+  color: var(--text-0);
+}
+
+.mcq-choice--correct .mcq-choice__badge,
+.mcq-choice--reveal-correct .mcq-choice__badge {
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 .mcq-choice--wrong {
-  border-color: var(--border-danger);
-  background: var(--bg-danger);
-  color: var(--text-danger);
+  border: 1.5px solid var(--danger);
+  background: var(--danger-dim);
+  color: var(--text-0);
+}
+
+.mcq-choice--wrong .mcq-choice__badge {
+  background: var(--danger);
+  color: var(--accent-ink);
+}
+
+/* Committed, not the chosen answer and not the revealed-correct one: dim
+ * per the reference (opacity: .55) — driven off :disabled (every choice is
+ * disabled once committed) combined with the absence of any state modifier
+ * class, so this needs no change to Mcq.tsx's existing AnswerState model. */
+.mcq-choice:disabled:not(.mcq-choice--correct):not(.mcq-choice--reveal-correct):not(
+    .mcq-choice--wrong
+  ) {
+  opacity: 0.55;
 }
 
 /* --- swipe-binary fallback --------------------------------------------- */
@@ -196,7 +245,7 @@
   margin: 0;
   text-align: center;
   font-size: var(--font-size-sm);
-  color: var(--text-muted);
+  color: var(--text-1);
 }
 
 .swipe-fallback__card {
@@ -223,9 +272,9 @@
   min-height: var(--tap-target-min);
   padding: var(--space-3) var(--space-2);
   border-radius: var(--radius-md);
-  border: 2px solid var(--border-subtle);
-  background: var(--surface-card);
-  color: var(--text-primary);
+  border: 2px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-0);
   font-weight: 600;
   font-size: var(--font-size-md);
   cursor: pointer;
@@ -236,24 +285,24 @@
 }
 
 .swipe-fallback__button--left {
-  border-color: var(--border-danger);
+  border: 1.5px solid var(--danger);
 }
 
 .swipe-fallback__button--right {
-  border-color: var(--border-success);
+  border: 1.5px solid var(--border-strong);
 }
 
 .swipe-fallback__button--correct,
 .swipe-fallback__button--reveal-correct {
-  border-color: var(--border-success);
-  background: var(--bg-success);
-  color: var(--text-success);
+  border-color: var(--accent);
+  background: var(--ok-dim);
+  color: var(--accent);
 }
 
 .swipe-fallback__button--wrong {
-  border-color: var(--border-danger);
-  background: var(--bg-danger);
-  color: var(--text-danger);
+  border-color: var(--danger);
+  background: var(--danger-dim);
+  color: var(--danger);
 }
 
 /* Live "you're about to pick this" preview while dragging — reuses the same
@@ -261,11 +310,11 @@
  * states above, at a lighter visual weight than a full commit, and never
  * shown once committed (see SwipeBinary.tsx's classFor). */
 .swipe-fallback__button--previewing.swipe-fallback__button--left {
-  background: var(--bg-danger);
+  background: var(--danger-dim);
 }
 
 .swipe-fallback__button--previewing.swipe-fallback__button--right {
-  background: var(--bg-success);
+  background: var(--ok-dim);
 }
 
 /* --- feedback panel ----------------------------------------------------- */
@@ -275,7 +324,7 @@
   flex-direction: column;
   gap: 0.75rem;
   padding: 1rem;
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   animation: feedback-panel-slide-in 0.18s ease-out;
 }
 
@@ -291,11 +340,13 @@
 }
 
 .feedback-panel--correct {
-  background: var(--bg-success);
+  border: 1.5px solid var(--accent);
+  background: linear-gradient(160deg, var(--ok-dim), var(--surface-1));
 }
 
 .feedback-panel--wrong {
-  background: var(--bg-danger);
+  border: 1.5px solid var(--danger);
+  background: linear-gradient(160deg, var(--danger-dim), var(--surface-1));
 }
 
 .feedback-panel__header {
@@ -307,18 +358,18 @@
 .feedback-panel--correct .feedback-panel__icon,
 .feedback-panel--correct .feedback-panel__verdict,
 .feedback-panel--correct .feedback-panel__delta {
-  color: var(--text-success);
+  color: var(--accent);
 }
 
 .feedback-panel--wrong .feedback-panel__icon,
 .feedback-panel--wrong .feedback-panel__verdict,
 .feedback-panel--wrong .feedback-panel__delta {
-  color: var(--text-danger);
+  color: var(--danger);
 }
 
 .feedback-panel__icon {
-  font-size: 1.25rem;
-  line-height: 1;
+  display: flex;
+  align-items: center;
 }
 
 .feedback-panel__verdict {
@@ -328,13 +379,14 @@
 }
 
 .feedback-panel__delta {
+  font-family: var(--font-mono);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .feedback-panel__explanation {
   margin: 0;
-  color: var(--text-primary);
+  color: var(--text-0);
   font-size: 0.9375rem;
   line-height: 1.45;
 }
@@ -344,26 +396,25 @@
   width: 100%;
   padding: 0.875rem 1rem;
   border: none;
-  border-bottom: 4px solid var(--primary-action-border);
-  border-radius: 12px;
-  background: var(--primary-action-bg);
-  color: var(--primary-action-text);
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--accent-ink);
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
   transition:
     transform 0.05s ease-out,
-    border-bottom-width 0.05s ease-out,
-    margin-bottom 0.05s ease-out;
+    opacity 0.05s ease-out;
 }
 
-/* The Duolingo "3D" press: push the button down and shrink its
-   border-bottom "lip". This button stays flat (no box-shadow) even though
-   elevation is now allowed for chrome regions — see src/index.css's token
-   doc comment. border-bottom-width dropping keeps the button's outer box the
-   same total height, so the surrounding layout doesn't jump. */
+/* Flat-button press pattern (decision #6): scale + fade instead of the
+   retired Duolingo border-bottom "lip". */
 .feedback-panel__continue:active {
-  transform: translateY(3px);
-  border-bottom-width: 1px;
-  margin-bottom: 3px;
+  transform: scale(0.98);
+  opacity: 0.9;
+}
+
+.feedback-panel__continue:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
