@@ -37,7 +37,7 @@
  */
 import { useState } from 'react'
 import type { AppMode } from './ModeSwitcher'
-import { CollapseIcon } from './Icons'
+import { CollapseIcon, DailyIcon, PracticeIcon, RushIcon } from './Icons'
 
 const COLLAPSED_KEY = 'codoro:nav-rail-collapsed'
 
@@ -66,8 +66,6 @@ export interface NavRailProps {
 export function NavRail({ mode, onChange }: NavRailProps) {
   const [collapsed, setCollapsed] = useState(readCollapsed)
 
-  const itemLabel = (label: string) => (collapsed ? undefined : label)
-
   return (
     <nav className={`nav-rail${collapsed ? ' nav-rail--collapsed' : ''}`} aria-label="Mode">
       <button
@@ -93,7 +91,8 @@ export function NavRail({ mode, onChange }: NavRailProps) {
           onChange('practice')
         }}
       >
-        {itemLabel('Practice')}
+        <PracticeIcon size={20} />
+        {!collapsed && <span className="nav-rail__item-label">Practice</span>}
       </button>
       <button
         type="button"
@@ -105,7 +104,8 @@ export function NavRail({ mode, onChange }: NavRailProps) {
           onChange('daily')
         }}
       >
-        {itemLabel('Daily')}
+        <DailyIcon size={20} />
+        {!collapsed && <span className="nav-rail__item-label">Daily</span>}
       </button>
       <button
         type="button"
@@ -115,7 +115,8 @@ export function NavRail({ mode, onChange }: NavRailProps) {
         aria-label="Rush — coming soon"
         title="Rush — coming soon"
       >
-        {itemLabel('Rush — coming soon')}
+        <RushIcon size={20} />
+        {!collapsed && <span className="nav-rail__item-label">Rush — coming soon</span>}
       </button>
       <button
         type="button"

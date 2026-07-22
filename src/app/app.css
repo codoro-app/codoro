@@ -100,7 +100,16 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-6) var(--space-4);
-  height: 100%;
+  /* Sticky + a fixed viewport height, not height:100% of the grid row —
+   * `.app-shell` is a CSS grid whose row height (default align-items:
+   * stretch) matches its TALLEST item, which on content-heavy pages
+   * (e.g. a long feedback panel) can exceed 100vh. height:100% would
+   * stretch the rail to match, pushing the margin-top:auto collapse
+   * toggle far below the visible viewport on those pages. Pinning to the
+   * viewport instead keeps every rail control visible on every page. */
+  position: sticky;
+  top: 0;
+  height: 100vh;
   box-sizing: border-box;
   border-right: 1px solid var(--border);
   width: var(--nav-rail-width);
@@ -197,6 +206,9 @@
 }
 
 .nav-rail__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2-5);
   min-height: var(--tap-target-min);
   padding: var(--space-3) var(--space-4);
   border: none;
@@ -207,6 +219,12 @@
   font-weight: 600;
   text-align: left;
   cursor: pointer;
+}
+
+.nav-rail__item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nav-rail__item--active {
