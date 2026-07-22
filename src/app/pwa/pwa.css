@@ -43,6 +43,11 @@
   min-height: var(--tap-target-min);
   padding: var(--space-2-5) var(--space-5);
   border: none;
+  /* --primary-action-border was retired app-wide in the v2 token rewrite
+     (its "flat button" replacement doesn't apply here — pwa/ keeps its
+     existing lip-press mechanic per the plan's Known Issue rule) —
+     --accent-dim is the nearest v2 token for this border-bottom "lip". */
+  border-bottom: 4px solid var(--accent-dim);
   border-radius: var(--radius-md);
   background: var(--accent);
   color: var(--accent-ink);
