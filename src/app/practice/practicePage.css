@@ -326,14 +326,23 @@
 
 .mastery-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   gap: var(--space-2);
   min-height: var(--tap-target-min);
   width: 100%;
   padding: var(--space-2-5) var(--space-4);
   border-radius: var(--radius-md);
+  border: 1px solid transparent;
   background: var(--surface-0);
+}
+
+/* Weak state (accuracy < 0.4) is the only state that recolors the whole
+   row — decision #10 in the UI v2 Arena plan (matches 2m's "Concurrency ·
+   weak" treatment). Two-class selector to out-specificity `button.mastery-row`
+   below, which would otherwise win the `border` cascade on interactive rows. */
+.mastery-row.mastery-row--weak {
+  background: var(--danger-dim);
+  border-color: var(--danger);
 }
 
 /* Rows are a <button> only when the mastery panel is interactive
@@ -341,11 +350,18 @@
    button-specific browser defaults .mastery-row doesn't already cover, same
    look either way. */
 button.mastery-row {
-  border: none;
+  border: 1px solid transparent;
   font: inherit;
   text-align: left;
   color: inherit;
   cursor: pointer;
+}
+
+.mastery-row__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
 }
 
 .mastery-row__label {
@@ -354,15 +370,81 @@ button.mastery-row {
   font-size: var(--font-size-base);
 }
 
-.mastery-row__accuracy {
+.mastery-row__weak-tag {
+  font-size: var(--font-size-xs);
   font-weight: 700;
-  color: var(--text-0);
+  color: var(--danger);
+}
+
+.mastery-row__accuracy {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* Only the mastered/learning states get a pill background — "no data" and
+   "weak" stay plain colored text (decision #10: "no pill background"). */
+.mastery-row__accuracy--new {
+  color: var(--text-2);
+}
+
+.mastery-row__accuracy--mastered {
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.mastery-row__accuracy--learning {
+  color: var(--warn);
+  background: var(--warn-dim);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.mastery-row__accuracy--weak {
+  color: var(--danger);
 }
 
 .mastery-row__count {
   color: var(--text-1);
   font-size: var(--font-size-xs);
+}
+
+/* --- mastery view empty state (2k) -------------------------------------- */
+
+.mastery-view__empty {
+  text-align: center;
+  padding: var(--space-5) var(--space-3) var(--space-6);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.mastery-view__empty-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.mastery-view__empty-title {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  margin: var(--space-3) 0 0;
+}
+
+.mastery-view__empty-copy {
+  font-size: var(--font-size-xs);
+  color: var(--text-1);
+  line-height: 1.5;
+  margin: var(--space-1-5) 0 0;
 }
 
 /* --- sidebar (>=1024px) ------------------------------------------------- */
