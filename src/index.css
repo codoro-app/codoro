@@ -107,6 +107,7 @@
 
   /* --- shell layout widths --- */
   --nav-rail-width: 220px;
+  --nav-rail-width-collapsed: 76px;
   --sidebar-width: 296px;
   --content-width-mobile: 480px;
   --content-width-desktop: 640px;
