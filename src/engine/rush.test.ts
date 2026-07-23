@@ -162,6 +162,20 @@ describe('selectRushPuzzle — swipe-binary weighting', () => {
   })
 })
 
+describe('selectRushPuzzle — defensive sampling guard', () => {
+  it('throws if the injected rng returns an out-of-contract value (>= 1), including the all-swipe-binary fallback path', () => {
+    const pool = [puzzle('s0', 1000, 'swipe-binary'), puzzle('s1', 1000, 'swipe-binary')]
+    expect(() =>
+      selectRushPuzzle({
+        pool,
+        difficulty: 1000,
+        usedIds: new Set(),
+        rng: () => 1,
+      }),
+    ).toThrow(/out of range/)
+  })
+})
+
 describe('exported constants', () => {
   it('RUSH_STRIKE_LIMIT is 3 (locked: 3 strikes, no countdown timer)', () => {
     expect(RUSH_STRIKE_LIMIT).toBe(3)
