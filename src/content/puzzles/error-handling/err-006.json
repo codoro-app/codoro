@@ -1,0 +1,17 @@
+{
+  "id": "err-006",
+  "pattern": "error-handling",
+  "difficulty_rating": 1500,
+  "explanation": "The catch block only logs the error and then falls through, so the function implicitly returns `undefined` after a failure. Callers have no way to distinguish 'fetch failed' from 'fetch succeeded with no data' — the error is swallowed instead of being rethrown or surfaced via a rejected promise, so failures propagate silently and can cause downstream code to misbehave on `undefined`.",
+  "prompt": "What's the error-handling bug in this function?",
+  "language": "javascript",
+  "snippet": "async function fetchUser(id) {\n  try {\n    const res = await fetch(`/api/users/${id}`)\n    if (!res.ok) {\n      throw new Error('Failed to fetch user')\n    }\n    return await res.json()\n  } catch (err) {\n    console.log('Error fetching user:', err)\n  }\n}",
+  "interaction": "mcq",
+  "choices": [
+    "The catch block swallows the error and returns undefined instead of rethrowing or signaling failure, so callers can't distinguish a failed fetch from a successful one that returned no data",
+    "The template literal `/api/users/${id}` will throw if `id` contains special characters",
+    "The `res.ok` check is redundant since `fetch` already throws on HTTP error status codes",
+    "Using `await` inside a try block causes unhandled promise rejections at runtime"
+  ],
+  "correct_choice": 0
+}

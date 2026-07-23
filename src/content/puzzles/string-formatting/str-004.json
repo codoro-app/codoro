@@ -1,0 +1,11 @@
+{
+  "id": "str-004",
+  "pattern": "string-formatting",
+  "difficulty_rating": 1600,
+  "explanation": "`printf(buffer)` passes the fully-built log line as the *format string* itself, not just data to be printed. Since `buffer` already contains `user_input` verbatim (via `snprintf`), any `%` conversion specifiers embedded in that user-supplied text — like `%s`, `%x`, or `%n` — get interpreted by `printf` as real format directives instead of literal characters. This is the classic format-string vulnerability: it can crash the program (reading a nonexistent vararg), leak stack/memory contents, or with `%n` even write to arbitrary memory. The fix is `printf(\"%s\", buffer)` so the buffer is always treated as plain data.",
+  "prompt": "Tap the line with the bug.",
+  "language": "c",
+  "snippet": "#include <stdio.h>\n\nvoid log_message(const char *user_input) {\n    char buffer[256];\n    snprintf(buffer, sizeof(buffer), \"[LOG] %s\", user_input);\n    printf(buffer);\n}",
+  "interaction": "tap-line",
+  "correct_line": 5
+}

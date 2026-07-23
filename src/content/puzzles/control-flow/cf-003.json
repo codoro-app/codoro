@@ -1,0 +1,17 @@
+{
+  "id": "cf-003",
+  "pattern": "control-flow",
+  "difficulty_rating": 1000,
+  "explanation": "None of the `case` blocks have a `break` statement, so execution falls through every case and always ends up assigning `cost = 25` in the `default` block, overwriting whatever was set earlier. The function always returns 25 regardless of `weight`.",
+  "prompt": "What's wrong with this shipping cost calculator?",
+  "language": "javascript",
+  "snippet": "function getShippingCost(weight) {\n  let cost;\n  switch (true) {\n    case weight <= 5:\n      cost = 5;\n    case weight <= 20:\n      cost = 15;\n    default:\n      cost = 25;\n  }\n  return cost;\n}",
+  "interaction": "mcq",
+  "choices": [
+    "Missing `break` statements cause fallthrough, so `cost` always ends up 25",
+    "The switch should use `switch (weight)` instead of `switch (true)`",
+    "`cost` is declared with `let` but should be `const`",
+    "The comparisons should use `<` instead of `<=`"
+  ],
+  "correct_choice": 0
+}

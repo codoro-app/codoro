@@ -1,0 +1,11 @@
+{
+  "id": "dsm-007",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 1900,
+  "explanation": "Point is used as a HashMap key, and its hashCode/equals are correctly derived from its mutable fields (x, y). map.put(p, \"origin\") places the entry in the bucket determined by hash(1,2). Mutating p.x afterward changes the object's hash to hash(5,2), so the subsequent map.get(p) computes a different bucket and finds nothing — HashMap has no mechanism to relocate an entry when a key mutates in place. Mutable objects should never be used as hash-based keys once inserted.",
+  "prompt": "This lookup silently returns null. Tap the line that breaks the map.",
+  "language": "java",
+  "snippet": "import java.util.*;\n\npublic class Cache {\n    public static void main(String[] args) {\n        Map<Point, String> map = new HashMap<>();\n        Point p = new Point(1, 2);\n        map.put(p, \"origin\");\n        p.x = 5;\n        System.out.println(map.get(p));\n    }\n}\n\nclass Point {\n    int x, y;\n    Point(int x, int y) { this.x = x; this.y = y; }\n\n    @Override\n    public int hashCode() {\n        return Objects.hash(x, y);\n    }\n\n    @Override\n    public boolean equals(Object o) {\n        if (!(o instanceof Point)) return false;\n        Point other = (Point) o;\n        return x == other.x && y == other.y;\n    }\n}",
+  "interaction": "tap-line",
+  "correct_line": 7
+}

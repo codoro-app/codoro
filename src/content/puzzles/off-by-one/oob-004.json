@@ -1,0 +1,17 @@
+{
+  "id": "oob-004",
+  "pattern": "off-by-one",
+  "difficulty_rating": 1000,
+  "explanation": "Array indices run from 0 to length-1, so `arr[arr.length]` reads one past the last valid element, returning `undefined` instead of the last item. It should be `arr[arr.length - 1]`.",
+  "prompt": "What's wrong with this function?",
+  "language": "javascript",
+  "snippet": "function getLast(arr) {\n  return arr[arr.length]\n}",
+  "interaction": "mcq",
+  "choices": [
+    "`arr[arr.length]` is out of bounds; it should be `arr[arr.length - 1]`",
+    "The function should use a for loop instead of direct indexing",
+    "`arr.length` should be called as `arr.length()`",
+    "The function is missing a null check on `arr`"
+  ],
+  "correct_choice": 0
+}

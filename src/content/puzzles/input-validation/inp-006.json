@@ -1,0 +1,17 @@
+{
+  "id": "inp-006",
+  "pattern": "input-validation",
+  "difficulty_rating": 1000,
+  "explanation": "The function only rejects `percent` values above 100, but never checks for negative values. A negative percent (e.g. -50) passes validation and gets used in the calculation, actually increasing the price instead of discounting it — the input validation is incomplete, not just the upper bound.",
+  "prompt": "What's the input-validation bug in this discount function?",
+  "language": "javascript",
+  "snippet": "function applyDiscount(price, percent) {\n  if (percent > 100) {\n    throw new Error('Invalid percent')\n  }\n  return price - (price * percent / 100)\n}",
+  "interaction": "mcq",
+  "choices": [
+    "There's no check preventing a negative `percent`, which would increase the price instead of discounting it",
+    "The condition should be `percent >= 100` instead of `percent > 100`",
+    "The function should validate that `price` is a number before using it",
+    "Dividing by 100 introduces floating-point rounding errors"
+  ],
+  "correct_choice": 0
+}

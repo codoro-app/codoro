@@ -1,0 +1,17 @@
+{
+  "id": "err-004",
+  "pattern": "error-handling",
+  "difficulty_rating": 1050,
+  "explanation": "The catch block catches the exception thrown by `fs.readFileSync` but does nothing with it — no logging, no rethrow, no fallback. The function then falls through to an implicit `return undefined`, so callers can't distinguish a successful read from a failed one; the error is silently swallowed.",
+  "prompt": "What's the bug in this file-reading function?",
+  "language": "javascript",
+  "snippet": "function readFile(path) {\n  try {\n    return fs.readFileSync(path, 'utf8')\n  } catch (e) {\n  }\n}",
+  "interaction": "mcq",
+  "choices": [
+    "The catch block swallows the error silently, so a failed read returns undefined instead of surfacing the failure",
+    "fs.readFileSync should be replaced with the asynchronous fs.readFile for better performance",
+    "The 'utf8' encoding argument is invalid and will throw a TypeError",
+    "The try block should wrap the entire function body, not just the readFileSync call"
+  ],
+  "correct_choice": 0
+}

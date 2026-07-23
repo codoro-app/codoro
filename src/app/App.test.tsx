@@ -88,16 +88,23 @@ describe('App', () => {
   })
 
   it("boots straight into Practice on a device's first-ever visit — the cold-start path is untouched", async () => {
-    render(<App />)
-
-    // Practice's own loading copy renders on first paint, before Home's
-    // separate profile fetch could ever run — the fastest reliable signal
-    // that Home isn't in the initial render path.
-    expect(screen.getByText(/loading your practice session/i)).toBeInTheDocument()
+    const { container } = render(<App />)
 
     await waitFor(() => {
       expect(screen.getByText('1200')).toBeInTheDocument()
     })
+
+    // Practice and Home both show "1200" for a fresh default profile (Home's
+    // hero rating and Practice's status pill), so that text alone can't
+    // disambiguate which one actually rendered — checking each page's own
+    // root container can. (Previously this asserted PracticePage's
+    // transient "loading your practice session" text synchronously right
+    // after render(); with route-level React.lazy, PracticePage itself
+    // doesn't mount until its chunk resolves, so that text's timing
+    // relative to the assertion is no longer guaranteed the way a
+    // synchronous import's was.)
+    expect(container.querySelector('.practice-page')).toBeInTheDocument()
+    expect(container.querySelector('.home')).not.toBeInTheDocument()
   })
 
   it('boots straight into Home on every visit after the first', async () => {

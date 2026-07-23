@@ -1,0 +1,17 @@
+{
+  "id": "str-003",
+  "pattern": "string-formatting",
+  "difficulty_rating": 900,
+  "explanation": "The string literal `\"Hello, {name}!\"` is missing the `f` prefix, so Python treats `{name}` as literal text instead of interpolating the `name` variable. The function always returns the literal string `Hello, {name}!` regardless of what's passed in.",
+  "prompt": "What's wrong with this greeting function?",
+  "language": "python",
+  "snippet": "def greet(name):\n    return \"Hello, {name}!\"",
+  "interaction": "mcq",
+  "choices": [
+    "The string is missing an `f` prefix, so `{name}` is never interpolated",
+    "The function should use `%s` instead of curly braces",
+    "`name` needs to be converted to a string with `str(name)` first",
+    "The return statement should use string concatenation with `+` instead"
+  ],
+  "correct_choice": 0
+}

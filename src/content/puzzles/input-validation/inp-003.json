@@ -1,0 +1,17 @@
+{
+  "id": "inp-003",
+  "pattern": "input-validation",
+  "difficulty_rating": 1600,
+  "explanation": "parseInt() parses as many leading numeric characters as it can and silently ignores any trailing non-numeric text, returning the numeric prefix instead of NaN. So an input like \"25abc\" or \"30 years\" is parsed as 25 or 30 and passes validation as a valid positive age, even though it's not a clean integer string. The function needs an explicit format check (e.g. a regex like /^\\d+$/) before or instead of relying on parseInt's leniency.",
+  "prompt": "This age validator is supposed to reject anything that isn't a clean positive integer string. What's the actual bug?",
+  "language": "javascript",
+  "snippet": "function isValidAge(input) {\n  const age = parseInt(input);\n  if (isNaN(age)) {\n    return false;\n  }\n  return age > 0;\n}",
+  "interaction": "mcq",
+  "choices": [
+    "parseInt parses leading numeric characters and ignores trailing non-numeric text, so inputs like \"25abc\" are incorrectly accepted as valid ages",
+    "The radix parameter is missing from parseInt, causing strings with leading zeros to be parsed as octal numbers",
+    "isNaN() is deprecated and should be replaced with Number.isNaN() for the check to work correctly",
+    "The function returns a boolean but callers expect it to return the parsed numeric age"
+  ],
+  "correct_choice": 0
+}

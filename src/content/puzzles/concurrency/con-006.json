@@ -1,0 +1,17 @@
+{
+  "id": "con-006",
+  "pattern": "concurrency",
+  "difficulty_rating": 1600,
+  "explanation": "`counter += 1` is not atomic — it decomposes into a read, an increment, and a write, and the GIL can switch threads between those steps. When four threads run this concurrently, some increments get lost because a thread can overwrite another thread's update with a stale value it read earlier. The final printed value will typically be less than 400000, even though `join()` correctly waits for all threads to finish before printing.",
+  "prompt": "Four threads each increment a shared counter 100,000 times. What's actually wrong here?",
+  "language": "python",
+  "snippet": "import threading\n\ncounter = 0\n\ndef increment():\n    global counter\n    for _ in range(100000):\n        counter += 1\n\nthreads = [threading.Thread(target=increment) for _ in range(4)]\nfor t in threads:\n    t.start()\nfor t in threads:\n    t.join()\n\nprint(counter)",
+  "interaction": "mcq",
+  "choices": [
+    "`counter += 1` is not atomic, so concurrent threads can interleave and lose updates, making the final count less than 400000",
+    "The threads should be joined before they are started, otherwise the program will raise an error",
+    "`range(100000)` should be `range(100001)` to correctly count to 100000",
+    "`print(counter)` runs before the threads finish because it's outside the loop that starts them"
+  ],
+  "correct_choice": 0
+}

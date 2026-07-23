@@ -1,14 +1,35 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { ErrorBoundary } from './ErrorBoundary'
-import { PracticePage } from './practice/PracticePage'
-import { DailyPage } from './daily/DailyPage'
-import { RushPage } from './rush/RushPage'
-import { Home } from './Home'
 import { PwaPrompts } from './pwa/PwaPrompts'
 import { AppShell } from './AppShell'
 import type { AppMode } from './ModeSwitcher'
 
 const VISITED_KEY = 'codoro:has-visited'
+
+// Each mode is its own chunk (and pulls prismjs/framer-motion along with it
+// transitively via CodeSnippet/SwipeBinary) so a cold load only pays for the
+// mode it actually lands on, not all four. The importer functions are kept
+// separate from the lazy() calls so resolveBootMode's chosen mode can be
+// prefetched eagerly below — without that, Suspense wouldn't request the
+// chunk until React's first render pass, adding an extra network
+// round-trip to the very first paint instead of overlapping it with the
+// rest of main.tsx's startup work.
+const practiceImporter = () => import('./practice/PracticePage')
+const dailyImporter = () => import('./daily/DailyPage')
+const rushImporter = () => import('./rush/RushPage')
+const homeImporter = () => import('./Home')
+
+const PracticePage = lazy(async () => ({ default: (await practiceImporter()).PracticePage }))
+const DailyPage = lazy(async () => ({ default: (await dailyImporter()).DailyPage }))
+const RushPage = lazy(async () => ({ default: (await rushImporter()).RushPage }))
+const Home = lazy(async () => ({ default: (await homeImporter()).Home }))
+
+const modeImporters: Record<AppMode, () => Promise<unknown>> = {
+  practice: practiceImporter,
+  daily: dailyImporter,
+  rush: rushImporter,
+  home: homeImporter,
+}
 
 /**
  * A brand-new device's very first launch still boots straight into Practice
@@ -36,20 +57,29 @@ function resolveBootMode(): AppMode {
 }
 
 export function App() {
-  const [mode, setMode] = useState<AppMode>(resolveBootMode)
+  const [mode, setMode] = useState<AppMode>(() => {
+    const bootMode = resolveBootMode()
+    // Fire the boot mode's chunk fetch immediately, in parallel with the
+    // rest of app startup, rather than waiting for Suspense to discover it
+    // during the first render.
+    void modeImporters[bootMode]()
+    return bootMode
+  })
 
   return (
     <ErrorBoundary>
       <AppShell mode={mode} onModeChange={setMode}>
-        {mode === 'practice' ? (
-          <PracticePage />
-        ) : mode === 'daily' ? (
-          <DailyPage />
-        ) : mode === 'rush' ? (
-          <RushPage />
-        ) : (
-          <Home onNavigate={setMode} />
-        )}
+        <Suspense fallback={null}>
+          {mode === 'practice' ? (
+            <PracticePage />
+          ) : mode === 'daily' ? (
+            <DailyPage />
+          ) : mode === 'rush' ? (
+            <RushPage />
+          ) : (
+            <Home onNavigate={setMode} />
+          )}
+        </Suspense>
       </AppShell>
       <PwaPrompts />
     </ErrorBoundary>

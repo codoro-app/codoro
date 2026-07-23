@@ -32,38 +32,66 @@
  * shipping at all, present or future, so this module really is the single
  * choke point for what gets collected, not just for the events we happen
  * to call `safeCapture` for.
+ *
+ * `posthog-js` itself is loaded via a dynamic `import()`, not a static
+ * top-of-file import — this is the one thing in the whole codebase that
+ * genuinely doesn't need to be in the initial bundle: nothing on the first
+ * paint path depends on analytics, so there's no reason to ship and parse
+ * posthog-js before the app is visible. `loadPosthog()` memoizes the
+ * import() promise so init/capture calls (however many, however soon after
+ * each other) only ever trigger one network fetch, and every call site
+ * below keeps its original synchronous-looking void signature — nothing
+ * outside this file changes.
  */
-import posthog from 'posthog-js'
 import { env } from '../env'
 
-export function initTelemetry(): void {
+type PostHogInstance = typeof import('posthog-js').default
+
+let posthogPromise: Promise<PostHogInstance> | null = null
+
+function loadPosthog(): Promise<PostHogInstance> | null {
   if (!env.VITE_POSTHOG_KEY) {
+    return null
+  }
+  posthogPromise ??= import('posthog-js').then((mod) => mod.default)
+  return posthogPromise
+}
+
+export function initTelemetry(): void {
+  const key = env.VITE_POSTHOG_KEY
+  const posthog = loadPosthog()
+  if (!posthog || !key) {
     return
   }
-  try {
-    posthog.init(env.VITE_POSTHOG_KEY, {
-      api_host: env.VITE_POSTHOG_HOST,
-      person_profiles: 'identified_only',
-      autocapture: false,
-      capture_pageview: false,
-      disable_session_recording: true,
-      capture_dead_clicks: false,
-      capture_performance: false,
-      disable_surveys: true,
-      disable_external_dependency_loading: true,
+  posthog
+    .then((ph) => {
+      ph.init(key, {
+        api_host: env.VITE_POSTHOG_HOST,
+        person_profiles: 'identified_only',
+        autocapture: false,
+        capture_pageview: false,
+        disable_session_recording: true,
+        capture_dead_clicks: false,
+        capture_performance: false,
+        disable_surveys: true,
+        disable_external_dependency_loading: true,
+      })
     })
-  } catch {
-    // A blocked/misconfigured analytics provider must never break the app.
-  }
+    .catch(() => {
+      // A blocked/misconfigured analytics provider must never break the app.
+    })
 }
 
 export function safeCapture(event: string, properties?: object): void {
-  if (!env.VITE_POSTHOG_KEY) {
+  const posthog = loadPosthog()
+  if (!posthog) {
     return
   }
-  try {
-    posthog.capture(event, properties)
-  } catch {
-    // A blocked/misconfigured analytics provider must never break the app.
-  }
+  posthog
+    .then((ph) => {
+      ph.capture(event, properties)
+    })
+    .catch(() => {
+      // A blocked/misconfigured analytics provider must never break the app.
+    })
 }

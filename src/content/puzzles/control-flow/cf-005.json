@@ -1,0 +1,11 @@
+{
+  "id": "cf-005",
+  "pattern": "control-flow",
+  "difficulty_rating": 1900,
+  "explanation": "The `break` on line 7 only exits the `switch` statement — it does not exit or skip the rest of the `for` loop body. So even for a CANCELLED order, execution falls through to `notifiedCount++` and `order.notifyStatusChange()` after the switch, meaning cancelled orders still get counted and notified just like every other order. The intent was clearly to archive cancelled orders quietly and skip the rest of the loop body for them, which requires `continue;` instead of `break;` on that line. Because `PENDING` and `COMPLETED` orders are supposed to fall through to the notification step anyway, this only becomes visible when the list contains a CANCELLED order — with no cancellations, the loop behaves exactly as intended.",
+  "prompt": "Tap the line responsible for the bug in this order-processing loop.",
+  "language": "java",
+  "snippet": "public int processOrders(List<Order> orders) {\n    int processedCount = 0;\n    int notifiedCount = 0;\n    for (Order order : orders) {\n        switch (order.getStatus()) {\n            case CANCELLED:\n                order.archive();\n                break;\n            case PENDING:\n                order.markProcessing();\n                processedCount++;\n                break;\n            case COMPLETED:\n                processedCount++;\n                break;\n        }\n        notifiedCount++;\n        order.notifyStatusChange();\n    }\n    return processedCount;\n}",
+  "interaction": "tap-line",
+  "correct_line": 7
+}

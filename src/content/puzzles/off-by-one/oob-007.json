@@ -1,0 +1,13 @@
+{
+  "id": "oob-007",
+  "pattern": "off-by-one",
+  "difficulty_rating": 2000,
+  "explanation": "`high` is initialized to `arr.length` instead of `arr.length - 1`, but the loop uses the inclusive condition `low <= high`. When the target is greater than every element in the array, `low` keeps climbing toward `high` until they meet at `arr.length` itself — at that point `mid = (low + high) / 2` equals `arr.length`, and `arr[mid]` throws an out-of-bounds access. A correct version would either initialize `high = arr.length - 1` (keeping the inclusive condition) or keep `high = arr.length` but use the exclusive condition `low < high`.",
+  "prompt": "Is this binary search safe for every target value, or can it misbehave?",
+  "language": "java",
+  "snippet": "static int binarySearch(int[] arr, int target) {\n    int low = 0, high = arr.length;\n    while (low <= high) {\n        int mid = (low + high) / 2;\n        if (arr[mid] == target) return mid;\n        else if (arr[mid] < target) low = mid + 1;\n        else high = mid - 1;\n    }\n    return -1;\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Safe",
+  "right_label": "Crashes on some input",
+  "correct_direction": "right"
+}

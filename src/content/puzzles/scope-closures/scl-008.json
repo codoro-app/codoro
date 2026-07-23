@@ -1,0 +1,17 @@
+{
+  "id": "scl-008",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1000,
+  "explanation": "`discount` is declared with `const` inside the `if` block, so it is block-scoped and does not exist outside that block. The `return` statement references `discount` unconditionally, so on every call — regardless of whether `price > 100` — this throws a ReferenceError instead of computing a discounted price.",
+  "prompt": "What's wrong with this function?",
+  "language": "javascript",
+  "snippet": "function calculateDiscount(price) {\n  if (price > 100) {\n    const discount = price * 0.1\n  }\n  return price - discount\n}",
+  "interaction": "mcq",
+  "choices": [
+    "`discount` is declared inside the `if` block with `const`, so it's out of scope on the `return` line, causing a ReferenceError",
+    "The function forgot to declare `price` as a parameter",
+    "`discount` should be multiplied by `0.01` instead of `0.1`",
+    "The `if` statement is missing a corresponding `else` branch"
+  ],
+  "correct_choice": 0
+}

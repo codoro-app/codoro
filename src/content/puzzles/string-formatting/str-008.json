@@ -1,0 +1,11 @@
+{
+  "id": "str-008",
+  "pattern": "string-formatting",
+  "difficulty_rating": 900,
+  "explanation": "JavaScript template literals only interpolate expressions written as `${...}`. Here the code writes `{name}` without the leading `$`, so the braces are treated as literal characters rather than an interpolation slot — the function always returns the literal string \"Hello, {name}!\" instead of substituting the actual name.",
+  "prompt": "Tap the line with the string-formatting bug.",
+  "language": "javascript",
+  "snippet": "function greet(name) {\n  const message = `Hello, {name}!`\n  return message\n}",
+  "interaction": "tap-line",
+  "correct_line": 1
+}

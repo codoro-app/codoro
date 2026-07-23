@@ -1,0 +1,17 @@
+{
+  "id": "scl-003",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1100,
+  "explanation": "`var` is function-scoped, not block-scoped, so all three closures pushed inside the loop capture the exact same binding of `i`. By the time the returned functions are actually called, the loop has already finished and `i` equals 3, so every call returns 3 instead of the expected 0, 1, 2. Using `let` instead of `var` would give each iteration its own binding.",
+  "prompt": "Why do all three calls below return 3 instead of 0, 1, 2?",
+  "language": "javascript",
+  "snippet": "function makeCounters() {\n  const funcs = [];\n  for (var i = 0; i < 3; i++) {\n    funcs.push(function() { return i; });\n  }\n  return funcs;\n}\n\nconst counters = makeCounters();\nconsole.log(counters[0](), counters[1](), counters[2]());",
+  "interaction": "mcq",
+  "choices": [
+    "`var` makes all three closures share the same loop variable `i`, so by the time they're called it has already reached its final value of 3",
+    "`funcs.push` should be `funcs.unshift` to preserve the correct call order",
+    "The loop condition `i < 3` should be `i <= 3` to include the last index",
+    "Arrow functions must be used instead of anonymous functions for closures to capture variables correctly"
+  ],
+  "correct_choice": 0
+}
