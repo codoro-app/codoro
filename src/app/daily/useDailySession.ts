@@ -25,6 +25,7 @@ import {
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, UserProfile } from '../../storage'
 import { DAILY_CALENDAR, puzzlePool } from '../../content'
+import { isDevPuzzleModeEnabled, resolveDailyStubPuzzle } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle } from '../../content'
 import { trackAttempt, trackError } from '../../telemetry'
 import type { CommitPayload } from '../practice/interactionTypes'
@@ -66,8 +67,9 @@ export function useDailySession(): DailySession {
 
   const today = todayDateString()
   const dayNumber = getDailyNumber(today)
-  const puzzle: ContentPuzzle | null =
-    DAILY_CALENDAR.length > 0
+  const puzzle: ContentPuzzle | null = isDevPuzzleModeEnabled()
+    ? resolveDailyStubPuzzle(dayNumber - 1)
+    : DAILY_CALENDAR.length > 0
       ? (puzzlePool.find(
           (candidate) =>
             candidate.id === DAILY_CALENDAR[getDailyCalendarIndex(today, DAILY_CALENDAR.length)],

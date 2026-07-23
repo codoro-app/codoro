@@ -18,6 +18,7 @@ import type { ReactNode } from 'react'
 import { ModeSwitcher } from './ModeSwitcher'
 import type { AppMode } from './ModeSwitcher'
 import { NavRail } from './NavRail'
+import { DevPuzzleToggle } from './devTools/DevPuzzleToggle'
 import './app.css'
 
 export interface AppShellProps {
@@ -49,6 +50,7 @@ export function AppShell({ mode, onModeChange, children }: AppShellProps) {
         <NavRail mode={mode} onChange={onModeChange} />
       </div>
       <main className="app-shell__content">{children}</main>
+      <DevPuzzleToggle />
     </div>
   )
 }
