@@ -1,0 +1,17 @@
+{
+  "id": "oob-006",
+  "pattern": "off-by-one",
+  "difficulty_rating": 1700,
+  "explanation": "The loop condition is `while (low < high)`, so once the search narrows to a single remaining candidate (`low == high`), the loop exits without ever comparing `arr[mid]` to `target` at that index. This means a target value that happens to be the last surviving candidate gets missed and the function incorrectly returns -1. The condition should be `low <= high` so the final candidate is always checked before the loop terminates.",
+  "prompt": "This binary search sometimes fails to find a value that's actually present in the sorted array. What's the bug?",
+  "language": "java",
+  "snippet": "public static int binarySearch(int[] arr, int target) {\n    int low = 0, high = arr.length - 1;\n    while (low < high) {\n        int mid = (low + high) / 2;\n        if (arr[mid] == target) {\n            return mid;\n        } else if (arr[mid] < target) {\n            low = mid + 1;\n        } else {\n            high = mid - 1;\n        }\n    }\n    return -1;\n}",
+  "interaction": "mcq",
+  "choices": [
+    "The loop condition `low < high` should be `low <= high`; as written, the loop exits before checking the last remaining candidate when `low` and `high` converge to the same index, causing valid matches to be missed",
+    "`mid` is computed as `(low + high) / 2`, which will always round down and skip the correct middle element in even-length arrays",
+    "`arr[mid] < target` and `arr[mid] > target` are swapped, so the search moves in the wrong direction on every iteration",
+    "The function returns `-1` instead of throwing an exception when the target isn't found, which violates standard binary search contracts"
+  ],
+  "correct_choice": 0
+}

@@ -1,0 +1,17 @@
+{
+  "id": "nul-007",
+  "pattern": "null-undefined",
+  "difficulty_rating": 1000,
+  "explanation": "Array.prototype.find returns undefined when no element matches the predicate. If no user with the given id exists, `user` is undefined, and `user.name` throws a TypeError instead of returning a sensible value.",
+  "prompt": "What's the bug in this function?",
+  "language": "javascript",
+  "snippet": "function getUserName(users, id) {\n  const user = users.find(u => u.id === id)\n  return user.name\n}",
+  "interaction": "mcq",
+  "choices": [
+    "If no user matches `id`, `find` returns undefined and `user.name` throws",
+    "`Array.prototype.find` is deprecated in modern JavaScript",
+    "The arrow function `u => u.id === id` has invalid syntax",
+    "`id` should be compared with `==` instead of `===`"
+  ],
+  "correct_choice": 0
+}

@@ -1,0 +1,13 @@
+{
+  "id": "cf-007",
+  "pattern": "control-flow",
+  "difficulty_rating": 1575,
+  "explanation": "The `case 'gold':` branch is missing a `break` statement, so execution falls through into `case 'silver':` and overwrites `discount` with 0.1 before hitting the break there. As a result, a 'gold' tier customer silently receives the silver discount (0.1) instead of the intended 0.2 — every other case works correctly because they all have their own `break`.",
+  "prompt": "Does this discount switch statement work correctly for every tier?",
+  "language": "javascript",
+  "snippet": "function getDiscount(tier) {\n  let discount = 0\n  switch (tier) {\n    case 'gold':\n      discount = 0.2\n    case 'silver':\n      discount = 0.1\n      break\n    case 'bronze':\n      discount = 0.05\n      break\n    default:\n      discount = 0\n  }\n  return discount\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Safe",
+  "right_label": "Buggy",
+  "correct_direction": "right"
+}

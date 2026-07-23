@@ -1,0 +1,13 @@
+{
+  "id": "inp-007",
+  "pattern": "input-validation",
+  "difficulty_rating": 1650,
+  "explanation": "The function only checks that `username` is truthy and has a length of at least 3, but never trims whitespace. A string like `'   '` (three spaces) is truthy and has length 3, so it passes validation even though it contains no meaningful characters — the check should reject whitespace-only input, e.g. by validating `username.trim().length >= 3`.",
+  "prompt": "Does this username validator correctly reject invalid input?",
+  "language": "javascript",
+  "snippet": "function isValidUsername(username) {\n  if (!username) return false;\n  if (username.length < 3) return false;\n  return true;\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Safe",
+  "right_label": "Buggy",
+  "correct_direction": "right"
+}

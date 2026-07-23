@@ -1,0 +1,11 @@
+{
+  "id": "nul-006",
+  "pattern": "null-undefined",
+  "difficulty_rating": 1900,
+  "explanation": "Destructuring default values in JavaScript only kick in when the source property is `undefined` — not when it's explicitly `null`. If the API returns `avatarUrl: null` (a common convention for \"user removed their avatar\") instead of omitting the field, the default `'/default-avatar.png'` is skipped and `avatarUrl` stays `null`. That value is later dereferenced with `.trim()` on the return statement, throwing a TypeError. `displayName`, `bio`, and `email` use the same default syntax but are only passed through untouched, so a null value there wouldn't immediately crash — `avatarUrl` is the one whose default silently fails to protect a later method call.",
+  "prompt": "Tap the line whose default value silently fails to protect against a null API response.",
+  "language": "javascript",
+  "snippet": "function normalizeProfile(profile) {\n  const {\n    displayName = 'Guest',\n    bio = '',\n    avatarUrl = '/default-avatar.png',\n    email\n  } = profile\n\n  return {\n    displayName,\n    bio,\n    avatarUrl: avatarUrl.trim(),\n    email\n  }\n}",
+  "interaction": "tap-line",
+  "correct_line": 4
+}

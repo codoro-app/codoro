@@ -1,0 +1,11 @@
+{
+  "id": "inp-005",
+  "pattern": "input-validation",
+  "difficulty_rating": 1100,
+  "explanation": "The function accesses `password.length` before confirming that `password` is a non-null, defined value. If `validatePassword` is called with `null`, `undefined`, or is called with no argument at all, this line throws a TypeError instead of returning a validation result, so the missing input check crashes the caller rather than gracefully rejecting bad input.",
+  "prompt": "Tap the line that will crash instead of validating the input.",
+  "language": "javascript",
+  "snippet": "function validatePassword(password) {\n  if (password.length >= 8) {\n    return true;\n  }\n  return false;\n}",
+  "interaction": "tap-line",
+  "correct_line": 1
+}

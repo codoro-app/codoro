@@ -1,0 +1,17 @@
+{
+  "id": "nul-004",
+  "pattern": "null-undefined",
+  "difficulty_rating": 1000,
+  "explanation": "The function assumes `user.address` is always an object, but if `address` is `null` or `undefined` (e.g., a user who hasn't set one), accessing `.city` on it throws a TypeError. There's no guard or optional chaining to handle the missing case.",
+  "prompt": "What's wrong with this function?",
+  "language": "javascript",
+  "snippet": "function getUserCity(user) {\n  return user.address.city;\n}",
+  "interaction": "mcq",
+  "choices": [
+    "It doesn't handle the case where `user.address` is null or undefined, causing a TypeError",
+    "It should use `user['address']['city']` instead of dot notation",
+    "The function is missing a return statement",
+    "`city` should be capitalized as `City`"
+  ],
+  "correct_choice": 0
+}

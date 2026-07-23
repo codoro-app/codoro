@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -59,6 +59,11 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: true,
+    // Vitest's default excludes don't cover .claude/ — without this it also
+    // collects test files from any git worktree checked out under
+    // .claude/worktrees/ (see superpowers:using-git-worktrees), running the
+    // whole suite a second time against a second, possibly stale, copy.
+    exclude: [...configDefaults.exclude, '**/.claude/**'],
     coverage: {
       provider: 'v8',
       include: ['src/engine/**/*.ts', 'src/storage/**/*.ts'],

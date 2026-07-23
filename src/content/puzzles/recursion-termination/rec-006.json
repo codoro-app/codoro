@@ -1,0 +1,17 @@
+{
+  "id": "rec-006",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 1700,
+  "explanation": "The base case only fires when `n === 1`. For `n === 0` (or any negative starting value), the sequence of calls goes `0, -1, -2, -3, ...` and never equals `1`, so the recursion never hits its base case and blows the call stack. The base case should be `n <= 1` (or explicitly handle `n === 0`).",
+  "prompt": "This factorial function crashes for one specific input. What's the bug?",
+  "language": "javascript",
+  "snippet": "function factorial(n) {\n  if (n === 1) return 1;\n  return n * factorial(n - 1);\n}",
+  "interaction": "mcq",
+  "choices": [
+    "The base case only checks `n === 1`, so calling `factorial(0)` decrements past 1 into negative numbers forever and never terminates",
+    "It will incorrectly return `NaN` for any negative input because of implicit type coercion",
+    "The recursive call passes `n - 1` instead of `n + 1`, causing infinite recursion",
+    "Multiplying `n * factorial(n - 1)` will overflow for large positive integers, producing incorrect results"
+  ],
+  "correct_choice": 0
+}

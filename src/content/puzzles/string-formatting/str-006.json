@@ -1,0 +1,11 @@
+{
+  "id": "str-006",
+  "pattern": "string-formatting",
+  "difficulty_rating": 950,
+  "explanation": "The format string contains two placeholders (%s and %d) but only a single value, `name`, is supplied to the % operator instead of a tuple `(name, age)`. This raises `TypeError: not enough arguments for format string` every time the function is called, since age is never provided.",
+  "prompt": "Tap the line with the formatting bug.",
+  "language": "python",
+  "snippet": "def greet(name, age):\n    print(\"Hello %s, you are %d years old\" % name)",
+  "interaction": "tap-line",
+  "correct_line": 1
+}

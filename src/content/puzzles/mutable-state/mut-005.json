@@ -1,0 +1,17 @@
+{
+  "id": "mut-005",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1500,
+  "explanation": "The same `summary` object is created once outside the loop and pushed into `results` on every iteration. Since objects are stored by reference, all entries in `results` alias the exact same object — by the time the loop finishes, every element in `results` reflects the final accumulated totals and items list, not a per-order snapshot. Each iteration needs a fresh object (e.g. a shallow copy) pushed instead.",
+  "prompt": "Why does every entry in `results` end up showing the same final totals instead of per-order snapshots?",
+  "language": "javascript",
+  "snippet": "function processOrders(orders) {\n  const summary = { total: 0, items: [] };\n  const results = [];\n  for (const order of orders) {\n    summary.items.push(order.id);\n    summary.total += order.amount;\n    results.push(summary);\n  }\n  return results;\n}",
+  "interaction": "mcq",
+  "choices": [
+    "The same `summary` object is aliased and pushed into `results` each iteration, so all entries end up referencing the final accumulated state",
+    "`summary.total` is never initialized before the loop, causing `NaN` to accumulate",
+    "The loop should use a classic `for (let i = 0; i < orders.length; i++)` instead of `for...of` to avoid this",
+    "`results.push(summary)` should be `results.push(summary.total)` since only the numeric total is needed downstream"
+  ],
+  "correct_choice": 0
+}

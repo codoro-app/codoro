@@ -1,0 +1,17 @@
+{
+  "id": "cf-006",
+  "pattern": "control-flow",
+  "difficulty_rating": 1000,
+  "explanation": "The `case \"small\"` branch sets `price = 5` but has no `break`, so execution falls through into `case \"medium\"`, which overwrites `price` to 10. Calling `getPrice(\"small\")` returns 10 instead of the intended 5. The `medium` and `large` cases both have `break` statements and behave correctly.",
+  "prompt": "What's the bug in this pricing function?",
+  "language": "javascript",
+  "snippet": "function getPrice(size) {\n  let price = 0\n  switch (size) {\n    case \"small\":\n      price = 5\n    case \"medium\":\n      price = 10\n      break\n    case \"large\":\n      price = 15\n      break\n  }\n  return price\n}",
+  "interaction": "mcq",
+  "choices": [
+    "The `case \"small\"` branch is missing a `break`, causing it to fall through and set `price` to 10 instead of 5",
+    "The `switch` statement doesn't have a `default` case, so unrecognized sizes return `undefined`",
+    "The `let price = 0` declaration is unnecessary and should be removed",
+    "The `break` statements should be placed before the price assignments, not after"
+  ],
+  "correct_choice": 0
+}

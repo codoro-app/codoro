@@ -1,0 +1,13 @@
+{
+  "id": "nul-008",
+  "pattern": "null-undefined",
+  "difficulty_rating": 1050,
+  "explanation": "The function assumes `user` is always a valid object and immediately accesses `user.email` with no null/undefined check. If `user` is `null` or `undefined` (e.g., a lookup that found no match), this throws a TypeError before `.toLowerCase()` ever runs. The base S/T/D/C formula gives 900; the swipe-binary modifier (+150) is added because a 50% guess floor otherwise inflates this puzzle's apparent pass rate.",
+  "prompt": "Swipe: is this function safe to call, or does it crash on certain inputs?",
+  "language": "javascript",
+  "snippet": "function getUserEmail(user) {\n  return user.email.toLowerCase();\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Safe",
+  "right_label": "Crashes on null",
+  "correct_direction": "right"
+}

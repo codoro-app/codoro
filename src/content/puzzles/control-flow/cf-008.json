@@ -1,0 +1,18 @@
+{
+  "id": "cf-008",
+  "pattern": "control-flow",
+  "difficulty_rating": 1900,
+  "explanation": "The `break` inside the `'urgent'` case only exits the `switch` statement — it does not break the enclosing `for` loop, since `break` binds to the nearest enclosing switch or loop. With no loop-level break after a match is found, the loop keeps scanning the rest of the array, and every later urgent ticket overwrites `result`. So despite the function's name and evident intent, it returns the *last* urgent ticket in the array, not the first.",
+  "prompt": "This function is supposed to return the first ticket marked 'urgent'. What's actually wrong with it?",
+  "language": "javascript",
+  "snippet": "function findFirstUrgentTicket(tickets) {\n  let result = null\n  for (let i = 0; i < tickets.length; i++) {\n    switch (tickets[i].priority) {\n      case 'urgent':\n        result = tickets[i]\n        break\n      default:\n        continue\n    }\n  }\n  return result\n}",
+  "interaction": "mcq",
+  "choices": [
+    "The `break` in the `'urgent'` case only exits the `switch`, not the loop, so the function keeps scanning and returns the last urgent ticket instead of the first",
+    "The `continue` in the `default` case accidentally skips the last element of the array",
+    "The loop condition `i < tickets.length` should be `i <= tickets.length`",
+    "`result` is never initialized before the loop runs, so it will throw a ReferenceError",
+    "The `switch` statement should use `===` instead of matching by value, causing type coercion bugs"
+  ],
+  "correct_choice": 0
+}

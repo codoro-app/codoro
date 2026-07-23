@@ -1,0 +1,13 @@
+{
+  "id": "err-005",
+  "pattern": "error-handling",
+  "difficulty_rating": 1075,
+  "explanation": "The catch block is empty, so when `JSON.parse` throws on invalid input, the error is silently swallowed and the function returns `undefined` instead of surfacing the failure. Callers have no way to know parsing failed, which hides bugs and makes debugging much harder. Base S=1,T=1,D=2,C=1 sum=5 gives 900; +175 swipe-binary modifier applied for the 50% guess floor.",
+  "prompt": "Is this config parser's error handling okay?",
+  "language": "javascript",
+  "snippet": "function parseConfig(json) {\n  try {\n    return JSON.parse(json)\n  } catch (e) {\n  }\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Safe",
+  "right_label": "Swallows the error",
+  "correct_direction": "right"
+}

@@ -1,0 +1,17 @@
+{
+  "id": "inp-008",
+  "pattern": "input-validation",
+  "difficulty_rating": 1100,
+  "explanation": "The function only checks that `username.length > 0`, so it accepts any non-empty string — including one made up entirely of spaces or tabs, like \"   \". Because there's no `.trim()` (or equivalent) before the length check, whitespace-only input passes validation even though it isn't a meaningful username.",
+  "prompt": "What's the input-validation bug here?",
+  "language": "javascript",
+  "snippet": "function validateUsername(username) {\n  if (username.length > 0) {\n    return true\n  }\n  return false\n}",
+  "interaction": "mcq",
+  "choices": [
+    "It doesn't trim whitespace, so a string of only spaces incorrectly passes validation",
+    "It always returns false due to a logic error",
+    "It uses `length` instead of `size`, which doesn't exist on strings",
+    "It should use `===` instead of `>` for the comparison"
+  ],
+  "correct_choice": 0
+}

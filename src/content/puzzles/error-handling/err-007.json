@@ -1,0 +1,17 @@
+{
+  "id": "err-007",
+  "pattern": "error-handling",
+  "difficulty_rating": 1100,
+  "explanation": "In JavaScript, dividing by zero doesn't throw a runtime error — `a / b` simply evaluates to `Infinity`, `-Infinity`, or `NaN`. Since no exception is ever thrown, the `catch` block is effectively dead code: the try/catch gives the illusion of error handling for a bad divisor, but a caller passing `b = 0` gets `Infinity` back silently instead of any indication something went wrong.",
+  "prompt": "What's the actual problem with this error-handling approach?",
+  "language": "javascript",
+  "snippet": "function safeDivide(a, b) {\n  try {\n    return a / b;\n  } catch (e) {\n    console.log(e);\n  }\n}",
+  "interaction": "mcq",
+  "choices": [
+    "Dividing by zero doesn't throw in JavaScript, so the catch block never runs and a zero divisor produces Infinity/NaN silently instead of being handled",
+    "The try block should be wrapped in a finally block to guarantee cleanup always runs",
+    "Using console.log inside a catch block always throws a TypeError at runtime",
+    "The catch parameter must specify an error type, otherwise JavaScript throws a SyntaxError"
+  ],
+  "correct_choice": 0
+}

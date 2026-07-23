@@ -1,0 +1,13 @@
+{
+  "id": "inp-004",
+  "pattern": "input-validation",
+  "difficulty_rating": 2050,
+  "explanation": "The handler passes `username` and `password` straight from `req.body` into a MongoDB query without checking their types. If an attacker sends `password` as an object like `{\"$ne\": null}` instead of a string, MongoDB interprets it as a query operator ('password not equal to null'), which matches almost any stored document and lets the attacker log in without knowing the real password. Because the code never validates that both fields are strings before building the query, this is a classic NoSQL injection via missing input validation — it looks correct for normal string logins but is bypassable with a crafted request body.",
+  "prompt": "Is this login handler safe from malicious input, or does it have a validation gap?",
+  "language": "javascript",
+  "snippet": "function login(req, res) {\n  const { username, password } = req.body\n  db.users.findOne({ username, password }, (err, user) => {\n    if (user) {\n      res.send('Logged in')\n    } else {\n      res.send('Invalid credentials')\n    }\n  })\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Safe",
+  "right_label": "Injection bypass",
+  "correct_direction": "right"
+}

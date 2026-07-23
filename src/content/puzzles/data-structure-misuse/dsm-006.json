@@ -1,0 +1,17 @@
+{
+  "id": "dsm-006",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 1000,
+  "explanation": "A stack must be LIFO (last-in, first-out): push and pop should both operate on the same end of the underlying array. Here push() correctly appends to the end via items.push(), but pop() calls items.shift(), which removes from the front. This silently turns the 'stack' into a queue (FIFO) — the oldest item is returned first instead of the most recently pushed one.",
+  "prompt": "This Stack class is supposed to be LIFO. What's the bug?",
+  "language": "javascript",
+  "snippet": "class Stack {\n  constructor() {\n    this.items = []\n  }\n  push(item) {\n    this.items.push(item)\n  }\n  pop() {\n    return this.items.shift()\n  }\n}",
+  "interaction": "mcq",
+  "choices": [
+    "pop() calls shift(), which removes from the front of the array, making this behave like a queue instead of a stack",
+    "push() should use unshift() instead of push() to add new items",
+    "The items array should be initialized to null instead of an empty array",
+    "The constructor is missing a call to super()"
+  ],
+  "correct_choice": 0
+}

@@ -1,0 +1,11 @@
+{
+  "id": "rec-008",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 1000,
+  "explanation": "The recursive call `countdown(n)` never decrements `n`, so every recursive invocation receives the exact same value. The base case `n <= 0` can never be reached (unless n starts at 0 or below), causing infinite recursion and a stack overflow. It should be `countdown(n - 1)`.",
+  "prompt": "Tap the line responsible for the infinite recursion.",
+  "language": "javascript",
+  "snippet": "function countdown(n) {\n  if (n <= 0) return;\n  console.log(n);\n  countdown(n);\n}",
+  "interaction": "tap-line",
+  "correct_line": 3
+}

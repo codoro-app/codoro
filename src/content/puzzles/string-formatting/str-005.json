@@ -1,0 +1,17 @@
+{
+  "id": "str-005",
+  "pattern": "string-formatting",
+  "difficulty_rating": 1900,
+  "explanation": "`toFixed(2)` doesn't do pure decimal rounding — it operates on the number's underlying binary floating-point representation. Values like 1.005 can't be represented exactly in binary (it's actually stored as something like 1.00499999999999989...), so `(1.005).toFixed(2)` yields \"1.00\" instead of the expected \"1.01\". The bug only surfaces for specific values whose binary representation rounds the 'wrong' way, not for prices in general.",
+  "prompt": "This function formats a price for display. What's the subtle bug?",
+  "language": "javascript",
+  "snippet": "function formatPrice(price) {\n  return `$${price.toFixed(2)}`;\n}",
+  "interaction": "mcq",
+  "choices": [
+    "`toFixed()` operates on the binary floating-point value, so numbers like 1.005 round down instead of up because 1.005 has no exact binary representation",
+    "`toFixed(2)` throws a RangeError whenever `price` is negative",
+    "The template literal `${}` is missing a `+` operator, so the dollar sign won't concatenate correctly",
+    "`toFixed(2)` always truncates rather than rounds, so 1.999 would incorrectly return \"1.99\""
+  ],
+  "correct_choice": 0
+}

@@ -11,6 +11,14 @@ import type { AttemptEventPayload } from './events'
  * per test with `vi.doMock` + `vi.resetModules()` and re-import the module
  * under test dynamically — a fresh module graph per test, same pattern
  * needed anywhere a config singleton is read at import time.
+ *
+ * client.ts now loads posthog-js via a dynamic `import()` (see the comment
+ * there for why) instead of a static one, so init/capture calls resolve
+ * over a microtask hop or two rather than synchronously. `flushPromises()`
+ * drains the queue with a macrotask (a real `setTimeout`, not another
+ * microtask), which is resilient to the exact number of internal `.then()`
+ * hops — every test that asserts a `posthogMock` call actually happened
+ * awaits it first.
  */
 
 const posthogMock = {
@@ -25,6 +33,10 @@ beforeEach(() => {
   posthogMock.init.mockReset()
   posthogMock.capture.mockReset()
 })
+
+async function flushPromises(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0))
+}
 
 async function loadTelemetry(key: string | undefined, host = 'https://us.i.posthog.com') {
   vi.doMock('../env', () => ({
@@ -47,6 +59,7 @@ describe('initTelemetry', () => {
   it('calls posthog.init with the configured key and host when a key is present', async () => {
     const { initTelemetry } = await loadTelemetry('phc_test_key', 'https://eu.i.posthog.com')
     initTelemetry()
+    await flushPromises()
     expect(posthogMock.init).toHaveBeenCalledTimes(1)
     expect(posthogMock.init).toHaveBeenCalledWith(
       'phc_test_key',
@@ -57,6 +70,7 @@ describe('initTelemetry', () => {
   it('no-ops without calling posthog.init when the key is unset', async () => {
     const { initTelemetry } = await loadTelemetry(undefined)
     initTelemetry()
+    await flushPromises()
     expect(posthogMock.init).not.toHaveBeenCalled()
   })
 
@@ -68,6 +82,7 @@ describe('initTelemetry', () => {
     expect(() => {
       initTelemetry()
     }).not.toThrow()
+    await flushPromises()
   })
 })
 
@@ -75,12 +90,14 @@ describe('trackSessionStart', () => {
   it('captures session_start with no required custom properties', async () => {
     const { trackSessionStart } = await loadTelemetry('phc_test_key')
     trackSessionStart()
+    await flushPromises()
     expect(posthogMock.capture).toHaveBeenCalledWith('session_start', undefined)
   })
 
   it('no-ops without calling posthog.capture when the key is unset', async () => {
     const { trackSessionStart } = await loadTelemetry(undefined)
     trackSessionStart()
+    await flushPromises()
     expect(posthogMock.capture).not.toHaveBeenCalled()
   })
 
@@ -92,6 +109,7 @@ describe('trackSessionStart', () => {
     expect(() => {
       trackSessionStart()
     }).not.toThrow()
+    await flushPromises()
   })
 })
 
@@ -99,12 +117,14 @@ describe('trackAttempt', () => {
   it('captures attempt with exactly the locked property shape', async () => {
     const { trackAttempt } = await loadTelemetry('phc_test_key')
     trackAttempt(attemptPayload)
+    await flushPromises()
     expect(posthogMock.capture).toHaveBeenCalledWith('attempt', attemptPayload)
   })
 
   it('no-ops without calling posthog.capture when the key is unset', async () => {
     const { trackAttempt } = await loadTelemetry(undefined)
     trackAttempt(attemptPayload)
+    await flushPromises()
     expect(posthogMock.capture).not.toHaveBeenCalled()
   })
 
@@ -116,6 +136,7 @@ describe('trackAttempt', () => {
     expect(() => {
       trackAttempt(attemptPayload)
     }).not.toThrow()
+    await flushPromises()
   })
 })
 
@@ -130,6 +151,7 @@ describe('trackRushAttempt', () => {
       difficulty_served: 880,
     }
     trackRushAttempt(payload)
+    await flushPromises()
     expect(posthogMock.capture).toHaveBeenCalledWith('attempt', payload)
   })
 
@@ -142,6 +164,7 @@ describe('trackRushAttempt', () => {
       position_in_run: 1,
       difficulty_served: 800,
     })
+    await flushPromises()
     expect(posthogMock.capture).not.toHaveBeenCalled()
   })
 })
@@ -156,6 +179,7 @@ describe('trackRushRunEnd', () => {
       final_difficulty: 1600,
     }
     trackRushRunEnd(payload)
+    await flushPromises()
     expect(posthogMock.capture).toHaveBeenCalledWith('rush_run_end', payload)
   })
 
@@ -167,6 +191,7 @@ describe('trackRushRunEnd', () => {
       best_streak_in_run: 0,
       final_difficulty: 800,
     })
+    await flushPromises()
     expect(posthogMock.capture).not.toHaveBeenCalled()
   })
 })
@@ -176,6 +201,7 @@ describe('trackError', () => {
     const { trackError } = await loadTelemetry('phc_test_key')
     const error = new Error('boom')
     trackError(error, 'ErrorBoundary')
+    await flushPromises()
     expect(posthogMock.capture).toHaveBeenCalledTimes(1)
     const [eventName, properties] = posthogMock.capture.mock.calls[0] as [
       string,
@@ -191,6 +217,7 @@ describe('trackError', () => {
     expect(() => {
       trackError('a plain string was thrown')
     }).not.toThrow()
+    await flushPromises()
     expect(posthogMock.capture).toHaveBeenCalledWith(
       'app_error',
       expect.objectContaining({ message: 'a plain string was thrown' }),
@@ -202,6 +229,7 @@ describe('trackError', () => {
     const error = new Error('x'.repeat(10_000))
     error.stack = 'y'.repeat(10_000)
     trackError(error)
+    await flushPromises()
     const [, properties] = posthogMock.capture.mock.calls[0] as [string, Record<string, unknown>]
     expect((properties.message as string).length).toBeLessThan(10_000)
     expect((properties.stack as string).length).toBeLessThan(10_000)
@@ -210,6 +238,7 @@ describe('trackError', () => {
   it('no-ops without calling posthog.capture when the key is unset', async () => {
     const { trackError } = await loadTelemetry(undefined)
     trackError(new Error('boom'))
+    await flushPromises()
     expect(posthogMock.capture).not.toHaveBeenCalled()
   })
 
@@ -221,5 +250,6 @@ describe('trackError', () => {
     expect(() => {
       trackError(new Error('boom'))
     }).not.toThrow()
+    await flushPromises()
   })
 })

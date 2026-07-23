@@ -1,0 +1,13 @@
+{
+  "id": "err-008",
+  "pattern": "error-handling",
+  "difficulty_rating": 1575,
+  "explanation": "The `return -1;` inside the `finally` block unconditionally executes after the `try` block, and a return statement in `finally` overrides any return value *or* exception coming out of `try`. So even if `configMap.get(key)` throws (e.g. a NullPointerException for a missing key) or returns a perfectly valid value, this method always silently returns -1 — the real result and the original exception are both discarded.",
+  "prompt": "Does this method correctly surface errors from configMap.get, or does it silently swallow them?",
+  "language": "java",
+  "snippet": "public int readConfigValue(String key) {\n    try {\n        return configMap.get(key);\n    } finally {\n        return -1;\n    }\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Safe",
+  "right_label": "Swallows exceptions",
+  "correct_direction": "right"
+}
