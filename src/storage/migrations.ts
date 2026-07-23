@@ -47,10 +47,20 @@ function migrateV1ToV2(raw: Record<string, unknown>): Record<string, unknown> {
 }
 
 /**
+ * v2 -> v3: adds `rushStats` (nullable) for Phase 7's Rush mode — see
+ * src/storage/schema.ts's UserProfile doc comment. Every existing field is
+ * passed through unchanged; this migration only adds the new one.
+ */
+function migrateV2ToV3(raw: Record<string, unknown>): Record<string, unknown> {
+  return { ...raw, schema_version: 3, rushStats: null }
+}
+
+/**
  * Keyed by the version each migration migrates *from*. The first real entry:
  * schema v1 predates Daily mode, so any profile still on v1 gets a null
  * dailyCompletion (equivalent to "no Daily attempt recorded yet").
  */
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1ToV2,
+  2: migrateV2ToV3,
 }

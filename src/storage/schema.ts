@@ -15,7 +15,7 @@ import { INITIAL_RATING, emptyRequeueState } from '../engine'
  * needs a migration (see migrations.ts). A fully-validated profile is always on
  * this exact version — migration runs before schema validation, never after.
  */
-export const CURRENT_SCHEMA_VERSION = 2
+export const CURRENT_SCHEMA_VERSION = 3
 
 /** Mirrors engine's StreakState shape. */
 export const StreakStateSchema = z.object({
@@ -46,6 +46,26 @@ export interface DailyCompletion {
   correct: boolean
 }
 
+/**
+ * Rush's persisted best-ever stats — the retention hook the build plan
+ * calls out. Non-null once at least one Rush run has completed; bestScore/
+ * bestStreak are all-time highs across every run, updated only when a
+ * finished run beats the existing value (see useRushSession's endRun).
+ */
+export const RushStatsSchema = z.object({
+  bestScore: z.number().int().nonnegative(),
+  bestStreak: z.number().int().nonnegative(),
+  runs: z.number().int().nonnegative(),
+  lastRunAt: z.string().nullable(),
+})
+
+export interface RushStats {
+  bestScore: number
+  bestStreak: number
+  runs: number
+  lastRunAt: string | null
+}
+
 export const UserProfileSchema = z.object({
   // z.literal, not z.number(): reaching full validation implies migration has
   // already brought the record onto the current version.
@@ -56,6 +76,7 @@ export const UserProfileSchema = z.object({
   requeueState: RequeueStateSchema,
   storagePersisted: z.boolean().nullable(),
   dailyCompletion: DailyCompletionSchema.nullable(),
+  rushStats: RushStatsSchema.nullable(),
 })
 
 export interface UserProfile {
@@ -68,6 +89,8 @@ export interface UserProfile {
   storagePersisted: boolean | null
   /** Non-null once today's Daily puzzle has a recorded first (rated) attempt. Date-scoped: a stale date from a previous day means "not completed today" even though the field is non-null. */
   dailyCompletion: DailyCompletion | null
+  /** Non-null once at least one Rush run has completed — see RushStatsSchema's doc comment. */
+  rushStats: RushStats | null
 }
 
 export const AttemptSchema = z.object({
@@ -111,5 +134,6 @@ export function createDefaultProfile(): UserProfile {
     requeueState: emptyRequeueState,
     storagePersisted: null,
     dailyCompletion: null,
+    rushStats: null,
   }
 }

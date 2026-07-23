@@ -12,13 +12,14 @@ vi.mock('../storage', async (importOriginal) => {
 
 function baseProfile(): UserProfile {
   return {
-    schema_version: 2,
+    schema_version: 3,
     rating: 1250,
     ratedAttemptCount: 40,
     streak: { currentStreak: 3, longestStreak: 5, lastActiveDate: '2026-07-21' },
     requeueState: [],
     storagePersisted: null,
     dailyCompletion: null,
+    rushStats: null,
   }
 }
 
