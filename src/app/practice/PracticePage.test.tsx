@@ -85,12 +85,83 @@ describe('PracticePage', () => {
     await user.click(screen.getByText(PATTERN_LABELS['null-undefined']))
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /pattern: null/i })).toBeInTheDocument()
+      expect(
+        screen.getByText(new RegExp(`filtering: ${PATTERN_LABELS['null-undefined']}`, 'i')),
+      ).toBeInTheDocument()
+    })
+    // Browse button itself stays a static label now — the active pattern is
+    // shown by the dedicated filter chip instead.
+    expect(screen.getByRole('button', { name: /^browse patterns/i })).toBeInTheDocument()
+
+    // Practice-all-patterns escape hatch is still reachable via Browse.
+    await user.click(screen.getByRole('button', { name: /^browse patterns/i }))
+    expect(screen.getByRole('button', { name: /practice all patterns/i })).toBeInTheDocument()
+  })
+
+  it('the filter chip clears the pattern filter directly, without losing session stats', async () => {
+    const user = userEvent.setup()
+    render(<PracticePage />)
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
     })
 
-    // Practice-all-patterns escape hatch is reachable again from here.
-    await user.click(screen.getByRole('button', { name: /pattern: null/i }))
-    expect(screen.getByRole('button', { name: /practice all patterns/i })).toBeInTheDocument()
+    // Solve one puzzle first, so solvedThisSession is non-zero before filtering.
+    await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+    expect(screen.getByText(/1 solved this session/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /browse patterns/i }))
+    await user.click(screen.getByText(PATTERN_LABELS['null-undefined']))
+    await waitFor(() => {
+      expect(
+        screen.getByText(new RegExp(`filtering: ${PATTERN_LABELS['null-undefined']}`, 'i')),
+      ).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: 'All patterns' }))
+
+    expect(screen.queryByText(/filtering: /i)).not.toBeInTheDocument()
+    // Session stat survived the clear — this was a pure filter swap, not a reset.
+    expect(screen.getByText(/1 solved this session/i)).toBeInTheDocument()
+    // Still on the practice view (a puzzle card is showing), not the picker.
+    expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+  })
+
+  it('while filtered, selecting a different mastery row switches the filter rather than stacking', async () => {
+    const user = userEvent.setup()
+    render(<PracticePage />)
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /browse patterns/i }))
+    await user.click(screen.getByText(PATTERN_LABELS['null-undefined']))
+    await waitFor(() => {
+      expect(
+        screen.getByText(new RegExp(`filtering: ${PATTERN_LABELS['null-undefined']}`, 'i')),
+      ).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /^mastery$/i }))
+    await waitFor(() => {
+      expect(screen.getByText(/mastery by pattern/i)).toBeInTheDocument()
+    })
+    const otherRow = screen.getByText(PATTERN_LABELS['off-by-one']).closest('button')
+    expect(otherRow).not.toBeNull()
+    await user.click(otherRow as HTMLElement)
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(new RegExp(`filtering: ${PATTERN_LABELS['off-by-one']}`, 'i')),
+      ).toBeInTheDocument()
+    })
+    // The old filter is gone, not stacked alongside the new one.
+    expect(
+      screen.queryByText(new RegExp(`filtering: ${PATTERN_LABELS['null-undefined']}`, 'i')),
+    ).not.toBeInTheDocument()
   })
 
   it('mastery view is reachable and has a way back to practice', async () => {
@@ -161,7 +232,9 @@ describe('PracticePage', () => {
     await user.click(screen.getByRole('button', { name: /browse patterns/i }))
     await user.click(screen.getByText(PATTERN_LABELS['null-undefined']))
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /pattern: null/i })).toBeInTheDocument()
+      expect(
+        screen.getByText(new RegExp(`filtering: ${PATTERN_LABELS['null-undefined']}`, 'i')),
+      ).toBeInTheDocument()
     })
 
     await waitFor(() => {
@@ -263,7 +336,9 @@ describe('PracticePage', () => {
     await user.click(row as HTMLElement)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /pattern: null/i })).toBeInTheDocument()
+      expect(
+        screen.getByText(new RegExp(`filtering: ${PATTERN_LABELS['null-undefined']}`, 'i')),
+      ).toBeInTheDocument()
     })
     // Back on the practice view, not stuck on the mastery view.
     expect(screen.queryByText(/mastery by pattern/i)).not.toBeInTheDocument()

@@ -32,6 +32,7 @@ import { MasteryView } from './MasteryView'
 import { usePracticeSession } from './usePracticeSession'
 import { useMediaQuery } from '../useMediaQuery'
 import { PATTERN_LABELS } from '../../content'
+import { CloseIcon } from '../Icons'
 import { useEffect, useState } from 'react'
 import './practicePage.css'
 
@@ -141,11 +142,7 @@ export function PracticePage() {
               setView('patterns')
             }}
           >
-            <span>
-              {session.patternFilter
-                ? `Pattern: ${PATTERN_LABELS[session.patternFilter]}`
-                : 'Browse patterns'}
-            </span>
+            <span>Browse patterns</span>
             <svg
               aria-hidden="true"
               width="15"
@@ -173,6 +170,22 @@ export function PracticePage() {
             </button>
           )}
         </div>
+
+        {session.patternFilter && (
+          <div className="practice-page__filter-banner">
+            <span>Filtering: {PATTERN_LABELS[session.patternFilter]}</span>
+            <button
+              type="button"
+              className="practice-page__filter-clear"
+              onClick={() => {
+                session.setPatternFilter(null)
+              }}
+            >
+              <CloseIcon size={12} />
+              All patterns
+            </button>
+          </div>
+        )}
 
         {session.status === 'empty' || session.puzzle === null ? (
           <p className="practice-page__status">No puzzles available for this pattern yet.</p>

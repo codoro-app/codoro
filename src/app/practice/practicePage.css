@@ -37,12 +37,31 @@
 }
 
 .practice-page__filter-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--tap-target-min);
+  padding: var(--space-1-5) var(--space-2) var(--space-1-5) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  color: var(--text-0);
+  font-size: var(--font-size-sm);
+}
+
+.practice-page__filter-clear {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  font-size: var(--font-size-base);
-  color: var(--text-1);
+  gap: var(--space-1);
+  min-height: 32px;
+  padding: var(--space-1) var(--space-2-5);
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--surface-0);
+  color: var(--text-0);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .practice-page__nav {
