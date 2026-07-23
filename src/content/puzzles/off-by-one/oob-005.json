@@ -1,0 +1,13 @@
+{
+  "id": "oob-005",
+  "pattern": "off-by-one",
+  "difficulty_rating": 1050,
+  "explanation": "Arrays are zero-indexed, so the last valid index is `arr.length - 1`, not `arr.length`. `arr[arr.length]` is always one past the end of the array and evaluates to `undefined` for every call, regardless of the input array's contents.",
+  "prompt": "Does this function correctly return the last element of the array?",
+  "language": "javascript",
+  "snippet": "function getLast(arr) {\n  return arr[arr.length];\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Safe",
+  "right_label": "Off-by-one",
+  "correct_direction": "right"
+}

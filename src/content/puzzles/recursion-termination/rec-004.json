@@ -1,0 +1,17 @@
+{
+  "id": "rec-004",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 2000,
+  "explanation": "When `arr[mid] < target`, the recursive call passes `mid` as the new `low` instead of `mid + 1`. If the search narrows to a point where `low == high == mid` and `arr[mid] < target`, the recursive call `binary_search(arr, target, mid, high)` receives the exact same `low`, `high`, and therefore the exact same `mid` as the current call — the arguments never change, so the base case `low > high` is never reached and the recursion never terminates (it will run until it blows the call stack).",
+  "prompt": "This recursive binary search has a bug. What's wrong?",
+  "language": "python",
+  "snippet": "def binary_search(arr, target, low, high):\n    if low > high:\n        return -1\n    mid = (low + high) // 2\n    if arr[mid] == target:\n        return mid\n    elif arr[mid] < target:\n        return binary_search(arr, target, mid, high)\n    else:\n        return binary_search(arr, target, low, mid - 1)",
+  "interaction": "mcq",
+  "choices": [
+    "The recursive call for the 'search right half' branch passes `mid` instead of `mid + 1` as the new `low`, so when `low == high == mid` the arguments never change and the recursion never terminates",
+    "The base case should be `low >= high` instead of `low > high`, or the function will raise an IndexError on empty arrays",
+    "`mid` should be computed as `(low + high + 1) // 2` to avoid truncating toward the wrong half",
+    "The equality check `arr[mid] == target` should compare with `is` instead of `==` to correctly detect the target value"
+  ],
+  "correct_choice": 0
+}

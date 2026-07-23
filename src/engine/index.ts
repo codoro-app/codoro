@@ -32,7 +32,7 @@ export type { RequeueStage, RequeueEntry, RequeueState, AdvanceResult } from './
 export { daysBetween, recordActivity } from './streak'
 export type { StreakState } from './streak'
 
-export { hashDateString, getDailyPuzzleIndex, getDailyNumber, DAILY_EPOCH } from './daily'
+export { getDailyCalendarIndex, getDailyNumber, DAILY_EPOCH } from './daily'
 
 export {
   RUSH_RATING_OFFSET,

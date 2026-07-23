@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DAILY_EPOCH, getDailyNumber, getDailyPuzzleIndex, hashDateString } from './daily'
+import { DAILY_EPOCH, getDailyCalendarIndex, getDailyNumber } from './daily'
 
 // 2028 is a leap year, so this covers all 366 possible MM-DD combinations,
 // including Feb 29.
@@ -17,71 +17,97 @@ function allDatesIn2028(): string[] {
   return dates
 }
 
-describe('hashDateString / getDailyPuzzleIndex', () => {
-  it('is deterministic for the same date string', () => {
-    const a = getDailyPuzzleIndex('2026-07-15', 150)
-    const b = getDailyPuzzleIndex('2026-07-15', 150)
-    const c = getDailyPuzzleIndex('2026-07-15', 150)
+/** `count` consecutive date strings starting at `start` (inclusive). */
+function consecutiveDates(start: string, count: number): string[] {
+  const dates: string[] = []
+  const cursor = new Date(`${start}T00:00:00Z`)
+
+  for (let i = 0; i < count; i++) {
+    dates.push(cursor.toISOString().slice(0, 10))
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  }
+
+  return dates
+}
+
+describe('getDailyCalendarIndex', () => {
+  it('is deterministic for the same date and calendar length', () => {
+    const a = getDailyCalendarIndex('2026-07-15', 16)
+    const b = getDailyCalendarIndex('2026-07-15', 16)
+    const c = getDailyCalendarIndex('2026-07-15', 16)
 
     expect(a).toBe(b)
     expect(b).toBe(c)
   })
 
-  it('throws for a zero pool size', () => {
-    expect(() => getDailyPuzzleIndex('2026-07-15', 0)).toThrow()
+  it('throws for a zero calendar length', () => {
+    expect(() => getDailyCalendarIndex('2026-07-15', 0)).toThrow()
   })
 
-  it('throws for a negative pool size', () => {
-    expect(() => getDailyPuzzleIndex('2026-07-15', -5)).toThrow()
+  it('throws for a negative calendar length', () => {
+    expect(() => getDailyCalendarIndex('2026-07-15', -5)).toThrow()
   })
 
-  it('produces an in-bounds integer index for every date in a leap year', () => {
-    const poolSize = 150
+  it('produces an in-bounds integer index for every date in a leap year, across several calendar lengths', () => {
     const dates = allDatesIn2028()
     expect(dates).toHaveLength(366)
 
-    for (const date of dates) {
-      const index = getDailyPuzzleIndex(date, poolSize)
-      expect(Number.isInteger(index)).toBe(true)
+    for (const calendarLength of [1, 5, 16, 40, 150]) {
+      for (const date of dates) {
+        const index = getDailyCalendarIndex(date, calendarLength)
+        expect(Number.isInteger(index)).toBe(true)
+        expect(index).toBeGreaterThanOrEqual(0)
+        expect(index).toBeLessThan(calendarLength)
+      }
+    }
+  })
+
+  it('handles dates before DAILY_EPOCH (negative day-index) without going out of bounds', () => {
+    const beforeEpoch = ['2025-01-01', '2025-12-31', '2000-06-15']
+    for (const date of beforeEpoch) {
+      const index = getDailyCalendarIndex(date, 16)
       expect(index).toBeGreaterThanOrEqual(0)
-      expect(index).toBeLessThan(poolSize)
+      expect(index).toBeLessThan(16)
     }
   })
 
-  it('does not skew the distribution wildly across a full year of dates', () => {
-    const poolSize = 150
-    const dates = allDatesIn2028()
-    const counts = new Map<number, number>()
+  it('wraps once the day-index runs past the end of the calendar — documented degraded mode', () => {
+    const calendarLength = 5
+    // Day-index 0 and day-index `calendarLength` (exactly one full lap later)
+    // must land on the same entry — proof the fallback is modulo, not a clamp.
+    const dates = consecutiveDates(DAILY_EPOCH, calendarLength + 1)
+    const dayZero = dates[0]
+    const oneLapLater = dates[calendarLength]
+    if (!dayZero || !oneLapLater) throw new Error('expected two dates from consecutiveDates')
+
+    expect(getDailyNumber(oneLapLater) - 1).toBe(calendarLength)
+    expect(getDailyCalendarIndex(oneLapLater, calendarLength)).toBe(
+      getDailyCalendarIndex(dayZero, calendarLength),
+    )
+  })
+
+  it('appending entries never changes the index for a day that was already within the old calendar length', () => {
+    const oldLength = 20
+    const newLength = 35 // simulates appending 15 new entries to the end
+    const dates = consecutiveDates('2026-01-01', 60)
 
     for (const date of dates) {
-      const index = getDailyPuzzleIndex(date, poolSize)
-      counts.set(index, (counts.get(index) ?? 0) + 1)
-    }
-
-    // Expected average hits per index is 366/150 ~= 2.44. A generous 4x
-    // multiple (~9.76, rounded up to 10) gives plenty of headroom for
-    // ordinary hash variance without being a precise statistical claim —
-    // it only exists to catch a degenerate hash (e.g. one that always
-    // returns the same index).
-    const threshold = 10
-    for (const count of counts.values()) {
-      expect(count).toBeLessThanOrEqual(threshold)
+      const dayIndex = getDailyNumber(date) - 1
+      if (dayIndex >= 0 && dayIndex < oldLength) {
+        expect(getDailyCalendarIndex(date, newLength)).toBe(getDailyCalendarIndex(date, oldLength))
+      }
     }
   })
 
-  it('produces many distinct indices across a year of dates (hash is not degenerate)', () => {
-    const poolSize = 150
-    const dates = allDatesIn2028()
-    const indices = new Set(dates.map((date) => getDailyPuzzleIndex(date, poolSize)))
+  it('same date + same calendar resolves to the same puzzle id', () => {
+    const calendar = ['a', 'b', 'c', 'd', 'e']
+    const date = '2026-03-10'
 
-    expect(indices.size).toBeGreaterThanOrEqual(50)
-  })
+    const idA = calendar[getDailyCalendarIndex(date, calendar.length)]
+    const idB = calendar[getDailyCalendarIndex(date, calendar.length)]
 
-  it('exposes the raw hash as an unsigned 32-bit integer', () => {
-    const hash = hashDateString('2026-07-15')
-    expect(Number.isInteger(hash)).toBe(true)
-    expect(hash).toBeGreaterThanOrEqual(0)
-    expect(hash).toBeLessThanOrEqual(0xffffffff)
+    expect(idA).toBe(idB)
+    expect(idA).toBeDefined()
   })
 })
 

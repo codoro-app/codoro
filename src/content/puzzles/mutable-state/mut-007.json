@@ -1,0 +1,17 @@
+{
+  "id": "mut-007",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1000,
+  "explanation": "`const copy = arr` does not create a new array — it just binds `copy` to the same array object that `arr` already references. Calling `copy.shift()` mutates that shared array in place, so the caller's original array loses its first element too, even though the function name and variable name `copy` suggest an independent copy was made.",
+  "prompt": "What's the bug in this function?",
+  "language": "javascript",
+  "snippet": "function removeFirst(arr) {\n  const copy = arr\n  copy.shift()\n  return copy\n}",
+  "interaction": "mcq",
+  "choices": [
+    "`copy = arr` assigns a reference to the same array, so `shift()` mutates the original array too",
+    "`shift()` should be `pop()` to remove the first element instead of the last",
+    "The function should `return arr` instead of `return copy`",
+    "`const` prevents `copy` from being reassigned, which throws a runtime error"
+  ],
+  "correct_choice": 0
+}

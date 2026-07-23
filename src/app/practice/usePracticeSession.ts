@@ -17,6 +17,7 @@ import {
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, UserProfile } from '../../storage'
 import { puzzlePool } from '../../content'
+import { resolvePool } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle, PatternSlug } from '../../content'
 import { trackAttempt, trackError } from '../../telemetry'
 import type { CommitPayload } from './interactionTypes'
@@ -39,7 +40,8 @@ function toEnginePuzzle(puzzle: ContentPuzzle): { id: string; rating: number } {
 }
 
 function poolForPattern(pattern: PatternSlug | null): ContentPuzzle[] {
-  return pattern === null ? puzzlePool : puzzlePool.filter((puzzle) => puzzle.pattern === pattern)
+  const pool = resolvePool(puzzlePool) as ContentPuzzle[]
+  return pattern === null ? pool : pool.filter((puzzle) => puzzle.pattern === pattern)
 }
 
 // 'error': loadProfile() rejected on mount (e.g. IndexedDB blocked in private
@@ -83,7 +85,7 @@ export function usePracticeSession(): PracticeSession {
   const recentIdsRef = useRef<string[]>([])
   const servedAtRef = useRef<number>(0)
 
-  const contentById = useRef(new Map(puzzlePool.map((p) => [p.id, p])))
+  const contentById = useRef(new Map(poolForPattern(null).map((p) => [p.id, p])))
 
   const serveNext = useCallback((currentProfile: UserProfile, pattern: PatternSlug | null) => {
     const pool = poolForPattern(pattern).map(toEnginePuzzle)

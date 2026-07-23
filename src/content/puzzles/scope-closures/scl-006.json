@@ -1,0 +1,18 @@
+{
+  "id": "scl-006",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1900,
+  "explanation": "Inside the loop, `field` is correctly captured per-iteration via `const field = fields[i]`, which looks like it solves the classic loop-closure problem. But the `validate` function body doesn't use `field` at all — it reads `fields[i]` again. Because `i` is declared with `var`, it's function-scoped, not block-scoped, so by the time any stored validator is actually called (after the loop has finished), `i` has already advanced to `fields.length`. Every validator therefore reads `fields[fields.length]`, which is `undefined`, and `value.length <= undefined.maxLength` throws a TypeError regardless of which field's validator you invoke.",
+  "prompt": "This factory is supposed to build one independent validator per field. What's the bug?",
+  "language": "javascript",
+  "snippet": "function createValidators(fields) {\n  const validators = {};\n  for (var i = 0; i < fields.length; i++) {\n    const field = fields[i];\n    validators[field.name] = function validate(value) {\n      return value.length <= fields[i].maxLength;\n    };\n  }\n  return validators;\n}",
+  "interaction": "mcq",
+  "choices": [
+    "`validate` reads `fields[i]` instead of the locally captured `field`, and since `i` is declared with `var` it has already advanced to `fields.length` by the time any validator is called, so every validator reads `undefined`",
+    "`field` should be declared with `let` instead of `const` so it can be reassigned on each iteration",
+    "`validators[field.name]` silently overwrites earlier entries because object keys must be unique strings",
+    "The loop condition should use `i <= fields.length` to include the last field",
+    "This code is correct — `const field = fields[i]` already re-binds a fresh variable every iteration, so the closures are safely isolated"
+  ],
+  "correct_choice": 0
+}

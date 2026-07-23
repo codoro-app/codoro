@@ -32,5 +32,9 @@ export const puzzlePool: Puzzle[] = Object.entries(modules)
 export { PATTERN_SLUGS, PATTERN_LABELS } from './patterns'
 export type { PatternSlug } from './patterns'
 
+export { DAILY_CALENDAR } from './dailyCalendar'
+
+export { DEV_STUB_PUZZLES } from './devPuzzles'
+
 export { PuzzleSchema, MIN_DIFFICULTY, MAX_DIFFICULTY } from './schema'
 export type { Puzzle, McqPuzzle, SwipeBinaryPuzzle, TapLinePuzzle } from './schema'

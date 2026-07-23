@@ -1,0 +1,13 @@
+{
+  "id": "rec-005",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 1050,
+  "explanation": "The recursive call `countdown(n)` passes the same value of `n` instead of `n - 1`, so the argument never moves toward the base case `n <= 0`. For any n > 0, this recurses forever (in practice it blows the call stack) rather than counting down.",
+  "prompt": "Does this countdown function terminate for a positive starting value of n?",
+  "language": "python",
+  "snippet": "def countdown(n):\n    if n <= 0:\n        print(\"Done\")\n    else:\n        print(n)\n        countdown(n)",
+  "interaction": "swipe-binary",
+  "left_label": "Terminates",
+  "right_label": "Infinite recursion",
+  "correct_direction": "right"
+}

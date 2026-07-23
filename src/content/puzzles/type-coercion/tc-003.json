@@ -1,0 +1,13 @@
+{
+  "id": "tc-003",
+  "pattern": "type-coercion",
+  "difficulty_rating": 1675,
+  "explanation": "Array.prototype.sort() with no comparator function converts each element to a string and compares them lexicographically (UTF-16 code unit order), not numerically. So sortAscending([10, 2, 1]) returns [1, 10, 2] instead of [1, 2, 10], because '10' sorts before '2' as strings. A numeric comparator like (a, b) => a - b is required for correct numeric ordering.",
+  "prompt": "Does this function correctly sort an array of numbers in ascending order?",
+  "language": "javascript",
+  "snippet": "function sortAscending(nums) {\n  return nums.sort();\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Sorts correctly",
+  "right_label": "Coercion bug",
+  "correct_direction": "right"
+}

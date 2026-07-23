@@ -1,0 +1,13 @@
+{
+  "id": "con-003",
+  "pattern": "concurrency",
+  "difficulty_rating": 2050,
+  "explanation": "The check-then-act sequence (`containsKey` then `put`) is not atomic, and the underlying `HashMap` is not thread-safe for concurrent mutation. Two threads can both see `containsKey(key)` return false before either calls `put`, so both invoke `compute.apply(key)` and both write to the map — causing redundant computation, lost updates, or even HashMap internal corruption (e.g. during resize) under concurrent access. This needs a `ConcurrentHashMap` with `computeIfAbsent`, or explicit synchronization around the whole check-and-put block.",
+  "prompt": "Is this cache lookup-and-compute method safe when called from multiple threads?",
+  "language": "java",
+  "snippet": "public class Cache<K, V> {\n    private final Map<K, V> map = new HashMap<>();\n\n    public V getOrCompute(K key, Function<K, V> compute) {\n        if (!map.containsKey(key)) {\n            V value = compute.apply(key);\n            map.put(key, value);\n        }\n        return map.get(key);\n    }\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Thread-safe",
+  "right_label": "Race condition",
+  "correct_direction": "right"
+}

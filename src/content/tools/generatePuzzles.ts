@@ -376,9 +376,38 @@ interface PuzzleSpec {
   band: Band
 }
 
-/** ~11 swipe-binary / ~9 mcq / ~5 tap-line (the 45/35/20 guideline), 2 puzzles for 12 patterns + 1 for the last = 25. */
+/**
+ * Phase 8 convergence target: every pattern >= TARGET_PER_PATTERN puzzles.
+ * Dynamic, not a fixed list — reads what's already on disk (via
+ * loadRawPuzzleFiles, same source loadExistingCounters uses) and generates
+ * exactly the gap for each pattern, so reruns after a partial batch (or
+ * after DISCARDED puzzles left some patterns short) top up instead of
+ * re-requesting puzzles that already exist.
+ *
+ * Interaction mix per pattern's gap cycles through the same ~45/35/20
+ * swipe-binary/mcq/tap-line sequence buildDryRunManifest's sibling used
+ * pre-Phase-8 (11 swipe / 9 mcq / 5 tap-line per 25), continued across
+ * pattern boundaries (not reset per pattern) so the mix holds at the
+ * batch level even though gap sizes differ per pattern. Bands cycle
+ * low/mid/high independently so every pattern's new puzzles still span
+ * the full range, regardless of where its gap-count lands in the
+ * interaction cycle.
+ */
+const TARGET_PER_PATTERN = 8
+
+function countExistingByPattern(): Map<PatternSlug, number> {
+  const counts = new Map<PatternSlug, number>()
+  for (const { raw } of loadRawPuzzleFiles()) {
+    if (raw && typeof raw === 'object' && 'pattern' in raw && typeof raw.pattern === 'string') {
+      const pattern = raw.pattern as PatternSlug
+      counts.set(pattern, (counts.get(pattern) ?? 0) + 1)
+    }
+  }
+  return counts
+}
+
 function buildFullManifest(): PuzzleSpec[] {
-  const interactions: Interaction[] = [
+  const interactionCycle: Interaction[] = [
     'swipe-binary',
     'mcq',
     'swipe-binary',
@@ -405,18 +434,26 @@ function buildFullManifest(): PuzzleSpec[] {
     'tap-line',
     'swipe-binary',
   ]
-  const bands: Band[] = ['low', 'mid', 'high']
+  const bandCycle: Band[] = ['low', 'mid', 'high']
 
-  const patternSequence: PatternSlug[] = [
-    ...PATTERN_SLUGS, // round 1: one per pattern (13)
-    ...PATTERN_SLUGS.slice(0, 12), // round 2: all but the last pattern (12) -> 25 total
-  ]
+  const existing = countExistingByPattern()
+  const specs: PuzzleSpec[] = []
+  let cursor = 0
 
-  return patternSequence.map((pattern, i) => ({
-    pattern,
-    interaction: interactions[i % interactions.length] ?? 'mcq',
-    band: bands[i % bands.length] ?? 'low',
-  }))
+  for (const pattern of PATTERN_SLUGS) {
+    const have = existing.get(pattern) ?? 0
+    const needed = Math.max(0, TARGET_PER_PATTERN - have)
+    for (let i = 0; i < needed; i++) {
+      specs.push({
+        pattern,
+        interaction: interactionCycle[cursor % interactionCycle.length] ?? 'mcq',
+        band: bandCycle[cursor % bandCycle.length] ?? 'mid',
+      })
+      cursor++
+    }
+  }
+
+  return specs
 }
 
 function buildDryRunManifest(): PuzzleSpec[] {
@@ -477,3 +514,4 @@ main().catch((err: unknown) => {
   console.error(err)
   process.exitCode = 1
 })
+

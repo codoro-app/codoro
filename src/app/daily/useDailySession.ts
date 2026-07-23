@@ -15,8 +15,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
+  getDailyCalendarIndex,
   getDailyNumber,
-  getDailyPuzzleIndex,
   recordActivity,
   roundForDisplay,
   shouldRateAttempt,
@@ -24,7 +24,8 @@ import {
 } from '../../engine'
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, UserProfile } from '../../storage'
-import { puzzlePool } from '../../content'
+import { DAILY_CALENDAR, puzzlePool } from '../../content'
+import { isDevPuzzleModeEnabled, resolveDailyStubPuzzle } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle } from '../../content'
 import { trackAttempt, trackError } from '../../telemetry'
 import type { CommitPayload } from '../practice/interactionTypes'
@@ -66,9 +67,13 @@ export function useDailySession(): DailySession {
 
   const today = todayDateString()
   const dayNumber = getDailyNumber(today)
-  const puzzle: ContentPuzzle | null =
-    puzzlePool.length > 0
-      ? (puzzlePool[getDailyPuzzleIndex(today, puzzlePool.length)] ?? null)
+  const puzzle: ContentPuzzle | null = isDevPuzzleModeEnabled()
+    ? resolveDailyStubPuzzle(dayNumber - 1)
+    : DAILY_CALENDAR.length > 0
+      ? (puzzlePool.find(
+          (candidate) =>
+            candidate.id === DAILY_CALENDAR[getDailyCalendarIndex(today, DAILY_CALENDAR.length)],
+        ) ?? null)
       : null
 
   const servedAtRef = useRef<number>(0)

@@ -1,6 +1,15 @@
 import '@testing-library/jest-dom/vitest'
 import { afterEach } from 'vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
+
+// The default 1000ms asyncUtilTimeout is tight enough that waitFor() calls
+// waiting on real async work (content-pool parsing, IndexedDB round-trips)
+// can miss it under full-suite thread contention even though they resolve
+// well within a couple hundred ms in isolation — App.test.tsx's initial
+// render assertion was observed flaking this way under `vitest run`'s
+// default parallelism. Widening it here (rather than per-call) covers every
+// waitFor/findBy* in the suite the same way.
+configure({ asyncUtilTimeout: 5000 })
 
 // jsdom doesn't implement the Pointer Events capture API (setPointerCapture /
 // releasePointerCapture / hasPointerCapture) — see jsdom#2527. SwipeBinary
