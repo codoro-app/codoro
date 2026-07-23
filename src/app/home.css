@@ -1,14 +1,16 @@
 /*
- * Home screen: composed entirely from existing v2 tokens/classes (see
- * Home.tsx's doc comment) — this file only adds the layout grid and the
- * two card modifiers (primary/disabled) that don't already exist on
- * pattern-picker__button.
+ * Home screen: composed entirely from existing v2 tokens (see Home.tsx's
+ * doc comment) — the hero stat uses the existing --font-size-4xl type
+ * token rather than a new size, and the icon badges reuse the same
+ * chip-on-dark-surface color pairing pattern-picker__badge already uses
+ * elsewhere (--accent-dim bg / --accent icon), just as a circle instead of
+ * a pill.
  */
 
 .home {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-3);
   width: 100%;
   max-width: var(--content-width-mobile);
   margin: 0 auto;
@@ -28,13 +30,66 @@
   padding: 2rem 0;
 }
 
-.home__streak-icon {
-  display: inline-flex;
-  color: var(--text-2);
+/* --- hero stat ----------------------------------------------------- */
+
+.home__hero {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-5) 0 var(--space-2);
 }
 
-.home__streak-icon[data-active='true'] {
+.home__hero-rating {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.home__hero-label {
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  color: var(--text-1);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.home__hero-value {
+  font-size: var(--font-size-4xl);
+  font-weight: 700;
+  color: var(--text-0);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.home__hero-streak {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  color: var(--text-2);
+  font-size: var(--font-size-md);
+  font-weight: 700;
+}
+
+.home__hero-streak[data-active='true'] {
   color: var(--warn);
+}
+
+.home__hero-streak-label {
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+/* --- mode cards ------------------------------------------------------ */
+
+.home__section-label {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .home__cards {
@@ -43,10 +98,16 @@
   gap: var(--space-3);
 }
 
+.home__cards-secondary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
 @media (min-width: 640px) {
-  .home__cards {
+  .home__cards-secondary {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr 1fr;
   }
 }
 
@@ -68,6 +129,8 @@
 }
 
 .home__card--primary {
+  gap: var(--space-3);
+  padding: var(--space-5);
   background: var(--accent);
   color: var(--accent-ink);
   border-color: var(--accent);
@@ -78,9 +141,37 @@
   cursor: default;
 }
 
+.home__card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: var(--radius-full);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.home__card--primary .home__card-icon {
+  width: 48px;
+  height: 48px;
+}
+
+/* Inverted so the badge still reads as a chip against the card's own
+   solid --accent fill, rather than blending into it. */
+.home__card-icon--inverted {
+  background: var(--accent-ink);
+  color: var(--accent);
+}
+
 .home__card-title {
   font-size: var(--font-size-lg);
   font-weight: 700;
+}
+
+.home__card--primary .home__card-title {
+  font-size: var(--font-size-xl);
 }
 
 .home__card-desc {

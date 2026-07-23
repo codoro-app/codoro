@@ -43,7 +43,12 @@ describe('Home', () => {
   })
 
   it('shows "Done today" when dailyCompletion matches today', async () => {
-    const today = new Date().toISOString().slice(0, 10)
+    // Local calendar date, matching Home.tsx's own todayDateString (same
+    // convention as usePracticeSession.ts/useDailySession.ts) — not
+    // toISOString(), which is UTC and can disagree with the local date near
+    // a day boundary, making this assertion flaky depending on timezone.
+    const now = new Date()
+    const today = `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     vi.mocked(loadProfile).mockResolvedValue({
       ...baseProfile(),
       dailyCompletion: { date: today, attemptId: 'a1', correct: true },

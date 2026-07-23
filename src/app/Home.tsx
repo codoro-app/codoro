@@ -1,21 +1,27 @@
 /**
  * Home screen — reachable only via the logo (desktop rail / mobile app
- * bar), never the boot path (App.tsx's initial mode stays 'practice', so
- * the "solving within ~10 seconds" cold start is untouched). Composed
- * entirely from existing v2 patterns: rating/streak reuse StatusBar's pill
- * markup, the three mode cards reuse PatternPicker's card shape (plus
- * pattern-picker__all's accent-fill for the Practice primary CTA and
- * mode-switcher's disabled treatment for Rush), and Daily's done/not-done
- * state is folded into its card's badge (pattern-picker__badge--mastered/
- * --new) rather than a separate status element — a deliberate compositional
- * reading, not a fourth invented block; flag to Thomas if a standalone
- * status element was actually wanted.
+ * bar). Boot behavior lives in App.tsx's resolveBootMode: a device's
+ * first-ever launch still goes straight to Practice (the "solving within
+ * ~10 seconds" cold start), every launch after that opens here instead.
+ *
+ * Composed from existing v2 tokens, recombined into a bolder arrangement
+ * than a bare reuse of StatusBar's pills: a large-type hero stat (using the
+ * existing --font-size-4xl token, not a new size) replaces the tiny pill
+ * row, and each mode card gets a colored icon badge (--accent-dim circle,
+ * the same "chip" language pattern-picker__badge already uses elsewhere)
+ * instead of a bare floating icon. The Practice card is visually larger
+ * than Daily/Rush — full width above them, not an equal-weight column — to
+ * read as the primary action. Daily's done/not-done state is folded into
+ * its card's badge (pattern-picker__badge--mastered/--new) rather than a
+ * separate status element — a deliberate compositional reading, not a
+ * fourth invented block; flag to Thomas if a standalone status element was
+ * actually wanted.
  */
 import { useEffect, useRef, useState } from 'react'
 import { loadProfile } from '../storage'
 import type { UserProfile } from '../storage'
 import { getDailyNumber } from '../engine'
-import { DailyIcon, PracticeIcon, RatingIcon, RushIcon, StreakIcon } from './Icons'
+import { DailyIcon, PracticeIcon, RushIcon, StreakIcon } from './Icons'
 import type { AppMode } from './ModeSwitcher'
 import './home.css'
 
@@ -57,21 +63,23 @@ export function Home({ onNavigate }: HomeProps) {
   const today = todayDateString()
   const dayNumber = getDailyNumber(today)
   const doneToday = profile.dailyCompletion?.date === today
+  const streakActive = profile.streak.currentStreak > 0
 
   return (
     <div className="home app-shell__main">
-      <div className="status-bar">
-        <div className="status-bar__pill status-bar__pill--rating" title="Rating">
-          <RatingIcon size={14} />
-          <span>{Math.round(profile.rating)}</span>
+      <div className="home__hero">
+        <div className="home__hero-rating">
+          <span className="home__hero-label">Rating</span>
+          <span className="home__hero-value">{Math.round(profile.rating)}</span>
         </div>
-        <div className="status-bar__pill status-bar__pill--streak" title="Daily streak">
-          <span className="home__streak-icon" data-active={profile.streak.currentStreak > 0}>
-            <StreakIcon size={14} />
-          </span>
-          <span>{profile.streak.currentStreak}</span>
+        <div className="home__hero-streak" data-active={streakActive}>
+          <StreakIcon size={16} />
+          <span className="home__hero-streak-value">{profile.streak.currentStreak}</span>
+          <span className="home__hero-streak-label">day streak</span>
         </div>
       </div>
+
+      <p className="home__section-label">Modes</p>
 
       <div className="home__cards">
         <button
@@ -81,33 +89,41 @@ export function Home({ onNavigate }: HomeProps) {
             onNavigate('practice')
           }}
         >
-          <PracticeIcon size={22} />
+          <span className="home__card-icon home__card-icon--inverted">
+            <PracticeIcon size={24} />
+          </span>
           <span className="home__card-title">Practice</span>
           <span className="home__card-desc">Endless rating-matched puzzles</span>
         </button>
 
-        <button
-          type="button"
-          className="home__card"
-          onClick={() => {
-            onNavigate('daily')
-          }}
-        >
-          <DailyIcon size={22} />
-          <span className="home__card-title">Daily #{dayNumber}</span>
-          <span className="home__card-desc">One puzzle, once a day</span>
-          <span
-            className={`pattern-picker__badge pattern-picker__badge--${doneToday ? 'mastered' : 'new'}`}
+        <div className="home__cards-secondary">
+          <button
+            type="button"
+            className="home__card"
+            onClick={() => {
+              onNavigate('daily')
+            }}
           >
-            {doneToday ? 'Done today' : 'Not done yet'}
-          </span>
-        </button>
+            <span className="home__card-icon">
+              <DailyIcon size={20} />
+            </span>
+            <span className="home__card-title">Daily #{dayNumber}</span>
+            <span className="home__card-desc">One puzzle, once a day</span>
+            <span
+              className={`pattern-picker__badge pattern-picker__badge--${doneToday ? 'mastered' : 'new'}`}
+            >
+              {doneToday ? 'Done today' : 'Not done yet'}
+            </span>
+          </button>
 
-        <div className="home__card home__card--disabled" aria-disabled="true">
-          <RushIcon size={22} />
-          <span className="home__card-title">Rush</span>
-          <span className="home__card-desc">Timed sprint mode</span>
-          <span className="pattern-picker__badge pattern-picker__badge--new">Coming soon</span>
+          <div className="home__card home__card--disabled" aria-disabled="true">
+            <span className="home__card-icon">
+              <RushIcon size={20} />
+            </span>
+            <span className="home__card-title">Rush</span>
+            <span className="home__card-desc">Timed sprint mode</span>
+            <span className="pattern-picker__badge pattern-picker__badge--new">Coming soon</span>
+          </div>
         </div>
       </div>
     </div>
