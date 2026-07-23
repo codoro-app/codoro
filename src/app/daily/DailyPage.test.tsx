@@ -3,8 +3,8 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { Puzzle } from '../../content'
 
-const { FIXTURE_POOL } = vi.hoisted(() => ({
-  FIXTURE_POOL: Array.from({ length: 12 }, (_, i) => ({
+const { FIXTURE_POOL, FIXTURE_CALENDAR } = vi.hoisted(() => {
+  const pool = Array.from({ length: 12 }, (_, i) => ({
     id: `p${String(i)}`,
     pattern: i % 2 === 0 ? 'off-by-one' : 'null-undefined',
     difficulty_rating: 1150 + i * 10,
@@ -15,12 +15,14 @@ const { FIXTURE_POOL } = vi.hoisted(() => ({
     interaction: 'mcq',
     choices: ['a', 'b'],
     correct_choice: 0,
-  })) as unknown as Puzzle[],
-}))
+  })) as unknown as Puzzle[]
+
+  return { FIXTURE_POOL: pool, FIXTURE_CALENDAR: pool.map((p) => p.id) }
+})
 
 vi.mock('../../content', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../content')>()
-  return { ...actual, puzzlePool: FIXTURE_POOL }
+  return { ...actual, puzzlePool: FIXTURE_POOL, DAILY_CALENDAR: FIXTURE_CALENDAR }
 })
 
 vi.mock('../../storage', async (importOriginal) => {
