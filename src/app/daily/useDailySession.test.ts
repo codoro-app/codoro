@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { updateRating, roundForDisplay, getDailyNumber, getDailyPuzzleIndex } from '../../engine'
+import { updateRating, roundForDisplay, getDailyNumber, getDailyCalendarIndex } from '../../engine'
 import type { Puzzle } from '../../content'
 import { useDailySession } from './useDailySession'
 
-const { FIXTURE_POOL } = vi.hoisted(() => ({
-  FIXTURE_POOL: Array.from({ length: 12 }, (_, i) => ({
+const { FIXTURE_POOL, FIXTURE_CALENDAR } = vi.hoisted(() => {
+  const pool = Array.from({ length: 12 }, (_, i) => ({
     id: `p${String(i)}`,
     pattern: i % 2 === 0 ? 'off-by-one' : 'null-undefined',
     difficulty_rating: 1150 + i * 10,
@@ -16,12 +16,20 @@ const { FIXTURE_POOL } = vi.hoisted(() => ({
     interaction: 'mcq',
     choices: ['a', 'b'],
     correct_choice: 0,
-  })) as unknown as Puzzle[],
-}))
+  })) as unknown as Puzzle[]
+
+  // The fixture calendar deliberately reorders pool ids (rather than mirroring
+  // pool order 1:1) so a test bug that indexes straight into puzzlePool
+  // instead of resolving through DAILY_CALENDAR would be caught.
+  return {
+    FIXTURE_POOL: pool,
+    FIXTURE_CALENDAR: [...pool].reverse().map((p) => p.id),
+  }
+})
 
 vi.mock('../../content', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../content')>()
-  return { ...actual, puzzlePool: FIXTURE_POOL }
+  return { ...actual, puzzlePool: FIXTURE_POOL, DAILY_CALENDAR: FIXTURE_CALENDAR }
 })
 
 vi.mock('../../storage', async (importOriginal) => {
@@ -46,9 +54,10 @@ function today(): string {
 }
 
 function expectedPuzzle(): Puzzle {
-  const index = getDailyPuzzleIndex(today(), FIXTURE_POOL.length)
-  const puzzle = FIXTURE_POOL[index]
-  if (!puzzle) throw new Error(`expected FIXTURE_POOL[${String(index)}] to exist`)
+  const index = getDailyCalendarIndex(today(), FIXTURE_CALENDAR.length)
+  const id = FIXTURE_CALENDAR[index]
+  const puzzle = FIXTURE_POOL.find((p) => p.id === id)
+  if (!puzzle) throw new Error(`expected a pool puzzle matching calendar entry "${String(id)}"`)
   return puzzle
 }
 
@@ -64,7 +73,7 @@ describe('useDailySession', () => {
     vi.restoreAllMocks()
   })
 
-  it("resolves today's puzzle via the deterministic date hash and the correct day number", async () => {
+  it("resolves today's puzzle via the curated daily calendar and the correct day number", async () => {
     const { result } = renderHook(() => useDailySession())
     await waitFor(() => {
       expect(result.current.status).toBe('ready')

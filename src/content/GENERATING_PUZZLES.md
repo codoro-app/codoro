@@ -110,6 +110,11 @@ underrepresented, a difficulty histogram bunched in one band. Actually read
 it; a clean `validate:content` exit code only tells you the content is
 _valid_, not that it's _good_ or _complete_.
 
+While you're looking at the batch, nominate its hardest puzzles as
+candidates for `src/content/dailyCalendar.ts` — the curated, append-only
+calendar Daily mode serves from (see that file's header comment for the
+append-only contract before touching it).
+
 ## The self-review pass doesn't replace you
 
 Self-review catches structural and logical problems an LLM can check for
