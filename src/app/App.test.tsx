@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { nth } from '../test/nth'
@@ -29,6 +29,13 @@ vi.mock('virtual:pwa-register/react', () => ({
 const { App } = await import('./App')
 
 describe('App', () => {
+  beforeEach(() => {
+    // App.tsx's resolveBootMode marks 'codoro:has-visited' on every mount —
+    // clear it so each test starts as a fresh first visit (boot: Practice),
+    // matching what every test below except the two boot-mode ones assumes.
+    localStorage.clear()
+  })
+
   it('renders the practice UI inside the ErrorBoundary wrapper (no placeholder copy)', async () => {
     render(<App />)
 
@@ -62,7 +69,7 @@ describe('App', () => {
     })
   })
 
-  it('boots straight into Practice (not Home) — the cold-start path is untouched', async () => {
+  it("boots straight into Practice on a device's first-ever visit — the cold-start path is untouched", async () => {
     render(<App />)
 
     // Practice's own loading copy renders on first paint, before Home's
@@ -73,6 +80,17 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText('1200')).toBeInTheDocument()
     })
+  })
+
+  it('boots straight into Home on every visit after the first', async () => {
+    // Simulate a returning device: the flag App.tsx's resolveBootMode
+    // writes on a real first visit is already present.
+    localStorage.setItem('codoro:has-visited', '1')
+
+    render(<App />)
+
+    expect(screen.queryByText(/loading your practice session/i)).not.toBeInTheDocument()
+    await screen.findByText('Practice', { selector: '.home__card-title' })
   })
 
   it('opens Home when the logo is clicked, and can navigate back to Practice from there', async () => {
