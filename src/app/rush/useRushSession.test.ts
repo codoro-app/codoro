@@ -33,7 +33,11 @@ vi.mock('../../storage', async (importOriginal) => {
   }
 })
 
-vi.mock('../../telemetry', () => ({ trackError: vi.fn() }))
+vi.mock('../../telemetry', () => ({
+  trackError: vi.fn(),
+  trackRushAttempt: vi.fn(),
+  trackRushRunEnd: vi.fn(),
+}))
 
 vi.mock('../../engine', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../engine')>()
@@ -43,6 +47,7 @@ vi.mock('../../engine', async (importOriginal) => {
 const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
   await import('../../storage')
 const { updateRating } = await import('../../engine')
+const { trackRushRunEnd } = await import('../../telemetry')
 
 /** Drives one commit + Continue through the hook, exactly like PuzzleCardShell's onAnswered/onContinue would. */
 function answerAndContinue(
@@ -132,6 +137,9 @@ describe('useRushSession', () => {
           lastRunAt: expect.any(String) as string,
         },
       }),
+    )
+    expect(trackRushRunEnd).toHaveBeenCalledWith(
+      expect.objectContaining({ solved_count: 2, best_streak_in_run: 2 }),
     )
   })
 

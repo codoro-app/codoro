@@ -33,7 +33,11 @@ vi.mock('../../storage', async (importOriginal) => {
   }
 })
 
-vi.mock('../../telemetry', () => ({ trackError: vi.fn() }))
+vi.mock('../../telemetry', () => ({
+  trackError: vi.fn(),
+  trackRushAttempt: vi.fn(),
+  trackRushRunEnd: vi.fn(),
+}))
 
 const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
   await import('../../storage')

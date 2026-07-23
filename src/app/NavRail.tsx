@@ -109,14 +109,16 @@ export function NavRail({ mode, onChange }: NavRailProps) {
       </button>
       <button
         type="button"
-        className="nav-rail__item nav-rail__item--disabled"
-        disabled
-        aria-disabled="true"
-        aria-label="Rush — coming soon"
-        title="Rush — coming soon"
+        className={`nav-rail__item${mode === 'rush' ? ' nav-rail__item--active' : ''}`}
+        aria-pressed={mode === 'rush'}
+        aria-label="Rush"
+        title="Rush"
+        onClick={() => {
+          onChange('rush')
+        }}
       >
         <RushIcon size={20} />
-        {!collapsed && <span className="nav-rail__item-label">Rush — coming soon</span>}
+        {!collapsed && <span className="nav-rail__item-label">Rush</span>}
       </button>
       <button
         type="button"

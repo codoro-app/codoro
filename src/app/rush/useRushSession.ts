@@ -41,7 +41,7 @@ import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, RushStats, UserProfile } from '../../storage'
 import { puzzlePool } from '../../content'
 import type { Puzzle as ContentPuzzle } from '../../content'
-import { trackError } from '../../telemetry'
+import { trackError, trackRushAttempt, trackRushRunEnd } from '../../telemetry'
 import type { CommitPayload } from '../practice/interactionTypes'
 
 /** Local calendar-date string (YYYY-MM-DD) from wall-clock time — same convention as every other session hook. */
@@ -228,6 +228,19 @@ export function useRushSession(): RushSession {
 
       usedIdsRef.current.add(puzzle.id)
 
+      trackRushAttempt({
+        puzzle_id: puzzle.id,
+        correct: payload.correct,
+        time_ms: timeMs,
+        mode: 'rush',
+        interaction: puzzle.interaction,
+        user_rating_before: oldRating,
+        user_rating_after: newRating,
+        run_id: runIdRef.current,
+        position_in_run: positionRef.current,
+        difficulty_served: difficulty,
+      })
+
       const newSolvedCount = payload.correct ? solvedCount + 1 : solvedCount
       const newStreak = payload.correct ? currentStreak + 1 : 0
       const newBestStreak = Math.max(bestStreakThisRun, newStreak)
@@ -258,6 +271,12 @@ export function useRushSession(): RushSession {
       saveProfile(updatedProfile).catch((error: unknown) => {
         trackError(error, 'useRushSession: saveProfile failed')
       })
+      trackRushRunEnd({
+        run_id: runIdRef.current,
+        solved_count: finalSolvedCount,
+        best_streak_in_run: finalBestStreak,
+        final_difficulty: difficulty,
+      })
       setRunSummary({
         solvedCount: finalSolvedCount,
         bestStreakThisRun: finalBestStreak,
@@ -266,7 +285,7 @@ export function useRushSession(): RushSession {
       })
       setPhase('ended')
     },
-    [],
+    [difficulty],
   )
 
   const handleContinue = useCallback(() => {

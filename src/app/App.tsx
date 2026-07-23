@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ErrorBoundary } from './ErrorBoundary'
 import { PracticePage } from './practice/PracticePage'
 import { DailyPage } from './daily/DailyPage'
+import { RushPage } from './rush/RushPage'
 import { Home } from './Home'
 import { PwaPrompts } from './pwa/PwaPrompts'
 import { AppShell } from './AppShell'
@@ -44,6 +45,8 @@ export function App() {
           <PracticePage />
         ) : mode === 'daily' ? (
           <DailyPage />
+        ) : mode === 'rush' ? (
+          <RushPage />
         ) : (
           <Home onNavigate={setMode} />
         )}

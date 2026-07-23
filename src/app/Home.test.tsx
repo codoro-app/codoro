@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Home } from './Home'
 import { loadProfile } from '../storage'
@@ -79,13 +79,31 @@ describe('Home', () => {
     expect(onNavigate).toHaveBeenCalledWith('daily')
   })
 
-  it('renders Rush as non-interactive', async () => {
+  it('navigates to rush when the Rush card is clicked', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    const onNavigate = vi.fn()
+    const user = userEvent.setup()
+    render(<Home onNavigate={onNavigate} />)
+
+    await user.click(await screen.findByRole('button', { name: /rush/i }))
+    expect(onNavigate).toHaveBeenCalledWith('rush')
+  })
+
+  it('shows no best-score badge on the Rush card when rushStats is null', async () => {
     vi.mocked(loadProfile).mockResolvedValue(baseProfile())
     render(<Home onNavigate={vi.fn()} />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Coming soon')).toBeInTheDocument()
+    await screen.findByRole('button', { name: /rush/i })
+    expect(screen.queryByText(/^Best \d/)).not.toBeInTheDocument()
+  })
+
+  it('shows the best-score badge on the Rush card once rushStats is set', async () => {
+    vi.mocked(loadProfile).mockResolvedValue({
+      ...baseProfile(),
+      rushStats: { bestScore: 23, bestStreak: 31, runs: 4, lastRunAt: '2026-07-22T10:00:00.000Z' },
     })
-    expect(screen.queryByRole('button', { name: /rush/i })).not.toBeInTheDocument()
+    render(<Home onNavigate={vi.fn()} />)
+
+    expect(await screen.findByText('Best 23')).toBeInTheDocument()
   })
 })

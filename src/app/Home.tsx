@@ -15,7 +15,11 @@
  * its card's badge (pattern-picker__badge--mastered/--new) rather than a
  * separate status element — a deliberate compositional reading, not a
  * fourth invented block; flag to Thomas if a standalone status element was
- * actually wanted.
+ * actually wanted. Rush's card follows the identical badge pattern: a
+ * "Best {n}" chip appears only once `profile.rushStats` is non-null (at
+ * least one run completed), the retention-hook display the build plan
+ * calls out — absent for a brand-new player, same as Daily's badge being
+ * conditionally rendered rather than always present.
  */
 import { useEffect, useRef, useState } from 'react'
 import { loadProfile } from '../storage'
@@ -116,14 +120,26 @@ export function Home({ onNavigate }: HomeProps) {
             </span>
           </button>
 
-          <div className="home__card home__card--disabled" aria-disabled="true">
+          <button
+            type="button"
+            className="home__card"
+            onClick={() => {
+              onNavigate('rush')
+            }}
+          >
             <span className="home__card-icon">
               <RushIcon size={20} />
             </span>
             <span className="home__card-title">Rush</span>
-            <span className="home__card-desc">Timed sprint mode</span>
-            <span className="pattern-picker__badge pattern-picker__badge--new">Coming soon</span>
-          </div>
+            <span className="home__card-desc">
+              Escalating puzzles — 3 strikes and you&apos;re out
+            </span>
+            {profile.rushStats && (
+              <span className="pattern-picker__badge pattern-picker__badge--mastered">
+                Best {profile.rushStats.bestScore}
+              </span>
+            )}
+          </button>
         </div>
       </div>
     </div>

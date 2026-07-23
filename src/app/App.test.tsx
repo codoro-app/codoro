@@ -14,7 +14,12 @@ vi.mock('../storage', async (importOriginal) => {
   }
 })
 
-vi.mock('../telemetry', () => ({ trackAttempt: vi.fn() }))
+vi.mock('../telemetry', () => ({
+  trackAttempt: vi.fn(),
+  trackRushAttempt: vi.fn(),
+  trackRushRunEnd: vi.fn(),
+  trackError: vi.fn(),
+}))
 
 // vite-plugin-pwa only generates the real 'virtual:pwa-register/react' module
 // for an actual dev server or build — stub it here so App.test.tsx doesn't
@@ -39,9 +44,7 @@ describe('App', () => {
   it('renders the practice UI inside the ErrorBoundary wrapper (no placeholder copy)', async () => {
     render(<App />)
 
-    // Guards against the original stub landing page copy — not a check that
-    // no UI anywhere says "coming soon" (the disabled Rush nav entry now
-    // legitimately does, in both ModeSwitcher and NavRail).
+    // Guards against the original stub landing page copy.
     expect(screen.queryByText(/coding puzzles for spotting bugs/i)).not.toBeInTheDocument()
 
     // Real content pool + a fresh default profile: the rating pill renders
@@ -66,6 +69,21 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Codoro Daily #/)).toBeInTheDocument()
+    })
+  })
+
+  it('switches to the Rush UI via the mode switcher', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText('1200')).toBeInTheDocument()
+    })
+
+    await user.click(nth(screen.getAllByRole('button', { name: 'Rush' }), 0))
+
+    await waitFor(() => {
+      expect(screen.getByRole('status', { name: /0 of 3 strikes/i })).toBeInTheDocument()
     })
   })
 
