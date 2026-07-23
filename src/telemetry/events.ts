@@ -37,6 +37,30 @@ export function trackAttempt(payload: AttemptEventPayload): void {
   safeCapture('attempt', payload)
 }
 
+/** Run-level context attached to every Rush `attempt` event, additive to the locked AttemptEventPayload shape above (new fields, nothing renamed/removed). */
+export interface RushAttemptContext {
+  run_id: string
+  position_in_run: number
+  difficulty_served: number
+}
+
+/** Fires the same `attempt` event as trackAttempt, with Rush's run-level context appended — so Rush attempts land in the same event stream (mode: 'rush') for calibration, per the build plan. */
+export function trackRushAttempt(payload: AttemptEventPayload & RushAttemptContext): void {
+  safeCapture('attempt', payload)
+}
+
+export interface RushRunEndPayload {
+  run_id: string
+  solved_count: number
+  best_streak_in_run: number
+  final_difficulty: number
+}
+
+/** Fired once per completed Rush run (3 strikes), independent of the per-attempt `attempt` events above. */
+export function trackRushRunEnd(payload: RushRunEndPayload): void {
+  safeCapture('rush_run_end', payload)
+}
+
 /**
  * Lightweight error-tracking event, not part of the locked schema above —
  * this is our call for V1: PostHog's own error capture is enough for now,

@@ -33,3 +33,14 @@ export { daysBetween, recordActivity } from './streak'
 export type { StreakState } from './streak'
 
 export { hashDateString, getDailyPuzzleIndex, getDailyNumber, DAILY_EPOCH } from './daily'
+
+export {
+  RUSH_RATING_OFFSET,
+  RUSH_DIFFICULTY_STEP,
+  RUSH_SWIPE_WEIGHT,
+  RUSH_STRIKE_LIMIT,
+  startingRushDifficulty,
+  stepDifficulty,
+  selectRushPuzzle,
+} from './rush'
+export type { RushInteraction, RushPuzzle, RushSelectionInput, RushSelectionResult } from './rush'

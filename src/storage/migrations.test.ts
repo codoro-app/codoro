@@ -66,8 +66,8 @@ describe('runMigrations', () => {
   })
 })
 
-describe('MIGRATIONS[1]: v1 -> v2 (adds dailyCompletion)', () => {
-  it('stamps schema_version 2, adds a null dailyCompletion, and preserves every existing field untouched', () => {
+describe('MIGRATIONS: full chain from v1 to the current version', () => {
+  it('v1 -> v3, stamping schema_version 3, adding null dailyCompletion + rushStats, and preserving every existing field untouched', () => {
     const v1Profile = {
       schema_version: 1,
       rating: 1342.75,
@@ -81,8 +81,31 @@ describe('MIGRATIONS[1]: v1 -> v2 (adds dailyCompletion)', () => {
 
     expect(migrated).toEqual({
       ...v1Profile,
-      schema_version: 2,
+      schema_version: 3,
       dailyCompletion: null,
+      rushStats: null,
+    })
+  })
+})
+
+describe('MIGRATIONS[2]: v2 -> v3 (adds rushStats)', () => {
+  it('stamps schema_version 3, adds a null rushStats, and preserves every existing field untouched, including a non-null dailyCompletion', () => {
+    const v2Profile = {
+      schema_version: 2,
+      rating: 1389.25,
+      ratedAttemptCount: 14,
+      streak: { currentStreak: 6, longestStreak: 11, lastActiveDate: '2026-07-18' },
+      requeueState: [{ puzzleId: 'p3', stage: 0, served: 1 }],
+      storagePersisted: true,
+      dailyCompletion: { date: '2026-07-20', attemptId: 'a1', correct: true },
+    }
+
+    const migrated = runMigrations(v2Profile, 2, MIGRATIONS)
+
+    expect(migrated).toEqual({
+      ...v2Profile,
+      schema_version: 3,
+      rushStats: null,
     })
   })
 })

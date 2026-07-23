@@ -1,14 +1,13 @@
 /**
- * Minimal two-tab switcher between Practice and Daily — no routing library,
- * per the build plan's "keep it minimal" instruction for reaching a second
- * screen. Plain-text tabs, same no-icon-library convention as StatusBar's
- * pills. A third, disabled "Rush" slot is visible now so Phase 7 (which
- * adds real Rush mode) is an enablement of this button, not a nav layout
- * change.
+ * Minimal three-tab switcher between Practice, Daily, and Rush — no routing
+ * library, per the build plan's "keep it minimal" instruction for reaching
+ * additional screens. Plain-text tabs, same no-icon-library convention as
+ * StatusBar's pills. Rush's tab reuses the exact same markup as Practice/
+ * Daily (Phase 7 enabled it here rather than introducing new nav layout).
  */
 import './app.css'
 
-export type AppMode = 'practice' | 'daily' | 'home'
+export type AppMode = 'practice' | 'daily' | 'rush' | 'home'
 
 export interface ModeSwitcherProps {
   mode: AppMode
@@ -40,12 +39,13 @@ export function ModeSwitcher({ mode, onChange }: ModeSwitcherProps) {
       </button>
       <button
         type="button"
-        className="mode-switcher__tab mode-switcher__tab--disabled"
-        disabled
-        aria-disabled="true"
-        title="Coming soon"
+        className={`mode-switcher__tab${mode === 'rush' ? ' mode-switcher__tab--active' : ''}`}
+        aria-pressed={mode === 'rush'}
+        onClick={() => {
+          onChange('rush')
+        }}
       >
-        Rush — coming soon
+        Rush
       </button>
     </nav>
   )

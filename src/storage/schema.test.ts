@@ -14,6 +14,7 @@ const validProfile = {
   requeueState: [{ puzzleId: 'p1', stage: 1, served: 4 }],
   storagePersisted: true,
   dailyCompletion: { date: '2026-07-19', attemptId: 'a1', correct: true },
+  rushStats: null,
 }
 
 const validAttempt = {
@@ -46,7 +47,7 @@ describe('UserProfileSchema', () => {
   })
 
   it('rejects a wrong schema_version', () => {
-    expect(() => UserProfileSchema.parse({ ...validProfile, schema_version: 3 })).toThrow()
+    expect(() => UserProfileSchema.parse({ ...validProfile, schema_version: 4 })).toThrow()
   })
 
   it('rejects a missing required field', () => {
@@ -80,6 +81,28 @@ describe('UserProfileSchema', () => {
   it('rejects a dailyCompletion missing required fields', () => {
     expect(() =>
       UserProfileSchema.parse({ ...validProfile, dailyCompletion: { date: '2026-07-19' } }),
+    ).toThrow()
+  })
+
+  it('accepts a non-null rushStats', () => {
+    const parsed = UserProfileSchema.parse({
+      ...validProfile,
+      rushStats: { bestScore: 23, bestStreak: 31, runs: 4, lastRunAt: '2026-07-22T10:00:00.000Z' },
+    })
+    expect(parsed.rushStats).toEqual({
+      bestScore: 23,
+      bestStreak: 31,
+      runs: 4,
+      lastRunAt: '2026-07-22T10:00:00.000Z',
+    })
+  })
+
+  it('rejects a rushStats with a negative bestScore', () => {
+    expect(() =>
+      UserProfileSchema.parse({
+        ...validProfile,
+        rushStats: { bestScore: -1, bestStreak: 0, runs: 1, lastRunAt: null },
+      }),
     ).toThrow()
   })
 })

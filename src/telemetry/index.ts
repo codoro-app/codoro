@@ -7,5 +7,11 @@
  * itself — same barrel convention as engine/ and storage/.
  */
 export { initTelemetry } from './client'
-export { trackSessionStart, trackAttempt, trackError } from './events'
-export type { AttemptEventPayload } from './events'
+export {
+  trackSessionStart,
+  trackAttempt,
+  trackRushAttempt,
+  trackRushRunEnd,
+  trackError,
+} from './events'
+export type { AttemptEventPayload, RushAttemptContext, RushRunEndPayload } from './events'

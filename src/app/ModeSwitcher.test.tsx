@@ -4,15 +4,13 @@ import userEvent from '@testing-library/user-event'
 import { ModeSwitcher } from './ModeSwitcher'
 
 describe('ModeSwitcher', () => {
-  it('shows a disabled Rush slot that does not call onChange', async () => {
+  it('calls onChange with "rush" when the Rush tab is clicked', async () => {
     const onChange = vi.fn()
     const user = userEvent.setup()
     render(<ModeSwitcher mode="practice" onChange={onChange} />)
 
-    const rush = screen.getByRole('button', { name: /rush/i })
-    expect(rush).toBeDisabled()
-    await user.click(rush)
-    expect(onChange).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Rush' }))
+    expect(onChange).toHaveBeenCalledWith('rush')
   })
 
   it('marks the active mode with aria-pressed', () => {

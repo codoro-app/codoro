@@ -9,7 +9,7 @@
  * Barrel exports only — no logic lives here.
  */
 export { createDefaultProfile } from './schema'
-export type { UserProfile, Attempt } from './schema'
+export type { UserProfile, Attempt, RushStats } from './schema'
 
 export { loadProfile, saveProfile } from './profile'
 export { appendAttempt, listAttempts } from './attempts'

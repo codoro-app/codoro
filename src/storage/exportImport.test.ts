@@ -14,13 +14,14 @@ afterEach(async () => {
 
 function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
   return {
-    schema_version: 2,
+    schema_version: 3,
     rating: RATING_FLOOR,
     ratedAttemptCount: 3,
     streak: { currentStreak: 2, longestStreak: 5, lastActiveDate: '2026-07-14' },
     requeueState: [{ puzzleId: 'p9', stage: 1, served: 4 }],
     storagePersisted: true,
     dailyCompletion: null,
+    rushStats: null,
     ...overrides,
   }
 }

@@ -17,9 +17,13 @@ describe('NavRail', () => {
     expect(onChange).toHaveBeenCalledWith('daily')
   })
 
-  it('renders a disabled Rush entry', () => {
-    render(<NavRail mode="practice" onChange={vi.fn()} />)
-    expect(screen.getByRole('button', { name: /rush/i })).toBeDisabled()
+  it('calls onChange with "rush" when Rush is clicked', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(<NavRail mode="practice" onChange={onChange} />)
+
+    await user.click(screen.getByRole('button', { name: 'Rush' }))
+    expect(onChange).toHaveBeenCalledWith('rush')
   })
 
   it('renders the Codoro logo/wordmark', () => {

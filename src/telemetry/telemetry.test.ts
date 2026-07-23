@@ -119,6 +119,58 @@ describe('trackAttempt', () => {
   })
 })
 
+describe('trackRushAttempt', () => {
+  it('captures the "attempt" event with the locked shape plus run-level context', async () => {
+    const { trackRushAttempt } = await loadTelemetry('phc_test_key')
+    const payload = {
+      ...attemptPayload,
+      mode: 'rush' as const,
+      run_id: 'run-1',
+      position_in_run: 4,
+      difficulty_served: 880,
+    }
+    trackRushAttempt(payload)
+    expect(posthogMock.capture).toHaveBeenCalledWith('attempt', payload)
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackRushAttempt } = await loadTelemetry(undefined)
+    trackRushAttempt({
+      ...attemptPayload,
+      mode: 'rush',
+      run_id: 'run-1',
+      position_in_run: 1,
+      difficulty_served: 800,
+    })
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
+describe('trackRushRunEnd', () => {
+  it('captures rush_run_end with the exact payload shape', async () => {
+    const { trackRushRunEnd } = await loadTelemetry('phc_test_key')
+    const payload = {
+      run_id: 'run-1',
+      solved_count: 23,
+      best_streak_in_run: 31,
+      final_difficulty: 1600,
+    }
+    trackRushRunEnd(payload)
+    expect(posthogMock.capture).toHaveBeenCalledWith('rush_run_end', payload)
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackRushRunEnd } = await loadTelemetry(undefined)
+    trackRushRunEnd({
+      run_id: 'run-1',
+      solved_count: 0,
+      best_streak_in_run: 0,
+      final_difficulty: 800,
+    })
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
 describe('trackError', () => {
   it('captures an error event with message, stack, and context', async () => {
     const { trackError } = await loadTelemetry('phc_test_key')

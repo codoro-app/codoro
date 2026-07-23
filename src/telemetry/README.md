@@ -15,6 +15,12 @@ convention as `src/engine/` and `src/storage/`.
 - `trackAttempt(payload: AttemptEventPayload)` — fires the `attempt` event.
   Property names are a locked schema shared with Daily/Rush in later phases —
   do not rename or restructure them.
+- `trackRushAttempt(payload)` — fires the same `attempt` event as `trackAttempt`,
+  with Rush's run-level context (`run_id`, `position_in_run`, `difficulty_served`)
+  appended. Additive only — the locked `AttemptEventPayload` fields are never
+  renamed or restructured.
+- `trackRushRunEnd(payload)` — fires once per completed Rush run with the final
+  score/streak/difficulty.
 - `trackError(error, context?)` — fires an `app_error` event with a truncated
   message/stack. Used by `src/app/ErrorBoundary.tsx`; call it directly for any
   other caught error worth reporting.
