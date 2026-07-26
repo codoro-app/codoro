@@ -7,7 +7,7 @@
   "language": "javascript",
   "snippet": "function getUserEmail(user) {\n  return user.email.toLowerCase();\n}",
   "interaction": "swipe-binary",
-  "left_label": "Safe",
-  "right_label": "Crashes on null",
-  "correct_direction": "right"
+  "left_label": "Crashes on null",
+  "right_label": "Safe",
+  "correct_direction": "left"
 }

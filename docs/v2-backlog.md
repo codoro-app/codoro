@@ -13,7 +13,7 @@ Flat, unprioritized capture of everything deferred out of v1. This is a dumping 
 - AI-generated reel videos (marketing/content idea)
 - Bug: Browse Puzzles doesn't reflect selection in the puzzle view on the right; should also be able to interact with the puzzle-view type directly
 - Bug: LCP (largest contentful paint) needs attention
-- Bug: swipe-binary interaction is always resolving "right," not tracking the actual swipe direction
+- Bug: swipe-binary always answers "right" — **rediagnosed during v2 Phase 0 planning.** Originally recorded as a component defect (`SwipeBinary.tsx` not tracking swipe direction); that is wrong, the component resolves direction correctly. The real defect is content: all 39 swipe-binary puzzles carry `correct_direction: "right"` and zero carry `"left"`, because `generatePuzzles.ts`'s single worked example hardcodes `'right'` and every generation run anchored to it. 36% of the library is a free Elo climb for blind right-swiping. Assigned to Phase 0 (rebalance + hard validator rule + generator fix); the deeper tell — every snippet is buggy, so the bug-naming label always wins — is Phase 6 content work.
 - Rush: no progress bar on the right side
 - Rush: should get harder as it goes
 - Rush: add a timer to escalate stakes

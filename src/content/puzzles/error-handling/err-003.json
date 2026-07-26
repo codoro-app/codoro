@@ -7,7 +7,7 @@
   "language": "java",
   "snippet": "public int parse(String s) {\n    try {\n        return Integer.parseInt(s);\n    } catch (NumberFormatException e) {\n        return -1;\n    } finally {\n        return 0;\n    }\n}",
   "interaction": "swipe-binary",
-  "left_label": "Safe",
-  "right_label": "Always returns 0",
-  "correct_direction": "right"
+  "left_label": "Always returns 0",
+  "right_label": "Safe",
+  "correct_direction": "left"
 }

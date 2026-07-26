@@ -7,7 +7,7 @@
   "language": "java",
   "snippet": "public void backup(String source, String dest) throws IOException {\n    FileInputStream in = new FileInputStream(source);\n    FileOutputStream out = new FileOutputStream(dest);\n    try {\n        byte[] buffer = new byte[1024];\n        int length;\n        while ((length = in.read(buffer)) > 0) {\n            out.write(buffer, 0, length);\n        }\n    } finally {\n        in.close();\n        out.close();\n    }\n}",
   "interaction": "swipe-binary",
-  "left_label": "Safe",
-  "right_label": "Resource leak",
-  "correct_direction": "right"
+  "left_label": "Resource leak",
+  "right_label": "Safe",
+  "correct_direction": "left"
 }

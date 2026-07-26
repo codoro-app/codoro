@@ -7,7 +7,7 @@
   "language": "javascript",
   "snippet": "function makeCounters() {\n  const counters = [];\n  for (var i = 0; i < 3; i++) {\n    counters.push(function() {\n      return i;\n    });\n  }\n  return counters;\n}",
   "interaction": "swipe-binary",
-  "left_label": "Works as intended",
-  "right_label": "All return the same value",
-  "correct_direction": "right"
+  "left_label": "All return the same value",
+  "right_label": "Works as intended",
+  "correct_direction": "left"
 }

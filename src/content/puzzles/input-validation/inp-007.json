@@ -7,7 +7,7 @@
   "language": "javascript",
   "snippet": "function isValidUsername(username) {\n  if (!username) return false;\n  if (username.length < 3) return false;\n  return true;\n}",
   "interaction": "swipe-binary",
-  "left_label": "Safe",
-  "right_label": "Buggy",
-  "correct_direction": "right"
+  "left_label": "Buggy",
+  "right_label": "Safe",
+  "correct_direction": "left"
 }

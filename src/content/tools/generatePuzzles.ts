@@ -157,6 +157,20 @@ const FEW_SHOT_EXAMPLES: Puzzle[] = [
     right_label: 'Race condition',
     correct_direction: 'right',
   },
+  {
+    id: 'nul-000',
+    pattern: 'null-undefined',
+    difficulty_rating: 1300,
+    explanation:
+      '`user.address` is not guaranteed to exist — if a user record has no address on file, `user.address` is `undefined`, and reading `.city` off it throws a TypeError. The function needs an explicit null check (or optional chaining, `user.address?.city`) before accessing a nested property that might not be there.',
+    prompt: 'Is this safe if a user has no address on file?',
+    language: 'javascript',
+    snippet: 'function getUserCity(user) {\n  return user.address.city\n}',
+    interaction: 'swipe-binary',
+    left_label: 'Throws on a missing address',
+    right_label: 'Safe',
+    correct_direction: 'left',
+  },
 ]
 
 function buildSystemPrompt(): string {
@@ -172,9 +186,13 @@ difficulty_rating:
 
 ${CALIBRATION}
 
-Here are three worked examples of correctly-shaped puzzle JSON, one per
-interaction type (ids are placeholders — you will be told the real id to
-use):
+Here are four worked examples of correctly-shaped puzzle JSON: one "mcq",
+one "tap-line", and two "swipe-binary" ones deliberately showing BOTH
+possible correct_direction values — notice the second swipe-binary example
+puts the buggy label on the left and "Safe" on the right, the mirror image
+of the first. That pairing is intentional (see the swipe-binary requirement
+below), not a preference for one layout over the other (ids are placeholders
+— you will be told the real id to use):
 
 ${FEW_SHOT_EXAMPLES.map((p) => JSON.stringify(p, null, 2)).join('\n\n')}
 
@@ -186,7 +204,15 @@ Requirements for every puzzle you generate:
 - For "mcq": wrong choices must be plausible but definitively wrong, not
   arguably-also-correct or near-duplicates of the right answer.
 - For "swipe-binary": the wrong side must be a real, temptingly-plausible
-  alternative, not a strawman.
+  alternative, not a strawman. Separately, and just as important:
+  correct_direction must be chosen independently for THIS puzzle, based only
+  on which side you happen to write the buggy label on — never out of habit
+  or because a prior puzzle in this session used the same side. Across a
+  batch of puzzles, correct_direction is expected to land near 50/50 between
+  "left" and "right"; a batch that skews heavily toward one side turns
+  swipe-binary into a free guess for anyone who swipes that side without
+  reading, which defeats the puzzle. Flip a mental coin per puzzle rather
+  than defaulting to whichever side felt natural to write first.
 - For "tap-line": correct_line is a 0-based index into the snippet's lines.
 - "id" must be lowercase kebab-case matching the exact id you are given —
   do not invent your own id.

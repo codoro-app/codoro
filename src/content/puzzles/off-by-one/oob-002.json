@@ -7,7 +7,7 @@
   "language": "javascript",
   "snippet": "function reverseArray(arr) {\n  const n = arr.length;\n  for (let i = 0; i < n / 2; i++) {\n    const temp = arr[i];\n    arr[i] = arr[n - i];\n    arr[n - i] = temp;\n  }\n  return arr;\n}",
   "interaction": "swipe-binary",
-  "left_label": "Correct",
-  "right_label": "Buggy",
-  "correct_direction": "right"
+  "left_label": "Buggy",
+  "right_label": "Correct",
+  "correct_direction": "left"
 }

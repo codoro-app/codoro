@@ -7,7 +7,7 @@
   "language": "java",
   "snippet": "static int binarySearch(int[] arr, int target) {\n    int low = 0, high = arr.length;\n    while (low <= high) {\n        int mid = (low + high) / 2;\n        if (arr[mid] == target) return mid;\n        else if (arr[mid] < target) low = mid + 1;\n        else high = mid - 1;\n    }\n    return -1;\n}",
   "interaction": "swipe-binary",
-  "left_label": "Safe",
-  "right_label": "Crashes on some input",
-  "correct_direction": "right"
+  "left_label": "Crashes on some input",
+  "right_label": "Safe",
+  "correct_direction": "left"
 }

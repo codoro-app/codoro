@@ -96,3 +96,48 @@ export function resolveSwipeCommit(
 
   return distanceDirection
 }
+
+/**
+ * Raw per-axis gesture totals as reported by `@use-gesture/react`'s
+ * `useDrag` callback across the WHOLE gesture, not any single frame:
+ * `movement` is signed net displacement (px) since the drag started,
+ * `elapsedTime` is milliseconds since the drag started.
+ */
+export interface RawDragGesture {
+  readonly movement: number
+  readonly elapsedTime: number
+}
+
+/**
+ * Derives a signed velocity (px/ms, sign matching `movement`'s) averaged
+ * over the ENTIRE gesture, instead of trusting `@use-gesture`'s own
+ * final-frame `velocity`/`direction` state the way `SwipeBinary.tsx` used to
+ * (`vx * dirX`, where `vx` and `dirX` came straight from the drag-end
+ * callback).
+ *
+ * That approach inherited a real bug in `@use-gesture/core` (v10.3.1,
+ * confirmed by reading its source): the library only recomputes
+ * `direction`/`velocity` on the gesture's last frame when the gap since the
+ * previous frame exceeds an internal 32ms threshold
+ * (`BEFORE_LAST_KINEMATICS_DELAY`). A real finger naturally slows down —
+ * often to a dead stop — for a beat before lifting off the screen, which is
+ * exactly the >32ms-gap case. When that happens, `@use-gesture` recomputes
+ * `direction`/`velocity` from the movement delta SINCE THE PAUSE STARTED,
+ * not from the whole gesture: if the finger was genuinely still during that
+ * pause, that delta is ~0, so both `direction` (sign) and `velocity`
+ * (magnitude) collapse toward zero — regardless of how far or fast the drag
+ * traveled overall. Multiplying those two together doesn't fail gracefully;
+ * it reproduces the same collapse. The observable symptom is "my swipe did
+ * nothing and I had to tap the button" on a real phone, since a deliberate,
+ * full-distance, fast swipe that happens to settle for >32ms before release
+ * (common — most people ease into letting go) silently fails
+ * `resolveSwipeCommit`'s velocity check.
+ *
+ * Averaging over the gesture's own `movement`/`elapsedTime` (both tracked
+ * from drag-start, immune to any single frame's timing) sidesteps that
+ * staleness window entirely rather than special-casing it.
+ */
+export function signedVelocityFromGesture({ movement, elapsedTime }: RawDragGesture): number {
+  if (elapsedTime <= 0) return 0
+  return movement / elapsedTime
+}

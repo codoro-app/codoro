@@ -387,4 +387,89 @@ describe('PracticePage', () => {
 
     vi.unstubAllGlobals()
   })
+
+  describe('desktop Browse (>=1024px)', () => {
+    // Regression coverage for the Phase 0 bug: view === 'patterns' used to
+    // return an early full-page takeover unconditionally, which on desktop
+    // unmounted the sidebar AND the puzzle card — Browse had no "puzzle view
+    // on the right" to reflect a selection into.
+    function stubDesktop() {
+      vi.stubGlobal(
+        'matchMedia',
+        vi.fn(() => ({
+          matches: true,
+          media: '(min-width: 1024px)',
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+        })),
+      )
+    }
+
+    it('clicking "Browse patterns" swaps the sidebar to the pattern picker without unmounting the puzzle in main', async () => {
+      stubDesktop()
+      const user = userEvent.setup()
+      render(<PracticePage />)
+      await waitFor(() => {
+        expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+      })
+
+      await user.click(screen.getByRole('button', { name: /browse patterns/i }))
+
+      // The picker appears (in the sidebar) ...
+      expect(screen.getByText('Practice by pattern')).toBeInTheDocument()
+      // ... and the puzzle in main is still there, still interactive — not
+      // unmounted by navigating into Browse, unlike the pre-fix full takeover.
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+      expect(screen.getAllByRole('button', { name: 'a' }).length).toBeGreaterThan(0)
+
+      vi.unstubAllGlobals()
+    })
+
+    it('selecting a pattern from the desktop picker immediately serves a puzzle from it and returns the sidebar to Mastery', async () => {
+      stubDesktop()
+      const user = userEvent.setup()
+      render(<PracticePage />)
+      await waitFor(() => {
+        expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+      })
+
+      await user.click(screen.getByRole('button', { name: /browse patterns/i }))
+      expect(screen.getByText('Practice by pattern')).toBeInTheDocument()
+
+      await user.click(screen.getByText(PATTERN_LABELS['null-undefined']))
+
+      // No separate navigation step: the filter took effect and a puzzle
+      // from it is already showing in main.
+      await waitFor(() => {
+        expect(
+          screen.getByText(new RegExp(`filtering: ${PATTERN_LABELS['null-undefined']}`, 'i')),
+        ).toBeInTheDocument()
+      })
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+      // Sidebar is back to its normal Mastery content, not stuck on the picker.
+      expect(screen.getByText('Mastery by pattern')).toBeInTheDocument()
+      expect(screen.queryByText('Practice by pattern')).not.toBeInTheDocument()
+
+      vi.unstubAllGlobals()
+    })
+
+    it('the picker\'s own "Back" control returns the sidebar to Mastery without touching the current filter', async () => {
+      stubDesktop()
+      const user = userEvent.setup()
+      render(<PracticePage />)
+      await waitFor(() => {
+        expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+      })
+
+      await user.click(screen.getByRole('button', { name: /browse patterns/i }))
+      expect(screen.getByText('Practice by pattern')).toBeInTheDocument()
+
+      await user.click(screen.getByRole('button', { name: /back/i }))
+
+      expect(screen.getByText('Mastery by pattern')).toBeInTheDocument()
+      expect(screen.queryByText(/filtering: /i)).not.toBeInTheDocument()
+
+      vi.unstubAllGlobals()
+    })
+  })
 })

@@ -4,7 +4,11 @@ import { useDrag } from '@use-gesture/react'
 import type { InteractionBodyProps } from '../interactionTypes'
 import type { SwipeBinaryPuzzle } from '../../../content'
 import type { AnswerState } from '../answerState'
-import { DEFAULT_SWIPE_THRESHOLD, resolveSwipeCommit } from '../gestureThreshold'
+import {
+  DEFAULT_SWIPE_THRESHOLD,
+  resolveSwipeCommit,
+  signedVelocityFromGesture,
+} from '../gestureThreshold'
 import type { SwipeCommitDirection } from '../gestureThreshold'
 import { highlightSnippet } from '../highlightSnippet'
 import { CodeSnippet } from '../CodeSnippet'
@@ -127,7 +131,7 @@ export function SwipeBinary({
   }
 
   const bind = useDrag(
-    ({ down, movement: [mx], velocity: [vx], direction: [dirX], last, cancel }) => {
+    ({ down, movement: [mx], elapsedTime, last, cancel }) => {
       if (committed) {
         // Belt-and-suspenders: `enabled: !committed` below already tells
         // @use-gesture not to run this gesture at all once committed, but
@@ -148,12 +152,14 @@ export function SwipeBinary({
       // above.
       if (!last) return
 
-      // @use-gesture reports `velocity` as an unsigned magnitude and
-      // `direction` as -1/0/1 per axis; multiplying them recovers a signed
-      // velocity whose sign matches `movement`'s, which is what
-      // resolveSwipeCommit's "same direction" check needs.
+      // Signed velocity averaged over the whole gesture (movement /
+      // elapsedTime), NOT @use-gesture's own final-frame velocity/direction
+      // — see signedVelocityFromGesture's doc comment in gestureThreshold.ts
+      // for the real-hardware bug (a >32ms pause before release collapses
+      // @use-gesture's last-frame kinematics to ~0) that approach used to
+      // reproduce.
       const commitDirection = resolveSwipeCommit(
-        { dx: mx, velocityX: vx * dirX },
+        { dx: mx, velocityX: signedVelocityFromGesture({ movement: mx, elapsedTime }) },
         DEFAULT_SWIPE_THRESHOLD,
       )
 

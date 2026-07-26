@@ -7,7 +7,7 @@
   "language": "javascript",
   "snippet": "function getDiscount(tier) {\n  let discount = 0\n  switch (tier) {\n    case 'gold':\n      discount = 0.2\n    case 'silver':\n      discount = 0.1\n      break\n    default:\n      discount = 0\n  }\n  return discount\n}",
   "interaction": "swipe-binary",
-  "left_label": "Correct",
-  "right_label": "Fall-through bug",
-  "correct_direction": "right"
+  "left_label": "Fall-through bug",
+  "right_label": "Correct",
+  "correct_direction": "left"
 }

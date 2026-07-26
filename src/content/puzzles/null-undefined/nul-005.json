@@ -7,7 +7,7 @@
   "language": "javascript",
   "snippet": "function formatUsername({ name = 'Guest', id } = {}) {\n  return `${name}#${id}`;\n}\n\nconsole.log(formatUsername({ name: null, id: 42 }));",
   "interaction": "swipe-binary",
-  "left_label": "Safe",
-  "right_label": "Bug: null bypasses default",
-  "correct_direction": "right"
+  "left_label": "Bug: null bypasses default",
+  "right_label": "Safe",
+  "correct_direction": "left"
 }

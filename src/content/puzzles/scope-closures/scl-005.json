@@ -7,7 +7,7 @@
   "language": "javascript",
   "snippet": "function setupHandlers() {\n  var handlers = [];\n  for (var i = 0; i < 3; i++) {\n    handlers.push(function() {\n      console.log(i);\n    });\n  }\n  return handlers;\n}",
   "interaction": "swipe-binary",
-  "left_label": "Logs its own index (0, 1, 2)",
-  "right_label": "Logs the same value every time",
-  "correct_direction": "right"
+  "left_label": "Logs the same value every time",
+  "right_label": "Logs its own index (0, 1, 2)",
+  "correct_direction": "left"
 }

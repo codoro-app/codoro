@@ -42,4 +42,4 @@ pnpm dev
 
 ## Status
 
-v1 is complete and not under active development. v2 is in planning — see `docs/v1-retro.md` for what shipped, what was learned, and why v2 is a different kind of app rather than an iteration on this one.
+v1 is complete and not under active development. v2 is planned — see `docs/v2-build-plan.md` for the phased plan (execution-scrubber flagship, local-first, no backend) and `docs/roadmap.md` for the full arc through launch (v3), accounts (v4), and multiplayer (v5). `docs/v1-retro.md` covers what shipped and what was learned.
