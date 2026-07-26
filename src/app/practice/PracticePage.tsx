@@ -17,12 +17,26 @@
  * comment.
  *
  * Desktop (>=1024px) sidebar: the main practice view (not the loading/error/
- * patterns/mastery-view branches) additionally renders `.app-shell__sidebar`
- * with StatusBar + a backless MasteryView, gated on useMediaQuery so mobile
+ * mastery-view branches) additionally renders `.app-shell__sidebar` with
+ * StatusBar + a backless MasteryView, gated on useMediaQuery so mobile
  * mounts neither (no extra MasteryView attempt-fetch on phones). The mobile
  * "Mastery" nav link is hidden at desktop widths since the sidebar already
  * shows it persistently — a deliberate scope call for this phase (see the
  * Phase 6.5 plan's Task 1 notes); it stays fully functional on mobile.
+ *
+ * Desktop Browse (Phase 0 fix): `view === 'patterns'` used to return an
+ * early full-page takeover unconditionally — on desktop that unmounted both
+ * `.app-shell__sidebar` and the puzzle card, so Browse had no "puzzle view
+ * on the right" to reflect a selection into (the reported bug). The early
+ * return below is now mobile-only (`&& !isDesktop`); on desktop, `view`
+ * instead swaps the sidebar's own content between PatternPicker and the
+ * normal StatusBar+MasteryView pairing, so the puzzle in `.app-shell__main`
+ * is never unmounted and stays interactive throughout. `usePracticeSession`'s
+ * `setPatternFilter` already re-serves a puzzle synchronously on selection,
+ * so no extra wiring was needed for "selecting a pattern immediately serves
+ * a playable puzzle." The "Browse patterns" nav button stays visible at
+ * every width (NavRail.tsx's doc comment explains why it can't move there
+ * instead) — only what it does on desktop changed, not its visibility.
  */
 import { AnimatePresence, motion } from 'framer-motion'
 import { PuzzleCardShell } from './PuzzleCardShell'
@@ -83,7 +97,7 @@ export function PracticePage() {
     )
   }
 
-  if (view === 'patterns') {
+  if (view === 'patterns' && !isDesktop) {
     return (
       <div className="practice-page app-shell__main">
         <PatternPicker
@@ -212,18 +226,32 @@ export function PracticePage() {
 
       {isDesktop && (
         <aside className="app-shell__sidebar practice-page__sidebar">
-          <StatusBar
-            rating={session.profile.rating}
-            streak={session.profile.streak.currentStreak}
-            combo={session.combo}
-            solvedThisSession={session.solvedThisSession}
-          />
-          <MasteryView
-            refreshKey={session.attemptVersion}
-            onSelectPattern={(pattern) => {
-              session.setPatternFilter(pattern)
-            }}
-          />
+          {view === 'patterns' ? (
+            <PatternPicker
+              onSelect={(pattern) => {
+                session.setPatternFilter(pattern)
+                setView('practice')
+              }}
+              onBack={() => {
+                setView('practice')
+              }}
+            />
+          ) : (
+            <>
+              <StatusBar
+                rating={session.profile.rating}
+                streak={session.profile.streak.currentStreak}
+                combo={session.combo}
+                solvedThisSession={session.solvedThisSession}
+              />
+              <MasteryView
+                refreshKey={session.attemptVersion}
+                onSelectPattern={(pattern) => {
+                  session.setPatternFilter(pattern)
+                }}
+              />
+            </>
+          )}
         </aside>
       )}
     </>

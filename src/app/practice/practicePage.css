@@ -477,3 +477,12 @@ button.mastery-row {
   border-left: 1px solid var(--border);
   align-self: start;
 }
+
+/* PatternPicker's own >=1024px rule (above) assumes a full-width main
+   column and goes 2-up; reused here inside the fixed `--sidebar-width`
+   (296px) column instead of the mobile picker's full-page takeover — same
+   cards/badges/progress-track, single column, matching MasteryView's list
+   at the same width right below it. */
+.practice-page__sidebar .pattern-picker__grid {
+  grid-template-columns: 1fr;
+}
