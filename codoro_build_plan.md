@@ -291,9 +291,18 @@ _Deployment & PWA_
 
 - [ ] Lighthouse on production: PWA installable, performance 90+, a11y 90+
 - [ ] SW update flow re-verified against a real deploy
-- [ ] 404 handling, favicon, apple-touch-icon, OG tags on every route
+- [x] 404 handling, favicon, apple-touch-icon, OG tags on every route
 
 _Measurement_
 
 - [ ] PostHog dashboards prebuilt for §9's metrics: day-2 return, session length, puzzles/session — built _before_ launch so day-1 data lands somewhere useful
 - [ ] Error events flowing; you know where you'd
+
+**Amendment (2026-07-26) — reduced pass for v1 wrap-up, not a launch:** v1 is not being marketed and isn't expected to acquire users, so this phase ran reduced. Real findings, not just checkmarks:
+
+- **404/favicon/apple-touch-icon/OG tags** — ticked. Favicon, apple-touch-icon, and a full OG/Twitter tag set were already correct. `/robots.txt` and truly-missing-path requests were both silently 200ing with the SPA shell instead of a real 404 (Cloudflare Pages' default SPA fallback, no `404.html` existed) — fixed with `public/404.html` + `public/robots.txt`. Also added a missing `<meta name="description">` and fixed `<title>codoro</title>` to match the branding used everywhere else. "Every route" is one route — this app has no URL router (`AppMode` is in-memory client state only).
+- **Lighthouse on production** (real numbers, not ticked — performance target not met): performance **82** (target 90+), accessibility **94** (meets 90+), best-practices 100, SEO 82 (untargeted, measured anyway). PWA installability isn't a scored category in Lighthouse 12+ anymore; manually confirmed instead — valid manifest (name, icons at 192/512 + maskable, `display: standalone`), registered service worker, HTTPS. Performance gap (LCP/FCP ~3.1-3.9s, ~460ms render-blocking resources, ~58KB unused JS) logged to `docs/v2-backlog.md` rather than chased under time pressure.
+- **Export/import round-trip** — not ticked. The underlying functions (`src/storage/exportImport.ts`) work and are unit-tested, and were live-checked against a real browser's IndexedDB on production during this pass. But there is no UI anywhere in the app that calls them — a real user cannot currently export or restore their data. Logged to the backlog; not built this pass (new UI is out of scope for this wrap-up).
+- **Error events flowing** — not ticked. Found that production telemetry has likely never been active: `VITE_POSTHOG_KEY` appears unset in the Cloudflare Pages build environment (no PostHog network requests, no PostHog localStorage keys, and the `posthog-js` SDK is absent from every deployed JS chunk). Being fixed directly against the live Cloudflare project, outside this repo's PRs.
+- **SW update flow vs. a real deploy** — not ticked. Several PRs merged during this pass should have triggered a production redeploy; polling `getcodoro.com` for a new bundle hash for several minutes during this session didn't show one landing, so this couldn't be confirmed live in the time available.
+- **Explicitly skipped, not attempted**: the full phone regression, the week-long storage-survival soak, and the fresh-user walkthrough. All three measure adoption or longevity this app isn't getting right now. See `docs/v1-retro.md` for the reasoning.
