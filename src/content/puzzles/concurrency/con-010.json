@@ -1,0 +1,17 @@
+{
+  "id": "con-010",
+  "pattern": "concurrency",
+  "difficulty_rating": 1225,
+  "explanation": "`Thread.run()` is just an ordinary method call — invoking it directly executes the `Runnable`'s code synchronously on whatever thread called `runInBackground`, and doesn't return until that work finishes. No new thread is ever created or started; the `Thread` object exists but is never actually launched. `Thread.start()` is what asks the JVM to begin executing `run()` on a new OS thread, letting the caller continue immediately. Confusingly, this compiles fine and even produces the correct result for `task` — it's simply not concurrent at all, which defeats the entire purpose of using a `Thread` here.",
+  "prompt": "runInBackground is supposed to let the caller continue immediately while task runs on a separate thread. What's actually wrong with it?",
+  "language": "java",
+  "snippet": "class TaskRunner {\n    void runInBackground(Runnable task) {\n        Thread worker = new Thread(task);\n        worker.run();\n    }\n}",
+  "interaction": "mcq",
+  "choices": [
+    "worker.run() executes the task synchronously on the calling thread instead of starting a new one — worker.start() is needed to actually run it in the background",
+    "Thread should be constructed with a name argument, otherwise the Runnable silently fails to execute",
+    "run() can only be called once per Thread instance, so this throws IllegalThreadStateException",
+    "The Thread object worker is never explicitly stopped, causing a memory leak every time this method is called"
+  ],
+  "correct_choice": 0
+}
