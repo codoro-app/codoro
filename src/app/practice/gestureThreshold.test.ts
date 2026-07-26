@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_SWIPE_THRESHOLD,
   resolveSwipeCommit,
+  signedVelocityFromGesture,
   type SwipeSample,
   type SwipeThresholdConfig,
 } from './gestureThreshold'
@@ -96,4 +97,46 @@ describe('resolveSwipeCommit', () => {
     expect(DEFAULT_SWIPE_THRESHOLD.minVelocity).toBeGreaterThanOrEqual(0.2)
     expect(DEFAULT_SWIPE_THRESHOLD.minVelocity).toBeLessThanOrEqual(0.5)
   })
+})
+
+describe('signedVelocityFromGesture', () => {
+  it('computes signed velocity as movement / elapsedTime', () => {
+    expect(signedVelocityFromGesture({ movement: 180, elapsedTime: 360 })).toBeCloseTo(0.5)
+  })
+
+  it('carries the sign of movement, not a separate direction input', () => {
+    expect(signedVelocityFromGesture({ movement: -180, elapsedTime: 360 })).toBeCloseTo(-0.5)
+  })
+
+  it('returns 0 for zero or negative elapsedTime rather than dividing by it', () => {
+    expect(signedVelocityFromGesture({ movement: 180, elapsedTime: 0 })).toBe(0)
+    expect(signedVelocityFromGesture({ movement: 180, elapsedTime: -5 })).toBe(0)
+  })
+
+  it(
+    'still resolves a deliberate full-distance swipe that paused before release, where ' +
+      "@use-gesture's own last-frame velocity/direction would have collapsed to ~0",
+    () => {
+      // Reproduces the real-hardware bug this function fixes: @use-gesture/core
+      // only recomputes its last-frame `direction`/`velocity` from the delta
+      // since the PREVIOUS frame when the gap before release exceeds an
+      // internal 32ms threshold (confirmed by reading @use-gesture/core
+      // v10.3.1's source — see this function's doc comment). A finger that
+      // pauses before lifting — common — makes that final delta ~0, so the
+      // library's own velocity/direction collapse to 0 regardless of how the
+      // gesture actually went. The old `vx * dirX` computation inherited
+      // that collapse (0 * 0 = 0, or 0 * anything = 0); this one doesn't,
+      // because it never reads a single-frame delta at all.
+      const config: SwipeThresholdConfig = { minDistance: 120, minVelocity: 0.3 }
+      // The gesture itself: 180px right in 360ms overall — a normal,
+      // deliberate swipe — even though @use-gesture's own last-frame
+      // velocity/direction (not used here) would report ~0 after the pause.
+      const sample: SwipeSample = {
+        dx: 180,
+        velocityX: signedVelocityFromGesture({ movement: 180, elapsedTime: 360 }),
+      }
+
+      expect(resolveSwipeCommit(sample, config)).toBe('right')
+    },
+  )
 })
