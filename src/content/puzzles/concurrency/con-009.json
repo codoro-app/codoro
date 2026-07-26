@@ -7,7 +7,7 @@
   "language": "javascript",
   "snippet": "async function fetchAllUsers(ids) {\n  const users = []\n  for (const id of ids) {\n    const user = await fetchUser(id)\n    users.push(user)\n  }\n  return users\n}",
   "interaction": "swipe-binary",
-  "left_label": "Fetches concurrently",
-  "right_label": "Fetches one at a time",
-  "correct_direction": "right"
+  "left_label": "Fetches one at a time",
+  "right_label": "Fetches concurrently",
+  "correct_direction": "left"
 }

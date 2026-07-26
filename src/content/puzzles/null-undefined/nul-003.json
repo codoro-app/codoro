@@ -7,7 +7,7 @@
   "language": "javascript",
   "snippet": "const cache = new Map()\n\nasync function getConfig(key) {\n  if (!cache.get(key)) {\n    const value = await fetchConfig(key)\n    cache.set(key, value)\n    return value\n  }\n  return cache.get(key)\n}",
   "interaction": "swipe-binary",
-  "left_label": "Safe",
-  "right_label": "Refetches on falsy cached values",
-  "correct_direction": "right"
+  "left_label": "Refetches on falsy cached values",
+  "right_label": "Safe",
+  "correct_direction": "left"
 }

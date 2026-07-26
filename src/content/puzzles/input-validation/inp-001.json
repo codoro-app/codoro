@@ -7,7 +7,7 @@
   "language": "javascript",
   "snippet": "function login(req, res) {\n  const { username, password } = req.body\n  db.users.findOne(\n    { username: username, password: password },\n    (err, user) => {\n      if (user) {\n        res.send('Logged in')\n      } else {\n        res.send('Invalid credentials')\n      }\n    }\n  )\n}",
   "interaction": "swipe-binary",
-  "left_label": "Safe",
-  "right_label": "Injectable",
-  "correct_direction": "right"
+  "left_label": "Injectable",
+  "right_label": "Safe",
+  "correct_direction": "left"
 }
