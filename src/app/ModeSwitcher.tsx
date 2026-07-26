@@ -7,7 +7,7 @@
  */
 import './app.css'
 
-export type AppMode = 'practice' | 'daily' | 'rush' | 'home'
+export type AppMode = 'practice' | 'daily' | 'rush' | 'home' | 'legal'
 
 export interface ModeSwitcherProps {
   mode: AppMode

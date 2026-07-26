@@ -59,4 +59,16 @@ describe('AppShell', () => {
     await user.click(nth(homeButtons, 0))
     expect(onModeChange).toHaveBeenCalledWith('home')
   })
+
+  it('navigates to legal when the footer link is clicked', async () => {
+    const onModeChange = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <AppShell mode="practice" onModeChange={onModeChange}>
+        <p>page content</p>
+      </AppShell>,
+    )
+    await user.click(screen.getByRole('button', { name: 'Legal' }))
+    expect(onModeChange).toHaveBeenCalledWith('legal')
+  })
 })

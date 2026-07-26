@@ -50,6 +50,17 @@ export function AppShell({ mode, onModeChange, children }: AppShellProps) {
         <NavRail mode={mode} onChange={onModeChange} />
       </div>
       <main className="app-shell__content">{children}</main>
+      <footer className="app-shell__footer">
+        <button
+          type="button"
+          className="app-shell__footer-link"
+          onClick={() => {
+            onModeChange('legal')
+          }}
+        >
+          Legal
+        </button>
+      </footer>
       <DevPuzzleToggle />
     </div>
   )

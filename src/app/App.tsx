@@ -18,17 +18,20 @@ const practiceImporter = () => import('./practice/PracticePage')
 const dailyImporter = () => import('./daily/DailyPage')
 const rushImporter = () => import('./rush/RushPage')
 const homeImporter = () => import('./Home')
+const legalImporter = () => import('./legal/LegalPage')
 
 const PracticePage = lazy(async () => ({ default: (await practiceImporter()).PracticePage }))
 const DailyPage = lazy(async () => ({ default: (await dailyImporter()).DailyPage }))
 const RushPage = lazy(async () => ({ default: (await rushImporter()).RushPage }))
 const Home = lazy(async () => ({ default: (await homeImporter()).Home }))
+const LegalPage = lazy(async () => ({ default: (await legalImporter()).LegalPage }))
 
 const modeImporters: Record<AppMode, () => Promise<unknown>> = {
   practice: practiceImporter,
   daily: dailyImporter,
   rush: rushImporter,
   home: homeImporter,
+  legal: legalImporter,
 }
 
 /**
@@ -76,6 +79,8 @@ export function App() {
             <DailyPage />
           ) : mode === 'rush' ? (
             <RushPage />
+          ) : mode === 'legal' ? (
+            <LegalPage onNavigate={setMode} />
           ) : (
             <Home onNavigate={setMode} />
           )}
