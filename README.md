@@ -1,32 +1,45 @@
-# React + TypeScript + Vite
+# Codoro
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Codoro is a bug-spotting practice app: you're shown a short code snippet and asked to find the bug — via a swipe (correct/buggy), a multiple-choice question, or tapping the offending line. An Elo-style rating tracks your skill and picks puzzles near your level.
 
-Currently, two official plugins are available:
+Live at [getcodoro.com](https://getcodoro.com) — it's a PWA, installable from the browser on desktop and mobile.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack
 
-## React Compiler
+- Vite + React 19 + TypeScript (strict)
+- pnpm, pinned via Corepack
+- Cloudflare Pages hosting
+- IndexedDB (via `idb`) for local persistence — no backend, no accounts
+- PostHog for anonymous usage telemetry
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Local dev
 
-## Expanding the Oxlint configuration
+Prerequisites: Node version pinned in `.nvmrc`, pnpm via Corepack.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+corepack enable
+pnpm install
+pnpm dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Scripts
+
+| Script                  | What it does                                                              |
+| ----------------------- | ------------------------------------------------------------------------- |
+| `pnpm validate`         | Full gate: typecheck, lint, test, content validation, build               |
+| `pnpm test`             | Run the test suite (Vitest)                                               |
+| `pnpm validate:content` | Validate every puzzle JSON against the content schema                     |
+| `pnpm content:stats`    | Per-pattern / per-interaction-type / difficulty-histogram breakdown       |
+| `pnpm generate:puzzles` | Gap-driven LLM puzzle authoring (see `src/content/GENERATING_PUZZLES.md`) |
+
+## Architecture
+
+- `src/engine/` — pure TypeScript: rating (Elo), puzzle selection, streak, spaced-repetition requeue. No React, no DOM, no storage — lint-enforced (`engine/` cannot import `react` or `app/`), so this logic is fully unit-testable in isolation.
+- `src/content/` — puzzle data (`puzzles/*.json`), the Zod schema that validates it, and the authoring/generation tooling.
+- `src/storage/` — the IndexedDB persistence layer, versioned and migration-tested.
+- `src/telemetry/` — PostHog event wiring.
+- `src/app/` — React UI: pages, components, hooks. Everything above is consumed here, never the reverse.
+
+## Status
+
+v1 is complete and not under active development. v2 is in planning — see `docs/v1-retro.md` for what shipped, what was learned, and why v2 is a different kind of app rather than an iteration on this one.
