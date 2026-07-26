@@ -64,6 +64,25 @@
   padding: calc(var(--space-2) + env(safe-area-inset-top)) var(--space-4) 0;
 }
 
+/* Slim, low-emphasis link row below the active page — currently just
+ * "Legal", so no need for a nav-style row of items. */
+.app-shell__footer {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.app-shell__footer-link {
+  min-height: var(--tap-target-min);
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
 @media (min-width: 1024px) {
   .app-shell {
     display: grid;
@@ -92,6 +111,14 @@
 
   .app-shell__sidebar {
     grid-area: sidebar;
+  }
+
+  /* .app-shell has 2 explicit columns (rail, content) with no named grid
+   * areas beyond .app-shell__content's own nested grid — without this, the
+   * footer would auto-place into just the rail's narrow column instead of
+   * spanning the full width below both. */
+  .app-shell__footer {
+    grid-column: 1 / -1;
   }
 }
 
