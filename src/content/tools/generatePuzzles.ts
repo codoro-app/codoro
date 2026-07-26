@@ -21,11 +21,19 @@ import process from 'node:process'
 import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import { z } from 'zod'
-import { McqSchema, PuzzleSchema, SwipeBinarySchema, TapLineSchema } from '../schema'
+import {
+  MAX_DIFFICULTY,
+  McqSchema,
+  MIN_DIFFICULTY,
+  PuzzleSchema,
+  SwipeBinarySchema,
+  TapLineSchema,
+} from '../schema'
 import type { Puzzle } from '../schema'
 import { PATTERN_LABELS, PATTERN_SLUGS } from '../patterns'
 import type { PatternSlug } from '../patterns'
 import { loadRawPuzzleFiles } from './loadPuzzles'
+import { validatePuzzleFiles } from './validatePuzzles'
 
 const MODEL = 'claude-sonnet-5'
 // Intro pricing through 2026-08-31 (standard rate is $3/$15 after) — confirm
@@ -35,8 +43,12 @@ const INPUT_COST_PER_MTOK = 2
 const OUTPUT_COST_PER_MTOK = 10
 const MAX_GENERATION_ATTEMPTS = 3
 
+/** Hard stop on batch spend, checked before every puzzle in main()'s loop. */
+const COST_CEILING_USD = 0.7
+
 type Interaction = 'mcq' | 'swipe-binary' | 'tap-line'
-type Band = 'low' | 'mid' | 'high'
+/** Which edge of a puzzle's targetRange to lean toward — see buildGapManifest. */
+type Bias = 'low' | 'mid' | 'high'
 
 /**
  * Structured output is requested per-variant, not against PuzzleSchema's
@@ -52,12 +64,6 @@ const INTERACTION_SCHEMAS = {
   'swipe-binary': SwipeBinarySchema,
   'tap-line': TapLineSchema,
 } as const
-
-const BAND_RANGES: Record<Band, string> = {
-  low: '900-1100',
-  mid: '1500-1700',
-  high: '1900-2150',
-}
 
 /** Short, stable per-pattern id prefix. Once assigned, never change — ids are forever. */
 const PATTERN_PREFIXES: Record<PatternSlug, string> = {
@@ -203,7 +209,50 @@ interface GenerateArgs {
   id: string
   pattern: PatternSlug
   interaction: Interaction
-  band: Band
+  targetRange: string
+  bias: Bias
+}
+
+/**
+ * A numeric target alone isn't enough — the model tends to reach for a
+ * pattern's "default" bug shape (e.g. concurrency bugs are inherently hard
+ * to trace and highly context-dependent; error-handling bugs are often
+ * blatant) and then self-report whatever S/T/D/C sum reaches the target,
+ * rather than picking content that genuinely scores there. This computes an
+ * explicit S/T/D/C sum target from the range/bias and pairs it with a
+ * content-shaping instruction, so the puzzle's actual complexity — not just
+ * its self-reported score — lands where it needs to.
+ */
+function difficultyGuidance(args: GenerateArgs): string {
+  const [rangeFloor, rangeCeil] = args.targetRange.split('-').map(Number)
+  const floor = rangeFloor ?? MIN_DIFFICULTY
+  const ceil = rangeCeil ?? MAX_DIFFICULTY
+  const nearPoint =
+    args.bias === 'low'
+      ? floor + 50
+      : args.bias === 'high'
+        ? ceil - 50
+        : Math.round((floor + ceil) / 2)
+  const swipeModifier = args.interaction === 'swipe-binary' ? 175 : 0
+  const baseTarget = nearPoint - swipeModifier
+  const sumTarget = Math.min(20, Math.max(4, Math.round((baseTarget - 800) / 100) + 4))
+
+  const shapingHint =
+    args.bias === 'low'
+      ? `Pick the most blatant, single-step, context-independent version of this pattern's bug you can think of. Avoid multi-step tracing, hidden or interleaved state, or a subtle distractor — even if this pattern's bugs typically lean harder than that. A puzzle that feels "too easy" for this pattern is exactly the point of this one.`
+      : args.bias === 'high'
+        ? `Pick a version of this pattern's bug that requires tracing state across multiple steps (or multiple awaits/branches), that only manifests under a specific or narrow condition, and where the wrong answer is genuinely tempting — push for the hardest reasonable variant of this pattern's bug, even if this pattern's bugs typically lean simpler than that.`
+        : `Pick a typical, moderate-difficulty example of this pattern's bug.`
+
+  const modifierLine =
+    swipeModifier > 0
+      ? `Because interaction is "swipe-binary", the mandatory modifier applies: compute a BASE rating around ${String(baseTarget)} from S/T/D/C (sum ≈ ${String(sumTarget)}), then ADD +150 to +200 on top of that base to get the FINAL difficulty_rating you put in the JSON. The final number must come out noticeably higher than the base number — do not report the base (pre-modifier) number as difficulty_rating; that is the single most common mistake on this puzzle type.`
+      : `Aim for S+T+D+C summing to approximately ${String(sumTarget)} (each sub-score 1-5) so the computed difficulty_rating lands in the target range.`
+
+  return (
+    `- target difficulty range: ${args.targetRange} (this is what the FINAL difficulty_rating field should land in). ${shapingHint}\n` +
+    `- ${modifierLine} Pick content that genuinely scores at this level under the rubric — do not pick a harder or easier bug and then self-report a number that doesn't match what you actually wrote.`
+  )
 }
 
 function buildUserPrompt(args: GenerateArgs, priorError: string | null): string {
@@ -212,7 +261,7 @@ function buildUserPrompt(args: GenerateArgs, priorError: string | null): string 
     `- id: "${args.id}"`,
     `- pattern: "${args.pattern}" (${PATTERN_LABELS[args.pattern]})`,
     `- interaction: "${args.interaction}"`,
-    `- target difficulty band: ${BAND_RANGES[args.band]} (compute the real S/T/D/C-derived rating within or near this band; do not just pick the midpoint)`,
+    difficultyGuidance(args),
   ]
   if (priorError) {
     lines.push(
@@ -373,112 +422,211 @@ function writePuzzle(puzzle: Puzzle): void {
 interface PuzzleSpec {
   pattern: PatternSlug
   interaction: Interaction
-  band: Band
+  targetRange: string
+  bias: Bias
+}
+
+/** Phase 8 DoD: every pattern's difficulty ratings must span at least this many points. */
+const MIN_PATTERN_SPREAD = 800
+const BUCKET_SIZE = 200
+/**
+ * Highest bucket start the dead-zone sweep checks. Bucket 2000-2199 is the
+ * last one included, covering the DoD's "no empty 200pt bucket ~900-2150"
+ * — matches contentStats.ts's own dead-zone check range.
+ */
+const MAX_DEAD_ZONE_BUCKET_START = 2000
+
+/** Mirrors contentStats.ts's difficultyBucketLabel — same bucket math, kept local to avoid a shared module for one five-line function. */
+function bucketLabel(rating: number): string {
+  const bucketStart =
+    Math.floor((rating - MIN_DIFFICULTY) / BUCKET_SIZE) * BUCKET_SIZE + MIN_DIFFICULTY
+  const bucketEnd = Math.min(bucketStart + BUCKET_SIZE - 1, MAX_DIFFICULTY)
+  return `${String(bucketStart)}-${String(bucketEnd)}`
+}
+
+function loadValidPuzzles(): Puzzle[] {
+  return validatePuzzleFiles(loadRawPuzzleFiles()).valid.map((entry) => entry.puzzle)
+}
+
+const INTERACTION_CYCLE: Interaction[] = ['swipe-binary', 'mcq', 'tap-line', 'swipe-binary', 'mcq']
+
+function nextInteraction(cursor: number): Interaction {
+  return INTERACTION_CYCLE[cursor % INTERACTION_CYCLE.length] ?? 'mcq'
 }
 
 /**
- * Phase 8 convergence target: every pattern >= TARGET_PER_PATTERN puzzles.
- * Dynamic, not a fixed list — reads what's already on disk (via
- * loadRawPuzzleFiles, same source loadExistingCounters uses) and generates
- * exactly the gap for each pattern, so reruns after a partial batch (or
- * after DISCARDED puzzles left some patterns short) top up instead of
- * re-requesting puzzles that already exist.
+ * Gap-driven manifest: reads real per-pattern difficulty spread and global
+ * 200pt bucket coverage off disk (loadValidPuzzles — same validated source
+ * contentStats.ts reports on) and generates only the minimum needed to
+ * satisfy the Phase 8 DoD — every pattern spans >= MIN_PATTERN_SPREAD, and
+ * no global bucket between MIN_DIFFICULTY and MAX_DEAD_ZONE_BUCKET_START is
+ * empty. Idempotent: a pattern or bucket already satisfied contributes
+ * nothing, so a rerun after the curve is covered returns [].
  *
- * Interaction mix per pattern's gap cycles through the same ~45/35/20
- * swipe-binary/mcq/tap-line sequence buildDryRunManifest's sibling used
- * pre-Phase-8 (11 swipe / 9 mcq / 5 tap-line per 25), continued across
- * pattern boundaries (not reset per pattern) so the mix holds at the
- * batch level even though gap sizes differ per pattern. Bands cycle
- * low/mid/high independently so every pattern's new puzzles still span
- * the full range, regardless of where its gap-count lands in the
- * interaction cycle.
+ * Two puzzles per deficient pattern (not one) — enough to survive a single
+ * self-review discard and to satisfy "at least 2 puzzles" at the needed
+ * end. Each fix targets whichever end (low/high) still leaves an empty
+ * global bucket uncovered, so one puzzle can close both the pattern's
+ * spread gap and the global dead zone at once; a puzzle's bias (see Bias)
+ * pushes the model toward the far edge of its target bucket so the actual
+ * computed rating doesn't just barely clear MIN_PATTERN_SPREAD.
  */
-const TARGET_PER_PATTERN = 8
+function buildGapManifest(): PuzzleSpec[] {
+  const puzzles = loadValidPuzzles()
 
-function countExistingByPattern(): Map<PatternSlug, number> {
-  const counts = new Map<PatternSlug, number>()
-  for (const { raw } of loadRawPuzzleFiles()) {
-    if (raw && typeof raw === 'object' && 'pattern' in raw && typeof raw.pattern === 'string') {
-      const pattern = raw.pattern as PatternSlug
-      counts.set(pattern, (counts.get(pattern) ?? 0) + 1)
-    }
+  const byPattern = new Map<PatternSlug, number[]>()
+  for (const pattern of PATTERN_SLUGS) byPattern.set(pattern, [])
+  const coveredBuckets = new Set<string>()
+  for (const puzzle of puzzles) {
+    byPattern.get(puzzle.pattern)?.push(puzzle.difficulty_rating)
+    coveredBuckets.add(bucketLabel(puzzle.difficulty_rating))
   }
-  return counts
-}
 
-function buildFullManifest(): PuzzleSpec[] {
-  const interactionCycle: Interaction[] = [
-    'swipe-binary',
-    'mcq',
-    'swipe-binary',
-    'tap-line',
-    'mcq',
-    'swipe-binary',
-    'mcq',
-    'swipe-binary',
-    'tap-line',
-    'mcq',
-    'swipe-binary',
-    'mcq',
-    'swipe-binary',
-    'tap-line',
-    'mcq',
-    'swipe-binary',
-    'mcq',
-    'swipe-binary',
-    'tap-line',
-    'mcq',
-    'swipe-binary',
-    'mcq',
-    'swipe-binary',
-    'tap-line',
-    'swipe-binary',
-  ]
-  const bandCycle: Band[] = ['low', 'mid', 'high']
-
-  const existing = countExistingByPattern()
   const specs: PuzzleSpec[] = []
   let cursor = 0
 
-  for (const pattern of PATTERN_SLUGS) {
-    const have = existing.get(pattern) ?? 0
-    const needed = Math.max(0, TARGET_PER_PATTERN - have)
-    for (let i = 0; i < needed; i++) {
-      specs.push({
-        pattern,
-        interaction: interactionCycle[cursor % interactionCycle.length] ?? 'mcq',
-        band: bandCycle[cursor % bandCycle.length] ?? 'mid',
-      })
+  const deficient = PATTERN_SLUGS.map((pattern) => {
+    const ratings = byPattern.get(pattern) ?? []
+    const min = ratings.length > 0 ? Math.min(...ratings) : MIN_DIFFICULTY
+    const max = ratings.length > 0 ? Math.max(...ratings) : MIN_DIFFICULTY
+    return { pattern, min, max, range: max - min }
+  })
+    .filter((p) => p.range < MIN_PATTERN_SPREAD)
+    .sort((a, b) => a.range - b.range)
+
+  for (const { pattern, min, max } of deficient) {
+    const lowTarget = Math.max(MIN_DIFFICULTY, max - MIN_PATTERN_SPREAD)
+    const highTarget = Math.min(MAX_DIFFICULTY, min + MIN_PATTERN_SPREAD)
+    const lowBucket = bucketLabel(lowTarget)
+    const highBucket = bucketLabel(highTarget)
+    const lowFillsGap = !coveredBuckets.has(lowBucket)
+    const highFillsGap = !coveredBuckets.has(highBucket)
+
+    // Prefer whichever direction also empties a still-open global bucket.
+    // If both or neither do, extend whichever end has more room — the one
+    // further from its floor/ceiling — since that's the side the pattern's
+    // existing ratings are clustered away from.
+    const direction: 'low' | 'high' =
+      lowFillsGap && !highFillsGap
+        ? 'low'
+        : highFillsGap && !lowFillsGap
+          ? 'high'
+          : min - MIN_DIFFICULTY > MAX_DIFFICULTY - max
+            ? 'low'
+            : 'high'
+
+    const targetRange = direction === 'low' ? lowBucket : highBucket
+    coveredBuckets.add(targetRange)
+
+    for (let i = 0; i < 2; i++) {
+      specs.push({ pattern, interaction: nextInteraction(cursor), targetRange, bias: direction })
       cursor++
     }
+  }
+
+  for (let start = MIN_DIFFICULTY; start <= MAX_DEAD_ZONE_BUCKET_START; start += BUCKET_SIZE) {
+    const bucket = bucketLabel(start)
+    if (coveredBuckets.has(bucket)) continue
+
+    // No deficient pattern claimed this bucket — assign it to whichever
+    // pattern has the most spread headroom, so one more puzzle can't push
+    // it back under MIN_PATTERN_SPREAD.
+    const widest = PATTERN_SLUGS.map((pattern) => {
+      const ratings = byPattern.get(pattern) ?? []
+      const range = ratings.length > 0 ? Math.max(...ratings) - Math.min(...ratings) : 0
+      return { pattern, range }
+    }).sort((a, b) => b.range - a.range)[0]
+    if (!widest) continue
+
+    specs.push({
+      pattern: widest.pattern,
+      interaction: nextInteraction(cursor),
+      targetRange: bucket,
+      bias: 'mid',
+    })
+    coveredBuckets.add(bucket)
+    cursor++
   }
 
   return specs
 }
 
-function buildDryRunManifest(): PuzzleSpec[] {
-  return [
-    { pattern: 'off-by-one', interaction: 'mcq', band: 'low' },
-    { pattern: 'mutable-state', interaction: 'tap-line', band: 'mid' },
-    { pattern: 'concurrency', interaction: 'swipe-binary', band: 'high' },
-  ]
+const EST_GENERATE_INPUT_TOKENS = 4200
+const EST_GENERATE_OUTPUT_TOKENS = 700
+const EST_REVIEW_INPUT_TOKENS = 3600
+const EST_REVIEW_OUTPUT_TOKENS = 250
+/**
+ * Conservative per-puzzle cost projection for --dry-run, derived from the
+ * `in=3812 out=612` generate-call example in GENERATING_PUZZLES.md, rounded
+ * up, plus an estimated review call, plus a 25% buffer for the occasional
+ * validation retry — real batches don't hit max_tokens (8192) in practice.
+ */
+const PROJECTED_COST_PER_PUZZLE =
+  (costOf(EST_GENERATE_INPUT_TOKENS, EST_GENERATE_OUTPUT_TOKENS) +
+    costOf(EST_REVIEW_INPUT_TOKENS, EST_REVIEW_OUTPUT_TOKENS)) *
+  1.25
+
+/** Parses --limit=N off argv, for testing a prompt change on a few puzzles before spending on the full manifest. */
+function parseLimitArg(): number | null {
+  const arg = process.argv.find((a) => a.startsWith('--limit='))
+  if (!arg) return null
+  const value = Number(arg.slice('--limit='.length))
+  return Number.isInteger(value) && value > 0 ? value : null
 }
 
 async function main(): Promise<void> {
   const isDryRun = process.argv.includes('--dry-run')
-  const manifest = isDryRun ? buildDryRunManifest() : buildFullManifest()
+  const limit = parseLimitArg()
+  const fullManifest = buildGapManifest()
+  const manifest = limit !== null ? fullManifest.slice(0, limit) : fullManifest
   const counters = loadExistingCounters()
 
+  if (fullManifest.length === 0) {
+    console.log(
+      'generate:puzzles: curve already covered — every pattern spans >= 800 points and no 200pt bucket between 800 and 2199 is empty. Nothing to generate.',
+    )
+    return
+  }
+
+  const projectedCost = manifest.length * PROJECTED_COST_PER_PUZZLE
+
   console.log(
-    `generate:puzzles: ${isDryRun ? 'DRY RUN' : 'FULL BATCH'} — ${String(manifest.length)} puzzle(s) targeted\n`,
+    `generate:puzzles: ${isDryRun ? 'DRY RUN' : 'FULL BATCH'} — ${String(manifest.length)} puzzle(s) targeted (gap-driven)` +
+      (limit !== null ? ` [--limit=${String(limit)} of ${String(fullManifest.length)}]` : '') +
+      '\n',
   )
+  for (const spec of manifest) {
+    console.log(
+      `  - ${spec.pattern} / ${spec.interaction} / target ${spec.targetRange} (bias: ${spec.bias})`,
+    )
+  }
+  console.log(
+    `\nProjected cost: ~$${projectedCost.toFixed(4)} (${String(manifest.length)} puzzle(s) x ~$${PROJECTED_COST_PER_PUZZLE.toFixed(4)}/puzzle, conservative estimate)`,
+  )
+  if (projectedCost > COST_CEILING_USD) {
+    console.warn(
+      `  WARNING: projected cost exceeds COST_CEILING_USD ($${COST_CEILING_USD.toFixed(2)}) — shrink the manifest before running for real.`,
+    )
+  }
+
+  if (isDryRun) {
+    return
+  }
 
   let written = 0
   let discarded = 0
 
   for (const spec of manifest) {
+    const currentCost = costOf(totals.inputTokens, totals.outputTokens)
+    if (currentCost >= COST_CEILING_USD) {
+      console.warn(
+        `\ngenerate:puzzles: COST_CEILING_USD ($${COST_CEILING_USD.toFixed(2)}) reached at $${currentCost.toFixed(4)} — stopping before the next puzzle. ${String(manifest.length - written - discarded)} puzzle(s) left un-attempted.`,
+      )
+      break
+    }
+
     const id = peekNextId(spec.pattern, counters)
-    console.log(`=== ${id} (${spec.pattern}, ${spec.interaction}, ${spec.band}) ===`)
+    console.log(`=== ${id} (${spec.pattern}, ${spec.interaction}, target ${spec.targetRange}) ===`)
 
     const puzzle = await generatePuzzle({ ...spec, id })
     if (!puzzle) {
@@ -514,4 +662,3 @@ main().catch((err: unknown) => {
   console.error(err)
   process.exitCode = 1
 })
-

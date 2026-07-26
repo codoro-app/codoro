@@ -1,8 +1,10 @@
 # Generating puzzles
 
 How to run `src/content/tools/generatePuzzles.ts` — the LLM-assisted authoring
-pipeline behind the seed content. You'll keep using this well past the initial
-25-puzzle batch, so read this before your first real run and again whenever
+pipeline behind the seed content. It's gap-driven: it reads the current
+per-pattern difficulty spread and global bucket coverage and generates only
+what's needed to close DoD gaps, so you'll keep coming back to it as the
+content set grows. Read this before your first real run and again whenever
 something looks off in the output.
 
 ## Setup
@@ -20,32 +22,35 @@ something looks off in the output.
 ## Running it
 
 ```sh
-# Cheap sanity check first: 3 puzzles, one per interaction type
+# No API calls, no cost — prints the gap-driven manifest and a projected cost
 pnpm generate:puzzles --dry-run
 
-# Full batch: generates the manifest baked into the script (currently 25
-# puzzles spanning all 13 patterns and the ~45/35/20 swipe-binary/mcq/tap-line
-# mix)
+# Same manifest, for real: generates and writes whatever the dry-run showed
 pnpm generate:puzzles
 ```
 
-There's no other CLI surface today — the manifest (which pattern/interaction/
-difficulty-band combinations to generate) is defined in `buildFullManifest()`
-and `buildDryRunManifest()` inside the script. To generate a different batch
-(more of one pattern, a different mix), edit those functions rather than
-bolting on flags — the script is small enough that editing the manifest
-directly is simpler than building a generic CLI grammar for it.
+The manifest isn't hand-authored — `buildGapManifest()` in the script reads
+real per-pattern difficulty spread and global 200pt-bucket coverage off disk
+(`pnpm content:stats`'s own numbers) and generates only what's needed to
+close gaps: a pattern under the 800-point spread DoD gets puzzles at
+whichever end (low/high) it's missing, and any empty global bucket gets
+filled by whichever fix already covers it or, failing that, by the pattern
+with the most spread headroom. Idempotent — once every pattern spans >= 800
+points and no bucket in range is empty, both `--dry-run` and a real run
+report "nothing to generate."
 
-**Always run `--dry-run` before spending real budget on a new manifest.**
-Read the 2-3 puzzles it produces against `CALIBRATION.md` yourself — see
-"Reading the output" below — before trusting a bigger run.
+**`--dry-run` always runs first, automatically** — it prints the exact same
+manifest and a conservative cost projection (via `costOf`) without touching
+the API. `COST_CEILING_USD` (in the script) is also enforced in the real run:
+the batch checks cumulative spend before every puzzle and stops rather than
+crossing it.
 
 ## What happens per puzzle
 
 1. **Generate** — one API call (Claude Sonnet 5) given the pattern, target
-   difficulty band, interaction type, and the full `CALIBRATION.md` rubric,
-   using structured output so the model returns `PuzzleSchema`-shaped JSON
-   directly.
+   difficulty range (and which edge of it to bias toward), interaction type,
+   and the full `CALIBRATION.md` rubric, using structured output so the
+   model returns `PuzzleSchema`-shaped JSON directly.
 2. **Validate** — the result runs through the real `PuzzleSchema` (the same
    one `pnpm validate:content` uses), including the cross-field checks
    (`correct_choice`/`correct_line` in range) that structured output alone
@@ -89,13 +94,16 @@ Every API call logs its own token usage and a running total, e.g.:
     [generate oob-004 attempt 1] in=3812 out=612 — running total: $0.0138
 ```
 
-At the end of a run you get the grand total. The full 25-puzzle batch (two
-calls per puzzle: generate + review, occasionally a couple of extra
-generate-retry calls) has run in the low single dollars — verify this
-yourself from the printed total rather than trusting this number as it ages;
-pricing and the model's average output length can both drift. Current
-pricing is in the script's `INPUT_COST_PER_MTOK`/`OUTPUT_COST_PER_MTOK`
-constants, with a link to confirm it's still current.
+At the end of a run you get the grand total. Two calls per puzzle (generate +
+review, occasionally a couple of extra generate-retry calls) — a gap-driven
+batch is usually a handful of puzzles, not dozens, so real spend is normally
+a few cents to low tens of cents; verify from the printed total rather than
+trusting any number here as it ages. Pricing and the model's average output
+length can both drift. Current pricing is in the script's
+`INPUT_COST_PER_MTOK`/`OUTPUT_COST_PER_MTOK` constants, with a link to
+confirm it's still current. `COST_CEILING_USD` is a hard stop independent of
+all this — the batch checks cumulative spend before every puzzle and halts
+rather than crossing it, regardless of how the estimate above ages.
 
 ## After a run: read the output, don't just check the exit code
 
