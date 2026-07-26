@@ -59,6 +59,26 @@ Known bugs and unverified production state inherited from v1. All small, all wor
 - [ ] A production event is visible in PostHog, triggered from a real phone
 - [ ] Bad path on getcodoro.com returns HTTP 404; SW update prompt observed after a real deploy
 
+**Amendment (code portions, post-implementation):** the swipe-direction skew,
+validator, generator, and desktop-Browse items above matched the plan as
+written — rebalanced 20/39 to "left" (48.7%/51.3% split), no schema change
+surfaced, and the Browse fix stayed inside the existing `view` state machine
+as expected. The gesture root cause is a refinement of this section's
+hypothesis, not a contradiction, worth recording precisely: reading
+`@use-gesture/core` v10.3.1's own source (not just its types) showed the bug
+isn't really "`direction` reported from the last movement delta" in general —
+it's that the library only recomputes `direction`/`velocity` on a gesture's
+last frame when the gap since the previous frame exceeds an internal 32ms
+threshold (`BEFORE_LAST_KINEMATICS_DELAY`), and recomputes from the delta
+_since that gap started_, not the whole gesture. A finger that pauses before
+lifting (common, and >32ms) makes that delta ~0, collapsing both fields
+regardless of the drag's real distance/speed. Fix: `SwipeBinary.tsx` now
+derives velocity from `movement`/`elapsedTime` (whole-gesture totals,
+immune to any single frame's timing) via a new `signedVelocityFromGesture` in
+`gestureThreshold.ts`, instead of `vx * dirX`. `DEFAULT_SWIPE_THRESHOLD` was
+not retuned. Device verification (real iOS/Android feel) is still Thomas's,
+per this section's original split of responsibilities.
+
 ---
 
 ## Phase 1 — URL routing + shareable puzzle links (1–2 sessions)
