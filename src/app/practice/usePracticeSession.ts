@@ -14,6 +14,7 @@ import {
   shouldRateAttempt,
   updateRating,
 } from '../../engine'
+import type { SelectionSource } from '../../engine'
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, UserProfile } from '../../storage'
 import { puzzlePool } from '../../content'
@@ -84,6 +85,10 @@ export function usePracticeSession(): PracticeSession {
   // driving a render themselves.
   const recentIdsRef = useRef<string[]>([])
   const servedAtRef = useRef<number>(0)
+  // Feeds selectNext's requeue-starvation guard (see selection.ts's
+  // `lastSource` doc comment) — tracks the `source` of the previous serve so
+  // two requeue entries can never be served back-to-back.
+  const lastSourceRef = useRef<SelectionSource | null>(null)
 
   const contentById = useRef(new Map(poolForPattern(null).map((p) => [p.id, p])))
 
@@ -95,6 +100,7 @@ export function usePracticeSession(): PracticeSession {
       recentIds: recentIdsRef.current,
       requeueState: currentProfile.requeueState,
       rng: Math.random,
+      lastSource: lastSourceRef.current,
     })
 
     if (result === null) {
@@ -103,6 +109,8 @@ export function usePracticeSession(): PracticeSession {
       setStatus('empty')
       return
     }
+
+    lastSourceRef.current = result.source
 
     // selectNext advances the requeue ladder as a side effect of being
     // called (one call == one puzzle served, per its own doc comment) even

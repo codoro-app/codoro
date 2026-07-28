@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Puzzle, Rng } from './selection'
+import type { Puzzle, Rng, SelectionSource } from './selection'
 import { selectNext } from './selection'
 import type { RequeueState } from './requeue'
 import { advance, emptyRequeueState, recordMiss } from './requeue'
@@ -37,6 +37,7 @@ describe('selectNext — empty pool', () => {
       recentIds: [],
       requeueState: emptyRequeueState,
       rng: mulberry32(1),
+      lastSource: null,
     })
     expect(result).toBeNull()
   })
@@ -52,6 +53,7 @@ describe('selectNext — rating window & widening', () => {
       recentIds: [],
       requeueState: emptyRequeueState,
       rng: mulberry32(42),
+      lastSource: null,
     })
     expect(result?.source).toBe('window')
     expect(Math.abs((result?.puzzle.rating ?? 0) - 1000)).toBeLessThanOrEqual(200)
@@ -77,6 +79,7 @@ describe('selectNext — rating window & widening', () => {
         recentIds: [],
         requeueState: emptyRequeueState,
         rng: mulberry32(seed),
+        lastSource: null,
       })
       if (result && result.puzzle.rating > 1200) {
         servedFar = result.puzzle
@@ -95,6 +98,7 @@ describe('selectNext — rating window & widening', () => {
       recentIds: [],
       requeueState: emptyRequeueState,
       rng: mulberry32(7),
+      lastSource: null,
     })
     expect(result?.source).toBe('window')
     expect(p).toContainEqual(result?.puzzle)
@@ -114,6 +118,7 @@ describe('selectNext — no-repeat-within-20', () => {
       recentIds,
       requeueState: emptyRequeueState,
       rng: mulberry32(3),
+      lastSource: null,
     })
     expect(result?.puzzle.id).toBe(survivor.id)
   })
@@ -128,6 +133,7 @@ describe('selectNext — no-repeat-within-20', () => {
       recentIds,
       requeueState: emptyRequeueState,
       rng: mulberry32(9),
+      lastSource: null,
     })
     expect(result).not.toBeNull()
     expect(p).toContainEqual(result?.puzzle)
@@ -150,6 +156,7 @@ describe('selectNext — requeue injection', () => {
       recentIds: [missId], // even though "recent", the requeue path ignores that
       requeueState: state,
       rng: mulberry32(1),
+      lastSource: null,
     })
     expect(result?.source).toBe('requeue')
     expect(result?.puzzle.id).toBe(missId)
@@ -172,6 +179,7 @@ describe('selectNext — requeue injection', () => {
       recentIds: [],
       requeueState: state,
       rng: mulberry32(1),
+      lastSource: null,
     })
     expect(result?.source).toBe('requeue')
     expect(result?.puzzle.id).toBe(first)
@@ -195,11 +203,90 @@ describe('selectNext — requeue injection', () => {
       recentIds: [],
       requeueState: state,
       rng: mulberry32(5),
+      lastSource: null,
     })
     expect(result?.source).toBe('window')
     expect(p).toContainEqual(result?.puzzle)
     // The ghost entry ticked but was not resurfaced (still stage 0).
     expect(result?.newRequeueState).toEqual([{ puzzleId: 'ghost', stage: 0, served: 3 }])
+  })
+})
+
+describe('selectNext — requeue starvation guard', () => {
+  it('never serves two requeue entries back to back, even when several are simultaneously due', () => {
+    const p = pool(1000, 1010, 1020, 1030, 1040, 1050, 1060, 1070, 1080, 1090, 1100, 1110)
+    let state: RequeueState = emptyRequeueState
+    for (const id of ['a', 'b', 'c', 'd']) {
+      state = recordMiss(state, id)
+    }
+
+    // Drive 20 ticks, answering every served puzzle correctly (no more misses)
+    // — mirrors the "missed a handful early, then recovers" scenario. Without
+    // the guard, entries a-d would be served in an uninterrupted block
+    // (verified by simulation before this fix existed).
+    let lastSource: SelectionSource | null = null
+    const sources: SelectionSource[] = []
+    for (let tick = 0; tick < 20; tick++) {
+      const result = selectNext({
+        pool: p,
+        rating: 1000,
+        recentIds: [],
+        requeueState: state,
+        rng: mulberry32(tick),
+        lastSource,
+      })
+      if (!result) throw new Error('expected a puzzle')
+      sources.push(result.source)
+      lastSource = result.source
+      state = result.newRequeueState
+    }
+
+    for (let i = 1; i < sources.length; i++) {
+      const previous = sources[i - 1]
+      const current = sources[i]
+      if (previous === 'requeue' && current === 'requeue') {
+        throw new Error(`two requeue serves back to back at index ${String(i)}`)
+      }
+    }
+  })
+
+  it('keeps serving fresh window picks even when every requeued puzzle is missed again', () => {
+    // The pathological case: a struggling learner who keeps missing the same
+    // few puzzles. Each miss resets that entry's ladder to a 3-tick
+    // countdown (requeue.ts's recordMiss), and with 3 entries cycling on
+    // that reset, a due entry existed on literally every tick under the old
+    // (unguarded) selectNext — window picks never ran again. Confirms the
+    // guard bounds the requeue share of servings to at most half.
+    const p = pool(1000, 1010, 1020, 1030, 1040, 1050, 1060, 1070, 1080, 1090, 1100, 1110)
+    let state: RequeueState = emptyRequeueState
+    for (const id of ['a', 'b', 'c']) {
+      state = recordMiss(state, id)
+    }
+
+    let lastSource: SelectionSource | null = null
+    let windowCount = 0
+    const total = 30
+    for (let tick = 0; tick < total; tick++) {
+      const result = selectNext({
+        pool: p,
+        rating: 1000,
+        recentIds: [],
+        requeueState: state,
+        rng: mulberry32(tick),
+        lastSource,
+      })
+      if (!result) throw new Error('expected a puzzle')
+      lastSource = result.source
+      state = result.newRequeueState
+      if (result.source === 'window') {
+        windowCount++
+      } else {
+        // Simulate missing the requeued puzzle again.
+        state = recordMiss(state, result.puzzle.id)
+      }
+    }
+
+    expect(windowCount).toBeGreaterThanOrEqual(total / 2 - 1)
   })
 })
 
@@ -213,6 +300,7 @@ describe('selectNext — determinism', () => {
         recentIds: [],
         requeueState: emptyRequeueState,
         rng: mulberry32(12345),
+        lastSource: null,
       })
     expect(run()).toEqual(run())
   })
@@ -228,6 +316,7 @@ describe('selectNext — defensive sampling guard', () => {
         recentIds: [],
         requeueState: emptyRequeueState,
         rng: () => 1,
+        lastSource: null,
       }),
     ).toThrow(/out of range/)
   })
