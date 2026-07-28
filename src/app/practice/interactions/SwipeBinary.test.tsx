@@ -27,11 +27,15 @@ interface DragState {
 }
 type DragHandler = (state: DragState) => void
 
-const gestureMock = vi.hoisted(() => ({ handler: null as DragHandler | null }))
+const gestureMock = vi.hoisted(() => ({
+  handler: null as DragHandler | null,
+  config: null as Record<string, unknown> | null,
+}))
 
 vi.mock('@use-gesture/react', () => ({
-  useDrag: (handler: DragHandler) => {
+  useDrag: (handler: DragHandler, config: Record<string, unknown>) => {
     gestureMock.handler = handler
+    gestureMock.config = config
     return () => ({})
   },
 }))
@@ -255,6 +259,26 @@ describe('SwipeBinary', () => {
       fireDragEnd({ movement: [180, 0], velocity: [0.6, 0], direction: [1, 0], cancel })
 
       expect(cancel).toHaveBeenCalled()
+    })
+  })
+
+  describe('touch axis-lock tolerance', () => {
+    it('gives touch input a non-zero axisThreshold', () => {
+      // @use-gesture/core's DragEngine defaults axisThreshold to
+      // { mouse: 0, touch: 0, pen: 8 } — zero tolerance for touch means the
+      // first touchmove sample permanently locks the gesture's axis, and on
+      // real touchscreens that sample very often has a slightly larger
+      // vertical component than horizontal (natural finger jitter), locking
+      // axis to 'y' and silently dropping the whole swipe (the callback
+      // never fires again for that gesture, not even at pointerup — see
+      // Engine.ts's `_blocked` emit-skip). This can't be reproduced through
+      // the mocked `useDrag` handler above (it bypasses the real axis-lock
+      // engine entirely), so this test instead locks in the actual config
+      // SwipeBinary passes, preventing a future edit from silently
+      // reverting to the dangerous zero-tolerance default.
+      render(<Harness />)
+      const config = gestureMock.config as { axisThreshold?: { touch?: number } } | null
+      expect(config?.axisThreshold?.touch).toBeGreaterThan(0)
     })
   })
 })

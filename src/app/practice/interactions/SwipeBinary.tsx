@@ -177,7 +177,28 @@ export function SwipeBinary({
         springBackToCenter()
       }
     },
-    { axis: 'x', filterTaps: true, enabled: !committed },
+    {
+      axis: 'x',
+      filterTaps: true,
+      enabled: !committed,
+      // @use-gesture/core defaults axisThreshold to { mouse: 0, touch: 0, pen: 8 }
+      // (dragConfigResolver.ts) — zero tolerance for touch means the very
+      // FIRST touchmove sample permanently locks the gesture's axis, and on
+      // real touchscreens that sample very often has a slightly larger
+      // vertical component than horizontal (finger jitter, a not-quite-flat
+      // swipe angle), which locks axis to 'y' and then silently drops the
+      // whole gesture: `axis: 'x'` + a mismatched locked axis makes every
+      // frame (including the final pointerup one) get blocked before it ever
+      // reaches this callback — see DragEngine.ts's `axisIntent`/`_blocked`
+      // and Engine.ts's emit-skip check. This never reproduces with a mouse
+      // or in jsdom-mocked tests (both produce clean axis-dominant deltas),
+      // which is why it slipped through the existing test suite and a prior
+      // fix that only addressed a different bug (stale last-frame velocity
+      // over a >32ms pause before release). A few pixels of touch tolerance
+      // is enough to absorb that natural jitter without weakening genuine
+      // vertical-scroll detection.
+      axisThreshold: { touch: 20 },
+    },
   )
 
   // `bind()`'s TS type is `@use-gesture/react`'s own generic
