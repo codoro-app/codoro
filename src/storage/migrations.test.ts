@@ -67,7 +67,7 @@ describe('runMigrations', () => {
 })
 
 describe('MIGRATIONS: full chain from v1 to the current version', () => {
-  it('v1 -> v3, stamping schema_version 3, adding null dailyCompletion + rushStats, and preserving every existing field untouched', () => {
+  it('v1 -> v4, stamping schema_version 4, adding null dailyCompletion + rushStats, and preserving every existing field untouched', () => {
     const v1Profile = {
       schema_version: 1,
       rating: 1342.75,
@@ -81,10 +81,29 @@ describe('MIGRATIONS: full chain from v1 to the current version', () => {
 
     expect(migrated).toEqual({
       ...v1Profile,
-      schema_version: 3,
+      schema_version: 4,
       dailyCompletion: null,
       rushStats: null,
     })
+  })
+})
+
+describe('MIGRATIONS[3]: v3 -> v4 (profile shape unchanged — the v4 bump is driven by AttemptSchema, not UserProfile)', () => {
+  it('stamps schema_version 4 and preserves every existing field untouched, adding nothing', () => {
+    const v3Profile = {
+      schema_version: 3,
+      rating: 1420.5,
+      ratedAttemptCount: 22,
+      streak: { currentStreak: 4, longestStreak: 15, lastActiveDate: '2026-07-25' },
+      requeueState: [{ puzzleId: 'p7', stage: 0, served: 2 }],
+      storagePersisted: true,
+      dailyCompletion: { date: '2026-07-25', attemptId: 'a9', correct: false },
+      rushStats: { bestScore: 12, bestStreak: 8, runs: 3, lastRunAt: '2026-07-24T10:00:00.000Z' },
+    }
+
+    const migrated = runMigrations(v3Profile, 3, MIGRATIONS)
+
+    expect(migrated).toEqual({ ...v3Profile, schema_version: 4 })
   })
 })
 
@@ -100,7 +119,12 @@ describe('MIGRATIONS[2]: v2 -> v3 (adds rushStats)', () => {
       dailyCompletion: { date: '2026-07-20', attemptId: 'a1', correct: true },
     }
 
-    const migrated = runMigrations(v2Profile, 2, MIGRATIONS)
+    // Calls MIGRATIONS[2] directly rather than through runMigrations, which
+    // would keep chaining into MIGRATIONS[3] now that it's registered too —
+    // this test's whole point is to isolate v2->v3's own behavior.
+    const v2Migration = MIGRATIONS[2]
+    if (!v2Migration) throw new Error('MIGRATIONS[2] is not registered')
+    const migrated = v2Migration(v2Profile)
 
     expect(migrated).toEqual({
       ...v2Profile,

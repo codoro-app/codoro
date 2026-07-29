@@ -34,7 +34,7 @@ describe('loadProfile', () => {
 
   it('round-trips a saved profile exactly', async () => {
     const profile: UserProfile = {
-      schema_version: 3,
+      schema_version: 4,
       rating: 1342.75,
       ratedAttemptCount: 7,
       streak: { currentStreak: 3, longestStreak: 9, lastActiveDate: '2026-07-14' },
@@ -121,7 +121,7 @@ describe('corrupt-data recovery', () => {
 })
 
 describe('schema migration on load', () => {
-  it('migrates a v1 stored profile to the current version (v3) on load, preserving rating/streak/ratedAttemptCount and persisting the upgrade', async () => {
+  it('migrates a v1 stored profile to the current version (v4) on load, preserving rating/streak/ratedAttemptCount and persisting the upgrade', async () => {
     const v1Profile = {
       schema_version: 1,
       rating: 1389.25,
@@ -136,7 +136,7 @@ describe('schema migration on load', () => {
 
     expect(migrated).toEqual({
       ...v1Profile,
-      schema_version: 3,
+      schema_version: 4,
       dailyCompletion: null,
       rushStats: null,
     })

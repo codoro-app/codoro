@@ -7,15 +7,20 @@
  * in engine surfaces here as a type error rather than silent drift.
  */
 import { z } from 'zod'
-import type { AttemptMode, RequeueState, StreakState } from '../engine'
+import type { AttemptMode, CheckpointResult, RequeueState, StreakState } from '../engine'
 import { INITIAL_RATING, emptyRequeueState } from '../engine'
 
 /**
  * Version of the persisted profile shape. Bumped only when a stored-shape change
  * needs a migration (see migrations.ts). A fully-validated profile is always on
  * this exact version — migration runs before schema validation, never after.
+ *
+ * Note this versions UserProfile specifically, not the whole storage layer:
+ * AttemptSchema (below) has never carried its own schema_version and isn't
+ * migrated through migrations.ts — see AttemptSchema's own doc comment for
+ * why `checkpoint_results` (the v4 addition) doesn't go through this chain.
  */
-export const CURRENT_SCHEMA_VERSION = 3
+export const CURRENT_SCHEMA_VERSION = 4
 
 /** Mirrors engine's StreakState shape. */
 export const StreakStateSchema = z.object({
@@ -93,6 +98,12 @@ export interface UserProfile {
   rushStats: RushStats | null
 }
 
+/** Mirrors engine's CheckpointResult shape (src/engine/scrubber.ts). */
+export const CheckpointResultSchema = z.object({
+  correct: z.boolean(),
+  choiceIndex: z.number().int().nonnegative(),
+})
+
 export const AttemptSchema = z.object({
   id: z.string().min(1),
   puzzleId: z.string().min(1),
@@ -103,6 +114,36 @@ export const AttemptSchema = z.object({
   time_ms: z.number().nonnegative(),
   // Nullable: not every interaction type has a choice index (e.g. swipe-binary).
   choice_index: z.number().int().nonnegative().nullable(),
+  // Nullable: only a scrubber attempt has per-checkpoint results — null for
+  // every other interaction type, same pattern as choice_index above.
+  //
+  // Considered three shapes for this (see docs/v2-build-plan.md's Phase 2
+  // section): (a) this nullable array field, (b) a separate IndexedDB store
+  // keyed by attemptId, (c) not recording it at all. Chose (a): a separate
+  // store buys nothing at this content volume (Phase 4 targets 40-60
+  // scrubber puzzles total) and adds real complexity (a new db.ts store,
+  // cross-store joins at read time) with no precedent elsewhere in this
+  // schema; not recording it contradicts the DoD's explicit ask for
+  // per-checkpoint attempt-log data and throws away exactly the signal
+  // Phase 6 wants for future partial-credit tuning, for zero cost savings.
+  //
+  // Deliberately NOT part of the CURRENT_SCHEMA_VERSION/migrations.ts chain
+  // above, unlike a literal reading of "bump the version with a forward-only
+  // migration" might suggest: that chain has only ever versioned
+  // UserProfile (see CURRENT_SCHEMA_VERSION's doc comment) — AttemptSchema
+  // has never carried its own schema_version, and retrofitting per-record
+  // migration infrastructure onto a type that never had it, just for one
+  // nullable field, is disproportionate. `.nullable().default(null)` gets
+  // the same real-world outcome — "every existing record reads as null" —
+  // for every already-stored attempt, on every read, forever, without a
+  // one-time migration pass: Zod's default fires when the key is absent
+  // (true for every attempt written before this field existed), and passes
+  // an explicit `null` through unchanged (true for every new non-scrubber
+  // attempt going forward). CURRENT_SCHEMA_VERSION is still bumped to 4
+  // with a genuine no-op UserProfile migration (see migrations.ts) so v4
+  // has a real, distinct meaning across the persisted data as a whole,
+  // rather than leaving that number to mean two different things.
+  checkpoint_results: z.array(CheckpointResultSchema).nullable().default(null),
   userRatingBefore: z.number(),
   userRatingAfter: z.number(),
   // Local calendar-date string (YYYY-MM-DD); feeds engine's recordActivity.
@@ -118,6 +159,7 @@ export interface Attempt {
   correct: boolean
   time_ms: number
   choice_index: number | null
+  checkpoint_results: CheckpointResult[] | null
   userRatingBefore: number
   userRatingAfter: number
   localDateString: string

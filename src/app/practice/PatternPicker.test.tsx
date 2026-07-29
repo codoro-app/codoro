@@ -69,6 +69,7 @@ describe('PatternPicker', () => {
         correct: true,
         time_ms: 1000,
         choice_index: null,
+        checkpoint_results: null,
         userRatingBefore: 1200,
         userRatingAfter: 1200,
         localDateString: '2026-07-17',

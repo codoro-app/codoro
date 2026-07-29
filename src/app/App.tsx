@@ -4,6 +4,15 @@ import { ErrorBoundary } from './ErrorBoundary'
 import { PwaPrompts } from './pwa/PwaPrompts'
 import { AppShell } from './AppShell'
 import { useRouteMeta } from './useRouteMeta'
+// Static import, not lazy() — mirrors devPuzzleMode.ts's own proven pattern:
+// import.meta.env.DEV is a Vite build-time constant, inlined as literal
+// `false` in a production build, so Rollup can dead-code-eliminate the
+// `import.meta.env.DEV && <Route>...</Route>` branch below — and everything
+// only reachable from it, including this whole component — rather than
+// leaving it as a real, if unreachable, code-split chunk in dist/. Verified
+// by grepping dist/ after a production build, not just by reasoning about
+// it (see the Phase 2 go/no-go amendment).
+import { ScrubberDebugPage } from './devTools/ScrubberDebugPage'
 
 const VISITED_KEY = 'codoro:has-visited'
 
@@ -149,6 +158,11 @@ export function App() {
             <Route path="/legal">
               <LegalPage />
             </Route>
+            {import.meta.env.DEV && (
+              <Route path="/dev/scrubber">
+                <ScrubberDebugPage />
+              </Route>
+            )}
             <Route>
               <div className="app-shell__main">
                 <p>Nothing here.</p>

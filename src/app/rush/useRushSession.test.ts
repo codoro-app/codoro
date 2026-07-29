@@ -4,18 +4,44 @@ import type { Puzzle } from '../../content'
 import { useRushSession } from './useRushSession'
 
 const { FIXTURE_POOL } = vi.hoisted(() => ({
-  FIXTURE_POOL: Array.from({ length: 12 }, (_, i) => ({
-    id: `p${String(i)}`,
-    pattern: i % 2 === 0 ? 'off-by-one' : 'null-undefined',
-    difficulty_rating: 700 + i * 20,
-    explanation: `explanation ${String(i)}`,
-    prompt: `prompt ${String(i)}`,
-    language: 'javascript',
-    snippet: 'const x = 1',
-    interaction: 'mcq',
-    choices: ['a', 'b'],
-    correct_choice: 0,
-  })) as unknown as Puzzle[],
+  FIXTURE_POOL: [
+    ...Array.from({ length: 12 }, (_, i) => ({
+      id: `p${String(i)}`,
+      pattern: i % 2 === 0 ? 'off-by-one' : 'null-undefined',
+      difficulty_rating: 700 + i * 20,
+      explanation: `explanation ${String(i)}`,
+      prompt: `prompt ${String(i)}`,
+      language: 'javascript',
+      snippet: 'const x = 1',
+      interaction: 'mcq',
+      choices: ['a', 'b'],
+      correct_choice: 0,
+    })),
+    // Scrubber puzzles at the same ratings as the mcq set above, present to
+    // prove Rush's pool-building filters them out — Rush stays quiz-only
+    // (RushInteraction excludes 'scrubber'; see useRushSession.ts's
+    // isRushEligible). If that filter ever regresses, these are common
+    // enough in this fixture that the "never serves a scrubber puzzle" test
+    // below would fail almost immediately, not flakily.
+    ...Array.from({ length: 8 }, (_, i) => ({
+      id: `s${String(i)}`,
+      pattern: 'off-by-one',
+      difficulty_rating: 700 + i * 20,
+      explanation: `scrubber explanation ${String(i)}`,
+      prompt: `scrubber prompt ${String(i)}`,
+      language: 'javascript',
+      snippet: 'let x = 1;\nx = x + 1;',
+      interaction: 'scrubber',
+      steps: [
+        { line: 0, vars: { x: '1' } },
+        { line: 1, vars: { x: '2' } },
+      ],
+      checkpoints: [
+        { afterStep: 0, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 0 },
+        { afterStep: 0, question: 'next-line', choices: ['0', '1'], correct: 1 },
+      ],
+    })),
+  ] as unknown as Puzzle[],
 }))
 
 vi.mock('../../content', async (importOriginal) => {
@@ -155,6 +181,19 @@ describe('useRushSession', () => {
     expect(result.current.strikes).toBe(1)
     expect(result.current.phase).toBe('playing')
     expect(result.current.puzzle?.id).not.toBe(firstPuzzleId)
+  })
+
+  it('never serves a scrubber puzzle, even though the fixture pool contains several', async () => {
+    const { result } = renderHook(() => useRushSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    for (let i = 0; i < 12; i++) {
+      expect(result.current.puzzle?.interaction).not.toBe('scrubber')
+      answerAndContinue(result, true)
+    }
+    expect(result.current.puzzle?.interaction).not.toBe('scrubber')
   })
 
   it('handleRunItBack starts a fresh run: strikes/solved/streak reset, a new run id in play', async () => {

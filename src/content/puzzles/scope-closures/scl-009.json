@@ -1,0 +1,30 @@
+{
+  "id": "scl-009",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1500,
+  "explanation": "`var i` is function-scoped, not block-scoped, so every arrow function pushed into `fns` closes over the exact same `i` binding instead of each getting its own per-iteration copy (the way `let` would). By the time any of them actually runs — after the loop has finished — that shared `i` holds its final value, `3`, so every closure returns `3`.",
+  "prompt": "Step through this loop and predict what `vals` ends up holding.",
+  "language": "javascript",
+  "snippet": "let fns = [];\nfor (var i = 0; i < 3; i++) {\n  fns.push(() => i);\n}\nlet vals = fns.map((f) => f());",
+  "interaction": "scrubber",
+  "steps": [
+    { "line": 0, "vars": { "fns": "[]", "i": "undefined" } },
+    { "line": 1, "vars": { "fns": "[]", "i": "0" } },
+    { "line": 2, "vars": { "fns": "[null]", "i": "0" } },
+    { "line": 1, "vars": { "fns": "[null]", "i": "1" } },
+    { "line": 2, "vars": { "fns": "[null,null]", "i": "1" } },
+    { "line": 1, "vars": { "fns": "[null,null]", "i": "2" } },
+    { "line": 2, "vars": { "fns": "[null,null,null]", "i": "2" } },
+    { "line": 4, "vars": { "fns": "[null,null,null]", "i": "3", "vals": "[3,3,3]" } }
+  ],
+  "checkpoints": [
+    { "afterStep": 6, "question": "next-line", "choices": ["1", "2", "4"], "correct": 2 },
+    {
+      "afterStep": 7,
+      "question": "var-value",
+      "target": "vals",
+      "choices": ["[0,1,2]", "[2,2,2]", "[3,3,3]"],
+      "correct": 2
+    }
+  ]
+}
