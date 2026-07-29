@@ -49,6 +49,8 @@
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.112.1",
+    "@babel/core": "^8.0.1",
+    "@babel/types": "^8.0.4",
     "@eslint/js": "^10.0.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
