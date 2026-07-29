@@ -1,7 +1,12 @@
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { nth } from '../test/nth'
+
+const appTsxPath = join(dirname(fileURLToPath(import.meta.url)), 'App.tsx')
 
 vi.mock('../storage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../storage')>()
@@ -122,6 +127,39 @@ describe('App', () => {
 
     expect(screen.queryByText(/loading your practice session/i)).not.toBeInTheDocument()
     await screen.findByText('Practice', { selector: '.home__card-title' })
+  })
+
+  it("a first-ever visit's boot redirect writes 'codoro:has-visited' exactly once (no double-write on remount/StrictMode)", async () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem')
+
+    render(<App />)
+    await waitFor(() => {
+      expect(screen.getByText('1200')).toBeInTheDocument()
+    })
+
+    const visitedWrites = setItemSpy.mock.calls.filter(([key]) => key === 'codoro:has-visited')
+    expect(visitedWrites).toHaveLength(1)
+    expect(localStorage.getItem('codoro:has-visited')).toBe('1')
+
+    setItemSpy.mockRestore()
+  })
+
+  it('prefetches the boot mode chunk from inside the lazy useState initializer, not an effect (loses its head start on first paint otherwise)', () => {
+    const source = readFileSync(appTsxPath, 'utf-8')
+    const initializerMatch = /useState<BootMode \| null>\(\(\) => \{[\s\S]*?\n {2}\}\)/.exec(source)
+    expect(initializerMatch).not.toBeNull()
+    const initializerBody = initializerMatch?.[0] ?? ''
+    expect(initializerBody).toMatch(/void bootImporters\[mode\]\(\)/)
+
+    // The same call must not also live inside a useEffect/useLayoutEffect —
+    // that would delay the request until after the first commit instead of
+    // overlapping it with app startup.
+    const effectBodies = [
+      ...source.matchAll(/use(?:Layout)?Effect\(\(\) => \{[\s\S]*?\n {2}\}, \[/g),
+    ]
+    for (const match of effectBodies) {
+      expect(match[0]).not.toMatch(/bootImporters/)
+    }
   })
 
   it('opens Home when the logo is clicked, and can navigate back to Practice from there', async () => {
