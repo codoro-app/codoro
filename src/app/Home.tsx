@@ -22,16 +22,13 @@
  * conditionally rendered rather than always present.
  */
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'wouter'
 import { loadProfile } from '../storage'
 import type { UserProfile } from '../storage'
 import { getDailyNumber } from '../engine'
 import { DailyIcon, PracticeIcon, RushIcon, StreakIcon } from './Icons'
-import type { AppMode } from './ModeSwitcher'
+import { ROUTES } from './routes'
 import './home.css'
-
-export interface HomeProps {
-  onNavigate: (mode: AppMode) => void
-}
 
 function todayDateString(date = new Date()): string {
   const year = date.getFullYear()
@@ -40,7 +37,7 @@ function todayDateString(date = new Date()): string {
   return `${String(year)}-${month}-${day}`
 }
 
-export function Home({ onNavigate }: HomeProps) {
+export function Home() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const cancelledRef = useRef(false)
 
@@ -86,28 +83,16 @@ export function Home({ onNavigate }: HomeProps) {
       <p className="home__section-label">Modes</p>
 
       <div className="home__cards">
-        <button
-          type="button"
-          className="home__card home__card--primary"
-          onClick={() => {
-            onNavigate('practice')
-          }}
-        >
+        <Link href={ROUTES.practice.path} className="home__card home__card--primary">
           <span className="home__card-icon home__card-icon--inverted">
             <PracticeIcon size={24} />
           </span>
           <span className="home__card-title">Practice</span>
           <span className="home__card-desc">Endless rating-matched puzzles</span>
-        </button>
+        </Link>
 
         <div className="home__cards-secondary">
-          <button
-            type="button"
-            className="home__card"
-            onClick={() => {
-              onNavigate('daily')
-            }}
-          >
+          <Link href={ROUTES.daily.path} className="home__card">
             <span className="home__card-icon">
               <DailyIcon size={20} />
             </span>
@@ -118,15 +103,9 @@ export function Home({ onNavigate }: HomeProps) {
             >
               {doneToday ? 'Done today' : 'Not done yet'}
             </span>
-          </button>
+          </Link>
 
-          <button
-            type="button"
-            className="home__card"
-            onClick={() => {
-              onNavigate('rush')
-            }}
-          >
+          <Link href={ROUTES.rush.path} className="home__card">
             <span className="home__card-icon">
               <RushIcon size={20} />
             </span>
@@ -139,7 +118,7 @@ export function Home({ onNavigate }: HomeProps) {
                 Best {profile.rushStats.bestScore}
               </span>
             )}
-          </button>
+          </Link>
         </div>
       </div>
     </div>

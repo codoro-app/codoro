@@ -124,6 +124,7 @@
   background: var(--surface-1);
   color: var(--text-0);
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
   box-sizing: border-box;
 }

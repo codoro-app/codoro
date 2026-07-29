@@ -13,53 +13,44 @@
  * JS breakpoint logic" rule for layout — the one place this shell *does*
  * use a JS breakpoint check (`useMediaQuery`) is reserved for gating
  * components with real side effects (data fetches), not for positioning.
+ *
+ * No mode/onModeChange props (v2 Phase 1a): NavRail/ModeSwitcher read the
+ * active route themselves via wouter's useLocation, and the brand button /
+ * footer legal link below are real `<Link>`s rather than callbacks into a
+ * parent-owned mode state.
  */
 import type { ReactNode } from 'react'
+import { Link } from 'wouter'
 import { ModeSwitcher } from './ModeSwitcher'
-import type { AppMode } from './ModeSwitcher'
 import { NavRail } from './NavRail'
 import { DevPuzzleToggle } from './devTools/DevPuzzleToggle'
+import { ROUTES } from './routes'
 import './app.css'
 
 export interface AppShellProps {
-  mode: AppMode
-  onModeChange: (mode: AppMode) => void
   children: ReactNode
 }
 
-export function AppShell({ mode, onModeChange, children }: AppShellProps) {
+export function AppShell({ children }: AppShellProps) {
   return (
     <div className="app-shell">
       <div className="app-shell__mobile-nav">
-        <button
-          type="button"
-          className="app-shell__mobile-brand"
-          aria-label="Home"
-          onClick={() => {
-            onModeChange('home')
-          }}
-        >
+        <Link href="/" className="app-shell__mobile-brand" aria-label="Home">
           <div className="nav-rail__logo-mark" aria-hidden="true">
             C
           </div>
           <span className="nav-rail__wordmark">Codoro</span>
-        </button>
-        <ModeSwitcher mode={mode} onChange={onModeChange} />
+        </Link>
+        <ModeSwitcher />
       </div>
       <div className="app-shell__rail">
-        <NavRail mode={mode} onChange={onModeChange} />
+        <NavRail />
       </div>
       <main className="app-shell__content">{children}</main>
       <footer className="app-shell__footer">
-        <button
-          type="button"
-          className="app-shell__footer-link"
-          onClick={() => {
-            onModeChange('legal')
-          }}
-        >
+        <Link href={ROUTES.legal.path} className="app-shell__footer-link">
           Legal
-        </button>
+        </Link>
       </footer>
       <DevPuzzleToggle />
     </div>

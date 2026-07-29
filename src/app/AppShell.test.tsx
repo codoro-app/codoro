@@ -1,13 +1,17 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AppShell } from './AppShell'
 import { nth } from '../test/nth'
 
 describe('AppShell', () => {
+  beforeEach(() => {
+    window.history.pushState({}, '', '/practice')
+  })
+
   it('renders both the mobile ModeSwitcher and the desktop NavRail (visibility is CSS-only)', () => {
     render(
-      <AppShell mode="practice" onModeChange={vi.fn()}>
+      <AppShell>
         <p>page content</p>
       </AppShell>,
     )
@@ -21,54 +25,48 @@ describe('AppShell', () => {
     // deliberately opt out of visibility filtering instead of depending on
     // that timing.
     expect(screen.getAllByRole('navigation', { name: 'Mode', hidden: true }).length).toBe(2)
-    expect(screen.getAllByRole('button', { name: 'Practice', hidden: true }).length).toBe(2)
+    expect(screen.getAllByRole('link', { name: 'Practice', hidden: true }).length).toBe(2)
   })
 
   it('renders children inside the shell content region', () => {
     render(
-      <AppShell mode="practice" onModeChange={vi.fn()}>
+      <AppShell>
         <p>page content</p>
       </AppShell>,
     )
     expect(screen.getByText('page content')).toBeInTheDocument()
   })
 
-  it('forwards mode changes from either nav to onModeChange', async () => {
-    const onModeChange = vi.fn()
+  it('the Daily link from either nav navigates to /daily', async () => {
     const user = userEvent.setup()
     render(
-      <AppShell mode="practice" onModeChange={onModeChange}>
+      <AppShell>
         <p>page content</p>
       </AppShell>,
     )
-    await user.click(nth(screen.getAllByRole('button', { name: 'Daily' }), 0))
-    expect(onModeChange).toHaveBeenCalledWith('daily')
+    await user.click(nth(screen.getAllByRole('link', { name: 'Daily' }), 0))
+    expect(window.location.pathname).toBe('/daily')
   })
 
-  it('opens Home when the logo/brand is clicked, from either the mobile bar or the desktop rail', async () => {
-    const onModeChange = vi.fn()
-    const user = userEvent.setup()
+  it('the logo/brand links home from either the mobile bar or the desktop rail', () => {
     render(
-      <AppShell mode="practice" onModeChange={onModeChange}>
+      <AppShell>
         <p>page content</p>
       </AppShell>,
     )
-    const homeButtons = screen.getAllByRole('button', { name: 'Home', hidden: true })
-    expect(homeButtons.length).toBe(2)
-
-    await user.click(nth(homeButtons, 0))
-    expect(onModeChange).toHaveBeenCalledWith('home')
+    const homeLinks = screen.getAllByRole('link', { name: 'Home', hidden: true })
+    expect(homeLinks.length).toBe(2)
+    homeLinks.forEach((link) => {
+      expect(link).toHaveAttribute('href', '/')
+    })
   })
 
-  it('navigates to legal when the footer link is clicked', async () => {
-    const onModeChange = vi.fn()
-    const user = userEvent.setup()
+  it('the footer link goes to /legal', () => {
     render(
-      <AppShell mode="practice" onModeChange={onModeChange}>
+      <AppShell>
         <p>page content</p>
       </AppShell>,
     )
-    await user.click(screen.getByRole('button', { name: 'Legal' }))
-    expect(onModeChange).toHaveBeenCalledWith('legal')
+    expect(screen.getByRole('link', { name: 'Legal' })).toHaveAttribute('href', '/legal')
   })
 })

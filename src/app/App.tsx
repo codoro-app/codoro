@@ -1,9 +1,8 @@
 import { lazy, Suspense, useLayoutEffect, useState } from 'react'
-import { Route, Switch, useLocation } from 'wouter'
+import { Route, Switch, useLocation, Link } from 'wouter'
 import { ErrorBoundary } from './ErrorBoundary'
 import { PwaPrompts } from './pwa/PwaPrompts'
 import { AppShell } from './AppShell'
-import type { AppMode } from './ModeSwitcher'
 
 const VISITED_KEY = 'codoro:has-visited'
 
@@ -27,35 +26,11 @@ const RushPage = lazy(async () => ({ default: (await rushImporter()).RushPage })
 const Home = lazy(async () => ({ default: (await homeImporter()).Home }))
 const LegalPage = lazy(async () => ({ default: (await legalImporter()).LegalPage }))
 
-const modeImporters: Record<AppMode, () => Promise<unknown>> = {
+type BootMode = 'practice' | 'home'
+
+const bootImporters: Record<BootMode, () => Promise<unknown>> = {
   practice: practiceImporter,
-  daily: dailyImporter,
-  rush: rushImporter,
   home: homeImporter,
-  legal: legalImporter,
-}
-
-const MODE_PATHS: Record<AppMode, string> = {
-  practice: '/practice',
-  daily: '/daily',
-  rush: '/rush',
-  home: '/',
-  legal: '/legal',
-}
-
-function pathToMode(path: string): AppMode {
-  switch (path) {
-    case '/practice':
-      return 'practice'
-    case '/daily':
-      return 'daily'
-    case '/rush':
-      return 'rush'
-    case '/legal':
-      return 'legal'
-    default:
-      return 'home'
-  }
 }
 
 /**
@@ -69,7 +44,7 @@ function pathToMode(path: string): AppMode {
  * deliberate here, not a shortcut. Called once, from App's useState lazy
  * initializer, so it runs exactly once per mount.
  */
-function resolveBootMode(): AppMode {
+function resolveBootMode(): BootMode {
   try {
     if (localStorage.getItem(VISITED_KEY) === '1') {
       return 'home'
@@ -84,7 +59,7 @@ function resolveBootMode(): AppMode {
 }
 
 export function App() {
-  const [location, navigate] = useLocation()
+  const [, navigate] = useLocation()
 
   // The boot decision only applies to the '/' route, and only for the
   // browser's very first paint of this app instance — not every time '/'
@@ -96,7 +71,7 @@ export function App() {
   // entirely: resolveBootMode's has-visited flag exists solely to decide
   // what '/' shows, and that route's own lazy()/Suspense pair already
   // requests its own chunk without help.
-  const [bootMode] = useState<AppMode | null>(() => {
+  const [bootMode] = useState<BootMode | null>(() => {
     if (window.location.pathname !== '/') {
       return null
     }
@@ -104,7 +79,7 @@ export function App() {
     // Fire the boot mode's chunk fetch immediately, in parallel with the
     // rest of app startup, rather than waiting for Suspense to discover it
     // during the first render.
-    void modeImporters[mode]()
+    void bootImporters[mode]()
     return mode
   })
 
@@ -119,18 +94,13 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const mode = pathToMode(location)
-  const handleModeChange = (nextMode: AppMode) => {
-    navigate(MODE_PATHS[nextMode])
-  }
-
   return (
     <ErrorBoundary>
-      <AppShell mode={mode} onModeChange={handleModeChange}>
+      <AppShell>
         <Suspense fallback={null}>
           <Switch>
             <Route path="/">
-              <Home onNavigate={handleModeChange} />
+              <Home />
             </Route>
             <Route path="/practice">
               <PracticePage />
@@ -142,19 +112,12 @@ export function App() {
               <RushPage />
             </Route>
             <Route path="/legal">
-              <LegalPage onNavigate={handleModeChange} />
+              <LegalPage />
             </Route>
             <Route>
               <div className="app-shell__main">
                 <p>Nothing here.</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigate('/')
-                  }}
-                >
-                  Back to Codoro
-                </button>
+                <Link href="/">Back to Codoro</Link>
               </div>
             </Route>
           </Switch>

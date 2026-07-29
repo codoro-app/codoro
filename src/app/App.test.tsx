@@ -70,8 +70,8 @@ describe('App', () => {
 
     // AppShell mounts both ModeSwitcher (mobile) and NavRail (desktop)
     // unconditionally — CSS alone decides which is visible — so both have a
-    // "Daily" button; either one flips `mode`, per Step 17's guidance.
-    await user.click(nth(screen.getAllByRole('button', { name: 'Daily' }), 0))
+    // "Daily" link; either one navigates, per Step 17's guidance.
+    await user.click(nth(screen.getAllByRole('link', { name: 'Daily' }), 0))
 
     await waitFor(() => {
       expect(screen.getByText(/Codoro Daily #/)).toBeInTheDocument()
@@ -86,7 +86,7 @@ describe('App', () => {
       expect(screen.getByText('1200')).toBeInTheDocument()
     })
 
-    await user.click(nth(screen.getAllByRole('button', { name: 'Rush' }), 0))
+    await user.click(nth(screen.getAllByRole('link', { name: 'Rush' }), 0))
 
     await waitFor(() => {
       expect(screen.getByRole('status', { name: /0 of 3 strikes/i })).toBeInTheDocument()
@@ -132,14 +132,14 @@ describe('App', () => {
       expect(screen.getByText('1200')).toBeInTheDocument()
     })
 
-    await user.click(nth(screen.getAllByRole('button', { name: 'Home', hidden: true }), 0))
+    await user.click(nth(screen.getAllByRole('link', { name: 'Home', hidden: true }), 0))
 
     // Home's own "Practice" card, not NavRail's nav-rail__item of the same
     // name (both are present at once, so name-based queries are ambiguous —
-    // scope by the card's title text, same closest-button pattern this
+    // scope by the card's title text, same closest-link pattern this
     // codebase already uses for mastery rows).
     const practiceCard = await screen.findByText('Practice', { selector: '.home__card-title' })
-    await user.click(practiceCard.closest('button') as HTMLElement)
+    await user.click(practiceCard.closest('a') as HTMLElement)
 
     // Back on Practice: usePracticeSession remounts and reloads (mocked
     // loadProfile resolves a fresh default profile each call), so the same

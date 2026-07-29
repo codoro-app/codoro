@@ -34,10 +34,17 @@
  * selector on `.app-shell` rather than a prop threaded down from AppShell —
  * nothing outside this component needs to know the rail is collapsed, so
  * there's no reason to lift the state up.
+ *
+ * Mode entries are real `<Link>`s (real `<a href>`s under the hood), not
+ * buttons with onClick handlers — cmd/middle-click opening a new tab is
+ * most of the point of having URLs (v2 Phase 1a). Active state is
+ * `aria-current="page"`, not `aria-pressed`: these are navigation links,
+ * not toggle buttons.
  */
 import { useState } from 'react'
-import type { AppMode } from './ModeSwitcher'
+import { Link, useLocation } from 'wouter'
 import { CollapseIcon, DailyIcon, PracticeIcon, RushIcon } from './Icons'
+import { ROUTES } from './routes'
 
 const COLLAPSED_KEY = 'codoro:nav-rail-collapsed'
 
@@ -58,68 +65,48 @@ function writeCollapsed(collapsed: boolean): void {
   }
 }
 
-export interface NavRailProps {
-  mode: AppMode
-  onChange: (mode: AppMode) => void
-}
-
-export function NavRail({ mode, onChange }: NavRailProps) {
+export function NavRail() {
   const [collapsed, setCollapsed] = useState(readCollapsed)
+  const [location] = useLocation()
 
   return (
     <nav className={`nav-rail${collapsed ? ' nav-rail--collapsed' : ''}`} aria-label="Mode">
-      <button
-        type="button"
-        className="nav-rail__brand nav-rail__brand--button"
-        aria-label="Home"
-        onClick={() => {
-          onChange('home')
-        }}
-      >
+      <Link href="/" className="nav-rail__brand nav-rail__brand--button" aria-label="Home">
         <div className="nav-rail__logo-mark" aria-hidden="true">
           C
         </div>
         {!collapsed && <span className="nav-rail__wordmark">Codoro</span>}
-      </button>
-      <button
-        type="button"
-        className={`nav-rail__item${mode === 'practice' ? ' nav-rail__item--active' : ''}`}
-        aria-pressed={mode === 'practice'}
+      </Link>
+      <Link
+        href={ROUTES.practice.path}
+        className={`nav-rail__item${location === ROUTES.practice.path ? ' nav-rail__item--active' : ''}`}
+        aria-current={location === ROUTES.practice.path ? 'page' : undefined}
         aria-label="Practice"
         title="Practice"
-        onClick={() => {
-          onChange('practice')
-        }}
       >
         <PracticeIcon size={20} />
         {!collapsed && <span className="nav-rail__item-label">Practice</span>}
-      </button>
-      <button
-        type="button"
-        className={`nav-rail__item${mode === 'daily' ? ' nav-rail__item--active' : ''}`}
-        aria-pressed={mode === 'daily'}
+      </Link>
+      <Link
+        href={ROUTES.daily.path}
+        className={`nav-rail__item${location === ROUTES.daily.path ? ' nav-rail__item--active' : ''}`}
+        aria-current={location === ROUTES.daily.path ? 'page' : undefined}
         aria-label="Daily"
         title="Daily"
-        onClick={() => {
-          onChange('daily')
-        }}
       >
         <DailyIcon size={20} />
         {!collapsed && <span className="nav-rail__item-label">Daily</span>}
-      </button>
-      <button
-        type="button"
-        className={`nav-rail__item${mode === 'rush' ? ' nav-rail__item--active' : ''}`}
-        aria-pressed={mode === 'rush'}
+      </Link>
+      <Link
+        href={ROUTES.rush.path}
+        className={`nav-rail__item${location === ROUTES.rush.path ? ' nav-rail__item--active' : ''}`}
+        aria-current={location === ROUTES.rush.path ? 'page' : undefined}
         aria-label="Rush"
         title="Rush"
-        onClick={() => {
-          onChange('rush')
-        }}
       >
         <RushIcon size={20} />
         {!collapsed && <span className="nav-rail__item-label">Rush</span>}
-      </button>
+      </Link>
       <button
         type="button"
         className="nav-rail__collapse-toggle"

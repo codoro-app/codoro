@@ -3,25 +3,15 @@
  * not one of the four main modes, so it has no ModeSwitcher/NavRail tab.
  * Good-faith developer-written notice, not lawyer-reviewed.
  */
-import type { AppMode } from '../ModeSwitcher'
+import { Link } from 'wouter'
 import './legalPage.css'
 
-export interface LegalPageProps {
-  onNavigate: (mode: AppMode) => void
-}
-
-export function LegalPage({ onNavigate }: LegalPageProps) {
+export function LegalPage() {
   return (
     <div className="legal-page">
-      <button
-        type="button"
-        className="legal-page__back"
-        onClick={() => {
-          onNavigate('home')
-        }}
-      >
+      <Link href="/" className="legal-page__back">
         ← Back
-      </button>
+      </Link>
       <h1 className="legal-page__title">Terms &amp; privacy</h1>
       <p className="legal-page__updated">Last updated 2026-07-26</p>
 

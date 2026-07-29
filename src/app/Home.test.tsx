@@ -1,6 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { Home } from './Home'
 import { loadProfile } from '../storage'
 import type { UserProfile } from '../storage'
@@ -30,7 +29,7 @@ describe('Home', () => {
 
   it('shows rating and streak once the profile loads', async () => {
     vi.mocked(loadProfile).mockResolvedValue(baseProfile())
-    render(<Home onNavigate={vi.fn()} />)
+    render(<Home />)
 
     expect(await screen.findByText('1250')).toBeInTheDocument()
     expect(screen.getByText('3')).toBeInTheDocument()
@@ -38,7 +37,7 @@ describe('Home', () => {
 
   it('shows "Not done yet" on the Daily card when today has no completion', async () => {
     vi.mocked(loadProfile).mockResolvedValue(baseProfile())
-    render(<Home onNavigate={vi.fn()} />)
+    render(<Home />)
 
     expect(await screen.findByText('Not done yet')).toBeInTheDocument()
   })
@@ -54,46 +53,40 @@ describe('Home', () => {
       ...baseProfile(),
       dailyCompletion: { date: today, attemptId: 'a1', correct: true },
     })
-    render(<Home onNavigate={vi.fn()} />)
+    render(<Home />)
 
     expect(await screen.findByText('Done today')).toBeInTheDocument()
   })
 
-  it('navigates to practice when the Practice card is clicked', async () => {
+  it('links the Practice card to /practice', async () => {
     vi.mocked(loadProfile).mockResolvedValue(baseProfile())
-    const onNavigate = vi.fn()
-    const user = userEvent.setup()
-    render(<Home onNavigate={onNavigate} />)
+    render(<Home />)
 
-    await user.click(await screen.findByRole('button', { name: /practice/i }))
-    expect(onNavigate).toHaveBeenCalledWith('practice')
+    expect(await screen.findByRole('link', { name: /practice/i })).toHaveAttribute(
+      'href',
+      '/practice',
+    )
   })
 
-  it('navigates to daily when the Daily card is clicked', async () => {
+  it('links the Daily card to /daily', async () => {
     vi.mocked(loadProfile).mockResolvedValue(baseProfile())
-    const onNavigate = vi.fn()
-    const user = userEvent.setup()
-    render(<Home onNavigate={onNavigate} />)
+    render(<Home />)
 
-    await user.click(await screen.findByRole('button', { name: /daily/i }))
-    expect(onNavigate).toHaveBeenCalledWith('daily')
+    expect(await screen.findByRole('link', { name: /daily/i })).toHaveAttribute('href', '/daily')
   })
 
-  it('navigates to rush when the Rush card is clicked', async () => {
+  it('links the Rush card to /rush', async () => {
     vi.mocked(loadProfile).mockResolvedValue(baseProfile())
-    const onNavigate = vi.fn()
-    const user = userEvent.setup()
-    render(<Home onNavigate={onNavigate} />)
+    render(<Home />)
 
-    await user.click(await screen.findByRole('button', { name: /rush/i }))
-    expect(onNavigate).toHaveBeenCalledWith('rush')
+    expect(await screen.findByRole('link', { name: /rush/i })).toHaveAttribute('href', '/rush')
   })
 
   it('shows no best-score badge on the Rush card when rushStats is null', async () => {
     vi.mocked(loadProfile).mockResolvedValue(baseProfile())
-    render(<Home onNavigate={vi.fn()} />)
+    render(<Home />)
 
-    await screen.findByRole('button', { name: /rush/i })
+    await screen.findByRole('link', { name: /rush/i })
     expect(screen.queryByText(/^Best \d/)).not.toBeInTheDocument()
   })
 
@@ -102,7 +95,7 @@ describe('Home', () => {
       ...baseProfile(),
       rushStats: { bestScore: 23, bestStreak: 31, runs: 4, lastRunAt: '2026-07-22T10:00:00.000Z' },
     })
-    render(<Home onNavigate={vi.fn()} />)
+    render(<Home />)
 
     expect(await screen.findByText('Best 23')).toBeInTheDocument()
   })
