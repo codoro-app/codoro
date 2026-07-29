@@ -24,7 +24,10 @@
   background: var(--surface-1);
   color: var(--text-1);
   font-size: var(--font-size-sm);
+  text-decoration: none;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
 }
 
 .legal-page__title {

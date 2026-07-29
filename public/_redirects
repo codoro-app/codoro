@@ -1,0 +1,16 @@
+# Cloudflare Pages serves 404.html for any path that isn't a real static
+# file — Vite's build only emits index.html at the root, so /practice,
+# /daily, /rush, /browse, /legal all 404 on a cold/direct load without
+# this. Each real route is rewritten (200, not a redirect — the URL stays
+# as typed) to index.html so the SPA can boot and its own router takes it
+# from there.
+#
+# No wildcard (`/* /index.html 200`) on purpose: that would make every URL
+# on the domain return 200 with the app shell, which is both bad for
+# crawlers and breaks the "an unknown path returns a real 404" requirement.
+# Anything not listed below keeps falling through to 404.html.
+/practice /index.html 200
+/daily /index.html 200
+/rush /index.html 200
+/browse /index.html 200
+/legal /index.html 200

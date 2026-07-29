@@ -24,21 +24,35 @@
  * shows it persistently — a deliberate scope call for this phase (see the
  * Phase 6.5 plan's Task 1 notes); it stays fully functional on mobile.
  *
- * Desktop Browse (Phase 0 fix): `view === 'patterns'` used to return an
- * early full-page takeover unconditionally — on desktop that unmounted both
+ * Desktop Browse (Phase 0 fix, routed in Phase 1a): a full-page takeover
+ * used to fire unconditionally — on desktop that unmounted both
  * `.app-shell__sidebar` and the puzzle card, so Browse had no "puzzle view
  * on the right" to reflect a selection into (the reported bug). The early
- * return below is now mobile-only (`&& !isDesktop`); on desktop, `view`
- * instead swaps the sidebar's own content between PatternPicker and the
- * normal StatusBar+MasteryView pairing, so the puzzle in `.app-shell__main`
- * is never unmounted and stays interactive throughout. `usePracticeSession`'s
+ * return below is mobile-only (`&& !isDesktop`); on desktop, the sidebar's
+ * own content instead swaps between PatternPicker and the normal
+ * StatusBar+MasteryView pairing, so the puzzle in `.app-shell__main` is
+ * never unmounted and stays interactive throughout. `usePracticeSession`'s
  * `setPatternFilter` already re-serves a puzzle synchronously on selection,
  * so no extra wiring was needed for "selecting a pattern immediately serves
- * a playable puzzle." The "Browse patterns" nav button stays visible at
- * every width (NavRail.tsx's doc comment explains why it can't move there
- * instead) — only what it does on desktop changed, not its visibility.
+ * a playable puzzle."
+ *
+ * `/browse` is a real route (v2 Phase 1a) rather than a fourth `view` value:
+ * this component is mounted for both `/practice` and `/browse` (see
+ * App.tsx's Switch — both routes render this same lazy chunk), and whether
+ * the browse UI is showing is derived from the current location instead of
+ * local state. Because Switch/Route only ever renders one matching child at
+ * a time but that child is this same component type at the same tree
+ * position on every render, React doesn't unmount/remount it when the
+ * route flips between /practice and /browse — usePracticeSession's session
+ * state (current puzzle, combo, solvedThisSession) survives the navigation
+ * instead of resetting, which is what makes "selecting a pattern serves a
+ * puzzle immediately" and "Back returns to the puzzle you were on" work.
+ * `view === 'mastery'` stays local component state — it isn't a route in
+ * this phase, and pulling it out too would be scope creep beyond the
+ * routing extraction Phase 0 deferred here.
  */
 import { AnimatePresence, motion } from 'framer-motion'
+import { Link, useLocation } from 'wouter'
 import { PuzzleCardShell } from './PuzzleCardShell'
 import { StatusBar } from './StatusBar'
 import { PatternPicker } from './PatternPicker'
@@ -50,9 +64,11 @@ import { CloseIcon } from '../Icons'
 import { useEffect, useState } from 'react'
 import './practicePage.css'
 
-type View = 'practice' | 'patterns' | 'mastery'
+type View = 'practice' | 'mastery'
 
 export function PracticePage() {
+  const [location, navigate] = useLocation()
+  const isBrowseRoute = location === '/browse'
   const [view, setView] = useState<View>('practice')
   const session = usePracticeSession()
   const puzzleId = session.puzzle?.id
@@ -97,16 +113,16 @@ export function PracticePage() {
     )
   }
 
-  if (view === 'patterns' && !isDesktop) {
+  if (isBrowseRoute && !isDesktop) {
     return (
       <div className="practice-page app-shell__main">
         <PatternPicker
           onSelect={(pattern) => {
             session.setPatternFilter(pattern)
-            setView('practice')
+            navigate('/practice')
           }}
           onBack={() => {
-            setView('practice')
+            navigate('/practice')
           }}
         />
       </div>
@@ -142,20 +158,15 @@ export function PracticePage() {
           />
         )}
 
-        {/* Browse-patterns stays reachable at every width — NavRail (desktop)
-            has no visibility into this page's internal `view` state, so it
-            cannot deep-link into the pattern picker itself; this remains the
-            one working entry point on both mobile and desktop. Mastery stays
+        {/* Browse-patterns stays reachable at every width — NavRail doesn't
+            carry a duplicate entry for it (see NavRail.tsx's doc comment),
+            so this remains the one entry point on both mobile and desktop.
+            A real <Link> to /browse (v2 Phase 1a) rather than a setView
+            call, so cmd/middle-click opens it in a new tab. Mastery stays
             mobile-only since desktop already shows it persistently in the
             sidebar (below). */}
         <div className="practice-page__nav">
-          <button
-            type="button"
-            className="practice-page__browse"
-            onClick={() => {
-              setView('patterns')
-            }}
-          >
+          <Link href="/browse" className="practice-page__browse">
             <span>Browse patterns</span>
             <svg
               aria-hidden="true"
@@ -171,7 +182,7 @@ export function PracticePage() {
               <line x1="5" y1="12" x2="19" y2="12" />
               <polyline points="12 5 19 12 12 19" />
             </svg>
-          </button>
+          </Link>
           {!isDesktop && (
             <button
               type="button"
@@ -226,14 +237,14 @@ export function PracticePage() {
 
       {isDesktop && (
         <aside className="app-shell__sidebar practice-page__sidebar">
-          {view === 'patterns' ? (
+          {isBrowseRoute ? (
             <PatternPicker
               onSelect={(pattern) => {
                 session.setPatternFilter(pattern)
-                setView('practice')
+                navigate('/practice')
               }}
               onBack={() => {
-                setView('practice')
+                navigate('/practice')
               }}
             />
           ) : (

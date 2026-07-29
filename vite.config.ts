@@ -51,6 +51,25 @@ export default defineConfig({
         // precache app shell + content together — no separate content fetch to cache.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
         navigateFallback: '/index.html',
+        // Without a denylist, every navigation once the SW is installed —
+        // including a deliberately bad path — gets index.html from cache,
+        // so a 404 check behaves differently before vs. after the SW takes
+        // over. This regex allows the fallback only for the six real
+        // routes (and '/' itself); anything else falls through to the
+        // network, matching _redirects/404.html's behavior for the same
+        // path in a plain browser tab. Built as one negative-lookahead
+        // regex (not a per-route array) because navigateFallbackDenylist
+        // is a deny-list — expressing "allow only these" any other way
+        // means enumerating the infinite complement instead.
+        //
+        // Not imported from src/app/routes.ts's ROUTE_META (which lists
+        // the same six paths): vite.config.ts is its own isolated
+        // tsconfig.node.json project (module: nodenext, include:
+        // ["vite.config.ts"] only) and reaching into src/ from here fights
+        // module resolution for a marginal DRY win. Keep this list in sync
+        // with ROUTE_META's keys by hand — routes.test.ts asserts the
+        // same pattern.
+        navigateFallbackDenylist: [/^\/(?!$|practice$|daily$|rush$|browse$|legal$)/],
         cleanupOutdatedCaches: true,
       },
     }),
