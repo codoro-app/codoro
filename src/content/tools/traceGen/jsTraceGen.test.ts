@@ -117,6 +117,40 @@ describe('generateJsTrace — determinism', () => {
     const second = generateJsTrace(snippet)
     expect(second).toEqual(first)
   })
+
+  // P2, docs/v2-phase2-review.md: the JS backend used to have no enforcement
+  // at all here — Math.random()/Date.now()/new Date() were all reachable and
+  // a snippet using any of them would trace differently on every run, with
+  // nothing to catch it (the old version of this exact test could not fail,
+  // regardless of whether the guarantee held). These assert the enforcement
+  // mechanism directly: an authoring error, not a silently-varying trace.
+  it('throws a clear authoring error for Math.random(), naming the API', () => {
+    const snippet = 'let x = Math.random();'
+    expect(() => generateJsTrace(snippet)).toThrow(/Math\.random/)
+  })
+
+  it('throws a clear authoring error for Date.now(), naming the API', () => {
+    const snippet = 'let x = Date.now();'
+    expect(() => generateJsTrace(snippet)).toThrow(/Date\.now/)
+  })
+
+  it('throws a clear authoring error for new Date() with no arguments', () => {
+    const snippet = 'let x = new Date();'
+    expect(() => generateJsTrace(snippet)).toThrow(/new Date\(\)/)
+  })
+
+  it('throws a clear authoring error for Date() called without new', () => {
+    const snippet = 'let x = Date();'
+    expect(() => generateJsTrace(snippet)).toThrow(/Date\(\)/)
+  })
+
+  it('allows new Date(...) with explicit arguments and traces it deterministically', () => {
+    const snippet = 'let x = new Date(2024, 0, 1).getFullYear();'
+    const first = generateJsTrace(snippet)
+    const second = generateJsTrace(snippet)
+    expect(second).toEqual(first)
+    expect(first.steps[0]?.vars.x).toBe('2024')
+  })
 })
 
 describe('generateJsTrace — step budget', () => {
