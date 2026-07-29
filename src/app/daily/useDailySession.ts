@@ -156,6 +156,7 @@ export function useDailySession(): DailySession {
         correct: payload.correct,
         time_ms: timeMs,
         choice_index: payload.choiceIndex,
+        checkpoint_results: null,
         userRatingBefore: oldRating,
         userRatingAfter: newRating,
         localDateString: today,

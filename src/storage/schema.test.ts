@@ -25,6 +25,7 @@ const validAttempt = {
   correct: true,
   time_ms: 4200,
   choice_index: 2,
+  checkpoint_results: null,
   userRatingBefore: 1200,
   userRatingAfter: 1215,
   localDateString: '2026-07-15',
@@ -47,7 +48,7 @@ describe('UserProfileSchema', () => {
   })
 
   it('rejects a wrong schema_version', () => {
-    expect(() => UserProfileSchema.parse({ ...validProfile, schema_version: 4 })).toThrow()
+    expect(() => UserProfileSchema.parse({ ...validProfile, schema_version: 5 })).toThrow()
   })
 
   it('rejects a missing required field', () => {
@@ -133,6 +134,45 @@ describe('AttemptSchema', () => {
     const withoutCorrect: Record<string, unknown> = { ...validAttempt }
     delete withoutCorrect.correct
     expect(() => AttemptSchema.parse(withoutCorrect)).toThrow()
+  })
+
+  it('accepts a non-null checkpoint_results array', () => {
+    const parsed = AttemptSchema.parse({
+      ...validAttempt,
+      checkpoint_results: [
+        { correct: true, choiceIndex: 0 },
+        { correct: false, choiceIndex: 2 },
+      ],
+    })
+    expect(parsed.checkpoint_results).toEqual([
+      { correct: true, choiceIndex: 0 },
+      { correct: false, choiceIndex: 2 },
+    ])
+  })
+
+  it('rejects a checkpoint_results entry with a negative choiceIndex', () => {
+    expect(() =>
+      AttemptSchema.parse({
+        ...validAttempt,
+        checkpoint_results: [{ correct: true, choiceIndex: -1 }],
+      }),
+    ).toThrow()
+  })
+
+  it('rejects a checkpoint_results entry missing correct', () => {
+    expect(() =>
+      AttemptSchema.parse({
+        ...validAttempt,
+        checkpoint_results: [{ choiceIndex: 0 }],
+      }),
+    ).toThrow()
+  })
+
+  it('defaults checkpoint_results to null for a pre-v4 stored record missing the key entirely', () => {
+    const preV4Record: Record<string, unknown> = { ...validAttempt }
+    delete preV4Record.checkpoint_results
+    const parsed = AttemptSchema.parse(preV4Record)
+    expect(parsed.checkpoint_results).toBeNull()
   })
 })
 

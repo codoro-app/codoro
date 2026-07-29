@@ -30,6 +30,7 @@ function makeAttempt(overrides: Partial<Attempt> = {}): Attempt {
     correct: true,
     time_ms: 4200,
     choice_index: 2,
+    checkpoint_results: null,
     userRatingBefore: 1180,
     userRatingAfter: 1195,
     localDateString: '2026-07-15',

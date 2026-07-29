@@ -56,6 +56,22 @@ function migrateV2ToV3(raw: Record<string, unknown>): Record<string, unknown> {
 }
 
 /**
+ * v3 -> v4: a genuine no-op beyond the version bump. Phase 2's scrubber
+ * interaction adds `checkpoint_results` to AttemptSchema, not to
+ * UserProfileSchema — the profile's own shape doesn't change for this
+ * feature, so there's nothing for this migration to add. Still bumping
+ * CURRENT_SCHEMA_VERSION and registering a (no-op) migration here rather
+ * than leaving v3 silently ambiguous between "before scrubber" and
+ * "after scrubber" — see src/storage/schema.ts's AttemptSchema doc
+ * comment for why AttemptSchema itself isn't part of this versioned
+ * migration chain at all (it never has been) and how its new field
+ * handles old records instead.
+ */
+function migrateV3ToV4(raw: Record<string, unknown>): Record<string, unknown> {
+  return { ...raw, schema_version: 4 }
+}
+
+/**
  * Keyed by the version each migration migrates *from*. The first real entry:
  * schema v1 predates Daily mode, so any profile still on v1 gets a null
  * dailyCompletion (equivalent to "no Daily attempt recorded yet").
@@ -63,4 +79,5 @@ function migrateV2ToV3(raw: Record<string, unknown>): Record<string, unknown> {
 export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1ToV2,
   2: migrateV2ToV3,
+  3: migrateV3ToV4,
 }
