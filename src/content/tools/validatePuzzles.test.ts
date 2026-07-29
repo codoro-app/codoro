@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { validatePuzzleFiles } from './validatePuzzles'
+import { validateDailyCalendar, validatePuzzleFiles } from './validatePuzzles'
 import type { RawPuzzleFile } from './loadPuzzles'
+import type { ValidatedPuzzle } from './validatePuzzles'
+import type { Puzzle } from '../schema'
 
 function rawMcq(id: string, overrides: Record<string, unknown> = {}): unknown {
   return {
@@ -138,5 +140,55 @@ describe('validatePuzzleFiles', () => {
       const { errors } = validatePuzzleFiles(files)
       expect(errors).toEqual([])
     })
+  })
+})
+
+function validated(id: string, interaction: string): ValidatedPuzzle {
+  return {
+    filePath: `${id}.json`,
+    puzzle: { id, interaction } as unknown as Puzzle,
+  }
+}
+
+describe('validateDailyCalendar', () => {
+  const quiz1 = validated('quiz-001', 'mcq')
+  const quiz2 = validated('quiz-002', 'swipe-binary')
+  const scrubber1 = validated('scr-001', 'scrubber')
+
+  it('passes a calendar of unique ids that all resolve to non-scrubber puzzles', () => {
+    const errors = validateDailyCalendar(['quiz-001', 'quiz-002'], [quiz1, quiz2, scrubber1])
+    expect(errors).toEqual([])
+  })
+
+  it('flags a calendar entry that does not match any valid puzzle', () => {
+    const errors = validateDailyCalendar(['quiz-001', 'missing-id'], [quiz1, quiz2])
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toContain('missing-id')
+    expect(errors[0]).toContain('does not match any valid puzzle')
+  })
+
+  it('flags a duplicate id within the calendar, naming its position', () => {
+    const errors = validateDailyCalendar(['quiz-001', 'quiz-001'], [quiz1])
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toContain('duplicate id "quiz-001"')
+    expect(errors[0]).toContain('position 1')
+  })
+
+  it('rejects a scrubber puzzle id by rule, not by accident (P0)', () => {
+    // Daily's own curated list happening not to contain a scrubber id today
+    // is not the guarantee — see docs/v2-phase2-review.md, P0 ("Daily is
+    // safe by accident, not design"). This asserts the rule itself: any
+    // scrubber id in the calendar is a hard validation failure.
+    const errors = validateDailyCalendar(['quiz-001', 'scr-001'], [quiz1, quiz2, scrubber1])
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toContain('scr-001')
+    expect(errors[0]).toContain('is a scrubber puzzle')
+  })
+
+  it('flags both the scrubber id (first occurrence) and the duplicate (second occurrence) independently', () => {
+    const errors = validateDailyCalendar(['scr-001', 'scr-001'], [scrubber1])
+    expect(errors).toHaveLength(2)
+    expect(errors[0]).toContain('is a scrubber puzzle')
+    expect(errors[1]).toContain('duplicate id "scr-001"')
   })
 })

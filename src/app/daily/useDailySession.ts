@@ -24,7 +24,7 @@ import {
 } from '../../engine'
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, UserProfile } from '../../storage'
-import { DAILY_CALENDAR, puzzlePool } from '../../content'
+import { DAILY_CALENDAR, quizPool } from '../../content'
 import { isDevPuzzleModeEnabled, resolveDailyStubPuzzle } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle } from '../../content'
 import { trackAttempt, trackError } from '../../telemetry'
@@ -70,7 +70,7 @@ export function useDailySession(): DailySession {
   const puzzle: ContentPuzzle | null = isDevPuzzleModeEnabled()
     ? resolveDailyStubPuzzle(dayNumber - 1)
     : DAILY_CALENDAR.length > 0
-      ? (puzzlePool.find(
+      ? (quizPool.find(
           (candidate) =>
             candidate.id === DAILY_CALENDAR[getDailyCalendarIndex(today, DAILY_CALENDAR.length)],
         ) ?? null)

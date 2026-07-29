@@ -17,7 +17,7 @@ import {
 import type { SelectionSource } from '../../engine'
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, UserProfile } from '../../storage'
-import { puzzlePool } from '../../content'
+import { quizPool } from '../../content'
 import { resolvePool } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle, PatternSlug } from '../../content'
 import { trackAttempt, trackError } from '../../telemetry'
@@ -41,7 +41,7 @@ function toEnginePuzzle(puzzle: ContentPuzzle): { id: string; rating: number } {
 }
 
 function poolForPattern(pattern: PatternSlug | null): ContentPuzzle[] {
-  const pool = resolvePool(puzzlePool) as ContentPuzzle[]
+  const pool = resolvePool(quizPool) as ContentPuzzle[]
   return pattern === null ? pool : pool.filter((puzzle) => puzzle.pattern === pattern)
 }
 

@@ -64,6 +64,59 @@ function validateSwipeDirectionBalance(valid: readonly ValidatedPuzzle[]): strin
   ]
 }
 
+/**
+ * Every daily-calendar id must resolve to a real, valid, non-scrubber
+ * puzzle, and ids must be unique within the calendar. Checking against
+ * quiz-only ids (not the full valid-id set) is deliberate: Daily serving a
+ * scrubber puzzle was safe on `main` only by accident — none of the curated
+ * ids happened to name one — not by rule. Rejecting scrubber ids here makes
+ * it a build failure instead, the same structural guarantee `quizPool`
+ * gives app code (docs/v2-phase2-review.md, P0). Daily-serves-scrubber is a
+ * deliberate Phase 3+ content call, not a silent default this validator
+ * should permit by omission.
+ */
+export function validateDailyCalendar(
+  calendar: readonly string[],
+  valid: readonly ValidatedPuzzle[],
+): string[] {
+  const quizIds = new Set(
+    valid
+      .filter((entry) => entry.puzzle.interaction !== 'scrubber')
+      .map((entry) => entry.puzzle.id),
+  )
+  const scrubberIds = new Set(
+    valid
+      .filter((entry) => entry.puzzle.interaction === 'scrubber')
+      .map((entry) => entry.puzzle.id),
+  )
+
+  const errors: string[] = []
+  const seen = new Set<string>()
+
+  calendar.forEach((id, index) => {
+    if (seen.has(id)) {
+      errors.push(`dailyCalendar.ts: duplicate id "${id}" at position ${String(index)}`)
+      return
+    }
+    seen.add(id)
+
+    if (scrubberIds.has(id)) {
+      errors.push(
+        `dailyCalendar.ts: entry "${id}" at position ${String(index)} is a scrubber puzzle — Daily serves quiz puzzles only; adding scrubber to Daily is an explicit future content decision, not a default.`,
+      )
+      return
+    }
+
+    if (!quizIds.has(id)) {
+      errors.push(
+        `dailyCalendar.ts: entry "${id}" at position ${String(index)} does not match any valid puzzle`,
+      )
+    }
+  })
+
+  return errors
+}
+
 export function validatePuzzleFiles(files: readonly RawPuzzleFile[]): ValidationResult {
   const valid: ValidatedPuzzle[] = []
   const errors: string[] = []

@@ -19,17 +19,11 @@
  * assumes one commit per puzzle; a scrubber attempt has N per-checkpoint
  * commits, which is Phase 3's reshaping job once the real UI is in hand.
  */
-import { useMemo, useState } from 'react'
-import { puzzlePool } from '../../content'
-import type { Puzzle } from '../../content'
+import { useState } from 'react'
+import { scrubberPool } from '../../content'
+import type { ScrubberPuzzle } from '../../content'
 import { scoreScrubberAttempt } from '../../engine'
 import type { CheckpointResult } from '../../engine'
-
-type ScrubberPuzzle = Extract<Puzzle, { interaction: 'scrubber' }>
-
-function isScrubberPuzzle(puzzle: Puzzle): puzzle is ScrubberPuzzle {
-  return puzzle.interaction === 'scrubber'
-}
 
 export function ScrubberDebugPage() {
   // Hooks must run unconditionally on every render (rules-of-hooks) — the
@@ -37,11 +31,10 @@ export function ScrubberDebugPage() {
   // site in App.tsx is what actually keeps this component out of a
   // production render tree; this is the same belt-and-suspenders guard
   // DevPuzzleToggle uses, just placed where React allows it.
-  const scrubberPuzzles = useMemo(() => puzzlePool.filter(isScrubberPuzzle), [])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   if (!import.meta.env.DEV) return null
 
-  const selected = scrubberPuzzles.find((puzzle) => puzzle.id === selectedId) ?? null
+  const selected = scrubberPool.find((puzzle) => puzzle.id === selectedId) ?? null
 
   return (
     <div className="app-shell__main">
@@ -58,7 +51,7 @@ export function ScrubberDebugPage() {
           }}
         />
       ) : (
-        <PuzzlePicker puzzles={scrubberPuzzles} onSelect={setSelectedId} />
+        <PuzzlePicker puzzles={scrubberPool} onSelect={setSelectedId} />
       )}
     </div>
   )

@@ -29,7 +29,12 @@ const { FIXTURE_POOL, FIXTURE_CALENDAR } = vi.hoisted(() => {
 
 vi.mock('../../content', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../content')>()
-  return { ...actual, puzzlePool: FIXTURE_POOL, DAILY_CALENDAR: FIXTURE_CALENDAR }
+  return {
+    ...actual,
+    puzzlePool: FIXTURE_POOL,
+    quizPool: FIXTURE_POOL,
+    DAILY_CALENDAR: FIXTURE_CALENDAR,
+  }
 })
 
 vi.mock('../../storage', async (importOriginal) => {

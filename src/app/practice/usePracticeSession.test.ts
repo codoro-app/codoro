@@ -4,8 +4,8 @@ import { updateRating, roundForDisplay } from '../../engine'
 import type { Puzzle } from '../../content'
 import { usePracticeSession } from './usePracticeSession'
 
-const { FIXTURE_POOL } = vi.hoisted(() => ({
-  FIXTURE_POOL: Array.from({ length: 12 }, (_, i) => ({
+const { FIXTURE_POOL, FIXTURE_SCRUBBER_ID, FIXTURE_POOL_WITH_SCRUBBER } = vi.hoisted(() => {
+  const pool = Array.from({ length: 12 }, (_, i) => ({
     id: `p${String(i)}`,
     pattern: i % 2 === 0 ? 'off-by-one' : 'null-undefined',
     difficulty_rating: 1150 + i * 10,
@@ -16,12 +16,42 @@ const { FIXTURE_POOL } = vi.hoisted(() => ({
     interaction: 'mcq',
     choices: ['a', 'b'],
     correct_choice: 0,
-  })) as unknown as Puzzle[],
-}))
+  })) as unknown as Puzzle[]
+  const scrubberId = 'scrubber-only-fixture'
+  // A scrubber puzzle present in `puzzlePool` but absent from `quizPool` —
+  // mirrors the real split (quizPool = puzzlePool minus scrubber). Only
+  // present so the test below can prove Practice's serving path reads
+  // quizPool, not puzzlePool — see docs/v2-phase2-review.md (P0).
+  const scrubberPuzzle = {
+    id: scrubberId,
+    pattern: 'off-by-one',
+    difficulty_rating: 1200,
+    explanation: 'explanation scrubber',
+    prompt: 'prompt scrubber',
+    language: 'javascript',
+    snippet: 'let i = 0',
+    interaction: 'scrubber',
+    steps: [{ line: 0, vars: { i: '0' } }],
+    checkpoints: [],
+  } as unknown as Puzzle
+  return {
+    FIXTURE_POOL: pool,
+    FIXTURE_SCRUBBER_ID: scrubberId,
+    // Prepended, not appended: with rng mocked to 0 (see the test below),
+    // selection.ts's sample() picks index 0 of the eligible/not-recent
+    // candidate list, which preserves pool order — so if the source under
+    // test reads `puzzlePool` (this array) instead of `quizPool` (`pool`,
+    // scrubber-free), it deterministically serves the scrubber puzzle on
+    // the very first draw, every run. An appended scrubber entry would
+    // never be picked at index 0 regardless of which pool is read, making
+    // the assertion vacuous.
+    FIXTURE_POOL_WITH_SCRUBBER: [scrubberPuzzle, ...pool],
+  }
+})
 
 vi.mock('../../content', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../content')>()
-  return { ...actual, puzzlePool: FIXTURE_POOL }
+  return { ...actual, puzzlePool: FIXTURE_POOL_WITH_SCRUBBER, quizPool: FIXTURE_POOL }
 })
 
 vi.mock('../../storage', async (importOriginal) => {
@@ -302,5 +332,30 @@ describe('usePracticeSession', () => {
         expect.stringContaining('saveProfile'),
       )
     })
+  })
+
+  it('never serves a scrubber puzzle, even when one exists in puzzlePool (P0 regression)', async () => {
+    // FIXTURE_POOL_WITH_SCRUBBER (mocked as puzzlePool) contains a scrubber
+    // puzzle that FIXTURE_POOL (mocked as quizPool) does not. rng mocked to
+    // 0 makes selection.ts's sample() deterministically pick index 0 of the
+    // eligible candidate list (see selection.ts's sample()), and the
+    // scrubber fixture sits at index 0 of puzzlePool specifically so this
+    // is a hard deterministic catch, not a probabilistic one: if Practice's
+    // serving path ever reads puzzlePool instead of quizPool, the very
+    // first serve is the scrubber puzzle, every run — reproducing
+    // docs/v2-phase2-review.md's P0 (a scrubber puzzle reaching Practice
+    // with no renderer, unescapable).
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0)
+
+    const { result } = renderHook(() => usePracticeSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    expect(result.current.puzzle?.id).not.toBe(FIXTURE_SCRUBBER_ID)
+    expect(result.current.puzzle?.interaction).not.toBe('scrubber')
+    expect(result.current.puzzle?.id).toBe('p0')
+
+    randomSpy.mockRestore()
   })
 })

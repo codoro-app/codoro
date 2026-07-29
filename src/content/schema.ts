@@ -261,3 +261,14 @@ export type McqPuzzle = z.infer<typeof McqSchema>
 export type SwipeBinaryPuzzle = z.infer<typeof SwipeBinarySchema>
 export type TapLinePuzzle = z.infer<typeof TapLineSchema>
 export type ScrubberPuzzle = z.infer<typeof ScrubberSchema>
+
+/**
+ * Every interaction PuzzleCardShell (and, through it, Practice/Daily/Rush)
+ * knows how to render. Scrubber is deliberately excluded — it gets its own
+ * mode/route/renderer (Phase 3), not a fourth branch in the quiz shell, per
+ * the Phase 2 corrective review's "own mode with shared rating" decision.
+ * Keeping this a named union (not `Exclude<Puzzle, ScrubberPuzzle>` inlined
+ * at each call site) means PuzzleCardShell's exhaustive switch fails to
+ * compile the moment a new member joins this union without a case.
+ */
+export type QuizPuzzle = McqPuzzle | SwipeBinaryPuzzle | TapLinePuzzle
