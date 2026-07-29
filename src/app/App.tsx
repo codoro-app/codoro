@@ -3,6 +3,7 @@ import { Route, Switch, useLocation, Link } from 'wouter'
 import { ErrorBoundary } from './ErrorBoundary'
 import { PwaPrompts } from './pwa/PwaPrompts'
 import { AppShell } from './AppShell'
+import { useRouteMeta } from './useRouteMeta'
 
 const VISITED_KEY = 'codoro:has-visited'
 
@@ -60,6 +61,7 @@ function resolveBootMode(): BootMode {
 
 export function App() {
   const [, navigate] = useLocation()
+  useRouteMeta()
 
   // The boot decision only applies to the '/' route, and only for the
   // browser's very first paint of this app instance — not every time '/'

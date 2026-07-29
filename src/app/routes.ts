@@ -23,3 +23,42 @@ export function labelForPath(path: string): string {
   const entry = Object.values(ROUTES).find((route) => route.path === path)
   return entry?.label ?? 'Codoro'
 }
+
+// Per-route <title>/meta-description (browser tab + screen readers only —
+// unfurl bots don't run JS, so this doesn't touch og:*/twitter:* tags; see
+// index.html's own comment and the Phase 1b plan notes for that decision).
+// '/' repeats index.html's own static defaults verbatim, so setting it is a
+// harmless no-op there rather than a special case to skip.
+export interface RouteMetaEntry {
+  title: string
+  description: string
+}
+
+export const ROUTE_META: Record<string, RouteMetaEntry> = {
+  '/': {
+    title: 'Codoro — Daily coding puzzles',
+    description:
+      'A new bug-spotting puzzle every day, calibrated to your rating. Keep your streak alive.',
+  },
+  '/practice': {
+    title: 'Practice — Codoro',
+    description: 'Endless rating-matched coding puzzles, one bug at a time.',
+  },
+  '/daily': {
+    title: 'Daily — Codoro',
+    description:
+      'A new bug-spotting puzzle every day, calibrated to your rating. Keep your streak alive.',
+  },
+  '/rush': {
+    title: 'Rush — Codoro',
+    description: "Escalating coding puzzles — three strikes and you're out.",
+  },
+  '/browse': {
+    title: 'Browse patterns — Codoro',
+    description: 'Browse coding puzzles by bug pattern and practice a specific weak spot.',
+  },
+  '/legal': {
+    title: 'Terms & privacy — Codoro',
+    description: "Codoro's terms of use and privacy notice.",
+  },
+}
