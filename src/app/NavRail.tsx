@@ -11,15 +11,12 @@
  * than two small components sharing app.css tokens.
  *
  * The reference design (2a/2c/2d) shows a "Browse patterns" affordance
- * pinned to the rail footer. It isn't rendered here: NavRail has no
- * visibility into PracticePage's internal "view" state (patterns/mastery/
- * practice) — that's owned by usePracticeSession's caller, several
- * component boundaries away — so a rail-footer button here could only ever
- * switch to Practice mode, not actually open the pattern picker. Rather
- * than ship a button that looks actionable but does nothing new, the one
- * working "Browse patterns" entry point stays in PracticePage.tsx's own
- * nav row (practicePage.css), visible at every width. Revisit if/when
- * that view state is worth lifting up to bridge NavRail and PracticePage.
+ * pinned to the rail footer. It isn't rendered here: /browse is a real
+ * route now (v2 Phase 1a), so a plain `<Link href="/browse">` here would
+ * work, but it would duplicate the one working entry point PracticePage's
+ * own nav row (practicePage.css) already provides, visible at every width.
+ * Revisit if/when Browse earns a dedicated rail entry on its own merits,
+ * not as a routing-capability question — that part is already solved.
  *
  * Collapse state: a device-level UI preference, not app data — persisted to
  * `localStorage` (key convention from pwa/useIosInstallPrompt.ts: `codoro:`
