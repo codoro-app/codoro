@@ -44,3 +44,6 @@ export {
   selectRushPuzzle,
 } from './rush'
 export type { RushInteraction, RushPuzzle, RushSelectionInput, RushSelectionResult } from './rush'
+
+export { scoreScrubberAttempt } from './scrubber'
+export type { CheckpointResult } from './scrubber'
