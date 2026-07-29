@@ -34,7 +34,7 @@
   ],
   "checkpoints": [
     {
-      "afterStep": 7,
+      "afterStep": 5,
       "question": "var-value",
       "target": "i",
       "choices": ["2", "3"],
