@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { nth } from '../test/nth'
+import { loadProfile } from '../storage'
 
 const appTsxPath = join(dirname(fileURLToPath(import.meta.url)), 'App.tsx')
 
@@ -185,5 +186,33 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText('1200')).toBeInTheDocument()
     })
+  })
+
+  it('navigating /practice -> /browse -> /practice does not remount the practice session (Browse extraction regression guard)', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText('1200')).toBeInTheDocument()
+    })
+
+    // usePracticeSession's mount effect is the only thing that calls
+    // loadProfile — a remount (state reset) would call it again, which is
+    // exactly what App.tsx's doc comment on PracticePage's two <Route>
+    // entries claims won't happen: both /practice and /browse render the
+    // same PracticePage element at the same Switch position, so React
+    // updates it in place across the navigation instead of unmounting it.
+    const loadCallsBeforeBrowse = vi.mocked(loadProfile).mock.calls.length
+
+    await user.click(nth(screen.getAllByRole('link', { name: /browse patterns/i }), 0))
+    expect(window.location.pathname).toBe('/browse')
+
+    await user.click(screen.getByRole('button', { name: /back/i }))
+    expect(window.location.pathname).toBe('/practice')
+
+    await waitFor(() => {
+      expect(screen.getByText('1200')).toBeInTheDocument()
+    })
+    expect(vi.mocked(loadProfile).mock.calls.length).toBe(loadCallsBeforeBrowse)
   })
 })

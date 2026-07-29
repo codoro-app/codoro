@@ -105,6 +105,15 @@ export function App() {
             <Route path="/practice">
               <PracticePage />
             </Route>
+            {/* Same component/chunk as /practice, not a separate route
+                target: PracticePage derives whether to show the browse UI
+                from the current location (see its own doc comment) rather
+                than an internal view value, so it needs to be this same
+                element at both paths for React to preserve its session
+                state across navigation between them instead of remounting. */}
+            <Route path="/browse">
+              <PracticePage />
+            </Route>
             <Route path="/daily">
               <DailyPage />
             </Route>

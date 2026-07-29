@@ -81,11 +81,11 @@
   cursor: pointer;
 }
 
-/* Entry-point "Browse patterns" affordance — a bordered button, not a bare
-   text link (matches the reference's designed affordance). Visible at every
-   width: NavRail can't deep-link into this page's internal view state (see
-   NavRail.tsx's doc comment), so this is the one working entry point on
-   both mobile and desktop, not just mobile. */
+/* Entry-point "Browse patterns" affordance — a bordered button-styled link
+   (matches the reference's designed affordance), a real <Link href="/browse">
+   as of v2 Phase 1a. Visible at every width: NavRail doesn't carry a
+   duplicate entry for it (see NavRail.tsx's doc comment), so this stays the
+   one entry point on both mobile and desktop, not just mobile. */
 .practice-page__browse {
   display: flex;
   align-items: center;
@@ -101,7 +101,9 @@
   font-family: inherit;
   font-size: var(--font-size-base);
   font-weight: 700;
+  text-decoration: none;
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 /* --- status bar ---------------------------------------------------- */

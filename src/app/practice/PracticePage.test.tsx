@@ -53,6 +53,12 @@ describe('PracticePage', () => {
     vi.mocked(saveProfile).mockResolvedValue(undefined)
     vi.mocked(appendAttempt).mockResolvedValue(undefined)
     vi.mocked(listAttempts).mockResolvedValue([])
+    // /browse is a real route now (v2 Phase 1a) — PracticePage reads it via
+    // wouter's useLocation, which (unlike component state) reads the real
+    // window.location and survives across tests in this file. Reset to
+    // /practice so every test starts from the non-browse view, matching
+    // what these tests assumed before the extraction.
+    window.history.pushState({}, '', '/practice')
   })
 
   it('keys the rendered PuzzleCardShell by puzzle.id (required concern-b fix)', () => {
@@ -79,7 +85,7 @@ describe('PracticePage', () => {
       expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: /browse patterns/i }))
+    await user.click(screen.getByRole('link', { name: /browse patterns/i }))
     expect(screen.getByText(PATTERN_LABELS['null-undefined'])).toBeInTheDocument()
 
     await user.click(screen.getByText(PATTERN_LABELS['null-undefined']))
@@ -91,10 +97,10 @@ describe('PracticePage', () => {
     })
     // Browse button itself stays a static label now — the active pattern is
     // shown by the dedicated filter chip instead.
-    expect(screen.getByRole('button', { name: /^browse patterns/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /^browse patterns/i })).toBeInTheDocument()
 
     // Practice-all-patterns escape hatch is still reachable via Browse.
-    await user.click(screen.getByRole('button', { name: /^browse patterns/i }))
+    await user.click(screen.getByRole('link', { name: /^browse patterns/i }))
     expect(screen.getByRole('button', { name: /practice all patterns/i })).toBeInTheDocument()
   })
 
@@ -113,7 +119,7 @@ describe('PracticePage', () => {
     })
     expect(screen.getByText(/1 solved this session/i)).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: /browse patterns/i }))
+    await user.click(screen.getByRole('link', { name: /browse patterns/i }))
     await user.click(screen.getByText(PATTERN_LABELS['null-undefined']))
     await waitFor(() => {
       expect(
@@ -137,7 +143,7 @@ describe('PracticePage', () => {
       expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: /browse patterns/i }))
+    await user.click(screen.getByRole('link', { name: /browse patterns/i }))
     await user.click(screen.getByText(PATTERN_LABELS['null-undefined']))
     await waitFor(() => {
       expect(
@@ -229,7 +235,7 @@ describe('PracticePage', () => {
     })
     scrollToSpy.mockClear()
 
-    await user.click(screen.getByRole('button', { name: /browse patterns/i }))
+    await user.click(screen.getByRole('link', { name: /browse patterns/i }))
     await user.click(screen.getByText(PATTERN_LABELS['null-undefined']))
     await waitFor(() => {
       expect(
@@ -413,7 +419,7 @@ describe('PracticePage', () => {
         expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
       })
 
-      await user.click(screen.getByRole('button', { name: /browse patterns/i }))
+      await user.click(screen.getByRole('link', { name: /browse patterns/i }))
 
       // The picker appears (in the sidebar) ...
       expect(screen.getByText('Practice by pattern')).toBeInTheDocument()
@@ -433,7 +439,7 @@ describe('PracticePage', () => {
         expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
       })
 
-      await user.click(screen.getByRole('button', { name: /browse patterns/i }))
+      await user.click(screen.getByRole('link', { name: /browse patterns/i }))
       expect(screen.getByText('Practice by pattern')).toBeInTheDocument()
 
       await user.click(screen.getByText(PATTERN_LABELS['null-undefined']))
@@ -461,7 +467,7 @@ describe('PracticePage', () => {
         expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
       })
 
-      await user.click(screen.getByRole('button', { name: /browse patterns/i }))
+      await user.click(screen.getByRole('link', { name: /browse patterns/i }))
       expect(screen.getByText('Practice by pattern')).toBeInTheDocument()
 
       await user.click(screen.getByRole('button', { name: /back/i }))
