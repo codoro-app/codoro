@@ -197,15 +197,21 @@ So: **Phase 1a runs next. Phase 1b is gated on the Phase 2 go/no-go** and can th
 
 **DoD:**
 
-- [ ] All six routes render; nav is real links; back/forward behaves
-- [ ] `/` still boots a first-ever visitor into Practice, a returning one into Home — with a test
-- [ ] Route-level code splitting intact **and** landing-route chunk still prefetched eagerly, with a test that would catch losing it
-- [ ] `/browse` is a real route; desktop master-detail preserved, mobile picker unchanged, both widths tested
-- [ ] Route changes move focus to the new page heading and reset scroll
-- [ ] `_redirects` enumerates real routes; `/nonsense` still returns a real 404; SW `navigateFallbackDenylist` decision written down
-- [ ] Direct load of `getcodoro.com/legal` on production renders the app (no SPA-boot-to-home)
-- [ ] PWA launch and SW update flow unaffected — re-verify installed-app launch on a real phone
-- [ ] `pnpm validate` green; exactly one new dependency (wouter)
+- [x] All six routes render; nav is real links; back/forward behaves — **verified**: wouter `Switch`/`Route`, `NavRail`/`ModeSwitcher`/`AppShell`/`Home`/`PracticePage`'s Browse entry all converted to real `<Link>`s
+- [x] `/` still boots a first-ever visitor into Practice, a returning one into Home — with a test — **verified**: `App.test.tsx`, plus a regression test for the specific bug this extraction almost shipped (see amendment below)
+- [x] Route-level code splitting intact **and** landing-route chunk still prefetched eagerly, with a test that would catch losing it — **verified**: source-inspection test in `App.test.tsx` asserting the prefetch call sits inside `useState`'s initializer, not an effect
+- [x] `/browse` is a real route; desktop master-detail preserved, mobile picker unchanged, both widths tested — **verified**: Phase 0's existing `PracticePage.test.tsx` coverage, unchanged in intent, still green
+- [x] Route changes move focus to the new page heading and reset scroll — **verified, with a scope note**: see amendment below (focus target is `<main>`, not a per-page `<h1>`)
+- [x] `_redirects` enumerates real routes; `/nonsense` still returns a real 404; SW `navigateFallbackDenylist` decision written down — **verified** in commit message; production behavior is Thomas's to confirm
+- [ ] Direct load of `getcodoro.com/legal` on production renders the app (no SPA-boot-to-home) — **Thomas's, outstanding** (production check, not reproducible from the repo)
+- [ ] PWA launch and SW update flow unaffected — re-verify installed-app launch on a real phone — **Thomas's, outstanding**
+- [x] `pnpm validate` green; exactly one new dependency (wouter) — **verified**
+
+**Amendment (post-implementation):**
+
+1. **Focus target is `<main>`, not a literal per-page heading.** Only `LegalPage` and `ErrorBoundary` have a real `<h1>` today; `Home`, `PracticePage`, `DailyPage`, and `RushPage` don't. Retrofitting a heading onto every branch of every page (each has multiple loading/error/empty states) is a broader content/markup pass than routing plumbing, and doing it shallowly — adding an `<h1>` only to the happy-path branch and forgetting the others — would be worse than one solid mechanism. Implemented instead: `AppShell`'s `<main>` gets `tabIndex={-1}` and an `aria-label` naming the active route (`routes.ts`'s `labelForPath`), and focus moves there on every route change. This satisfies the underlying accessibility goal (a screen-reader user is told a new page loaded and what it is) without a page-content pass this phase didn't otherwise need. Flagged here rather than left silent, per this repo's standing rule on plan/implementation divergence.
+2. **Bundle-size delta:** built both `origin/main` and this branch from clean installs and compared `dist/`. Total `dist/` size: **+7,912 bytes** (main 1,268,704 → phase-1a 1,276,616). The entry chunk that carries wouter + the new routing/focus/meta code specifically: **+6,890 bytes raw / +2,710 bytes gzipped** (195.54 kB → 202.43 kB raw; 61.31 kB → 64.02 kB gzip). This is the baseline Phase 7 should measure its ~58 KB reclaim against.
+3. **`/nonsense` after this phase's changes, by context:** browser tab (SW absent or request passed through) → real HTTP 404 from Cloudflare's `404.html` (no `_redirects` rule matches). Installed PWA, online → now identical to the browser-tab case: the SW's `navigateFallbackDenylist` stops it intercepting the request, so it reaches the network and gets the same 404 — this unification is the point of the denylist fix. Installed PWA, offline → a browser-native offline error, not `404.html`, since there's no network to ask and the path is denied the cached-shell fallback; this is an inherent consequence of an offline app having no way to ask a server what does or doesn't exist, not a bug. A _known_ route (e.g. `/practice`) offline still correctly serves the cached shell.
 
 ### Phase 1b — Shareable puzzle links (1 session, gated on the Phase 2 go/no-go)
 
