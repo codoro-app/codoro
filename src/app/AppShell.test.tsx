@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AppShell } from './AppShell'
 import { nth } from '../test/nth'
@@ -68,5 +68,62 @@ describe('AppShell', () => {
       </AppShell>,
     )
     expect(screen.getByRole('link', { name: 'Legal' })).toHaveAttribute('href', '/legal')
+  })
+
+  it('labels the main landmark with the active route, and does not steal focus on initial render', () => {
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    )
+    expect(screen.getByRole('main')).toHaveAttribute('aria-label', 'Practice')
+    expect(document.activeElement).not.toBe(screen.getByRole('main'))
+  })
+
+  it('a Link-driven navigation moves focus to <main> and resets scroll to top', async () => {
+    const user = userEvent.setup()
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    )
+
+    await user.click(nth(screen.getAllByRole('link', { name: 'Daily' }), 0))
+
+    expect(document.activeElement).toBe(screen.getByRole('main'))
+    expect(screen.getByRole('main')).toHaveAttribute('aria-label', 'Daily')
+    expect(scrollToSpy).toHaveBeenCalledWith({ top: 0 })
+
+    scrollToSpy.mockRestore()
+  })
+
+  it('a back/forward (popstate) navigation moves focus but does not reset scroll — the browser restores it', async () => {
+    const user = userEvent.setup()
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    )
+
+    // Real history entry (via the Link click's pushState), so history.back()
+    // below is a genuine back navigation — not another synthetic pushState —
+    // and fires a native popstate event the same way a real back-button
+    // press would, with no pushState/replaceState involved.
+    await user.click(nth(screen.getAllByRole('link', { name: 'Daily' }), 0))
+    expect(scrollToSpy).toHaveBeenCalledWith({ top: 0 })
+    scrollToSpy.mockClear()
+    screen.getByRole('main').blur()
+
+    window.history.back()
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/practice')
+    })
+
+    expect(scrollToSpy).not.toHaveBeenCalled()
+    expect(document.activeElement).toBe(screen.getByRole('main'))
+
+    scrollToSpy.mockRestore()
   })
 })

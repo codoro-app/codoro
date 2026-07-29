@@ -12,3 +12,14 @@ export const ROUTES = {
 } as const
 
 export type RouteKey = keyof typeof ROUTES
+
+// '/' and '/browse' aren't in ROUTES above (they're not NavRail/ModeSwitcher
+// entries — see NavRail.tsx and Home.tsx's own doc comments), but they're
+// still real pages that need a label for the <main> landmark's aria-label
+// (route-change focus management) and, later, a <title>.
+export function labelForPath(path: string): string {
+  if (path === '/') return 'Home'
+  if (path === '/browse') return 'Browse'
+  const entry = Object.values(ROUTES).find((route) => route.path === path)
+  return entry?.label ?? 'Codoro'
+}
