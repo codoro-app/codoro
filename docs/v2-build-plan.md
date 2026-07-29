@@ -18,19 +18,51 @@ This plan absorbs `docs/v2-backlog.md`. Every backlog item is either assigned to
 
 ## Phase map
 
-| Phase | What                                             | Est. sessions    |
-| ----- | ------------------------------------------------ | ---------------- |
-| 0     | Carryover bug fixes + live-deploy verification   | 1–2              |
-| 1     | URL routing + shareable puzzle links             | 1–2              |
-| 2     | Scrubber spike: trace format, engine, tooling    | 2–3              |
-| 3     | Scrubber UI                                      | 2–3              |
-| 4     | Scrubber content pipeline + volume               | 2–3              |
-| 5     | Quiz upgrades: drag-and-drop, Daily, Rush        | 2                |
-| 6     | Content calibration + quiz volume                | 1–2 + batch runs |
-| 7     | Export/import UI + performance to Lighthouse 90+ | 1–2              |
-| 8     | Hardening + regression                           | 1                |
+| Phase | What                                               | Est. sessions    |
+| ----- | -------------------------------------------------- | ---------------- |
+| 0     | Carryover bug fixes + live-deploy verification     | 1–2              |
+| 1a    | URL routing                                        | 1                |
+| 1b    | Shareable puzzle links (gated on Phase 2 go/no-go) | 1                |
+| 2     | Scrubber spike: trace format, engine, tooling      | 2–3              |
+| 3     | Scrubber UI                                        | 2–3              |
+| 4     | Scrubber content pipeline + volume                 | 2–3              |
+| 5     | Quiz upgrades: drag-and-drop, Daily, Rush          | 2                |
+| 6     | Content calibration + quiz volume                  | 1–2 + batch runs |
+| 7     | Export/import UI + performance to Lighthouse 90+   | 1–2              |
+| 8     | Hardening + regression                             | 1                |
 
-Phases 0 and 1 are prerequisites. Phases 2→3→4 are the flagship arc and must run in order. Phases 5–7 are independent of each other and can interleave anywhere after Phase 1 if a scrubber session stalls.
+Phases 0 and 1a are prerequisites. Phases 2→3→4 are the flagship arc and must run in order. **Phase 1b is gated on the Phase 2 go/no-go** — see the Phase 1 amendment for why. Phases 1b and 5–7 are independent of each other and can interleave anywhere after that checkpoint if a scrubber session stalls.
+
+## Known open defects
+
+Defects that are confirmed real but deliberately not being fixed right now. This table lives here — above the phases — rather than inside a phase amendment, because a defect buried in an amendment chain is a defect nobody reads again. **Nothing is removed from this table without a commit that fixes it.** Anything unfixed by the end of Phase 8 either blocks the phase or gets an explicit written waiver.
+
+| #    | Defect                                                                                                   | Confirmed on                                                                           | Owner phase | Status                                                                                   |
+| ---- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------- |
+| OD-1 | Swipe gesture still unreliable on phone _after_ both Phase 0 gesture fixes (32ms kinematics + axis lock) | Real device, Cloudflare preview build of `v2-phase-0-hotfix` (i.e. both fixes present) | Phase 8     | Open — **undiagnosed, no repro captured yet.** Do not fix speculatively; see notes below |
+
+### OD-1 — swipe still unreliable on phone (third defect)
+
+Phase 0 found and fixed two independent `@use-gesture` bugs (see the Phase 0 amendments: the 32ms `BEFORE_LAST_KINEMATICS_DELAY` staleness in `velocity`/`direction`, and `DragEngine`'s zero `axisThreshold.touch` silently locking the gesture to the wrong axis). A real-device pass on a preview deploy of the branch carrying **both** fixes still shows swipe problems, so this is a third, separate defect — not a regression of either fix, and not the stale-build case.
+
+**Deliberately not diagnosed yet.** Phase 0 already spent two rounds on this, and the standing rule on this repo is no fix without a root cause read out of source. A third round of guesswork is worse value than deferring it behind Phase 1's routing work, which has to touch real-device PWA verification anyway. Two prior wrong diagnoses on this exact bug (the v1 retro's "`SwipeBinary.tsx` always resolves right", then the first `vx * dirX` hypothesis, which was right in effect but wrong in mechanism) are the reason.
+
+**What must be captured before anyone writes code for this** — without it the next round is guesswork too:
+
+- Device, OS version, browser, and whether it was the installed PWA or a browser tab
+- Which failure it is, precisely: swipe does nothing (no commit), commits the wrong direction, commits when it shouldn't (accidental), fights vertical scroll, or card animates and then snaps back
+- Whether it reproduces on a fresh page load vs. only after several puzzles
+- Whether the tap fallback buttons still work when the gesture fails
+
+**Candidate hypotheses, none verified — listed so the next session doesn't re-derive them, not as a shortlist to try:**
+
+1. **PWA/service-worker cache.** Ruled unlikely (a preview deploy, not the installed app) but the installed PWA has its own cache lifetime; confirm the build hash on device before anything else.
+2. **`touchAction: 'pan-y'` vs. iOS Safari.** The card allows vertical panning; iOS can hand a near-diagonal gesture to the scroller and cancel the pointer stream mid-gesture (`pointercancel`), which `@use-gesture` surfaces as a gesture that just ends. Related to but distinct from the axis-lock bug already fixed.
+3. **The 20px `axisThreshold.touch` is now too generous** in the other direction — a short, fast, deliberate flick may not accumulate 20px before lift on a small screen, so the axis never locks and the drag never engages. This would be a tuning error introduced by the Phase 0 fix itself and is the first thing to test if the symptom is "short flicks do nothing, long drags work".
+4. **`DEFAULT_SWIPE_THRESHOLD` (120px / 0.3 px/ms) is simply too high for a phone-width card.** Still last resort, same reasoning as Phase 0: don't retune to paper over a mechanism bug.
+5. **framer-motion `x` spring fighting the drag transform** on lower-end Android — the card's own animation and the gesture writing to the same motion value.
+
+**Not in scope for OD-1:** any redesign of the swipe interaction, and any change that lowers a threshold without a written mechanism for why the current value is wrong.
 
 ---
 
@@ -52,12 +84,15 @@ Known bugs and unverified production state inherited from v1. All small, all wor
 
 **DoD:**
 
-- [ ] Swipe-binary `correct_direction` split lands in 45–55%, reproducible from a committed script, with a content-level test that would have caught the original 39/39 skew
-- [ ] `validate:content` hard-fails a deliberately skewed fixture (>65/35) and passes the rebalanced library; generator and `devPuzzles.ts` no longer anchor to one direction
-- [ ] Swipe gesture verified smooth and reliable on real iOS and Android phones — no dropped gestures, no accidental resolutions, no scroll fighting; root cause identified in writing and covered by a test
-- [ ] Browse on desktop: selecting a pattern renders an interactive puzzle in-layout; mobile flow unchanged, both widths tested
-- [ ] A production event is visible in PostHog, triggered from a real phone
-- [ ] Bad path on getcodoro.com returns HTTP 404; SW update prompt observed after a real deploy
+- [x] Swipe-binary `correct_direction` split lands in 45–55%, reproducible from a committed script, with a content-level test that would have caught the original 39/39 skew — **verified: 20 left / 19 right = 51.3% left**, `rebalanceSwipeDirection.ts` committed, `src/content/index.test.ts` asserts the distribution
+- [x] `validate:content` hard-fails a deliberately skewed fixture (>65/35) and passes the rebalanced library; generator and `devPuzzles.ts` no longer anchor to one direction — **verified**: `SWIPE_DIRECTION_SKEW_THRESHOLD` in `validatePuzzles.ts`, four fixture tests including the exact-boundary case; `generatePuzzles.ts` now ships both-direction worked examples
+- [ ] ~~Swipe gesture verified smooth and reliable on real iOS and Android phones~~ — **not met. Two root causes found, fixed, and tested (see amendments); a third defect survives both.** Tracked as **OD-1** in "Known open defects" above, owned by Phase 8. Phase 0 does not block on it
+- [x] Browse on desktop: selecting a pattern renders an interactive puzzle in-layout; mobile flow unchanged, both widths tested — **verified**: `PracticePage.tsx`'s early return is now `view === 'patterns' && !isDesktop`, covered in `PracticePage.test.tsx`
+- [ ] A production event is visible in PostHog, triggered from a real phone — **Thomas's, outstanding**
+- [ ] Bad path on getcodoro.com returns HTTP 404; SW update prompt observed after a real deploy — **Thomas's, outstanding.** Note this check is about to change meaning: Phase 1a adds `_redirects` and a SW `navigateFallbackDenylist`, and until those land the answer differs between a browser tab and the installed PWA. Verify it now against the current build anyway — it's the baseline 1a is measured against
+- [ ] Local rating reset available (export → edit → import) — the Phase 0 prompt asked for this as a PR note, since the stored rating is inflated by blind-right swipes taken before the rebalance. **Unconfirmed as delivered.** `exportData`/`importData` exist in `src/storage/exportImport.ts` and have no UI until Phase 7, so the procedure needs to be written down somewhere durable, not left in a PR description
+
+**Status: code complete, verification outstanding.** Every code item is merged or on `v2-phase-0-hotfix` and passing. The three unchecked boxes are all live-environment checks that cannot be done from the repo, plus OD-1. **Blocking on the last two before Phase 1 is correct** — Phase 1 changes URLs, which changes exactly what a 404 check and a service-worker update check mean, so verifying them against the current routing is the last moment they're cheap.
 
 **Amendment (code portions, post-implementation):** the swipe-direction skew,
 validator, generator, and desktop-Browse items above matched the plan as
@@ -124,26 +159,73 @@ answer" — is not a new defect: it's this section's already-documented
 that are genuinely correct code, not a code-level fix). Left as-is pending a
 scope decision on whether to pull it forward.
 
+**Amendment 3 (second real-device pass):** a device test against a Cloudflare
+preview of `v2-phase-0-hotfix` — a build carrying **both** gesture fixes
+above — still shows swipe problems. That makes it a third, independent
+defect rather than a regression or a stale build. It is **not** diagnosed
+here and **not** fixed here: logged as **OD-1** in the "Known open defects"
+table at the top of this document, owned by Phase 8, with the repro
+information that must be captured first and the unverified candidate
+hypotheses recorded so the next session starts from evidence rather than
+re-deriving them. Deferring rather than attempting a third same-session fix
+is deliberate — two prior diagnoses of this bug were wrong, and the standing
+rule is no fix without a root cause read out of source.
+
 ---
 
-## Phase 1 — URL routing + shareable puzzle links (1–2 sessions)
+## Phase 1 — URL routing + shareable puzzle links (split into 1a + 1b, see amendment)
 
 v1 has no router at all — `AppMode` is in-memory state, `/legal` isn't a real URL. v2 needs routing for shareability, per-route OG tags, and route-level code splitting (which Phase 7's performance work depends on).
 
+**Amendment (pre-implementation, split into 1a/1b):** this phase originally bundled two things with different risk profiles — routing infrastructure, and a shareability feature. They are now separate.
+
+The locked "validation posture" decision names v1's mistake as front-loading infrastructure over validation. Shipping share affordances, puzzle-link URLs, and OG work for an app with **no users and no marketing planned in v2**, _before_ the Phase 2 scrubber go/no-go, repeats it: if the checkpoint comes back "not fun," that work was spent making a product shareable that's about to be rethought. The routing half is different — it's a genuine prerequisite (Phase 7's code splitting depends on it, and retrofitting a router after Phases 3–4 add scrubber surfaces costs more than doing it now).
+
+So: **Phase 1a runs next. Phase 1b is gated on the Phase 2 go/no-go** and can then interleave anywhere, same as Phases 5–7.
+
+### Phase 1a — Routing (1 session)
+
 **Build:**
 
-1. Add a router. Recommendation: **wouter** (~2 KB) over react-router (~20 KB) — Phase 7 has to claw back ~58 KB of unused JS to hit Lighthouse 90+, so don't spend 20 KB on routing when the route table is seven entries. Tradeoff: less ecosystem; fine at this scale.
-2. Routes: `/` (home), `/practice`, `/daily`, `/rush`, `/browse`, `/legal`, `/puzzle/:id`. `AppMode` state is replaced by the route; NavRail/ModeSwitcher become links.
-3. `/puzzle/:id` renders any bundled puzzle in its native interaction type, unrated, with a "practice more like this" CTA into the app. This is the shareability feature — a URL anyone can open.
-4. Share affordance on the post-solve screen (Daily already has ShareCard/shareText — extend to include the puzzle URL; add share to Practice's solve state).
-5. Per-route `<title>`/OG description; update `404.html` links; ensure Cloudflare Pages SPA fallback still serves the app shell for valid deep links.
+1. Add a router. **wouter** (~2 KB) over react-router (~20 KB) — Phase 7 has to claw back ~58 KB of unused JS to hit Lighthouse 90+, so don't spend 20 KB on routing when the route table is six entries. Tradeoff: less ecosystem; fine at this scale.
+2. Routes: `/` (boot decision), `/practice`, `/daily`, `/rush`, `/browse`, `/legal`. `AppMode` state is replaced by the route; NavRail/ModeSwitcher/footer/Home CTAs become real links (`<a href>`, so cmd-click and middle-click work — that is most of the point of having URLs).
+3. `/` preserves `resolveBootMode`'s rule: a first-ever visitor still lands in Practice, a returning one in Home. Route-level code splitting stays, **and so does the eager prefetch of the landing route's chunk** — losing it silently regresses first paint and undercuts Phase 7.
+4. `/browse` becomes a real route, extracted from `PracticePage`'s `view` state machine (where Phase 0 deliberately left it). Desktop master-detail behavior from Phase 0 is preserved; mobile keeps the full-screen picker. `view === 'mastery'` stays internal state — not this phase's problem.
+5. **Cloudflare Pages deep-link serving.** There is no `public/_redirects` today, so a cold load of `getcodoro.com/legal` hits `404.html` rather than the app. The reflex fix (`/* /index.html 200`) is wrong: it makes every URL on the domain return 200 and kills the "bad path returns 404" requirement carried over from Phase 0. Enumerate real routes instead, and leave unknown paths falling through to `404.html`.
+6. **Service-worker navigate fallback.** `vite.config.ts` sets `workbox.navigateFallback: '/index.html'` with no denylist, so once the SW is installed _every_ navigation — including bad paths — is served the app shell from cache. 404 behavior therefore differs between a browser tab and the installed PWA, which makes the production 404 check pass or fail depending on which was tested. Add a denylist; do not touch `registerType: 'prompt'` or the update flow.
+7. Per-route `<title>` and meta description (browser- and screen-reader-facing; see 1b for why this does **not** fix unfurls). Update `404.html`'s links to real routes. Route-change focus and scroll management — a router regresses both by default.
 
 **DoD:**
 
-- [ ] Direct load of `getcodoro.com/legal` and `getcodoro.com/puzzle/<real-id>` on production renders the right content (no SPA-boot-to-home behavior)
-- [ ] Back/forward navigation behaves; PWA launch and SW update flow unaffected (re-verify installed-app launch on a real phone)
+- [ ] All six routes render; nav is real links; back/forward behaves
+- [ ] `/` still boots a first-ever visitor into Practice, a returning one into Home — with a test
+- [ ] Route-level code splitting intact **and** landing-route chunk still prefetched eagerly, with a test that would catch losing it
+- [ ] `/browse` is a real route; desktop master-detail preserved, mobile picker unchanged, both widths tested
+- [ ] Route changes move focus to the new page heading and reset scroll
+- [ ] `_redirects` enumerates real routes; `/nonsense` still returns a real 404; SW `navigateFallbackDenylist` decision written down
+- [ ] Direct load of `getcodoro.com/legal` on production renders the app (no SPA-boot-to-home)
+- [ ] PWA launch and SW update flow unaffected — re-verify installed-app launch on a real phone
+- [ ] `pnpm validate` green; exactly one new dependency (wouter)
+
+### Phase 1b — Shareable puzzle links (1 session, gated on the Phase 2 go/no-go)
+
+**Do not start this before the Phase 2 checkpoint returns "go."**
+
+**Build:**
+
+1. `/puzzle/:id` renders any bundled puzzle in its native interaction type, **unrated**, with a "practice more like this" CTA into `/practice` filtered to that puzzle's pattern. Bad id → real in-app not-found state.
+2. **Decide how "unrated" is enforced.** `shouldRateAttempt` switches exhaustively over `AttemptMode = 'practice' | 'daily' | 'rush'`, and that union is persisted (`src/storage/schema.ts`, `mode: z.enum([...])`, records stamped `schema_version: 3`). Three options, not equivalent: reuse `'rush'` (**no** — corrupts the attempt log and the event stream Phase 6 calibrates against); add a fourth mode (the exhaustive switch forces handling, but widens a persisted enum and drags in a schema-version decision); or **don't record link attempts at all** (recommended — leaves storage untouched and makes "never rated" structurally true rather than dependent on a correctly-written switch case).
+3. **Instrument the share loop.** If this ships uninstrumented, at the end of v2 nobody can answer "did anyone open a shared link," which makes the feature unevaluable — the exact v1 mistake. Additive to the locked telemetry schema, snake_case, nothing renamed: `puzzle_link_view` (`{ puzzle_id, interaction, found }` — `found: false` is the signal that someone shared a broken link), `puzzle_link_attempt`, `share_click` (`{ surface, puzzle_id }`). Update `src/telemetry/README.md` in the same commit. If option 3 above was taken, these events are the _only_ record of link activity — that's the point.
+4. Share affordance on post-solve screens. Daily and Rush already have parallel `ShareCard`/`shareText` implementations — extend Daily's text to carry the puzzle URL and add share to Practice's solve state, following the existing duplication convention rather than unifying all three as a drive-by.
+5. **Per-route OG: decide, don't default.** Client-side `<meta>` updates do not affect unfurls — Twitter, Slack, iMessage and Discord read served HTML and never run the JS. So every shared `/puzzle/:id` link unfurls with the generic site card no matter how correct the runtime meta handling from 1a is. Options: **(a)** accept it for v2 (zero cost, defensible while v2 is build-only); **(b1)** prerender static HTML per route at build time with per-puzzle title/description over the shared image (~114 files from a Vite `closeBundle` hook; also makes the `_redirects` problem mostly disappear, and is a Lighthouse win Phase 7 wants anyway); **(b2)** per-puzzle OG _images_ — note that `generateOgImage.ts` is deliberately text-free because fonts aren't guaranteed in the script environment, so this means bundling a font and rasterizing 108 cards, which is real work, not a variant of b1; **(c)** a Cloudflare Pages Function injecting meta at the edge — rejected, "no backend in v2" is locked. Recommendation: **(a) now, (b1) priced and handed to Phase 7, (b2) not before v3.**
+
+**DoD:**
+
+- [ ] Direct load of `getcodoro.com/puzzle/<real-id>` on production renders the right puzzle
 - [ ] Bad puzzle id → real not-found state, not a crash
-- [ ] Rating semantics unchanged: `/puzzle/:id` attempts are never rated
+- [ ] `/puzzle/:id` attempts are never rated — asserted at the storage/profile layer, not just by reading the code
+- [ ] Share telemetry lands in PostHog from production (depends on the Phase 0 PostHog verification actually being done)
+- [ ] OG option chosen and recorded here as an amendment, with the real cost of (b1)
 
 ---
 
@@ -278,6 +360,7 @@ The v1 modes stay worth playing. Everything here is from the todo-list items in 
 Feature freeze. Verification only — the v1 Phase 9 checklist, minus the adoption/marketing items (deliberately out of scope for v2, same reasoning as the v1 wrap-up).
 
 - [ ] `pnpm validate` green from a fresh clone
+- [ ] **Every row in "Known open defects" is closed by a commit, or carries a written waiver here.** OD-1 (swipe reliability on phone) is the one currently open — it is a flagship-interaction defect on the app's most-used gesture, so a waiver is a high bar, not a formality
 - [ ] Full interaction regression on two real phones (iOS + Android): all four quiz types + scrubber, Practice/Daily/Rush/Browse/puzzle-link paths
 - [ ] PWA: install, offline boot, SW update prompt against a real deploy
 - [ ] Production checks: 404, robots, per-route OG/meta, deep links, Lighthouse numbers recorded here as an amendment
@@ -296,32 +379,38 @@ No backend code in v2, but three cheap conventions keep v3's door open:
 
 ## Traceability — every `v2-backlog.md` item
 
-| Backlog item                                                     | Disposition                                                                                                  |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Execution scrubber (named v2 flagship)                           | Phases 2–4                                                                                                   |
-| Drag-and-drop code blocks interaction                            | Phase 5                                                                                                      |
-| Drag-and-drop jank / sizing on phone                             | Phase 5 (built into the new interaction's DoD)                                                               |
-| Puzzle shareability                                              | Phase 1                                                                                                      |
-| Puzzle separation + bigger libraries                             | Phase 6                                                                                                      |
-| Show puzzle rating on Daily after solving                        | Phase 5                                                                                                      |
-| Browse Puzzles selection bug                                     | Phase 0 (desktop-only layout defect)                                                                         |
-| LCP / Lighthouse 82 → 90+                                        | Phase 7                                                                                                      |
-| Swipe-binary always resolves "right"                             | Phase 0 — **rediagnosed**: content skew (39/39 `correct_direction: "right"`), not a `SwipeBinary.tsx` defect |
-| Swipe-binary has no genuinely-correct-code puzzles (deeper tell) | Phase 6 (surfaced by the Phase 0 rediagnosis)                                                                |
-| Swipe gesture buggy on phone                                     | Phase 0 (separate bug from the skew, not a symptom of it)                                                    |
-| Rush: progress bar, escalating difficulty, timer stakes          | Phase 5                                                                                                      |
-| No URL routing / `/legal` not deep-linkable                      | Phase 1                                                                                                      |
-| Export/import has no UI                                          | Phase 7                                                                                                      |
-| Production telemetry inactive                                    | Phase 0 (verify the out-of-repo fix)                                                                         |
-| 404 re-verification after next deploy                            | Phase 0                                                                                                      |
-| `generatePuzzles.ts` model/pricing split                         | Phase 4 (blocking precondition to any batch)                                                                 |
-| LLM difficulty ratings anchor to round numbers                   | Phases 4 & 6                                                                                                 |
-| No target language mix                                           | Phases 4 (scrubber) & 6 (quiz)                                                                               |
-| Content volume ceiling (108 ≈ four sessions)                     | Phases 4 & 6                                                                                                 |
-| Backend / leaderboard / social loop                              | **Deferred to v3** (locked decision)                                                                         |
-| Security/accounts block (Clerk, 2FA, rate limits, token storage) | **Deferred to v3** (follows backend)                                                                         |
-| AI features (unspecified)                                        | **Deferred** — undefined; define before scoping. The scrubber pipeline _is_ the v2 AI investment.            |
-| AI-generated reel videos (marketing)                             | **Deferred** — v2 is build-only, no marketing                                                                |
+| Backlog item                                                      | Disposition                                                                                                                                   |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Execution scrubber (named v2 flagship)                            | Phases 2–4                                                                                                                                    |
+| Drag-and-drop code blocks interaction                             | Phase 5                                                                                                                                       |
+| Drag-and-drop jank / sizing on phone                              | Phase 5 (built into the new interaction's DoD)                                                                                                |
+| Puzzle shareability                                               | Phase 1b (gated on the Phase 2 go/no-go)                                                                                                      |
+| Puzzle separation + bigger libraries                              | Phase 6                                                                                                                                       |
+| Show puzzle rating on Daily after solving                         | Phase 5                                                                                                                                       |
+| Browse Puzzles selection bug                                      | Phase 0 (desktop-only layout defect)                                                                                                          |
+| LCP / Lighthouse 82 → 90+                                         | Phase 7                                                                                                                                       |
+| Swipe-binary always resolves "right"                              | Phase 0 — **rediagnosed**: content skew (39/39 `correct_direction: "right"`), not a `SwipeBinary.tsx` defect                                  |
+| Swipe-binary has no genuinely-correct-code puzzles (deeper tell)  | Phase 6 (surfaced by the Phase 0 rediagnosis)                                                                                                 |
+| Swipe gesture buggy on phone                                      | Phase 0 — **two root causes fixed** (32ms kinematics staleness, zero touch `axisThreshold`); a third defect survives both → **OD-1**, Phase 8 |
+| Rush: progress bar, escalating difficulty, timer stakes           | Phase 5                                                                                                                                       |
+| No URL routing / `/legal` not deep-linkable                       | Phase 1a                                                                                                                                      |
+| No `_redirects` file — deep links 404 on Cloudflare Pages         | Phase 1a (surfaced while scoping 1a; the naive `/* /index.html 200` fix would break the 404 requirement)                                      |
+| SW `navigateFallback` has no denylist — 404 differs in PWA vs tab | Phase 1a (surfaced while scoping 1a)                                                                                                          |
+| Per-route OG tags don't unfurl (bots don't run JS)                | Phase 1b decides; prerender option (b1) priced and handed to Phase 7                                                                          |
+| Share loop uninstrumented                                         | Phase 1b (otherwise shareability is unevaluable at end of v2)                                                                                 |
+| Route-change focus/scroll management                              | Phase 1a (a router regresses both by default)                                                                                                 |
+| Swipe still unreliable on phone after both Phase 0 gesture fixes  | **OD-1** — Known open defects table, owned by Phase 8                                                                                         |
+| Export/import has no UI                                           | Phase 7                                                                                                                                       |
+| Production telemetry inactive                                     | Phase 0 (verify the out-of-repo fix)                                                                                                          |
+| 404 re-verification after next deploy                             | Phase 0                                                                                                                                       |
+| `generatePuzzles.ts` model/pricing split                          | Phase 4 (blocking precondition to any batch)                                                                                                  |
+| LLM difficulty ratings anchor to round numbers                    | Phases 4 & 6                                                                                                                                  |
+| No target language mix                                            | Phases 4 (scrubber) & 6 (quiz)                                                                                                                |
+| Content volume ceiling (108 ≈ four sessions)                      | Phases 4 & 6                                                                                                                                  |
+| Backend / leaderboard / social loop                               | **Deferred to v3** (locked decision)                                                                                                          |
+| Security/accounts block (Clerk, 2FA, rate limits, token storage)  | **Deferred to v3** (follows backend)                                                                                                          |
+| AI features (unspecified)                                         | **Deferred** — undefined; define before scoping. The scrubber pipeline _is_ the v2 AI investment.                                             |
+| AI-generated reel videos (marketing)                              | **Deferred** — v2 is build-only, no marketing                                                                                                 |
 
 ## Deferred to v3 — the trigger
 
