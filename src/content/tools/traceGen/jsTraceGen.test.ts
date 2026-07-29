@@ -69,6 +69,47 @@ describe('generateJsTrace — if/else branching', () => {
   })
 })
 
+describe('generateJsTrace — vars key order stability (P3)', () => {
+  it('keeps a variable in the column position it first appeared, even once a nested-scope binding (e.g. a loop counter) enters scope', () => {
+    // bindingNamesInScope/getAllBindings() lists the innermost scope's own
+    // bindings before its parent's, so without the fix `i` (bound in the
+    // for-loop's own nested scope) would jump ahead of sum/arr the moment
+    // the loop body is entered — see docs/v2-phase2-review.md (P3). toEqual
+    // above doesn't catch this (it ignores key order); this asserts on
+    // Object.keys directly.
+    const snippet =
+      'let sum = 0;\nlet arr = [1, 2];\nfor (let i = 0; i < arr.length; i++) {\n  sum += arr[i];\n}'
+    const result = generateJsTrace(snippet)
+
+    for (const step of result.steps) {
+      const expectedOrder = ['sum', 'arr', 'i'].filter((name) => name in step.vars)
+      expect(Object.keys(step.vars)).toEqual(expectedOrder)
+    }
+    // Sanity: this snippet does reach a step where all three are present —
+    // otherwise the loop above would vacuously pass without ever exercising
+    // the reordering scenario the fix targets.
+    expect(result.steps.some((step) => Object.keys(step.vars).length === 3)).toBe(true)
+  })
+})
+
+describe('generateJsTrace — multiple console.log calls between steps (P4)', () => {
+  it('joins two separate console.log calls before the same trace point with a newline, not a space', () => {
+    // The comma operator packs both calls into one ExpressionStatement, so
+    // both console.log side effects run before the single trace call the
+    // plugin inserts after it — the exact "two logs, one step" scenario an
+    // `output` checkpoint has to render faithfully.
+    const snippet = "console.log('a'), console.log('b');\nlet x = 1;"
+    const result = generateJsTrace(snippet)
+    expect(result.steps[0]?.output).toBe('"a"\n"b"')
+  })
+
+  it('still joins multiple arguments within a single console.log call with a space', () => {
+    const snippet = "console.log('a', 'b');\nlet x = 1;"
+    const result = generateJsTrace(snippet)
+    expect(result.steps[0]?.output).toBe('"a" "b"')
+  })
+})
+
 describe('generateJsTrace — determinism', () => {
   it('produces byte-identical (deep-equal) traces on repeated runs of the same snippet', () => {
     const snippet = 'let total = 0;\nfor (let i = 0; i < 5; i++) {\n  total += i;\n}'

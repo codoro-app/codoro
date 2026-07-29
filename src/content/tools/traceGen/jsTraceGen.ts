@@ -257,15 +257,36 @@ export function generateJsTrace(
   const steps: TraceStep[] = []
   let outputSinceLastTrace = ''
 
+  // First-seen order across the WHOLE trace, not each step's own insertion
+  // order: bindingNamesInScope/getAllBindings() lists the innermost scope's
+  // own bindings before its parent's, so a loop variable (bound in the
+  // loop's own nested scope) jumps ahead of outer-scope variables the
+  // moment the loop is entered, reordering the panel mid-scrub (P3,
+  // docs/v2-phase2-review.md). Fixing this at snapshot-display time, not in
+  // the babel instrumentation, keeps the instrumentation itself simple —
+  // each step's own `rawVars` still only contains whatever it actually
+  // caught in scope, this just re-keys the *display* object so a name
+  // keeps the column position it was first given, in every later step.
+  const varOrder: string[] = []
+  const seenVarNames = new Set<string>()
+
   function trace(line: number, rawVars: Record<string, unknown>): void {
     if (steps.length >= maxSteps) {
       throw new Error(
         `generateJsTrace: step budget exceeded (${String(maxSteps)} steps) — likely an infinite loop`,
       )
     }
+    for (const name of Object.keys(rawVars)) {
+      if (!seenVarNames.has(name)) {
+        seenVarNames.add(name)
+        varOrder.push(name)
+      }
+    }
     const vars: Record<string, string> = {}
-    for (const [name, value] of Object.entries(rawVars)) {
-      vars[name] = toDisplayString(value)
+    for (const name of varOrder) {
+      if (name in rawVars) {
+        vars[name] = toDisplayString(rawVars[name])
+      }
     }
     const step: TraceStep = outputSinceLastTrace
       ? { line, vars, output: outputSinceLastTrace }
@@ -276,8 +297,14 @@ export function generateJsTrace(
 
   const sandboxConsole = {
     log: (...args: unknown[]) => {
+      // '\n' between separate console.log calls (real terminal output, one
+      // line per call) — but a single call's own args still join with ' ',
+      // matching console.log's own multi-arg formatting (P4,
+      // docs/v2-phase2-review.md). Joining every call with ' ' collapsed
+      // two calls onto one line, so the displayed output could disagree
+      // with what the program actually printed for an `output` checkpoint.
       outputSinceLastTrace +=
-        (outputSinceLastTrace ? ' ' : '') + args.map(toDisplayString).join(' ')
+        (outputSinceLastTrace ? '\n' : '') + args.map(toDisplayString).join(' ')
     },
   }
 

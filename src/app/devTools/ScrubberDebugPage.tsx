@@ -129,7 +129,7 @@ function ScrubberRunner({ puzzle, onExit }: { puzzle: ScrubberPuzzle; onExit: ()
       {Object.entries(step.vars)
         .map(([name, value]) => `  ${name} = ${value}\n`)
         .join('')}
-      {step.output !== undefined ? `output so far: ${step.output}\n` : ''}
+      {step.output !== undefined ? `output since previous step: ${step.output}\n` : ''}
       {'\n'}
 
       {checkpointHere ? (
