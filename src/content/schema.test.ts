@@ -193,7 +193,10 @@ function validScrubber(overrides: Record<string, unknown> = {}): unknown {
         correct: 1,
       },
       {
-        afterStep: 2,
+        // step 0's x is '1', step 1's x is '2' — a genuine change, so this
+        // checkpoint satisfies the "target changed at this step" rule
+        // (afterStep: 2 would not: x stays '2' from step 1 to step 2).
+        afterStep: 1,
         question: 'var-value',
         target: 'x',
         choices: ['1', '2', '3'],
@@ -255,7 +258,7 @@ describe('PuzzleSchema — scrubber-specific', () => {
     const result = PuzzleSchema.safeParse(
       validScrubber({
         checkpoints: [
-          { afterStep: 2, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 1 },
+          { afterStep: 1, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 1 },
           { afterStep: 0, question: 'next-line', choices: ['0', '1', '2'], correct: 1 },
         ],
       }),
@@ -268,7 +271,7 @@ describe('PuzzleSchema — scrubber-specific', () => {
       validScrubber({
         checkpoints: [
           { afterStep: 0, question: 'next-line', choices: ['0', '1', '2'], correct: 3 },
-          { afterStep: 2, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 1 },
+          { afterStep: 1, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 1 },
         ],
       }),
     )
@@ -280,7 +283,7 @@ describe('PuzzleSchema — scrubber-specific', () => {
       validScrubber({
         checkpoints: [
           { afterStep: 0, question: 'next-line', choices: ['1', '1', '2'], correct: 0 },
-          { afterStep: 2, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 1 },
+          { afterStep: 1, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 1 },
         ],
       }),
     )
@@ -311,8 +314,8 @@ describe('PuzzleSchema — scrubber-specific', () => {
         checkpoints: [
           { afterStep: 0, question: 'next-line', choices: ['0', '1', '2'], correct: 1 },
           {
-            // step 2's x is '2'; claiming '1' is correct is a wrong trace.
-            afterStep: 2,
+            // step 1's x is '2'; claiming '1' is correct is a wrong trace.
+            afterStep: 1,
             question: 'var-value',
             target: 'x',
             choices: ['1', '2'],
@@ -330,7 +333,7 @@ describe('PuzzleSchema — scrubber-specific', () => {
         checkpoints: [
           // steps[1].line is 1; claiming 2 is the next line is a wrong trace.
           { afterStep: 0, question: 'next-line', choices: ['0', '1', '2'], correct: 2 },
-          { afterStep: 2, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 1 },
+          { afterStep: 1, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 1 },
         ],
       }),
     )
@@ -411,5 +414,54 @@ describe('PuzzleSchema — scrubber-specific', () => {
       }),
     )
     expect(result.success).toBe(false)
+  })
+
+  // Two new refinements (docs/v2-phase2-review.md, P1 Option B / P5): a
+  // masked checkpoint value only reads as a real question if the player had
+  // to compute it, and an output checkpoint only makes sense on a step that
+  // actually produced output. Corrupted fixtures, same one-per-refinement
+  // convention as above.
+  it('rejects a var-value checkpoint whose target did not change at that step', () => {
+    const result = PuzzleSchema.safeParse(
+      validScrubber({
+        checkpoints: [
+          { afterStep: 0, question: 'next-line', choices: ['0', '1', '2'], correct: 1 },
+          {
+            // step 1's x is '2' and step 2's x is '2' too — unchanged, so
+            // the masked value would already have been visible on screen a
+            // step before this question is asked.
+            afterStep: 2,
+            question: 'var-value',
+            target: 'x',
+            choices: ['1', '2'],
+            correct: 1,
+          },
+        ],
+      }),
+    )
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.message.includes('did not change'))).toBe(
+        true,
+      )
+    }
+  })
+
+  it('rejects an output checkpoint sitting on a step that produced no output', () => {
+    const result = PuzzleSchema.safeParse(
+      validScrubber({
+        checkpoints: [
+          { afterStep: 0, question: 'next-line', choices: ['0', '1', '2'], correct: 1 },
+          // step 1 (`x = x + 1;`) produces no console output.
+          { afterStep: 1, question: 'output', choices: ['1', '2'], correct: 0 },
+        ],
+      }),
+    )
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(
+        result.error.issues.some((issue) => issue.message.includes('produced no output')),
+      ).toBe(true)
+    }
   })
 })

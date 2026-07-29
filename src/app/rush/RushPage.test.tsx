@@ -20,7 +20,7 @@ const { FIXTURE_POOL } = vi.hoisted(() => ({
 
 vi.mock('../../content', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../content')>()
-  return { ...actual, puzzlePool: FIXTURE_POOL }
+  return { ...actual, puzzlePool: FIXTURE_POOL, quizPool: FIXTURE_POOL }
 })
 
 vi.mock('../../storage', async (importOriginal) => {

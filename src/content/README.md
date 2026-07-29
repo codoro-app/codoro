@@ -4,9 +4,22 @@ Puzzle data + Zod schema + validation. Built out in Phase 3.
 
 Public API is `src/content/index.ts` — the only file anything outside this
 folder should import from: `puzzlePool` (every validated puzzle, aggregated
-at build time), `PATTERN_SLUGS`/`PATTERN_LABELS`, `PuzzleSchema`, and the
-`Puzzle`/`McqPuzzle`/`SwipeBinaryPuzzle`/`TapLinePuzzle` types. `schema.ts`
-and `patterns.ts` are internal, same barrel convention as `storage/`.
+at build time), its `quizPool`/`scrubberPool` derivatives (see below),
+`PATTERN_SLUGS`/`PATTERN_LABELS`, `PuzzleSchema`, and the
+`Puzzle`/`McqPuzzle`/`SwipeBinaryPuzzle`/`TapLinePuzzle`/`ScrubberPuzzle`/
+`QuizPuzzle` types. `schema.ts` and `patterns.ts` are internal, same barrel
+convention as `storage/`.
+
+`quizPool` and `scrubberPool` partition `puzzlePool` by interaction —
+Practice, Daily, and Rush consume `quizPool` (scrubber has its own mode,
+Phase 3); the scrubber mode and the dev debug harness consume
+`scrubberPool`. Reach for `puzzlePool` itself only where the full union is
+genuinely correct: content-wide tooling (`contentStats.ts`,
+`validateContent.ts`) and pattern/mastery lookups that must resolve _any_
+puzzle id regardless of interaction (`mastery.ts`'s callers). Prefer the
+split pools everywhere else — see docs/v2-phase2-review.md (P0) for why an
+unfiltered pool reaching a quiz surface is a live bug class, not a style
+preference.
 
 `PATTERNS.md` and `CALIBRATION.md` are the product-facing docs behind the
 schema — the pattern taxonomy and the difficulty-rating rubric,

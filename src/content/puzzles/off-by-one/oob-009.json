@@ -8,19 +8,91 @@
   "snippet": "let sum = 0;\nconst arr = [10, 20, 30];\nfor (let i = 0; i <= arr.length; i++) {\n  sum += arr[i];\n}",
   "interaction": "scrubber",
   "steps": [
-    { "line": 0, "vars": { "sum": "0" } },
-    { "line": 1, "vars": { "sum": "0", "arr": "[10,20,30]" } },
-    { "line": 2, "vars": { "i": "0", "sum": "0", "arr": "[10,20,30]" } },
-    { "line": 3, "vars": { "i": "0", "sum": "10", "arr": "[10,20,30]" } },
-    { "line": 2, "vars": { "i": "1", "sum": "10", "arr": "[10,20,30]" } },
-    { "line": 3, "vars": { "i": "1", "sum": "30", "arr": "[10,20,30]" } },
-    { "line": 2, "vars": { "i": "2", "sum": "30", "arr": "[10,20,30]" } },
-    { "line": 3, "vars": { "i": "2", "sum": "60", "arr": "[10,20,30]" } },
-    { "line": 2, "vars": { "i": "3", "sum": "60", "arr": "[10,20,30]" } },
-    { "line": 3, "vars": { "i": "3", "sum": "NaN", "arr": "[10,20,30]" } }
+    {
+      "line": 0,
+      "vars": {
+        "sum": "0"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "sum": "0",
+        "arr": "[10,20,30]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "sum": "0",
+        "arr": "[10,20,30]",
+        "i": "0"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "sum": "10",
+        "arr": "[10,20,30]",
+        "i": "0"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "sum": "10",
+        "arr": "[10,20,30]",
+        "i": "1"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "sum": "30",
+        "arr": "[10,20,30]",
+        "i": "1"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "sum": "30",
+        "arr": "[10,20,30]",
+        "i": "2"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "sum": "60",
+        "arr": "[10,20,30]",
+        "i": "2"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "sum": "60",
+        "arr": "[10,20,30]",
+        "i": "3"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "sum": "NaN",
+        "arr": "[10,20,30]",
+        "i": "3"
+      }
+    }
   ],
   "checkpoints": [
-    { "afterStep": 6, "question": "next-line", "choices": ["1", "2", "3"], "correct": 2 },
+    {
+      "afterStep": 6,
+      "question": "next-line",
+      "choices": ["1", "2", "3"],
+      "correct": 2
+    },
     {
       "afterStep": 9,
       "question": "var-value",

@@ -43,7 +43,7 @@ export function setDevPuzzleMode(enabled: boolean): void {
 }
 
 /**
- * Practice/Rush call this in place of reading `puzzlePool` directly.
+ * Practice/Rush call this in place of reading `quizPool` directly.
  *
  * The `!import.meta.env.DEV` early return isn't just a fast path — Vite
  * inlines `import.meta.env.DEV` as the literal `false` in a production

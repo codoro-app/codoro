@@ -12,7 +12,7 @@
  * Node's fs), since they run outside Vite — see tools/loadPuzzles.ts.
  */
 import { PuzzleSchema } from './schema'
-import type { Puzzle } from './schema'
+import type { Puzzle, QuizPuzzle, ScrubberPuzzle } from './schema'
 
 const modules = import.meta.glob('./puzzles/**/*.json', {
   eager: true,
@@ -29,6 +29,22 @@ export const puzzlePool: Puzzle[] = Object.entries(modules)
     return result.data
   })
 
+/**
+ * Practice/Daily/Rush's pool — every puzzle except scrubber. Derived once
+ * here rather than trusting every consumer to remember to filter: Phase 2's
+ * scrubber puzzles were servable (and unplayable) in Practice precisely
+ * because `puzzlePool` was passed straight through with no filter at the
+ * call site. See docs/v2-phase2-review.md (P0).
+ */
+export const quizPool: QuizPuzzle[] = puzzlePool.filter(
+  (puzzle): puzzle is QuizPuzzle => puzzle.interaction !== 'scrubber',
+)
+
+/** The scrubber-only complement of `quizPool` — Phase 3's dedicated scrubber mode consumes this, not `puzzlePool`. */
+export const scrubberPool: ScrubberPuzzle[] = puzzlePool.filter(
+  (puzzle): puzzle is ScrubberPuzzle => puzzle.interaction === 'scrubber',
+)
+
 export { PATTERN_SLUGS, PATTERN_LABELS } from './patterns'
 export type { PatternSlug } from './patterns'
 
@@ -37,4 +53,11 @@ export { DAILY_CALENDAR } from './dailyCalendar'
 export { DEV_STUB_PUZZLES } from './devPuzzles'
 
 export { PuzzleSchema, ScrubberSchema, MIN_DIFFICULTY, MAX_DIFFICULTY } from './schema'
-export type { Puzzle, McqPuzzle, SwipeBinaryPuzzle, TapLinePuzzle, ScrubberPuzzle } from './schema'
+export type {
+  Puzzle,
+  McqPuzzle,
+  SwipeBinaryPuzzle,
+  TapLinePuzzle,
+  ScrubberPuzzle,
+  QuizPuzzle,
+} from './schema'

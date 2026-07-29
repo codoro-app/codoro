@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PuzzleCardShell } from './PuzzleCardShell'
-import type { McqPuzzle, SwipeBinaryPuzzle, TapLinePuzzle } from '../../content'
+import type { McqPuzzle, ScrubberPuzzle, SwipeBinaryPuzzle, TapLinePuzzle } from '../../content'
 import { nth } from '../../test/nth'
 
 // join(), not `new URL('./practice.css', import.meta.url)` — Vite
@@ -52,6 +52,22 @@ const tapLinePuzzle: TapLinePuzzle = {
   snippet: 'for (let i = 0; i < 3; i++) {\n  console.log(i)\n  break\n}',
   interaction: 'tap-line',
   correct_line: 2,
+}
+
+const scrubberPuzzle: ScrubberPuzzle = {
+  id: 'scl-999',
+  pattern: 'scope-closures',
+  difficulty_rating: 1700,
+  explanation: 'n/a',
+  prompt: 'n/a',
+  language: 'javascript',
+  snippet: 'let i = 0',
+  interaction: 'scrubber',
+  steps: [{ line: 0, vars: { i: '0' } }],
+  checkpoints: [
+    { afterStep: 0, question: 'next-line', choices: ['a', 'b'], correct: 0 },
+    { afterStep: 0, question: 'next-line', choices: ['a', 'b'], correct: 0 },
+  ],
 }
 
 describe('PuzzleCardShell', () => {
@@ -316,5 +332,27 @@ describe('PuzzleCardShell', () => {
     const darkBlockInPracticeCSS =
       /@media \(prefers-color-scheme: dark\)\s*\{([\s\S]*?)\.token\.keyword/.exec(css)
     expect(darkBlockInPracticeCSS).toBeNull()
+  })
+
+  // P0 regression: a scrubber puzzle used to render an empty, un-escapable
+  // .puzzle-card__interaction div (no branch matched it in the old
+  // &&-chain) — see docs/v2-phase2-review.md. The exhaustive switch fails
+  // loudly instead. This can only ever fire if quizPool's exclusion of
+  // scrubber is bypassed upstream; it's a backstop, not the primary fix.
+  it('throws a clear error for a scrubber puzzle instead of silently rendering an empty interaction (P0 regression)', () => {
+    // Suppress React's expected error-boundary console.error noise for this
+    // one assertion — the throw itself is what's under test.
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    expect(() =>
+      render(
+        <PuzzleCardShell
+          puzzle={scrubberPuzzle}
+          ratingDelta={null}
+          onAnswered={vi.fn()}
+          onContinue={vi.fn()}
+        />,
+      ),
+    ).toThrow(/scrubber puzzle "scl-999" reached the quiz shell/)
+    consoleError.mockRestore()
   })
 })

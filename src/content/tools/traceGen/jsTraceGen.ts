@@ -30,6 +30,46 @@ import type { TraceResult, TraceStep } from './types'
 
 const TRACE_FN = '__codoro_trace'
 
+/**
+ * Run once per sandbox, before the instrumented snippet, to make the three
+ * reachable nondeterministic APIs fail loudly instead of silently producing
+ * a different trace on every run (P2, docs/v2-phase2-review.md). `new
+ * Date(...)` with at least one explicit argument is passed through
+ * unchanged — that form is genuinely deterministic.
+ */
+const NONDETERMINISM_GUARD = `
+  Math.random = function random() {
+    throw new Error(
+      'generateJsTrace: Math.random() is not allowed in a trace snippet — traces must be deterministic (reproducible byte-for-byte). Remove the randomness or make it an explicit, fixed input instead.'
+    )
+  }
+  Date = new Proxy(Date, {
+    construct(target, args) {
+      if (args.length === 0) {
+        throw new Error(
+          'generateJsTrace: new Date() with no arguments is not allowed in a trace snippet — it is not deterministic. Pass explicit arguments, e.g. new Date(2024, 0, 1), if you need a fixed date.'
+        )
+      }
+      return Reflect.construct(target, args)
+    },
+    apply() {
+      throw new Error(
+        'generateJsTrace: Date() called as a function (not "new Date(...)") is not allowed in a trace snippet — it always returns the current time and is never deterministic.'
+      )
+    },
+    get(target, prop, receiver) {
+      if (prop === 'now') {
+        return function now() {
+          throw new Error(
+            'generateJsTrace: Date.now() is not allowed in a trace snippet — it is not deterministic.'
+          )
+        }
+      }
+      return Reflect.get(target, prop, receiver)
+    },
+  })
+`
+
 export interface GenerateJsTraceOptions {
   readonly maxSteps?: number
   readonly timeoutMs?: number
@@ -257,15 +297,36 @@ export function generateJsTrace(
   const steps: TraceStep[] = []
   let outputSinceLastTrace = ''
 
+  // First-seen order across the WHOLE trace, not each step's own insertion
+  // order: bindingNamesInScope/getAllBindings() lists the innermost scope's
+  // own bindings before its parent's, so a loop variable (bound in the
+  // loop's own nested scope) jumps ahead of outer-scope variables the
+  // moment the loop is entered, reordering the panel mid-scrub (P3,
+  // docs/v2-phase2-review.md). Fixing this at snapshot-display time, not in
+  // the babel instrumentation, keeps the instrumentation itself simple —
+  // each step's own `rawVars` still only contains whatever it actually
+  // caught in scope, this just re-keys the *display* object so a name
+  // keeps the column position it was first given, in every later step.
+  const varOrder: string[] = []
+  const seenVarNames = new Set<string>()
+
   function trace(line: number, rawVars: Record<string, unknown>): void {
     if (steps.length >= maxSteps) {
       throw new Error(
         `generateJsTrace: step budget exceeded (${String(maxSteps)} steps) — likely an infinite loop`,
       )
     }
+    for (const name of Object.keys(rawVars)) {
+      if (!seenVarNames.has(name)) {
+        seenVarNames.add(name)
+        varOrder.push(name)
+      }
+    }
     const vars: Record<string, string> = {}
-    for (const [name, value] of Object.entries(rawVars)) {
-      vars[name] = toDisplayString(value)
+    for (const name of varOrder) {
+      if (name in rawVars) {
+        vars[name] = toDisplayString(rawVars[name])
+      }
     }
     const step: TraceStep = outputSinceLastTrace
       ? { line, vars, output: outputSinceLastTrace }
@@ -276,20 +337,50 @@ export function generateJsTrace(
 
   const sandboxConsole = {
     log: (...args: unknown[]) => {
+      // '\n' between separate console.log calls (real terminal output, one
+      // line per call) — but a single call's own args still join with ' ',
+      // matching console.log's own multi-arg formatting (P4,
+      // docs/v2-phase2-review.md). Joining every call with ' ' collapsed
+      // two calls onto one line, so the displayed output could disagree
+      // with what the program actually printed for an `output` checkpoint.
       outputSinceLastTrace +=
-        (outputSinceLastTrace ? ' ' : '') + args.map(toDisplayString).join(' ')
+        (outputSinceLastTrace ? '\n' : '') + args.map(toDisplayString).join(' ')
     },
   }
 
-  // A bare object, not vm.createContext(globalThis) or similar — no require,
-  // process, fs, or timers are reachable from the sandboxed snippet. Only
+  // A bare object, not vm.createContext(globalThis) or similar — require,
+  // process, fs, and timers are not exposed as globals, so a snippet has no
+  // *direct* handle to them. This is NOT a security boundary, though:
+  // node:vm's isolation is explicitly not one (Node's own docs say so), and
+  // `this.constructor.constructor('return process')()` reaches out of the
+  // context via Function's constructor, which is still present because it's
+  // part of the JS realm itself. Fine while snippets are hand-authored (this
+  // phase); revisit before Phase 4 runs LLM-generated snippets, where the
+  // threat model changes from "my own code" to "code I did not write" — see
+  // docs/v2-phase2-review.md (P6) and the build plan's open-defects table.
   // console (captured, not real stdout) and the trace hook are exposed;
-  // language intrinsics (Object, Array, Math, JSON, ...) are still present
-  // because they're part of the JS realm itself, not something we add.
+  // other language intrinsics (Object, Array, Math, JSON, ...) are still
+  // present because they're part of the JS realm itself, not something we add.
   const sandbox = vm.createContext({
     console: sandboxConsole,
     [TRACE_FN]: trace,
   })
+
+  // Determinism is enforced, not just claimed (P2, docs/v2-phase2-review.md):
+  // Math.random/Date.now/new Date() (no-arg) are all reachable in a fresh
+  // vm realm and would otherwise let a snippet trace differently on every
+  // run, silently defeating "trace ground truth is the result of actually
+  // running the code." Throwing a named authoring error is the chosen
+  // posture over silently pinning a seed: a snippet that *looks*
+  // nondeterministic to a reader should fail loudly during authoring, not
+  // quietly produce a plausible-but-arbitrary trace. `new Date(2024, 0, 1)`
+  // (explicit arguments) is genuinely deterministic and stays allowed. Not
+  // guarded: an explicit-argument Date's locale-sensitive formatting
+  // (`toLocaleString()`, `Intl.DateTimeFormat`) can still vary by host
+  // timezone/locale — same-run reproducibility holds, but a trace generated
+  // on one machine could theoretically differ on another. Out of scope
+  // here (matches P2's stated scope); flag if a pilot ever needs it.
+  vm.runInContext(NONDETERMINISM_GUARD, sandbox, { displayErrors: true })
 
   vm.runInContext(code, sandbox, { timeout: timeoutMs, displayErrors: true })
 

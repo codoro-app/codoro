@@ -39,7 +39,7 @@ import {
 import type { RushInteraction, RushPuzzle } from '../../engine'
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, RushStats, UserProfile } from '../../storage'
-import { puzzlePool } from '../../content'
+import { quizPool } from '../../content'
 import { resolvePool } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle } from '../../content'
 import { trackError, trackRushAttempt, trackRushRunEnd } from '../../telemetry'
@@ -125,7 +125,7 @@ export function useRushSession(): RushSession {
   const pendingEndRef = useRef(false)
   const cancelledRef = useRef(false)
 
-  const activePool = resolvePool(puzzlePool)
+  const activePool = resolvePool(quizPool)
   const contentById = useRef(new Map(activePool.map((p) => [p.id, p])))
   const rushPool = useRef(activePool.filter(isRushEligible).map(toRushPuzzle))
 

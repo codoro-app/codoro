@@ -9,7 +9,7 @@ import process from 'node:process'
 import { getDailyNumber } from '../../engine/daily'
 import { DAILY_CALENDAR } from '../dailyCalendar'
 import { loadRawPuzzleFiles } from './loadPuzzles'
-import { validatePuzzleFiles } from './validatePuzzles'
+import { validateDailyCalendar, validatePuzzleFiles } from './validatePuzzles'
 
 const RUNWAY_WARNING_DAYS = 30
 
@@ -19,28 +19,6 @@ function todayDateString(date = new Date()): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${String(year)}-${month}-${day}`
-}
-
-/** Every calendar id must resolve to a real, valid puzzle, and ids must be unique within the calendar. */
-function validateDailyCalendar(validIds: ReadonlySet<string>): string[] {
-  const errors: string[] = []
-  const seen = new Set<string>()
-
-  DAILY_CALENDAR.forEach((id, index) => {
-    if (seen.has(id)) {
-      errors.push(`dailyCalendar.ts: duplicate id "${id}" at position ${String(index)}`)
-      return
-    }
-    seen.add(id)
-
-    if (!validIds.has(id)) {
-      errors.push(
-        `dailyCalendar.ts: entry "${id}" at position ${String(index)} does not match any valid puzzle`,
-      )
-    }
-  })
-
-  return errors
 }
 
 /**
@@ -68,8 +46,7 @@ function checkDailyCalendarRunway(): void {
 function main(): void {
   const files = loadRawPuzzleFiles()
   const { valid, errors } = validatePuzzleFiles(files)
-  const validIds = new Set(valid.map((entry) => entry.puzzle.id))
-  const allErrors = [...errors, ...validateDailyCalendar(validIds)]
+  const allErrors = [...errors, ...validateDailyCalendar(DAILY_CALENDAR, valid)]
 
   if (allErrors.length > 0) {
     console.error(`validate:content: ${String(allErrors.length)} problem(s) found:\n`)

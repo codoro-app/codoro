@@ -71,7 +71,13 @@ export const TapLineSchema = BaseSchema.extend({
 export const ScrubberStepSchema = z.object({
   line: z.number().int().nonnegative(),
   vars: z.record(z.string(), z.string()),
-  output: z.string().optional(),
+  // .min(1), not just optional: an authored `output: ""` would otherwise
+  // pass the "output is present" refinement below but could never match a
+  // `.min(1)` choice either, reproducing the exact confusing
+  // choices-mismatch error P5 was written to eliminate. The real trace
+  // generators never emit an empty string (they omit the field instead),
+  // so this only rejects content that was already unusable.
+  output: z.string().min(1).optional(),
 })
 
 /**
@@ -196,28 +202,70 @@ function validateScrubberCheckpoints(
         })
         return
       }
+      const target = checkpoint.target
       const step = requireStep(puzzle.steps, checkpoint.afterStep)
-      const actual = Object.hasOwn(step.vars, checkpoint.target)
-        ? step.vars[checkpoint.target]
-        : undefined
+      const actual = Object.hasOwn(step.vars, target) ? step.vars[target] : undefined
       if (actual === undefined) {
         ctx.addIssue({
           code: 'custom',
-          message: `target "${checkpoint.target}" is not a variable present at step ${String(checkpoint.afterStep)}`,
+          message: `target "${target}" is not a variable present at step ${String(checkpoint.afterStep)}`,
           path: [...path, 'target'],
         })
-      } else if (claimed !== actual) {
+        return
+      }
+      if (claimed !== actual) {
         ctx.addIssue({
           code: 'custom',
-          message: `var-value choices[correct] ("${String(claimed)}") does not match the trace's value ("${actual}") for "${checkpoint.target}"`,
+          message: `var-value choices[correct] ("${String(claimed)}") does not match the trace's value ("${actual}") for "${target}"`,
           path: [...path, 'choices'],
+        })
+      }
+
+      // Option B (docs/v2-phase2-review.md, P1): the checkpoint's target
+      // stays on screen at the pause, masked by the UI (Phase 3) — but that
+      // only reads as an honest question if the value the player fills in
+      // is one they had to actually compute. A target that has sat
+      // unchanged for one or more prior steps was already visible before
+      // the question was asked. `afterStep: 0` has no previous step to
+      // compare against — nothing was on screen before, so it counts as
+      // changed by definition. A target absent at the previous step and
+      // present now also counts as changed (it just entered scope).
+      const changedAtStep =
+        checkpoint.afterStep === 0 ||
+        (() => {
+          const previousStep = requireStep(puzzle.steps, checkpoint.afterStep - 1)
+          const previousValue = Object.hasOwn(previousStep.vars, target)
+            ? previousStep.vars[target]
+            : undefined
+          return previousValue !== actual
+        })()
+      if (!changedAtStep) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `var-value checkpoint targets "${target}" at step ${String(checkpoint.afterStep)}, but its value did not change from step ${String(checkpoint.afterStep - 1)} (still "${actual}") — the masked value would already have been visible on screen before this question was asked. Pick a checkpoint where the target's value actually changes at this step.`,
+          path: [...path, 'afterStep'],
         })
       }
     }
 
     if (checkpoint.question === 'output') {
       const step = requireStep(puzzle.steps, checkpoint.afterStep)
-      const actual = step.output ?? ''
+      // Option B (docs/v2-phase2-review.md, P1/P5): an output checkpoint
+      // asks "what did this line print?" — that question is only
+      // answerable if the step actually produced output. This was
+      // previously an emergent consequence of `actual = step.output ?? ''`
+      // (an empty string can never equal a `.min(1)` choice), never a
+      // stated rule; made explicit here with a message that tells an
+      // author what to do instead of a confusing choices mismatch.
+      if (step.output === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `an output checkpoint requires steps[${String(checkpoint.afterStep)}].output to be present — this step produced no output, so "what did this line print?" has no answer to ask about. Pick a step that actually produces output, or use a different question type.`,
+          path: [...path, 'afterStep'],
+        })
+        return
+      }
+      const actual = step.output
       if (claimed !== actual) {
         ctx.addIssue({
           code: 'custom',
@@ -261,3 +309,19 @@ export type McqPuzzle = z.infer<typeof McqSchema>
 export type SwipeBinaryPuzzle = z.infer<typeof SwipeBinarySchema>
 export type TapLinePuzzle = z.infer<typeof TapLineSchema>
 export type ScrubberPuzzle = z.infer<typeof ScrubberSchema>
+
+/**
+ * The element type of `quizPool` (src/content/index.ts) — every interaction
+ * except scrubber. Scrubber is deliberately excluded from this union: it
+ * gets its own mode/route/renderer (Phase 3), not a fourth branch in the
+ * quiz shell, per the Phase 2 corrective review's "own mode with shared
+ * rating" decision. Practice/Daily/Rush all serve from `quizPool`, typed to
+ * this union, rather than the full `Puzzle` union `puzzlePool` carries.
+ *
+ * `PuzzleCardShellProps.puzzle` is still typed `Puzzle` (not `QuizPuzzle`)
+ * — its exhaustive switch's `assertNever` default already forces a compile
+ * error for any truly new interaction, and scrubber itself is handled
+ * there with an explicit throw (see PuzzleCardShell.tsx), not by narrowing
+ * this prop's type. `QuizPuzzle` exists for the pool split, not the shell.
+ */
+export type QuizPuzzle = McqPuzzle | SwipeBinaryPuzzle | TapLinePuzzle

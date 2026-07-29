@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { puzzlePool } from './index'
+import { puzzlePool, quizPool, scrubberPool } from './index'
 
 /**
  * Rating-integrity regression: a `swipe-binary` puzzle whose `correct_direction`
@@ -28,5 +28,44 @@ describe('puzzlePool — swipe-binary direction distribution', () => {
     expect(leftCount).toBeGreaterThan(0)
     expect(rightRatio).toBeGreaterThanOrEqual(0.35)
     expect(rightRatio).toBeLessThanOrEqual(0.65)
+  })
+})
+
+/**
+ * P0 regression coverage over the real pool (not a fixture): a scrubber
+ * puzzle reaching Practice/Daily/Rush rendered an empty, un-escapable
+ * interaction div (no case for it in PuzzleCardShell's old &&-chain) — see
+ * docs/v2-phase2-review.md. `quizPool`/`scrubberPool` are the fix; this
+ * pins the partition against the actual shipped content so it fails the
+ * moment either filter's condition is loosened or inverted.
+ */
+describe('quizPool / scrubberPool — pool split', () => {
+  it('quizPool contains no scrubber puzzles', () => {
+    // Cast to a wider element type for this one check: `quizPool`'s own
+    // type (QuizPuzzle[]) already statically excludes 'scrubber', so
+    // comparing the narrowed field directly is flagged as a no-op
+    // comparison by tsc — this widens back to the runtime string field the
+    // filter predicate actually checks, so a predicate that silently lied
+    // about its type guard would still be caught here.
+    const interactions = (quizPool as readonly { interaction: string }[]).map(
+      (puzzle) => puzzle.interaction,
+    )
+    expect(interactions).not.toContain('scrubber')
+  })
+
+  it('scrubberPool contains only scrubber puzzles, and at least one (Phase 2 pilots)', () => {
+    expect(scrubberPool.length).toBeGreaterThan(0)
+    // Same widen-then-check as quizPool's test above — scrubberPool's own
+    // type already guarantees this statically.
+    const interactions = (scrubberPool as readonly { interaction: string }[]).map(
+      (puzzle) => puzzle.interaction,
+    )
+    expect(interactions.every((interaction) => interaction === 'scrubber')).toBe(true)
+  })
+
+  it('quizPool and scrubberPool partition puzzlePool exactly, with no overlap', () => {
+    expect(quizPool.length + scrubberPool.length).toBe(puzzlePool.length)
+    const scrubberIds = new Set(scrubberPool.map((puzzle) => puzzle.id))
+    expect(quizPool.some((puzzle) => scrubberIds.has(puzzle.id))).toBe(false)
   })
 })

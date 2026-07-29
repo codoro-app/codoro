@@ -13,6 +13,7 @@
  * — see practice.css.
  */
 import { useState } from 'react'
+import type { ReactNode } from 'react'
 import type { Puzzle } from '../../content'
 import type { CommitPayload } from './interactionTypes'
 import { highlightSnippet } from './highlightSnippet'
@@ -35,6 +36,18 @@ export interface PuzzleCardShellProps {
 interface CommitState {
   puzzleId: string
   payload: CommitPayload
+}
+
+/**
+ * Compile-time exhaustiveness enforcement for the switch below: if a future
+ * interaction is added to `Puzzle` without a case here, `puzzle` in the
+ * `default` branch narrows to that new member instead of `never`, and this
+ * call fails to compile. No shared type-utils module exists in this repo
+ * (checked — src/engine, src/storage, src/content all export domain logic
+ * only), so this stays local rather than inventing one for a single call site.
+ */
+function assertNever(value: never): never {
+  throw new Error(`PuzzleCardShell: unhandled interaction variant ${JSON.stringify(value)}`)
 }
 
 /**
@@ -74,38 +87,59 @@ export function PuzzleCardShell({
       ? null
       : highlightSnippet(puzzle.snippet, puzzle.language)
 
+  let interactionBody: ReactNode
+  switch (puzzle.interaction) {
+    case 'mcq':
+      interactionBody = (
+        <Mcq
+          puzzle={puzzle}
+          committed={committed}
+          committedPayload={committedPayload}
+          onCommit={handleCommit}
+        />
+      )
+      break
+    case 'swipe-binary':
+      interactionBody = (
+        <SwipeBinary
+          puzzle={puzzle}
+          committed={committed}
+          committedPayload={committedPayload}
+          onCommit={handleCommit}
+        />
+      )
+      break
+    case 'tap-line':
+      interactionBody = (
+        <TapLine
+          puzzle={puzzle}
+          committed={committed}
+          committedPayload={committedPayload}
+          onCommit={handleCommit}
+        />
+      )
+      break
+    case 'scrubber':
+      // Structurally excluded from Practice/Daily/Rush (they all serve from
+      // quizPool, not puzzlePool — see src/content/index.ts). Reaching this
+      // case means that guarantee broke somewhere upstream; fail loudly
+      // instead of silently rendering the empty, un-escapable interaction
+      // div this switch replaces (docs/v2-phase2-review.md, P0). Scrubber
+      // gets its own renderer in its own mode (Phase 3), not a branch here.
+      throw new Error(
+        `PuzzleCardShell: scrubber puzzle "${puzzle.id}" reached the quiz shell — scrubber must be served from scrubberPool by its own mode, never quizPool/puzzlePool.`,
+      )
+    default:
+      assertNever(puzzle)
+  }
+
   return (
     <div className="puzzle-card">
       <p className="puzzle-card__prompt">{puzzle.prompt}</p>
 
       {staticLines && <CodeSnippet lines={staticLines} />}
 
-      <div className="puzzle-card__interaction">
-        {puzzle.interaction === 'mcq' && (
-          <Mcq
-            puzzle={puzzle}
-            committed={committed}
-            committedPayload={committedPayload}
-            onCommit={handleCommit}
-          />
-        )}
-        {puzzle.interaction === 'swipe-binary' && (
-          <SwipeBinary
-            puzzle={puzzle}
-            committed={committed}
-            committedPayload={committedPayload}
-            onCommit={handleCommit}
-          />
-        )}
-        {puzzle.interaction === 'tap-line' && (
-          <TapLine
-            puzzle={puzzle}
-            committed={committed}
-            committedPayload={committedPayload}
-            onCommit={handleCommit}
-          />
-        )}
-      </div>
+      <div className="puzzle-card__interaction">{interactionBody}</div>
 
       {committed && committedPayload && (
         <div

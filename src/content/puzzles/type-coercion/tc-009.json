@@ -32,11 +32,11 @@
   ],
   "checkpoints": [
     {
-      "afterStep": 3,
+      "afterStep": 6,
       "question": "var-value",
       "target": "count",
       "choices": ["0", "1"],
-      "correct": 0
+      "correct": 1
     },
     { "afterStep": 16, "question": "output", "choices": ["5", "3", "2"], "correct": 1 }
   ]

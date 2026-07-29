@@ -8,13 +8,19 @@
   "snippet": "function addTax(cart) {\n  cart.push('tax');\n  return cart;\n}\nlet original = ['apple', 'banana'];\nlet withTax = addTax(original);",
   "interaction": "scrubber",
   "steps": [
-    { "line": 4, "vars": { "addTax": "[Function]", "original": "[\"apple\",\"banana\"]" } },
+    {
+      "line": 4,
+      "vars": {
+        "addTax": "[Function]",
+        "original": "[\"apple\",\"banana\"]"
+      }
+    },
     {
       "line": 1,
       "vars": {
-        "cart": "[\"apple\",\"banana\",\"tax\"]",
         "addTax": "[Function]",
-        "original": "[\"apple\",\"banana\",\"tax\"]"
+        "original": "[\"apple\",\"banana\",\"tax\"]",
+        "cart": "[\"apple\",\"banana\",\"tax\"]"
       }
     },
     {
@@ -27,7 +33,12 @@
     }
   ],
   "checkpoints": [
-    { "afterStep": 0, "question": "next-line", "choices": ["1", "4", "5"], "correct": 0 },
+    {
+      "afterStep": 0,
+      "question": "next-line",
+      "choices": ["1", "4", "5"],
+      "correct": 0
+    },
     {
       "afterStep": 1,
       "question": "var-value",
