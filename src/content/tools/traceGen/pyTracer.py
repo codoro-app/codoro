@@ -80,9 +80,36 @@ SAFE_REPR_TYPES = (
 )
 
 
+def _sanitize(value: object) -> object:
+    """Recursively replaces any address-leaking value (a function inside a
+    list, say) with its <typename> placeholder, so repr() of a container
+    never falls through to Python's default object repr for something it
+    contains. type(value) in SAFE_REPR_TYPES alone only caught this at the
+    top level — repr([some_lambda]) still calls the default repr on the
+    lambda itself, embedding its address, which is exactly the leak
+    to_display exists to prevent."""
+    t = type(value)
+    if t in (int, float, bool, str, type(None), complex, bytes):
+        return value
+    if t is list:
+        return [_sanitize(item) for item in value]
+    if t is tuple:
+        return tuple(_sanitize(item) for item in value)
+    if t is dict:
+        return {key: _sanitize(item) for key, item in value.items()}
+    if t is set:
+        return {_sanitize(item) for item in value}
+    if t is frozenset:
+        return frozenset(_sanitize(item) for item in value)
+    return f"<{t.__name__}>"
+
+
 def to_display(value: object) -> str:
+    # Top-level unsafe values return the bare placeholder (no quotes) —
+    # only nested occurrences inside a safe container go through repr(),
+    # which is what quotes a placeholder string like any other string.
     if type(value) in SAFE_REPR_TYPES:
-        return repr(value)
+        return repr(_sanitize(value))
     return f"<{type(value).__name__}>"
 
 

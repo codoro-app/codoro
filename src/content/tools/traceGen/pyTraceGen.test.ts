@@ -97,6 +97,16 @@ describe('generatePyTrace — determinism', () => {
   })
 })
 
+describe('generatePyTrace — nested address-free display', () => {
+  it('does not leak a memory address for a function nested inside a list', async () => {
+    const snippet = 'fns = []\nfns.append(lambda: 1)\n'
+    const result = await generatePyTrace(snippet)
+    const lastStep = result.steps.at(-1)
+    expect(lastStep?.vars.fns).toBe("['<function>']")
+    expect(lastStep?.vars.fns).not.toMatch(/0x/)
+  })
+})
+
 describe('generatePyTrace — step budget', () => {
   it('throws a clear error naming the budget when a snippet runs away', async () => {
     const snippet = 'x = 0\nwhile True:\n    x = x + 1\n'
