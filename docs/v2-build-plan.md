@@ -18,28 +18,29 @@ This plan absorbs `docs/v2-backlog.md`. Every backlog item is either assigned to
 
 ## Phase map
 
-| Phase | What                                               | Est. sessions    |
-| ----- | -------------------------------------------------- | ---------------- |
-| 0     | Carryover bug fixes + live-deploy verification     | 1–2              |
-| 1a    | URL routing                                        | 1                |
-| 1b    | Shareable puzzle links (gated on Phase 2 go/no-go) | 1                |
-| 2     | Scrubber spike: trace format, engine, tooling      | 2–3              |
-| 3     | Scrubber UI                                        | 2–3              |
-| 4     | Scrubber content pipeline + volume                 | 2–3              |
-| 5     | Quiz upgrades: drag-and-drop, Daily, Rush          | 2                |
-| 6     | Content calibration + quiz volume                  | 1–2 + batch runs |
-| 7     | Export/import UI + performance to Lighthouse 90+   | 1–2              |
-| 8     | Hardening + regression                             | 1                |
+| Phase | What                                                                                          | Est. sessions    |
+| ----- | --------------------------------------------------------------------------------------------- | ---------------- |
+| 0     | Carryover bug fixes + live-deploy verification                                                | 1–2              |
+| 1a    | URL routing                                                                                   | 1                |
+| 1b    | Shareable puzzle links (gated on Phase 2 go/no-go **and** Phase 3 completion — see amendment) | 1                |
+| 2     | Scrubber spike: trace format, engine, tooling                                                 | 2–3              |
+| 3     | Scrubber UI                                                                                   | 2–3              |
+| 4     | Scrubber content pipeline + volume                                                            | 2–3              |
+| 5     | Quiz upgrades: drag-and-drop, Daily, Rush                                                     | 2                |
+| 6     | Content calibration + quiz volume                                                             | 1–2 + batch runs |
+| 7     | Export/import UI + performance to Lighthouse 90+                                              | 1–2              |
+| 8     | Hardening + regression                                                                        | 1                |
 
-Phases 0 and 1a are prerequisites. Phases 2→3→4 are the flagship arc and must run in order. **Phase 1b is gated on the Phase 2 go/no-go** — see the Phase 1 amendment for why. Phases 1b and 5–7 are independent of each other and can interleave anywhere after that checkpoint if a scrubber session stalls.
+Phases 0 and 1a are prerequisites. Phases 2→3→4 are the flagship arc and must run in order. **Phase 1b is gated on the Phase 2 go/no-go _and_ Phase 3 shipping a scrubber renderer** (amended post-Phase-2-corrective — see the Phase 1 amendment and the Phase 1b section's own note for why: `/puzzle/:id` renders a puzzle in its native interaction, and there is no scrubber renderer until Phase 3). Phases 5–7 are independent of Phase 1b and each other and can interleave anywhere after the Phase 2 checkpoint if a scrubber session stalls.
 
 ## Known open defects
 
 Defects that are confirmed real but deliberately not being fixed right now. This table lives here — above the phases — rather than inside a phase amendment, because a defect buried in an amendment chain is a defect nobody reads again. **Nothing is removed from this table without a commit that fixes it.** Anything unfixed by the end of Phase 8 either blocks the phase or gets an explicit written waiver.
 
-| #    | Defect                                                                                                   | Confirmed on                                                                           | Owner phase | Status                                                                                   |
-| ---- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------- |
-| OD-1 | Swipe gesture still unreliable on phone _after_ both Phase 0 gesture fixes (32ms kinematics + axis lock) | Real device, Cloudflare preview build of `v2-phase-0-hotfix` (i.e. both fixes present) | Phase 8     | Open — **undiagnosed, no repro captured yet.** Do not fix speculatively; see notes below |
+| #    | Defect                                                                                                                                                                                                | Confirmed on                                                                                                                                    | Owner phase | Status                                                                                                                                                                                                                                       |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OD-1 | Swipe gesture still unreliable on phone _after_ both Phase 0 gesture fixes (32ms kinematics + axis lock)                                                                                              | Real device, Cloudflare preview build of `v2-phase-0-hotfix` (i.e. both fixes present)                                                          | Phase 8     | Open — **undiagnosed, no repro captured yet.** Do not fix speculatively; see notes below                                                                                                                                                     |
+| OD-2 | JS traceGen (`jsTraceGen.ts`) runs the snippet in-process via `node:vm`, which is not a security boundary — a crafted snippet can escape it (e.g. `this.constructor.constructor('return process')()`) | Phase 2 corrective review (`docs/v2-phase2-review.md`, P6); escape payload confirmed against this exact sandbox shape, not asserted generically | Phase 4     | Open — **deliberate, not urgent.** Fine while snippets are hand-authored (Phase 2/3); decide child-process isolation before Phase 4 runs LLM-generated snippets, where the threat model changes from "my own code" to "code I did not write" |
 
 ### OD-1 — swipe still unreliable on phone (third defect)
 
@@ -63,6 +64,12 @@ Phase 0 found and fixed two independent `@use-gesture` bugs (see the Phase 0 ame
 5. **framer-motion `x` spring fighting the drag transform** on lower-end Android — the card's own animation and the gesture writing to the same motion value.
 
 **Not in scope for OD-1:** any redesign of the swipe interaction, and any change that lowers a threshold without a written mechanism for why the current value is wrong.
+
+### OD-2 — `node:vm` is not a security boundary for JS trace generation
+
+`jsTraceGen.ts`'s doc comment used to overstate this ("no require, process, fs, or timers are reachable from the sandboxed snippet"), which is true of the naive path but not a security claim `node:vm` actually backs — Node's own docs say so, and the Phase 2 corrective review confirmed the standard escape payload (`this.constructor.constructor('return process')()`) resolves the real host `process` object against this exact sandbox shape, not just in the abstract.
+
+This is fine right now: Phase 2/3 snippets are hand-authored, so the threat model is "my own code," not "code I did not write." It stops being fine the moment Phase 4's batch pipeline runs LLM-generated snippets through this same generator unreviewed. **Not fixed here, deliberately** — the corrective PR that found this scoped the fix to enforcing determinism (Math.random/Date) and softening the doc comment to match reality, not to moving the JS backend to a child process (the Python backend already runs in a subprocess; JS does not). Phase 4 must decide, in writing, whether to isolate JS generation before its first batch run — this row stays open until that decision (and, if isolation is chosen, the commit implementing it) lands.
 
 ---
 
@@ -181,7 +188,7 @@ v1 has no router at all — `AppMode` is in-memory state, `/legal` isn't a real 
 
 The locked "validation posture" decision names v1's mistake as front-loading infrastructure over validation. Shipping share affordances, puzzle-link URLs, and OG work for an app with **no users and no marketing planned in v2**, _before_ the Phase 2 scrubber go/no-go, repeats it: if the checkpoint comes back "not fun," that work was spent making a product shareable that's about to be rethought. The routing half is different — it's a genuine prerequisite (Phase 7's code splitting depends on it, and retrofitting a router after Phases 3–4 add scrubber surfaces costs more than doing it now).
 
-So: **Phase 1a runs next. Phase 1b is gated on the Phase 2 go/no-go** and can then interleave anywhere, same as Phases 5–7.
+So: **Phase 1a runs next. Phase 1b is gated on the Phase 2 go/no-go** and can then interleave anywhere, same as Phases 5–7 — **amended post-Phase-2-corrective: Phase 1b is additionally gated on Phase 3 completion.** See the Phase 1b section's own note for why.
 
 ### Phase 1a — Routing (1 session)
 
@@ -224,13 +231,13 @@ None of these four change Amendment 3's per-context `/nonsense` table above: `/n
 
 **Bundle-size delta from `16036c3`:** built both commits from a shared `node_modules` (no dependency changes between them) and compared `dist/`. Total: **+230 bytes** (1,276,498 → 1,276,728) — effectively the "~0" this kind of change should cost. Per-chunk: `PracticePage-*.js` +52 bytes (four `{ replace: true }` additions), the App-entry chunk (`index-*.js`) +54 bytes (`bootRedirectPending`), `sw.js` +6 bytes (the longer denylist regex), `Home-*.js` and `LegalPage-*.js` unchanged.
 
-### Phase 1b — Shareable puzzle links (1 session, gated on the Phase 2 go/no-go)
+### Phase 1b — Shareable puzzle links (1 session, gated on the Phase 2 go/no-go **and** Phase 3 completion)
 
-**Do not start this before the Phase 2 checkpoint returns "go."**
+**Do not start this before the Phase 2 checkpoint returns "go."** **Amended post-Phase-2-corrective: also do not start this before Phase 3 ships.** `/puzzle/:id` renders a puzzle in its native interaction type (build item 1, below) — for a scrubber puzzle, that native interaction doesn't exist until Phase 3 builds it. Sequencing Phase 1b before Phase 3 would recreate this corrective PR's own P0 bug (a puzzle interaction type reachable with nothing to render it) at the shareable-link surface instead of Practice.
 
 **Build:**
 
-1. `/puzzle/:id` renders any bundled puzzle in its native interaction type, **unrated**, with a "practice more like this" CTA into `/practice` filtered to that puzzle's pattern. Bad id → real in-app not-found state.
+1. `/puzzle/:id` renders any bundled puzzle in its native interaction type, **unrated**, with a "practice more like this" CTA into `/practice` filtered to that puzzle's pattern. Bad id → real in-app not-found state. Consumes **`puzzlePool`** (the full union, every interaction type) — this is the reason `puzzlePool` survives as an export alongside `quizPool`/`scrubberPool` rather than being replaced by them; `/puzzle/:id` is the one app-facing surface where the full union is genuinely correct.
 2. **Decide how "unrated" is enforced.** `shouldRateAttempt` switches exhaustively over `AttemptMode = 'practice' | 'daily' | 'rush'`, and that union is persisted (`src/storage/schema.ts`, `mode: z.enum([...])`, records stamped `schema_version: 3`). Three options, not equivalent: reuse `'rush'` (**no** — corrupts the attempt log and the event stream Phase 6 calibrates against); add a fourth mode (the exhaustive switch forces handling, but widens a persisted enum and drags in a schema-version decision); or **don't record link attempts at all** (recommended — leaves storage untouched and makes "never rated" structurally true rather than dependent on a correctly-written switch case).
 3. **Instrument the share loop.** If this ships uninstrumented, at the end of v2 nobody can answer "did anyone open a shared link," which makes the feature unevaluable — the exact v1 mistake. Additive to the locked telemetry schema, snake_case, nothing renamed: `puzzle_link_view` (`{ puzzle_id, interaction, found }` — `found: false` is the signal that someone shared a broken link), `puzzle_link_attempt`, `share_click` (`{ surface, puzzle_id }`). Update `src/telemetry/README.md` in the same commit. If option 3 above was taken, these events are the _only_ record of link activity — that's the point.
 4. Share affordance on post-solve screens. Daily and Rush already have parallel `ShareCard`/`shareText` implementations — extend Daily's text to carry the puzzle URL and add share to Practice's solve state, following the existing duplication convention rather than unifying all three as a drive-by.
@@ -300,6 +307,18 @@ If any answer is bad, renegotiate here — shrink checkpoint types, restrict to 
 
 **Net go/no-go: proceed to Phase 3.** No answer above is bad enough to renegotiate the format, shrink checkpoint types, or restrict to JS-only. The one concrete carry-forward for Phase 4: price the bundle-bytes number above into its volume/pipeline planning rather than re-deriving it, and expect (not fear) a similar tooling tax the first time batch generation hits a trace shape these 5 pilots didn't exercise.
 
+**Amendment — post-merge corrective (P0–P6, `docs/v2-phase2-review.md`):** a post-merge review of the merged Phase 2 work found one critical defect live on `main` and one design flaw baked into the schema and all five pilots, plus four lower-severity issues. This corrective PR actioned six of the seven (P0, P1, P2, P3, P4, P5; P6's doc-comment half — the code half is **OD-2**, above):
+
+- **P0 (critical).** Scrubber puzzles were servable in Practice/Daily/Rush with no case in `PuzzleCardShell`'s interaction dispatch, rendering an empty, un-escapable interaction div. Fixed structurally, not by a rule to remember: `quizPool`/`scrubberPool` now partition `puzzlePool` once in `src/content/index.ts`; Practice/Daily/Rush consume `quizPool` only, and `PuzzleCardShell`'s dispatch is an exhaustive `switch` (`assertNever` default) that throws loudly for a scrubber puzzle instead of rendering nothing. Daily's calendar validator now rejects a scrubber id by rule (it was previously safe only by accident of the curated list's contents).
+- **P1 (design).** `var-value`/`output` checkpoints could ask about state that had already been visible on screen for one or more prior steps — a masked value the player didn't actually have to compute. **Locked decision: Option B** (keep `steps[afterStep]` semantics; mask the target row at the pause — Phase 3's job, not this PR's) **over Option A** (shift every question forward to `steps[afterStep + 1]`). Option A was rejected in one sentence: it silently fuses two questions into one at a loop boundary — "predict which line runs next, then predict its effect" — and a miss can't tell you which half was wrong, exactly where the interesting puzzles live. Option B ships with two new hard schema refinements (see Phase 2 corrective PR): a `var-value` checkpoint's target must have changed value since the previous step, and an `output` checkpoint must sit on a step that actually produced output. Two real pilot checkpoints (`scl-010`, and `tc-009` — found only by running the new rule, not anticipated by the review) needed re-picking as a result.
+- **P2.** JS trace determinism was claimed but unenforced (`Math.random`/`Date.now`/`new Date()` all reachable, and the existing determinism test could never fail regardless of whether the guarantee held). Now enforced: the sandbox throws a named authoring error for all three; `new Date(...)` with explicit arguments stays allowed, since that form is genuinely deterministic.
+- **P3.** `vars` key order reordered mid-scrub as bindings entered nested scopes (a loop counter jumping ahead of outer-scope variables). Fixed to first-seen order across the whole trace, computed at snapshot-display time. Python's backend was checked and found not to share this instability (no block scoping; frame/module-namespace order is already stable).
+- **P4.** Multiple `console.log` calls between two trace steps joined with `' '` instead of `'\n'`, able to disagree with what a real terminal would show for an `output` checkpoint. Fixed; the dev debug harness's "output so far:" label (which was never cumulative) is now "output since previous step:".
+- **P5.** An `output` checkpoint's inability to sit on an output-less step was an emergent, undocumented side effect of two unrelated schema rules. Made an explicit, stated refinement with an authoring-quality error message (folded into the P1 fix above, since both land in the same `superRefine` pass).
+- **P6 (doc comment only; code tracked as OD-2).** `jsTraceGen.ts`'s isolation claim overstated what `node:vm` provides. Softened to state plainly that it is not a security boundary, with the concrete escape payload confirmed against this sandbox's actual shape — fine for hand-authored snippets now, a decision Phase 4 must make deliberately before batch-generating from LLM output.
+
+**This amendment supersedes Phase 3 build items 3–4 below and the Phase 1b gating note** — see each section's own amendment for the mode-boundary and sequencing consequences.
+
 ---
 
 ## Phase 3 — Scrubber UI (2–3 sessions)
@@ -308,8 +327,8 @@ If any answer is bad, renegotiate here — shrink checkpoint types, restrict to 
 
 1. **Scrubber component** (`src/app/practice/interactions/Scrubber.tsx` + supporting pieces): code pane with current-line highlight, a state panel showing live variable values, and a scrub control. Mobile-first: the scrub control is a horizontal drag surface (chess.com-analysis-style), with prev/next tap targets; desktop gets arrow keys.
 2. **Checkpoint flow**: scrubbing forward locks at a checkpoint; player answers the prediction (reuses MCQ answer plumbing); reveal shows correct value + the state diff; scrubbing continues. After the final checkpoint, the standard explanation/solve screen.
-3. Integrate as a first-class interaction type in Practice (selection, rating via Phase 2 engine work, spaced-repetition requeue, telemetry events for per-checkpoint results).
-4. Daily and `/puzzle/:id` support scrubber puzzles automatically (interaction types are already per-puzzle).
+3. **Own mode, not a fourth Practice branch** (amended — see the Phase 2 corrective amendment above). Scrubber gets a dedicated route + session hook (`useScrubberSession.ts`/`ScrubberPage.tsx`, following Rush's structural precedent: `useRushSession.ts`/`RushPage.tsx` — a session shape distinct enough from Practice's single-commit-per-puzzle loop to warrant its own hook, same reasoning that already justifies Rush's). It consumes **`scrubberPool`** (never `quizPool`/`puzzlePool` directly — the pool split is a structural guarantee, not a per-caller filter to remember). Rated on the **same shared Elo ladder** as the quiz modes: one binary rated outcome per puzzle (all checkpoints correct on first try = solve, any miss = fail), exactly the decision already locked in `scrubber.ts` — no second rating number, no `UserProfile` schema bump. `checkpoint_results` is already logged per attempt (Phase 2's storage v4 work), so splitting the ladder later is possible on evidence if Phase 6 calibration ever calls for it; it is not this phase's job.
+4. Practice, Daily, and Rush stay quiz-only, serving from `quizPool` exclusively — this was the corrective PR's P0 fix and must not regress. **Daily serving a scrubber puzzle is explicitly out of scope for this phase** — the curated calendar and its validator already support the idea structurally (and already hard-reject a scrubber id today), but whether Daily ever serves one is a deliberate Phase 3+ **content** call, not a rendering decision this phase makes by default. `/puzzle/:id` (Phase 1b) is sequenced after this phase — see its own amended gating note — and will need its own dispatch decision (`puzzlePool`, the full union, is why that export still exists) when built.
 5. Respect v1's hard-won mobile lessons: safe-area insets, no scroll-vs-gesture conflicts (the drag surface must not fight page scroll), haptics on checkpoint results.
 
 **DoD:**
@@ -318,6 +337,8 @@ If any answer is bad, renegotiate here — shrink checkpoint types, restrict to 
 - [ ] Scrub gesture doesn't conflict with page scroll or PWA edge gestures on iOS
 - [ ] Rated attempt lifecycle (attempt log, rating update, requeue on miss) verified in tests for the scrubber path
 - [ ] Telemetry: `attempt` events carry interaction type + per-checkpoint results
+- [ ] Scrubber mode serves from `scrubberPool`, never `quizPool`/`puzzlePool` — asserted in a test, not by inspection (same standard as the Phase 2 corrective's `quizPool`-exclusion test)
+- [ ] The checkpoint's target row is masked at the pause — a render test asserts the target value is absent from the DOM until the player answers (Option B, docs/v2-phase2-review.md, P1)
 
 **You verify:** hand the phone to someone and say nothing. If they can't figure out scrubbing within ~15 seconds, the affordance is wrong — fix before Phase 4.
 
