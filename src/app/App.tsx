@@ -85,6 +85,16 @@ export function App() {
     return mode
   })
 
+  // "First-ever visitor" (bootMode === 'practice') and "currently
+  // redirecting" are different conditions — bootMode stays 'practice' for
+  // this App instance's whole lifetime, but the redirect itself only needs
+  // to suppress '/' for the one render before the layout effect below
+  // fires. Gating the '/' route on bootMode === 'practice' alone would keep
+  // it permanently blank: a later logo click back to '/' still has
+  // bootMode === 'practice' (state set once, never reset) but is no longer
+  // mid-redirect and should render Home like any other visit.
+  const [bootRedirectPending, setBootRedirectPending] = useState(() => bootMode === 'practice')
+
   // useLayoutEffect (not useEffect) so a first-ever visitor's redirect to
   // /practice is applied before the browser paints — otherwise Home would
   // flash for one frame first. Runs once, on mount only: the boot decision
@@ -93,6 +103,14 @@ export function App() {
     if (bootMode === 'practice') {
       navigate('/practice', { replace: true })
     }
+    // react-hooks/set-state-in-effect assumes setState-in-effect means
+    // "derive state from a prop/external source on every relevant change."
+    // This is the other legitimate case the rule doesn't model: settling a
+    // one-shot boot flag exactly once, synchronously, before paint, from
+    // the same effect that performs the redirect it gates — there is no
+    // prop/state input to derive this from during render instead.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setBootRedirectPending(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -102,7 +120,13 @@ export function App() {
         <Suspense fallback={null}>
           <Switch>
             <Route path="/">
-              <Home />
+              {/* bootRedirectPending is true for exactly the one render
+                  between the initializer above deciding a first-ever
+                  visitor belongs on /practice and the layout effect below
+                  committing that redirect — Home must not mount (and its
+                  lazy() ctor must not fire, which is what actually
+                  requests its chunk) for that single frame. */}
+              {bootRedirectPending ? null : <Home />}
             </Route>
             <Route path="/practice">
               <PracticePage />
