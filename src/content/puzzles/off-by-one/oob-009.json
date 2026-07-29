@@ -1,0 +1,32 @@
+{
+  "id": "oob-009",
+  "pattern": "off-by-one",
+  "difficulty_rating": 1300,
+  "explanation": "The loop condition uses `i <= arr.length` instead of `i < arr.length`, so the final iteration reads `arr[3]` — one past the last valid index. `arr[3]` is `undefined`, and `sum += undefined` silently turns `sum` into `NaN` instead of throwing, so the bug produces a wrong number rather than a crash.",
+  "prompt": "Step through this loop and predict what happens at each point.",
+  "language": "javascript",
+  "snippet": "let sum = 0;\nconst arr = [10, 20, 30];\nfor (let i = 0; i <= arr.length; i++) {\n  sum += arr[i];\n}",
+  "interaction": "scrubber",
+  "steps": [
+    { "line": 0, "vars": { "sum": "0" } },
+    { "line": 1, "vars": { "sum": "0", "arr": "[10,20,30]" } },
+    { "line": 2, "vars": { "i": "0", "sum": "0", "arr": "[10,20,30]" } },
+    { "line": 3, "vars": { "i": "0", "sum": "10", "arr": "[10,20,30]" } },
+    { "line": 2, "vars": { "i": "1", "sum": "10", "arr": "[10,20,30]" } },
+    { "line": 3, "vars": { "i": "1", "sum": "30", "arr": "[10,20,30]" } },
+    { "line": 2, "vars": { "i": "2", "sum": "30", "arr": "[10,20,30]" } },
+    { "line": 3, "vars": { "i": "2", "sum": "60", "arr": "[10,20,30]" } },
+    { "line": 2, "vars": { "i": "3", "sum": "60", "arr": "[10,20,30]" } },
+    { "line": 3, "vars": { "i": "3", "sum": "NaN", "arr": "[10,20,30]" } }
+  ],
+  "checkpoints": [
+    { "afterStep": 6, "question": "next-line", "choices": ["1", "2", "3"], "correct": 2 },
+    {
+      "afterStep": 9,
+      "question": "var-value",
+      "target": "sum",
+      "choices": ["60", "90", "NaN"],
+      "correct": 2
+    }
+  ]
+}

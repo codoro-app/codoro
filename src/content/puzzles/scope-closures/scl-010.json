@@ -1,0 +1,51 @@
+{
+  "id": "scl-010",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1700,
+  "explanation": "Each `lambda: i` closes over the variable `i` itself, not its value at the moment the lambda was created — Python has no per-iteration loop scope, so all three lambdas share one binding. By the time any lambda is actually called (in the list comprehension on the last line), the loop has already finished and `i` holds its final value, `2`, so every lambda returns `2`.",
+  "prompt": "Step through this loop and list comprehension and predict what `vals` ends up holding.",
+  "language": "python",
+  "snippet": "adders = []\nfor i in range(3):\n    adders.append(lambda: i)\nvals = [f() for f in adders]\n",
+  "interaction": "scrubber",
+  "steps": [
+    { "line": 0, "vars": { "adders": "[]" } },
+    { "line": 1, "vars": { "adders": "[]", "i": "0" } },
+    { "line": 2, "vars": { "adders": "['<function>']", "i": "0" } },
+    { "line": 1, "vars": { "adders": "['<function>']", "i": "1" } },
+    { "line": 2, "vars": { "adders": "['<function>', '<function>']", "i": "1" } },
+    { "line": 1, "vars": { "adders": "['<function>', '<function>']", "i": "2" } },
+    { "line": 2, "vars": { "adders": "['<function>', '<function>', '<function>']", "i": "2" } },
+    { "line": 1, "vars": { "adders": "['<function>', '<function>', '<function>']", "i": "2" } },
+    { "line": 2, "vars": {} },
+    { "line": 3, "vars": { ".0": "<list_iterator>", "f": "<function>" } },
+    { "line": 2, "vars": {} },
+    { "line": 3, "vars": { ".0": "<list_iterator>", "f": "<function>" } },
+    { "line": 2, "vars": {} },
+    { "line": 3, "vars": { ".0": "<list_iterator>", "f": "<function>" } },
+    { "line": 3, "vars": { ".0": "<list_iterator>", "f": "<function>" } },
+    {
+      "line": 3,
+      "vars": {
+        "adders": "['<function>', '<function>', '<function>']",
+        "i": "2",
+        "vals": "[2, 2, 2]"
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 7,
+      "question": "var-value",
+      "target": "i",
+      "choices": ["2", "3"],
+      "correct": 0
+    },
+    {
+      "afterStep": 15,
+      "question": "var-value",
+      "target": "vals",
+      "choices": ["[0, 1, 2]", "[2, 2, 2]", "[0, 0, 0]"],
+      "correct": 1
+    }
+  ]
+}

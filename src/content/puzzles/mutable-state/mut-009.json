@@ -1,0 +1,39 @@
+{
+  "id": "mut-009",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1400,
+  "explanation": "`addTax` receives `cart` as a reference to the same array `original` points to, not a copy. `cart.push('tax')` mutates that shared array in place, so `original` already reflects the pushed value the moment `push` runs — before `addTax` even returns or `withTax` is assigned.",
+  "prompt": "Step through this snippet and predict what happens to `original`.",
+  "language": "javascript",
+  "snippet": "function addTax(cart) {\n  cart.push('tax');\n  return cart;\n}\nlet original = ['apple', 'banana'];\nlet withTax = addTax(original);",
+  "interaction": "scrubber",
+  "steps": [
+    { "line": 4, "vars": { "addTax": "[Function]", "original": "[\"apple\",\"banana\"]" } },
+    {
+      "line": 1,
+      "vars": {
+        "cart": "[\"apple\",\"banana\",\"tax\"]",
+        "addTax": "[Function]",
+        "original": "[\"apple\",\"banana\",\"tax\"]"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "addTax": "[Function]",
+        "original": "[\"apple\",\"banana\",\"tax\"]",
+        "withTax": "[\"apple\",\"banana\",\"tax\"]"
+      }
+    }
+  ],
+  "checkpoints": [
+    { "afterStep": 0, "question": "next-line", "choices": ["1", "4", "5"], "correct": 0 },
+    {
+      "afterStep": 1,
+      "question": "var-value",
+      "target": "original",
+      "choices": ["[\"apple\",\"banana\"]", "[\"apple\",\"banana\",\"tax\"]"],
+      "correct": 1
+    }
+  ]
+}

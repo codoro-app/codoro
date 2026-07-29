@@ -1,0 +1,43 @@
+{
+  "id": "tc-009",
+  "pattern": "type-coercion",
+  "difficulty_rating": 1100,
+  "explanation": "`if v:` treats `0` as falsy, so both `0`-valued entries in `values` are silently skipped — `count` only increments for the three non-zero entries, ending at `3` instead of the list's length, `5`.",
+  "prompt": "Step through this loop and predict what gets printed.",
+  "language": "python",
+  "snippet": "count = 0\nvalues = [0, 1, 2, 0, 3]\nfor v in values:\n    if v:\n        count += 1\nprint(count)\n",
+  "interaction": "scrubber",
+  "steps": [
+    { "line": 0, "vars": { "count": "0" } },
+    { "line": 1, "vars": { "count": "0", "values": "[0, 1, 2, 0, 3]" } },
+    { "line": 2, "vars": { "count": "0", "values": "[0, 1, 2, 0, 3]", "v": "0" } },
+    { "line": 3, "vars": { "count": "0", "values": "[0, 1, 2, 0, 3]", "v": "0" } },
+    { "line": 2, "vars": { "count": "0", "values": "[0, 1, 2, 0, 3]", "v": "1" } },
+    { "line": 3, "vars": { "count": "0", "values": "[0, 1, 2, 0, 3]", "v": "1" } },
+    { "line": 4, "vars": { "count": "1", "values": "[0, 1, 2, 0, 3]", "v": "1" } },
+    { "line": 2, "vars": { "count": "1", "values": "[0, 1, 2, 0, 3]", "v": "2" } },
+    { "line": 3, "vars": { "count": "1", "values": "[0, 1, 2, 0, 3]", "v": "2" } },
+    { "line": 4, "vars": { "count": "2", "values": "[0, 1, 2, 0, 3]", "v": "2" } },
+    { "line": 2, "vars": { "count": "2", "values": "[0, 1, 2, 0, 3]", "v": "0" } },
+    { "line": 3, "vars": { "count": "2", "values": "[0, 1, 2, 0, 3]", "v": "0" } },
+    { "line": 2, "vars": { "count": "2", "values": "[0, 1, 2, 0, 3]", "v": "3" } },
+    { "line": 3, "vars": { "count": "2", "values": "[0, 1, 2, 0, 3]", "v": "3" } },
+    { "line": 4, "vars": { "count": "3", "values": "[0, 1, 2, 0, 3]", "v": "3" } },
+    { "line": 2, "vars": { "count": "3", "values": "[0, 1, 2, 0, 3]", "v": "3" } },
+    {
+      "line": 5,
+      "vars": { "count": "3", "values": "[0, 1, 2, 0, 3]", "v": "3" },
+      "output": "3"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "count",
+      "choices": ["0", "1"],
+      "correct": 0
+    },
+    { "afterStep": 16, "question": "output", "choices": ["5", "3", "2"], "correct": 1 }
+  ]
+}
