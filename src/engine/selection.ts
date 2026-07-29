@@ -40,6 +40,24 @@ export interface SelectionInput {
   readonly recentIds: readonly string[]
   readonly requeueState: RequeueState
   readonly rng: Rng
+  /**
+   * The `source` this same caller got back from its immediately preceding
+   * `selectNext` call (or `null` at the start of a session).
+   *
+   * Guards against requeue starvation: whenever several puzzles are being
+   * missed repeatedly, each miss resets that entry's stage back to a 3-tick
+   * countdown (see requeue.ts's LADDER_INTERVALS doc comment), and with 3+
+   * entries cycling on that reset, at least one is due on literally every
+   * tick — so without this guard the due-injection loop below never falls
+   * through to `pickFromWindow` again, and the session gets permanently
+   * stuck replaying only the missed set (reproduced by simulation: reported
+   * as "cycles through about the same 4" after a run of misses). Requiring
+   * one non-requeue serve between any two requeue serves bounds a due
+   * backlog to at most every other serve, which is enough to guarantee
+   * fresh puzzles keep interleaving no matter how many entries are
+   * simultaneously due.
+   */
+  readonly lastSource: SelectionSource | null
 }
 
 const MIN_ELIGIBLE = 10
@@ -54,7 +72,7 @@ const WIDEN_STEP = 100
  * puzzle was actually served this call.
  */
 export function selectNext(input: SelectionInput): SelectionResult | null {
-  const { pool, rating, recentIds, requeueState, rng } = input
+  const { pool, rating, recentIds, requeueState, rng, lastSource } = input
   if (pool.length === 0) {
     return null
   }
@@ -66,13 +84,19 @@ export function selectNext(input: SelectionInput): SelectionResult | null {
   // in the pool takes precedence over a fresh window pick. If a due entry's
   // puzzle is no longer present (content changed/removed) we skip it gracefully
   // and leave it due for a following tick, falling through to a window pick.
-  for (const entry of due) {
-    const puzzle = pool.find((candidate) => candidate.id === entry.puzzleId)
-    if (puzzle) {
-      return {
-        puzzle,
-        source: 'requeue',
-        newRequeueState: resurface(ticked, entry.puzzleId),
+  //
+  // Skipped entirely when the previous serve was itself a requeue entry (see
+  // `lastSource`'s doc comment) — this is what bounds the requeue backlog to
+  // at most every other serve instead of being able to starve window picks.
+  if (lastSource !== 'requeue') {
+    for (const entry of due) {
+      const puzzle = pool.find((candidate) => candidate.id === entry.puzzleId)
+      if (puzzle) {
+        return {
+          puzzle,
+          source: 'requeue',
+          newRequeueState: resurface(ticked, entry.puzzleId),
+        }
       }
     }
   }

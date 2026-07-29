@@ -79,6 +79,51 @@ immune to any single frame's timing) via a new `signedVelocityFromGesture` in
 not retuned. Device verification (real iOS/Android feel) is still Thomas's,
 per this section's original split of responsibilities.
 
+**Amendment 2 (post-merge, real-device report):** after merging, real-phone
+testing surfaced two further defects the above work didn't reach, both
+confirmed by reading source/simulating before touching code (no fix without
+root cause):
+
+- **Gesture still dropped on phone.** A second, independent `@use-gesture`
+  bug beyond the 32ms kinematics staleness fixed above: `DragEngine.ts`'s
+  axis-intent lock (`axis: 'x'` in `SwipeBinary.tsx`'s `useDrag` config)
+  defaults `axisThreshold` to `{ mouse: 0, touch: 0, pen: 8 }`. Zero tolerance
+  for touch means the very first touchmove sample permanently locks the
+  gesture's axis; real touchscreen jitter easily makes that first sample's
+  vertical delta exceed its horizontal one, locking axis to `'y'` and then
+  silently blocking every subsequent frame — including the final pointerup
+  one — before it ever reaches the bound callback (`Engine.ts`'s `_blocked`
+  emit-skip). The swipe just vanishes, with no error. This can't reproduce
+  through a mouse or through the component test's mocked `useDrag` (both
+  produce clean axis-dominant deltas), which is why it survived the previous
+  fix and the full test suite. Fix: `axisThreshold: { touch: 20 }` added to
+  the `useDrag` config, giving touch a few pixels of grace before locking the
+  axis, matching the tolerance `@use-gesture` already gives `pen` by default.
+- **Wrong-answer requeue starved fresh puzzles ("cycles through the same
+  4").** Confirmed by simulating `src/engine/selection.ts` + `requeue.ts`
+  directly: `selectNext`'s due-entry loop unconditionally preempts a fresh
+  window pick whenever anything is due, with no bound on consecutive requeue
+  serves. Missing a requeued puzzle again resets its ladder to a 3-tick
+  countdown (`recordMiss`); once 3+ puzzles are cycling on that reset, at
+  least one is due on literally every tick, so window picks never run again —
+  the session gets permanently stuck replaying only the missed set. This also
+  produced the reported "all swipes are left": a new user's rating-window
+  puzzle set is small (5 swipe-binary puzzles within ±200 of the 1200
+  starting rating, 4 of them "left" by chance), and getting caught in the
+  starvation loop on that small, skewed set reads as "always left" even
+  though the full library is a genuine 48.7%/51.3% split. Fix: `selectNext`
+  gained a `lastSource` input — the caller's previous serve source — and now
+  skips due-entry injection entirely when the previous serve was itself a
+  requeue entry, bounding the requeue share of servings to at most every
+  other serve. `usePracticeSession.ts` tracks this in a plain ref
+  (`lastSourceRef`), the same pattern already used for `recentIds`.
+
+The fourth report — "the label naming a bug is always the correct
+answer" — is not a new defect: it's this section's already-documented
+"deeper tell" above, already scoped to Phase 6 (content-authoring: snippets
+that are genuinely correct code, not a code-level fix). Left as-is pending a
+scope decision on whether to pull it forward.
+
 ---
 
 ## Phase 1 — URL routing + shareable puzzle links (1–2 sessions)
