@@ -145,6 +145,16 @@ def main() -> None:
             raise RuntimeError(
                 f"step budget exceeded ({max_steps} steps) - likely an infinite loop"
             )
+        # Key order here is stable first-seen order, not just deterministic —
+        # unlike the JS backend (docs/v2-phase2-review.md, P3), Python has no
+        # block scoping, so a for/if introduces no nested scope whose own
+        # bindings could jump ahead of the enclosing frame's. Module-level
+        # f_locals is the real namespace dict (insertion order = first-executed
+        # order); a function's f_locals reflects co_varnames (fixed by the
+        # compiler at first textual appearance). Verified against
+        # pyTraceGen.test.ts's "loop state" fixture (total/i never reorder
+        # across any step) and an independent probe during the Phase 2
+        # corrective — no fix needed on this side.
         vars_out = {
             name: to_display(value)
             for name, value in f_locals.items()

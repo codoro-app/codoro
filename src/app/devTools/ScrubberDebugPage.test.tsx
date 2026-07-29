@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { ScrubberDebugPage } from './ScrubberDebugPage'
 
 /**
- * Exercises the real puzzlePool (not a fixture) end-to-end through the
+ * Exercises the real scrubberPool (not a fixture) end-to-end through the
  * debug harness — this is the DoD's "5 pilot puzzles ... are playable on
  * the debug route" check, automated rather than only eyeballed.
  */

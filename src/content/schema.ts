@@ -71,7 +71,13 @@ export const TapLineSchema = BaseSchema.extend({
 export const ScrubberStepSchema = z.object({
   line: z.number().int().nonnegative(),
   vars: z.record(z.string(), z.string()),
-  output: z.string().optional(),
+  // .min(1), not just optional: an authored `output: ""` would otherwise
+  // pass the "output is present" refinement below but could never match a
+  // `.min(1)` choice either, reproducing the exact confusing
+  // choices-mismatch error P5 was written to eliminate. The real trace
+  // generators never emit an empty string (they omit the field instead),
+  // so this only rejects content that was already unusable.
+  output: z.string().min(1).optional(),
 })
 
 /**
@@ -305,12 +311,17 @@ export type TapLinePuzzle = z.infer<typeof TapLineSchema>
 export type ScrubberPuzzle = z.infer<typeof ScrubberSchema>
 
 /**
- * Every interaction PuzzleCardShell (and, through it, Practice/Daily/Rush)
- * knows how to render. Scrubber is deliberately excluded — it gets its own
- * mode/route/renderer (Phase 3), not a fourth branch in the quiz shell, per
- * the Phase 2 corrective review's "own mode with shared rating" decision.
- * Keeping this a named union (not `Exclude<Puzzle, ScrubberPuzzle>` inlined
- * at each call site) means PuzzleCardShell's exhaustive switch fails to
- * compile the moment a new member joins this union without a case.
+ * The element type of `quizPool` (src/content/index.ts) — every interaction
+ * except scrubber. Scrubber is deliberately excluded from this union: it
+ * gets its own mode/route/renderer (Phase 3), not a fourth branch in the
+ * quiz shell, per the Phase 2 corrective review's "own mode with shared
+ * rating" decision. Practice/Daily/Rush all serve from `quizPool`, typed to
+ * this union, rather than the full `Puzzle` union `puzzlePool` carries.
+ *
+ * `PuzzleCardShellProps.puzzle` is still typed `Puzzle` (not `QuizPuzzle`)
+ * — its exhaustive switch's `assertNever` default already forces a compile
+ * error for any truly new interaction, and scrubber itself is handled
+ * there with an explicit throw (see PuzzleCardShell.tsx), not by narrowing
+ * this prop's type. `QuizPuzzle` exists for the pool split, not the shell.
  */
 export type QuizPuzzle = McqPuzzle | SwipeBinaryPuzzle | TapLinePuzzle
