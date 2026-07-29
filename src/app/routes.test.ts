@@ -5,7 +5,7 @@ import { labelForPath, ROUTE_META } from './routes'
 // not imported from there, since vite.config.ts lives in its own isolated
 // tsconfig.node.json project and doesn't export anything for src/ to
 // import. Kept in sync by hand; this test is what would catch drift.
-const SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN = /^\/(?!$|practice$|daily$|rush$|browse$|legal$)/
+const SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN = /^\/(?!(?:practice|daily|rush|browse|legal)?(?:\?|$))/
 
 describe('labelForPath', () => {
   it('labels the known routes', () => {
@@ -33,5 +33,24 @@ describe('SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN', () => {
 
   it('denies the fallback for a sub-path under a known route', () => {
     expect(SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN.test('/practice/foo')).toBe(true)
+  })
+
+  // workbox-routing's NavigationRoute._match tests this pattern against
+  // url.pathname + url.search (confirmed from workbox-routing's source),
+  // not pathname alone — a shared/campaign link is the most likely way a
+  // route is ever loaded with a query string, so every known route has to
+  // admit one.
+  it('does not deny the fallback for any known route with a query string', () => {
+    for (const path of Object.keys(ROUTE_META)) {
+      expect(SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN.test(`${path}?utm_source=twitter`)).toBe(false)
+    }
+  })
+
+  it('does not deny the fallback for the root path with a query string', () => {
+    expect(SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN.test('/?x=1')).toBe(false)
+  })
+
+  it('denies the fallback for an unknown top-level path with a query string', () => {
+    expect(SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN.test('/nonsense?x=1')).toBe(true)
   })
 })
