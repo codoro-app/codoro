@@ -36,7 +36,7 @@ import {
   stepDifficulty,
   updateRating,
 } from '../../engine'
-import type { RushPuzzle } from '../../engine'
+import type { RushInteraction, RushPuzzle } from '../../engine'
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, RushStats, UserProfile } from '../../storage'
 import { puzzlePool } from '../../content'
@@ -53,7 +53,25 @@ function todayDateString(date = new Date()): string {
   return `${String(year)}-${month}-${day}`
 }
 
-function toRushPuzzle(puzzle: ContentPuzzle): RushPuzzle {
+/**
+ * Rush is quiz-only — scrubber's multi-checkpoint attempt shape doesn't fit
+ * Rush's single strike-or-solve-and-move-on loop (Phase 2/3 build plan).
+ * RushInteraction's own union already excludes 'scrubber'; this guard is
+ * what keeps a puzzle with that discriminant from ever reaching
+ * toRushPuzzle in the first place, rather than relying on the type error
+ * `tsc` would otherwise raise at the call site to catch it.
+ */
+function isRushEligible(
+  puzzle: ContentPuzzle,
+): puzzle is ContentPuzzle & { interaction: RushInteraction } {
+  return (
+    puzzle.interaction === 'mcq' ||
+    puzzle.interaction === 'swipe-binary' ||
+    puzzle.interaction === 'tap-line'
+  )
+}
+
+function toRushPuzzle(puzzle: ContentPuzzle & { interaction: RushInteraction }): RushPuzzle {
   return { id: puzzle.id, rating: puzzle.difficulty_rating, interaction: puzzle.interaction }
 }
 
@@ -109,7 +127,7 @@ export function useRushSession(): RushSession {
 
   const activePool = resolvePool(puzzlePool)
   const contentById = useRef(new Map(activePool.map((p) => [p.id, p])))
-  const rushPool = useRef(activePool.map(toRushPuzzle))
+  const rushPool = useRef(activePool.filter(isRushEligible).map(toRushPuzzle))
 
   const serveNext = useCallback((atDifficulty: number) => {
     const result = selectRushPuzzle({

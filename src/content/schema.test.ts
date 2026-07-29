@@ -164,3 +164,252 @@ describe('PuzzleSchema — tap-line-specific', () => {
     expect(result.success).toBe(false)
   })
 })
+
+// snippet is 3 lines (indices 0-2):
+//   0: let x = 1;
+//   1: x = x + 1;
+//   2: console.log(x);
+// steps[] is the executed-line trace for that snippet, run once straight through.
+function validScrubber(overrides: Record<string, unknown> = {}): unknown {
+  return {
+    id: 'scr-001',
+    pattern: 'mutable-state',
+    difficulty_rating: 1200,
+    explanation: '`x` is reassigned on line 1 before being logged on line 2.',
+    prompt: 'Step through this snippet and predict what happens next.',
+    language: 'javascript',
+    snippet: 'let x = 1;\nx = x + 1;\nconsole.log(x);',
+    interaction: 'scrubber',
+    steps: [
+      { line: 0, vars: { x: '1' } },
+      { line: 1, vars: { x: '2' } },
+      { line: 2, vars: { x: '2' }, output: '2' },
+    ],
+    checkpoints: [
+      {
+        afterStep: 0,
+        question: 'next-line',
+        choices: ['0', '1', '2'],
+        correct: 1,
+      },
+      {
+        afterStep: 2,
+        question: 'var-value',
+        target: 'x',
+        choices: ['1', '2', '3'],
+        correct: 1,
+      },
+    ],
+    ...overrides,
+  }
+}
+
+describe('PuzzleSchema — scrubber-specific', () => {
+  it('accepts a valid scrubber puzzle', () => {
+    const result = PuzzleSchema.safeParse(validScrubber())
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts an output checkpoint whose choices[correct] matches the trace output at that step', () => {
+    const result = PuzzleSchema.safeParse(
+      validScrubber({
+        checkpoints: [
+          { afterStep: 0, question: 'next-line', choices: ['0', '1', '2'], correct: 1 },
+          {
+            afterStep: 2,
+            question: 'output',
+            choices: ['1', '2', '3'],
+            correct: 1,
+          },
+        ],
+      }),
+    )
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects an afterStep past the end of steps', () => {
+    const result = PuzzleSchema.safeParse(
+      validScrubber({
+        checkpoints: [
+          { afterStep: 0, question: 'next-line', choices: ['0', '1', '2'], correct: 1 },
+          { afterStep: 3, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 1 },
+        ],
+      }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects checkpoints that are not strictly ordered by afterStep (duplicate)', () => {
+    const result = PuzzleSchema.safeParse(
+      validScrubber({
+        checkpoints: [
+          { afterStep: 0, question: 'next-line', choices: ['0', '1', '2'], correct: 1 },
+          { afterStep: 0, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 0 },
+        ],
+      }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects checkpoints that are not strictly ordered by afterStep (out of order)', () => {
+    const result = PuzzleSchema.safeParse(
+      validScrubber({
+        checkpoints: [
+          { afterStep: 2, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 1 },
+          { afterStep: 0, question: 'next-line', choices: ['0', '1', '2'], correct: 1 },
+        ],
+      }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects a correct index out of range for choices', () => {
+    const result = PuzzleSchema.safeParse(
+      validScrubber({
+        checkpoints: [
+          { afterStep: 0, question: 'next-line', choices: ['0', '1', '2'], correct: 3 },
+          { afterStep: 2, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 1 },
+        ],
+      }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects duplicate choices within a checkpoint', () => {
+    const result = PuzzleSchema.safeParse(
+      validScrubber({
+        checkpoints: [
+          { afterStep: 0, question: 'next-line', choices: ['1', '1', '2'], correct: 0 },
+          { afterStep: 2, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 1 },
+        ],
+      }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects a var-value target not present in the trace at that step', () => {
+    const result = PuzzleSchema.safeParse(
+      validScrubber({
+        checkpoints: [
+          { afterStep: 0, question: 'next-line', choices: ['0', '1', '2'], correct: 1 },
+          {
+            afterStep: 2,
+            question: 'var-value',
+            target: 'notAVariable',
+            choices: ['1', '2'],
+            correct: 1,
+          },
+        ],
+      }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  it("rejects a var-value checkpoint whose choices[correct] doesn't match the trace's value", () => {
+    const result = PuzzleSchema.safeParse(
+      validScrubber({
+        checkpoints: [
+          { afterStep: 0, question: 'next-line', choices: ['0', '1', '2'], correct: 1 },
+          {
+            // step 2's x is '2'; claiming '1' is correct is a wrong trace.
+            afterStep: 2,
+            question: 'var-value',
+            target: 'x',
+            choices: ['1', '2'],
+            correct: 0,
+          },
+        ],
+      }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  it("rejects a next-line checkpoint whose choices[correct] doesn't match steps[afterStep + 1].line", () => {
+    const result = PuzzleSchema.safeParse(
+      validScrubber({
+        checkpoints: [
+          // steps[1].line is 1; claiming 2 is the next line is a wrong trace.
+          { afterStep: 0, question: 'next-line', choices: ['0', '1', '2'], correct: 2 },
+          { afterStep: 2, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 1 },
+        ],
+      }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects a next-line checkpoint sitting on the final step', () => {
+    const result = PuzzleSchema.safeParse(
+      validScrubber({
+        checkpoints: [
+          { afterStep: 0, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 0 },
+          { afterStep: 2, question: 'next-line', choices: ['0', '1', '2'], correct: 1 },
+        ],
+      }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  it("rejects an output checkpoint whose choices[correct] doesn't match the output actually produced", () => {
+    const result = PuzzleSchema.safeParse(
+      validScrubber({
+        checkpoints: [
+          { afterStep: 0, question: 'next-line', choices: ['0', '1', '2'], correct: 1 },
+          {
+            // step 2's output is '2'; claiming '3' is a wrong trace.
+            afterStep: 2,
+            question: 'output',
+            choices: ['2', '3'],
+            correct: 1,
+          },
+        ],
+      }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects a step.line out of range for the snippet', () => {
+    const result = PuzzleSchema.safeParse(
+      validScrubber({
+        steps: [
+          { line: 0, vars: { x: '1' } },
+          { line: 1, vars: { x: '2' } },
+          // snippet has 3 lines (indices 0-2); index 3 is out of range.
+          { line: 3, vars: { x: '2' }, output: '2' },
+        ],
+      }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects fewer than 2 checkpoints', () => {
+    const result = PuzzleSchema.safeParse(
+      validScrubber({
+        checkpoints: [{ afterStep: 0, question: 'next-line', choices: ['0', '1'], correct: 1 }],
+      }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects more than 4 checkpoints', () => {
+    const result = PuzzleSchema.safeParse(
+      validScrubber({
+        steps: [
+          { line: 0, vars: { x: '1' } },
+          { line: 1, vars: { x: '2' } },
+          { line: 1, vars: { x: '3' } },
+          { line: 1, vars: { x: '4' } },
+          { line: 1, vars: { x: '5' } },
+          { line: 2, vars: { x: '5' }, output: '5' },
+        ],
+        checkpoints: [
+          { afterStep: 0, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 0 },
+          { afterStep: 1, question: 'var-value', target: 'x', choices: ['2', '3'], correct: 0 },
+          { afterStep: 2, question: 'var-value', target: 'x', choices: ['3', '4'], correct: 0 },
+          { afterStep: 3, question: 'var-value', target: 'x', choices: ['4', '5'], correct: 0 },
+          { afterStep: 4, question: 'var-value', target: 'x', choices: ['5', '6'], correct: 0 },
+        ],
+      }),
+    )
+    expect(result.success).toBe(false)
+  })
+})
