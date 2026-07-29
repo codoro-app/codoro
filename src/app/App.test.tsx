@@ -214,5 +214,38 @@ describe('App', () => {
       expect(screen.getByText('1200')).toBeInTheDocument()
     })
     expect(vi.mocked(loadProfile).mock.calls.length).toBe(loadCallsBeforeBrowse)
+
+    // Regression guard for the history-stack bug this test's name calls
+    // out: entering Browse is a push, but PatternPicker's onSelect/onBack
+    // must be a *replace*, not another push — otherwise the stack reads
+    // /practice -> /browse -> /practice and a real browser Back lands the
+    // user back on /browse instead of wherever they were before opening
+    // Browse. window.history.back() (not another wouter navigate call) is
+    // used here so this is a genuine back-button press firing a native
+    // popstate event, the same real-history-entry approach AppShell.test.tsx
+    // uses for its own back/forward test. Per this file's beforeEach, the
+    // boot redirect already replaced the pre-render '/' entry with
+    // '/practice', so the only *push* on the stack at this point was
+    // entering Browse — back() must therefore land on '/practice' again,
+    // not '/browse'.
+    // jsdom's history.back() resolves the navigation asynchronously (a
+    // popstate event, like a real back-button press), so a plain waitFor()
+    // on a negative assertion ("not /browse") would trivially pass before
+    // the navigation has actually happened — this awaits the real
+    // popstate event first, so the assertion below reflects where back()
+    // actually landed.
+    const popstatePromise = new Promise<void>((resolve) => {
+      window.addEventListener(
+        'popstate',
+        () => {
+          resolve()
+        },
+        { once: true },
+      )
+    })
+    window.history.back()
+    await popstatePromise
+    expect(window.location.pathname).not.toBe('/browse')
+    expect(window.location.pathname).toBe('/practice')
   })
 })

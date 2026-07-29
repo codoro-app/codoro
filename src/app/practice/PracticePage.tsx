@@ -119,10 +119,10 @@ export function PracticePage() {
         <PatternPicker
           onSelect={(pattern) => {
             session.setPatternFilter(pattern)
-            navigate('/practice')
+            navigate('/practice', { replace: true })
           }}
           onBack={() => {
-            navigate('/practice')
+            navigate('/practice', { replace: true })
           }}
         />
       </div>
@@ -241,10 +241,10 @@ export function PracticePage() {
             <PatternPicker
               onSelect={(pattern) => {
                 session.setPatternFilter(pattern)
-                navigate('/practice')
+                navigate('/practice', { replace: true })
               }}
               onBack={() => {
-                navigate('/practice')
+                navigate('/practice', { replace: true })
               }}
             />
           ) : (
