@@ -62,6 +62,16 @@ export default defineConfig({
         // is a deny-list — expressing "allow only these" any other way
         // means enumerating the infinite complement instead.
         //
+        // workbox-routing's NavigationRoute._match tests this against
+        // url.pathname + url.search, not pathname alone (confirmed from
+        // node_modules/workbox-routing/NavigationRoute.js) — so each
+        // alternative has to admit an optional '?...' after the route
+        // name, not just end-of-string ($), or a shared/campaign link like
+        // /practice?utm_source=twitter gets denied the offline shell where
+        // bare /practice works. The (?:\?|$) alternation covers both: end
+        // of string for a bare path, or the start of a query string for
+        // one with params.
+        //
         // Not imported from src/app/routes.ts's ROUTE_META (which lists
         // the same six paths): vite.config.ts is its own isolated
         // tsconfig.node.json project (module: nodenext, include:
@@ -69,7 +79,7 @@ export default defineConfig({
         // module resolution for a marginal DRY win. Keep this list in sync
         // with ROUTE_META's keys by hand — routes.test.ts asserts the
         // same pattern.
-        navigateFallbackDenylist: [/^\/(?!$|practice$|daily$|rush$|browse$|legal$)/],
+        navigateFallbackDenylist: [/^\/(?!(?:practice|daily|rush|browse|legal)?(?:\?|$))/],
         cleanupOutdatedCaches: true,
       },
     }),
