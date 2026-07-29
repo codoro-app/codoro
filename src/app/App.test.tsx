@@ -39,6 +39,12 @@ describe('App', () => {
     // clear it so each test starts as a fresh first visit (boot: Practice),
     // matching what every test below except the two boot-mode ones assumes.
     localStorage.clear()
+    // wouter's default browser location hook reads the real window.location,
+    // which (unlike component state) survives across tests in this file —
+    // a previous test's navigation would otherwise leak into the next
+    // test's initial render. Reset to '/' so every test starts from the
+    // same boot URL the real app would.
+    window.history.pushState({}, '', '/')
   })
 
   it('renders the practice UI inside the ErrorBoundary wrapper (no placeholder copy)', async () => {
