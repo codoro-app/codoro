@@ -99,6 +99,25 @@ describe('App', () => {
     })
   })
 
+  it('switches to the Trace UI via the mode switcher', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText('1200')).toBeInTheDocument()
+    })
+
+    await user.click(nth(screen.getAllByRole('link', { name: 'Trace' }), 0))
+
+    // Real content (not mocked in this file), so a served puzzle's own
+    // prompt text is unpredictable — assert on TraceRunner's own root
+    // element instead, same container-query pattern the boot-mode test
+    // above uses for '.practice-page'.
+    await waitFor(() => {
+      expect(container.querySelector('.trace-runner')).toBeInTheDocument()
+    })
+  })
+
   it("boots straight into Practice on a device's first-ever visit — the cold-start path is untouched", async () => {
     const { container } = render(<App />)
 

@@ -16,6 +16,14 @@ describe('ModeSwitcher', () => {
     expect(window.location.pathname).toBe('/rush')
   })
 
+  it('navigates to /trace when the Trace tab is clicked', async () => {
+    const user = userEvent.setup()
+    render(<ModeSwitcher />)
+
+    await user.click(screen.getByRole('link', { name: 'Trace' }))
+    expect(window.location.pathname).toBe('/trace')
+  })
+
   it('marks the active mode with aria-current="page"', () => {
     window.history.pushState({}, '', '/daily')
     render(<ModeSwitcher />)

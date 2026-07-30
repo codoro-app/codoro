@@ -8,6 +8,7 @@ import {
   RatingIcon,
   RushIcon,
   StreakIcon,
+  TraceIcon,
 } from './Icons'
 
 describe('Icons', () => {
@@ -15,6 +16,7 @@ describe('Icons', () => {
     ['PracticeIcon', PracticeIcon],
     ['DailyIcon', DailyIcon],
     ['RushIcon', RushIcon],
+    ['TraceIcon', TraceIcon],
     ['CollapseIcon', CollapseIcon],
     ['CloseIcon', CloseIcon],
     ['RatingIcon', RatingIcon],
