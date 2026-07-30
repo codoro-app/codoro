@@ -79,7 +79,7 @@ export default defineConfig({
         // module resolution for a marginal DRY win. Keep this list in sync
         // with ROUTE_META's keys by hand — routes.test.ts asserts the
         // same pattern.
-        navigateFallbackDenylist: [/^\/(?!(?:practice|daily|rush|browse|legal)?(?:\?|$))/],
+        navigateFallbackDenylist: [/^\/(?!(?:practice|daily|rush|browse|legal|trace)?(?:\?|$))/],
         cleanupOutdatedCaches: true,
       },
     }),

@@ -8,7 +8,8 @@ import { labelForPath, ROUTE_META } from './routes'
 // not imported from there, since vite.config.ts lives in its own isolated
 // tsconfig.node.json project and doesn't export anything for src/ to
 // import. Kept in sync by hand; this test is what would catch drift.
-const SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN = /^\/(?!(?:practice|daily|rush|browse|legal)?(?:\?|$))/
+const SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN =
+  /^\/(?!(?:practice|daily|rush|browse|legal|trace)?(?:\?|$))/
 
 describe('labelForPath', () => {
   it('labels the known routes', () => {
