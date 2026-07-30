@@ -26,6 +26,24 @@
  * revealed if it's already been answered (including checkpoints the player
  * scrubs back to after answering).
  *
+ * Masking a pending checkpoint is not just "mask the target row": a `Scrubber`
+ * state panel can hold two variables with the identical display value (e.g.
+ * an aliased mutable-state trace, or an output string that also happens to
+ * equal a variable's current value), and masking only the checkpoint's own
+ * target/output would leave the answer readable verbatim in a sibling row.
+ * So `maskedVarNames` (passed to `Scrubber`) is computed as every variable
+ * name in the pending checkpoint's step whose *value* equals the value being
+ * asked about, not just the named target — for `var-value` that's every
+ * name co-valued with `target`'s value (always includes `target` itself);
+ * for `output` it's every name co-valued with the step's `output` string
+ * (a different value than any target). `maskOutput` mirrors this: true
+ * whenever the output checkpoint is pending, and also true for a pending
+ * `var-value` checkpoint if this step's `output` happens to equal the
+ * target's value — the same co-valued leak, just on the output surface
+ * instead of a variable row. Both directions read from `step.vars`/
+ * `step.output` at `checkpointAtStep.afterStep`, which is exactly `stepIndex`
+ * whenever `isPendingAtStep` is true.
+ *
  * First-try-only scoring: `CheckpointPanel` commits a choice immediately —
  * there is no retry UI, matching `scoreScrubberAttempt`'s "each checkpoint
  * accepts exactly one answer" contract that `useTraceSession.
@@ -77,11 +95,28 @@ function TraceRunnerPuzzle({
   const isAnsweredAtStep = checkpointIndexAtStep !== -1 && checkpointIndexAtStep < answeredCount
   const resultAtStep = isAnsweredAtStep ? checkpointResults[checkpointIndexAtStep] : undefined
 
-  const maskedTarget =
-    isPendingAtStep && checkpointAtStep?.question === 'var-value'
-      ? checkpointAtStep.target
+  const step = puzzle.steps[stepIndex]
+
+  let maskedVarNames: readonly string[] | undefined
+  let maskOutput = false
+  if (isPendingAtStep && checkpointAtStep?.question === 'var-value' && checkpointAtStep.target) {
+    const target = checkpointAtStep.target
+    const targetValue = step?.vars[target]
+    maskedVarNames = step
+      ? Object.keys(step.vars).filter((name) => step.vars[name] === targetValue)
       : undefined
-  const maskOutput = isPendingAtStep && checkpointAtStep?.question === 'output'
+    // Symmetric with the output-checkpoint branch below: if this step's
+    // output happens to equal the target's value, that value would
+    // otherwise sit unmasked in the output line even though maskedVarNames
+    // already hides every co-valued *variable* row.
+    maskOutput = step?.output === targetValue
+  } else if (isPendingAtStep && checkpointAtStep?.question === 'output') {
+    maskOutput = true
+    maskedVarNames =
+      step?.output !== undefined
+        ? Object.keys(step.vars).filter((name) => step.vars[name] === step.output)
+        : []
+  }
 
   const handleAnswer = (result: CheckpointResult) => {
     onCheckpointAnswered(result)
@@ -100,7 +135,7 @@ function TraceRunnerPuzzle({
         onScrub={setStepIndex}
         maxAllowedIndex={maxAllowedIndex}
         maskOutput={maskOutput}
-        {...(maskedTarget !== undefined ? { maskedTarget } : {})}
+        {...(maskedVarNames !== undefined ? { maskedVarNames } : {})}
       />
 
       {checkpointAtStep && (

@@ -10,9 +10,17 @@
  * fully controlled by its caller (`stepIndex`/`onScrub`), and the caller
  * (Task 3) decides how far forward scrubbing is allowed
  * (`maxAllowedIndex`, normally the next unanswered checkpoint's
- * `afterStep`) and which single value on the current step, if any, is
- * masked (`maskedTarget`/`maskOutput` — both absent means "not currently
+ * `afterStep`) and which values on the current step, if any, are masked
+ * (`maskedVarNames`/`maskOutput` — both absent/empty means "not currently
  * at a checkpoint pause", not "checkpoint pause with nothing masked").
+ * `maskedVarNames` is a full *set* of variable row names to mask, not a
+ * single target — the Phase 3 corrective's co-valued-row fix: two distinct
+ * variables can hold the identical display string (aliasing, or just
+ * coincidence), so masking only the checkpoint's own target can leave its
+ * answer readable verbatim in a sibling row. This component still owns none
+ * of that reasoning — it just paints every row named in the set it's
+ * handed; the caller (`TraceRunner.tsx`) is what computes which names
+ * belong in it.
  *
  * Scrub interactions:
  *   - A horizontal drag surface (chess.com-analysis-style continuous scrub
@@ -67,8 +75,8 @@ export interface ScrubberProps {
   onScrub: (newIndex: number) => void
   /** The furthest step index the player may currently scrub forward to (normally the next unanswered checkpoint's `afterStep`, or `steps.length - 1` once none remain). */
   maxAllowedIndex: number
-  /** A variable name in the current step's `vars` to render masked instead of its value. Absent = render every variable normally (not currently at a checkpoint pause). */
-  maskedTarget?: string
+  /** The full set of variable names in the current step's `vars` to render masked instead of their value. Absent/empty = render every variable normally (not currently at a checkpoint pause). */
+  maskedVarNames?: readonly string[]
   /** Render the current step's `output` masked instead of its text. Absent/false = render normally. */
   maskOutput?: boolean
 }
@@ -80,7 +88,7 @@ export function Scrubber({
   stepIndex,
   onScrub,
   maxAllowedIndex,
-  maskedTarget,
+  maskedVarNames,
   maskOutput,
 }: ScrubberProps) {
   // All hooks are called unconditionally, before the out-of-range guard
@@ -188,7 +196,9 @@ export function Scrubber({
         {Object.entries(step.vars).map(([name, value]) => (
           <div className="scrubber__vars-row" key={name}>
             <dt className="scrubber__vars-name">{name}</dt>
-            <dd className="scrubber__vars-value">{name === maskedTarget ? MASK_MARKER : value}</dd>
+            <dd className="scrubber__vars-value">
+              {maskedVarNames?.includes(name) ? MASK_MARKER : value}
+            </dd>
           </div>
         ))}
       </dl>

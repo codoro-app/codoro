@@ -113,7 +113,7 @@ describe('Scrubber', () => {
     expect(container.querySelector('.scrubber__output-value')?.textContent).toBe('9')
   })
 
-  it('masks the checkpoint target’s value instead of its real value when maskedTarget is set', () => {
+  it('masks every variable named in maskedVarNames instead of its real value', () => {
     const { container } = render(
       <Scrubber
         snippet={snippet}
@@ -122,7 +122,7 @@ describe('Scrubber', () => {
         stepIndex={3}
         onScrub={vi.fn()}
         maxAllowedIndex={4}
-        maskedTarget="i"
+        maskedVarNames={['i']}
       />,
     )
 
@@ -130,6 +130,28 @@ describe('Scrubber', () => {
     // the mask marker instead of its real value "1".
     expect(readVarRows(container)).toEqual([
       ['total', '0'],
+      ['i', '?'],
+    ])
+  })
+
+  it('masks every row named in a multi-name maskedVarNames set, not just one', () => {
+    const { container } = render(
+      <Scrubber
+        snippet={snippet}
+        language="javascript"
+        steps={steps}
+        stepIndex={3}
+        onScrub={vi.fn()}
+        maxAllowedIndex={4}
+        maskedVarNames={['total', 'i']}
+      />,
+    )
+
+    // Both rows named in the set render masked, not just the first —
+    // proves maskedVarNames really is a set, not a single-value prop in a
+    // trench coat.
+    expect(readVarRows(container)).toEqual([
+      ['total', '?'],
       ['i', '?'],
     ])
   })
