@@ -96,6 +96,19 @@ function questionLabel(question: Checkpoint['question']): string {
   return 'Which line runs next?'
 }
 
+/**
+ * `next-line` choices are raw 0-indexed `line` values (schema/validator
+ * convention); the gutter and StateDiff both display 1-indexed line
+ * numbers, so the choice label must match. Falls back to the raw string if
+ * it isn't numeric (choices is `z.array(z.string())`, not guaranteed
+ * numeric) so a player is never shown the literal text "NaN".
+ */
+function displayChoiceText(question: Checkpoint['question'], choiceText: string): string {
+  if (question !== 'next-line') return choiceText
+  const asNumber = Number(choiceText)
+  return Number.isNaN(asNumber) ? choiceText : String(asNumber + 1)
+}
+
 /** The trace's own state-diff summary for this checkpoint's step transition, shown only once answered. */
 function StateDiff({
   checkpoint,
@@ -210,7 +223,7 @@ export function CheckpointPanel({ checkpoint, steps, result, onAnswer }: Checkpo
               disabled={committed || locked}
             >
               <ChoiceBadge state={state} letter={String.fromCharCode(65 + position)} />
-              {choiceText}
+              {displayChoiceText(checkpoint.question, choiceText)}
             </button>
           )
         })}
