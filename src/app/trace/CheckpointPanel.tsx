@@ -4,19 +4,21 @@
  * `stepIndex` equals a checkpoint's `afterStep`, keyed by that `afterStep`
  * so a fresh instance (fresh shuffle) is used per checkpoint.
  *
- * Two states, both driven purely off `result` (undefined = unanswered):
+ * Two states, both driven purely off `result` (undefined = unanswered),
+ * both rendering the *same* `displayOrder.map(...)` choice list — the
+ * buttons never leave the tree, `committed` only toggles their `disabled`
+ * attribute and color classes:
  *  - Unanswered: a vertical choice list, adapted from Mcq.tsx's
  *    ChoiceBadge + shuffledIndices pattern (same aria/interaction
  *    conventions — reuses `shuffledIndices` directly since it's a pure,
  *    puzzle-shape-agnostic algorithm; the badge/list JSX is a new local
  *    component since the commit shape here is per-checkpoint, not
  *    per-puzzle CommitPayload). Tapping a choice commits immediately —
- *    there is no retry path: `answeredRef` blocks any further click
- *    synchronously (before the parent's state even has a chance to
- *    re-render and unmount this branch), and once `onAnswer` fires the
- *    parent flips `result` to defined on its very next render, at which
- *    point this component swaps to the answered branch below and the
- *    choice buttons are gone from the tree entirely — not disabled, gone.
+ *    there is no retry path: `handleClick`'s guard (`committed ||
+ *    lockedRef.current`) blocks any further click synchronously, and once
+ *    `onAnswer` fires the parent flips `result` to defined on its next
+ *    render, which re-renders this same list disabled (see below) — no
+ *    enabled control is ever left that could re-submit a different answer.
  *  - Answered: the same choice list re-rendered disabled with
  *    correct/wrong/reveal-correct coloring (mirrors Mcq's post-commit
  *    state), plus a one-line state-diff summary of what the trace actually
@@ -26,7 +28,7 @@
  *    `steps[checkpoint.afterStep + 1]` (next-line's answer) is only ever
  *    read inside this branch, which only renders once `result` is defined.
  */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { CheckpointResult } from '../../engine'
 import type { ScrubberPuzzle } from '../../content'
 import type { AnswerState } from '../practice/answerState'
@@ -148,15 +150,26 @@ function StateDiff({
 
 export function CheckpointPanel({ checkpoint, steps, result, onAnswer }: CheckpointPanelProps) {
   const [displayOrder] = useState(() => shuffledIndices(checkpoint.choices.length))
-  // Synchronous guard against a second commit for this checkpoint landing
-  // before the parent's `result` prop flips to defined on the next render
-  // (see this file's doc comment) — belt-and-suspenders on top of the fact
-  // that the answered branch below renders no buttons at all.
+  // The actual re-entry guard is `lockedRef`, a mutable ref, not the
+  // `locked` state below: two click events dispatched synchronously
+  // back-to-back (no yield between them, e.g. a double-fire bug or a
+  // fast synthetic double-click) both run inside the same React batch,
+  // before any re-render — every closure captured in that batch still
+  // sees whatever `useState` value was current at the *start* of the
+  // batch, so a `useState`-only guard cannot actually stop the second
+  // call from also invoking `onAnswer`. A ref sidesteps that: mutating
+  // `lockedRef.current` takes effect immediately, synchronously, so the
+  // second invocation (even within the same unflushed batch) observes
+  // the first invocation's write. `locked` state still exists purely to
+  // drive the disabled/visual styling below (a ref mutation alone
+  // doesn't trigger a re-render).
+  const lockedRef = useRef(false)
   const [locked, setLocked] = useState(false)
   const committed = result !== undefined
 
   const handleClick = (index: number) => {
-    if (committed || locked) return
+    if (committed || lockedRef.current) return
+    lockedRef.current = true
     setLocked(true)
     onAnswer({ correct: index === checkpoint.correct, choiceIndex: index })
   }

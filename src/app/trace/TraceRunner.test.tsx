@@ -1,10 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { TraceRunner } from './TraceRunner'
 import type { ScrubberPuzzle } from '../../content'
 import type { TraceSession } from './useTraceSession'
 import type { CheckpointResult } from '../../engine'
 import { createDefaultProfile } from '../../storage'
+
+/**
+ * Dispatches two raw native `click` events on `element` inside a single
+ * `act()` call — see CheckpointPanel.test.tsx's identically-named helper
+ * for the full rationale: two separate `fireEvent.click(...)` calls each
+ * fully flush (including the `disabled` DOM attribute) before the next
+ * runs, so they can't distinguish "the internal guard stopped the second
+ * commit" from "the browser refused to dispatch a click on an already-
+ * disabled button." This reproduces both events landing in the same React
+ * batch, before either commit, which only `CheckpointPanel`'s own
+ * `lockedRef` guard (not `disabled`, not yet live in the DOM) can stop.
+ */
+function dispatchTwoClicksInOneBatch(element: Element) {
+  act(() => {
+    element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+  })
+}
 
 const useTraceSessionMock = vi.fn<() => TraceSession>()
 vi.mock('./useTraceSession', () => ({
@@ -195,7 +213,27 @@ describe('TraceRunner next-line pause: no pre-advance / no leaked step content',
 })
 
 describe('TraceRunner: no retry path once a checkpoint is committed', () => {
-  it('answering incorrectly then attempting to answer again does not change the recorded result', () => {
+  it('two click events on the same choice, dispatched synchronously in one batch, only record the result once', () => {
+    const handleCheckpointAnswered = vi.fn()
+    useTraceSessionMock.mockReturnValue(makeSession({ handleCheckpointAnswered }))
+    render(<TraceRunner />)
+    clickNext(1) // var-value checkpoint pause, correct index is 1 ("1")
+
+    // choices ['0', '1', '2'], correct index 1 ("1") — "0" is wrong. Both
+    // events are dispatched before React commits the first click's
+    // `disabled` update, so only CheckpointPanel's internal guard (not the
+    // browser refusing a click on an already-disabled button) can be what
+    // stops the second commit here.
+    const wrongButton = screen.getByRole('button', { name: '0' })
+    dispatchTwoClicksInOneBatch(wrongButton)
+
+    expect(handleCheckpointAnswered).toHaveBeenCalledTimes(1)
+    expect(handleCheckpointAnswered).toHaveBeenCalledWith(
+      expect.objectContaining({ correct: false }),
+    )
+  })
+
+  it('answering incorrectly then attempting to answer again (once disabled has flushed) does not change the recorded result', () => {
     const handleCheckpointAnswered = vi.fn()
     useTraceSessionMock.mockReturnValue(makeSession({ handleCheckpointAnswered }))
     render(<TraceRunner />)
