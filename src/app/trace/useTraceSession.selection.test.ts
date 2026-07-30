@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { emptyRequeueState, selectNext } from '../../engine'
 import type { Puzzle as EnginePuzzle, Rng, SelectionSource } from '../../engine'
+import { traceRecentIdsWindow } from './useTraceSession'
 
 /**
  * Small-pool investigation (build-plan Task 1, item 6) — see
@@ -15,6 +16,12 @@ import type { Puzzle as EnginePuzzle, Rng, SelectionSource } from '../../engine'
  *    pool eventually lets the just-served puzzle repeat immediately —
  *    Trace's clamped `poolSize - 1` window structurally prevents that for
  *    as long as the pool has 2+ puzzles.
+ *
+ * The clamp itself (`traceRecentIdsWindow`) is imported from the real
+ * useTraceSession.ts module below rather than re-declared locally — a local
+ * copy would keep this whole suite green even if the shipped function
+ * regressed (e.g. someone silently reverted it back to the flat
+ * PRACTICE_RECENT_IDS_WINDOW).
  */
 
 // Deterministic seeded RNG (mulberry32) — same generator selection.test.ts
@@ -39,10 +46,6 @@ const FIVE_ITEM_POOL: EnginePuzzle[] = [
   { id: 's3', rating: 1500 },
   { id: 's4', rating: 1700 },
 ]
-
-function traceRecentIdsWindow(poolSize: number): number {
-  return Math.min(20, Math.max(poolSize - 1, 0))
-}
 
 describe('selectNext against a 5-item pool (scrubberPool pilot-content size)', () => {
   it('never returns null across a long run, despite MIN_ELIGIBLE (10) exceeding the pool size', () => {

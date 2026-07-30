@@ -88,7 +88,10 @@ const PRACTICE_RECENT_IDS_WINDOW = 20
  * degrading gracefully as more scrubber content ships, and automatically
  * reverts to Practice's own 20 once the catalog grows past 21 puzzles.
  */
-function traceRecentIdsWindow(poolSize: number): number {
+// Exported (not just internal) so useTraceSession.selection.test.ts can
+// exercise the real, shipped clamp directly instead of testing a
+// hand-maintained local copy that could silently drift from this one.
+export function traceRecentIdsWindow(poolSize: number): number {
   return Math.min(PRACTICE_RECENT_IDS_WINDOW, Math.max(poolSize - 1, 0))
 }
 
