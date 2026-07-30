@@ -49,6 +49,7 @@ import { useDrag } from '@use-gesture/react'
 import type { ScrubberPuzzle } from '../../content'
 import { highlightSnippet } from '../practice/highlightSnippet'
 import { mapDragToStepIndex } from './mapDragToStepIndex'
+import '../tokens.css'
 import './scrubber.css'
 
 /** Rendered in place of a masked variable value or output string. */

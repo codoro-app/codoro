@@ -40,6 +40,7 @@ import { useTraceSession } from './useTraceSession'
 import { hapticTick } from '../practice/haptics'
 import type { CheckpointResult } from '../../engine'
 import type { ScrubberPuzzle } from '../../content'
+import '../tokens.css'
 import './scrubber.css'
 
 interface TraceRunnerPuzzleProps {

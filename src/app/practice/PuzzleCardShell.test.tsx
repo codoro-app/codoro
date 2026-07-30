@@ -13,7 +13,12 @@ import { nth } from '../../test/nth'
 // at transform time, which breaks fileURLToPath (it stops being a file:
 // URL). Going through dirname(fileURLToPath(import.meta.url)) first (same
 // pattern as src/content/tools/loadPuzzles.ts) avoids that rewrite.
-const practiceCssPath = join(dirname(fileURLToPath(import.meta.url)), 'practice.css')
+//
+// The Prism `.token.*` color rules this file's source-level check below
+// looks for live in ../tokens.css, not practice.css itself — they're shared
+// with Trace mode's scrubber.css consumer (see tokens.css's header
+// comment), so this points there instead.
+const tokensCssPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'tokens.css')
 
 const mcqPuzzle: McqPuzzle = {
   id: 'cf-001',
@@ -296,8 +301,8 @@ describe('PuzzleCardShell', () => {
     expect(new Set([keywordColor, stringColor, numberColor]).size).toBe(3)
   })
 
-  it("practice.css defines color rules for every Prism token class this app's grammars emit (with dark values in index.css)", () => {
-    const css = readFileSync(practiceCssPath, 'utf-8')
+  it("tokens.css defines color rules for every Prism token class this app's grammars emit (with dark values in index.css)", () => {
+    const css = readFileSync(tokensCssPath, 'utf-8')
 
     // Token-variable-based token classes (light and dark values now live in
     // index.css via --syntax-* tokens, cross-checked with the getComputedStyle
@@ -326,12 +331,12 @@ describe('PuzzleCardShell', () => {
       /\.token\.punctuation,[\s\S]*?\.token\.operator\s*\{[^}]*color:\s*var\(--text-1\)/,
     )
 
-    // No dark-mode override block in practice.css (dark values now live in
+    // No dark-mode override block in tokens.css (dark values now live in
     // index.css's prefers-color-scheme: dark block, driving the same
     // var(--syntax-*) references automatically).
-    const darkBlockInPracticeCSS =
+    const darkBlockInTokensCSS =
       /@media \(prefers-color-scheme: dark\)\s*\{([\s\S]*?)\.token\.keyword/.exec(css)
-    expect(darkBlockInPracticeCSS).toBeNull()
+    expect(darkBlockInTokensCSS).toBeNull()
   })
 
   // P0 regression: a scrubber puzzle used to render an empty, un-escapable
