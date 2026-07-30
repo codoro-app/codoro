@@ -20,13 +20,19 @@
  * least one run completed), the retention-hook display the build plan
  * calls out — absent for a brand-new player, same as Daily's badge being
  * conditionally rendered rather than always present.
+ *
+ * Trace's card intentionally has no badge/chip: Global Constraint 3
+ * forbids new `UserProfile` fields this phase, and there is no existing
+ * profile field a Trace "best score"-style badge could read from (unlike
+ * Rush's `rushStats`, which already existed). Revisit once Trace earns its
+ * own persisted stat.
  */
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'wouter'
 import { loadProfile } from '../storage'
 import type { UserProfile } from '../storage'
 import { getDailyNumber } from '../engine'
-import { DailyIcon, PracticeIcon, RushIcon, StreakIcon } from './Icons'
+import { DailyIcon, PracticeIcon, RushIcon, StreakIcon, TraceIcon } from './Icons'
 import { ROUTES } from './routes'
 import './home.css'
 
@@ -118,6 +124,14 @@ export function Home() {
                 Best {profile.rushStats.bestScore}
               </span>
             )}
+          </Link>
+
+          <Link href={ROUTES.trace.path} className="home__card">
+            <span className="home__card-icon">
+              <TraceIcon size={20} />
+            </span>
+            <span className="home__card-title">Trace</span>
+            <span className="home__card-desc">Step through code, predict each line</span>
           </Link>
         </div>
       </div>

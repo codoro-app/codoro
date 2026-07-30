@@ -107,7 +107,10 @@
 @media (min-width: 640px) {
   .home__cards-secondary {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    /* auto-fit/minmax rather than a fixed 1fr 1fr: Daily+Rush filled two
+       even columns, and Trace (a third card, same tier) needs to join that
+       row evenly rather than wrapping alone into a half-empty row. */
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   }
 }
 

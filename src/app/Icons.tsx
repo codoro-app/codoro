@@ -73,6 +73,30 @@ export function RushIcon({ size = 20 }: IconProps) {
   )
 }
 
+// Authored fresh for Trace (no existing glyph fit "step through code" —
+// unlike RushIcon above, which reuses StatusBar's zap): a play triangle
+// plus a trailing step bar, the conventional "step forward" pairing (e.g.
+// media-player "next frame" controls), read here as advancing one line/
+// checkpoint at a time through a trace.
+export function TraceIcon({ size = 20 }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polygon points="4 4 15 12 4 20 4 4" />
+      <line x1="20" y1="4" x2="20" y2="20" />
+    </svg>
+  )
+}
+
 // Points left by default; consumers rotate 180deg via CSS (transform) for
 // the expand direction rather than shipping two mirrored icon components.
 export function CollapseIcon({ size = 20 }: IconProps) {
