@@ -37,10 +37,12 @@ vi.mock('../../telemetry', () => ({
   trackError: vi.fn(),
   trackRushAttempt: vi.fn(),
   trackRushRunEnd: vi.fn(),
+  trackShareClick: vi.fn(),
 }))
 
 const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
   await import('../../storage')
+const { trackShareClick } = await import('../../telemetry')
 const { RushPage } = await import('./RushPage')
 
 /** correct_choice is always 0 -> choice text 'a'; 'b' is always wrong. */
@@ -135,6 +137,9 @@ describe('RushPage', () => {
     await user.click(screen.getByText(/Copy share text/i))
 
     expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('Codoro Rush —'))
+    expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('getcodoro.com/puzzle/'))
+    expect(trackShareClick).toHaveBeenCalledTimes(1)
+    expect(trackShareClick).toHaveBeenCalledWith(expect.objectContaining({ surface: 'rush' }))
     await waitFor(() => {
       expect(screen.getByText(/Copied!/i)).toBeInTheDocument()
     })

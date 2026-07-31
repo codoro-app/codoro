@@ -41,10 +41,15 @@ vi.mock('../../storage', async (importOriginal) => {
   }
 })
 
-vi.mock('../../telemetry', () => ({ trackAttempt: vi.fn(), trackError: vi.fn() }))
+vi.mock('../../telemetry', () => ({
+  trackAttempt: vi.fn(),
+  trackShareClick: vi.fn(),
+  trackError: vi.fn(),
+}))
 
 const { loadProfile, saveProfile, appendAttempt, listAttempts, createDefaultProfile } =
   await import('../../storage')
+const { trackShareClick } = await import('../../telemetry')
 const { DailyPage } = await import('./DailyPage')
 
 describe('DailyPage', () => {
@@ -86,6 +91,9 @@ describe('DailyPage', () => {
     await user.click(screen.getByText(/Copy share text/i))
 
     expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('Codoro Daily #'))
+    expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('getcodoro.com/puzzle/'))
+    expect(trackShareClick).toHaveBeenCalledTimes(1)
+    expect(trackShareClick).toHaveBeenCalledWith(expect.objectContaining({ surface: 'daily' }))
     await waitFor(() => {
       expect(screen.getByText(/Copied!/i)).toBeInTheDocument()
     })

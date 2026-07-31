@@ -57,17 +57,24 @@ import { PuzzleCardShell } from './PuzzleCardShell'
 import { StatusBar } from './StatusBar'
 import { PatternPicker } from './PatternPicker'
 import { MasteryView } from './MasteryView'
+import { PracticeShareCard } from './PracticeShareCard'
 import { usePracticeSession } from './usePracticeSession'
 import { useMediaQuery } from '../useMediaQuery'
 import { PATTERN_LABELS, PATTERN_SLUGS } from '../../content'
 import type { PatternSlug } from '../../content'
 import { CloseIcon } from '../Icons'
 import { useEffect, useState } from 'react'
+import type { CommitPayload } from './interactionTypes'
 import './practicePage.css'
 
 type View = 'practice' | 'mastery'
 
 const PATTERN_SLUG_SET: ReadonlySet<string> = new Set(PATTERN_SLUGS)
+
+interface LastAnswer {
+  puzzleId: string
+  correct: boolean
+}
 
 export function PracticePage() {
   const [location, navigate] = useLocation()
@@ -77,6 +84,21 @@ export function PracticePage() {
   const session = usePracticeSession()
   const puzzleId = session.puzzle?.id
   const isDesktop = useMediaQuery('(min-width: 1024px)')
+
+  // Tracks the puzzle's own solve state for the share card below (v2 Phase
+  // 1b) — usePracticeSession's onAnswered callback doesn't expose committed
+  // state to the caller (it lives inside PuzzleCardShell), so this wraps it
+  // rather than reaching into the shell. Compared against session.puzzle.id
+  // at render time (not just "is there a lastAnswer") so the card
+  // disappears the instant Continue serves a genuinely new puzzle, without
+  // needing a separate reset effect.
+  const [lastAnswer, setLastAnswer] = useState<LastAnswer | null>(null)
+  const handleAnswered = (payload: CommitPayload) => {
+    if (session.puzzle) {
+      setLastAnswer({ puzzleId: session.puzzle.id, correct: payload.correct })
+    }
+    session.handleAnswered(payload)
+  }
 
   // Applies a '/practice?pattern=<slug>' query param as the pattern filter —
   // the receiving end of PuzzlePage's (v2 Phase 1b) "practice more like
@@ -244,11 +266,15 @@ export function PracticePage() {
                 key={session.puzzle.id}
                 puzzle={session.puzzle}
                 ratingDelta={session.ratingDelta}
-                onAnswered={session.handleAnswered}
+                onAnswered={handleAnswered}
                 onContinue={session.handleContinue}
               />
             </motion.div>
           </AnimatePresence>
+        )}
+
+        {lastAnswer && lastAnswer.puzzleId === session.puzzle?.id && (
+          <PracticeShareCard puzzleId={lastAnswer.puzzleId} correct={lastAnswer.correct} />
         )}
       </div>
 

@@ -10,10 +10,16 @@
 export interface RushShareTextInput {
   solvedCount: number
   bestStreakThisRun: number
+  /** The run's last-served puzzle id — the one that ended it — links the shared text to its real, playable /puzzle/:id page (v2 Phase 1b) instead of the bare site root. */
+  puzzleId: string
 }
 
 const SITE_URL = 'getcodoro.com'
 
-export function buildRushShareText({ solvedCount, bestStreakThisRun }: RushShareTextInput): string {
-  return `Codoro Rush — ${String(solvedCount)} solved · 🔥 best ${String(bestStreakThisRun)} — ${SITE_URL}`
+export function buildRushShareText({
+  solvedCount,
+  bestStreakThisRun,
+  puzzleId,
+}: RushShareTextInput): string {
+  return `Codoro Rush — ${String(solvedCount)} solved · 🔥 best ${String(bestStreakThisRun)} — ${SITE_URL}/puzzle/${puzzleId}`
 }

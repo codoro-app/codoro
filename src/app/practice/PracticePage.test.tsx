@@ -41,10 +41,15 @@ vi.mock('../../storage', async (importOriginal) => {
   }
 })
 
-vi.mock('../../telemetry', () => ({ trackAttempt: vi.fn(), trackError: vi.fn() }))
+vi.mock('../../telemetry', () => ({
+  trackAttempt: vi.fn(),
+  trackShareClick: vi.fn(),
+  trackError: vi.fn(),
+}))
 
 const { loadProfile, saveProfile, appendAttempt, listAttempts, createDefaultProfile } =
   await import('../../storage')
+const { trackShareClick } = await import('../../telemetry')
 const { PracticePage } = await import('./PracticePage')
 
 describe('PracticePage', () => {
@@ -76,6 +81,33 @@ describe('PracticePage', () => {
     })
     // Rating pill shows the default starting rating.
     expect(screen.getByText('1200')).toBeInTheDocument()
+  })
+
+  it('reveals a share card after answering, firing share_click on copy, then hides it once Continue serves a new puzzle', async () => {
+    const user = userEvent.setup()
+    render(<PracticePage />)
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+
+    expect(screen.queryByText(/Copy share text/i)).not.toBeInTheDocument()
+
+    await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
+    await waitFor(() => {
+      expect(screen.getByText(/Copy share text/i)).toBeInTheDocument()
+    })
+
+    const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
+    await user.click(screen.getByText(/Copy share text/i))
+    expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('Codoro Practice —'))
+    expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('getcodoro.com/puzzle/'))
+    expect(trackShareClick).toHaveBeenCalledTimes(1)
+    expect(trackShareClick).toHaveBeenCalledWith(expect.objectContaining({ surface: 'practice' }))
+
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await waitFor(() => {
+      expect(screen.queryByText(/Copy share text/i)).not.toBeInTheDocument()
+    })
   })
 
   it('browse-by-pattern: selecting a pattern filters subsequent puzzles and shows a way back to all patterns', async () => {
