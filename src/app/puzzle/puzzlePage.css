@@ -1,0 +1,49 @@
+/*
+ * /puzzle/:id page chrome — same layout convention as practicePage.css/
+ * dailyPage.css. The puzzle card itself and its interaction body come from
+ * practice.css/scrubber.css (already loaded globally by the shells this
+ * page reuses); this file only styles what's unique to the link page: the
+ * not-found status copy and the "practice more like this" CTA.
+ */
+
+.puzzle-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--content-width-mobile);
+  margin: 0 auto;
+  padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--space-4) var(--space-4);
+  box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+  .puzzle-page {
+    max-width: var(--content-width-desktop);
+  }
+}
+
+.puzzle-page__status {
+  text-align: center;
+  color: var(--text-1);
+  padding: 2rem 0;
+}
+
+.puzzle-page__cta {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  min-height: var(--tap-target-min);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.puzzle-page__cta:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
