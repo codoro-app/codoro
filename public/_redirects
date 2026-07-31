@@ -2,19 +2,24 @@
 # file — Vite's build only emits index.html at the root, so /practice,
 # /daily, /rush, /browse, /legal all 404 on a cold/direct load without
 # this. Each real route is rewritten (200, not a redirect — the URL stays
-# as typed) to index.html so the SPA can boot and its own router takes it
-# from there.
+# as typed) to the app shell so the SPA can boot and its own router takes
+# it from there.
 #
-# No wildcard (`/* /index.html 200`) on purpose: that would make every URL
-# on the domain return 200 with the app shell, which is both bad for
-# crawlers and breaks the "an unknown path returns a real 404" requirement.
-# Anything not listed below keeps falling through to 404.html.
-/practice /index.html 200
-/daily /index.html 200
-/rush /index.html 200
-/trace /index.html 200
-/browse /index.html 200
-/legal /index.html 200
+# The rewrite target is '/', not '/index.html': Cloudflare Pages
+# canonicalizes '.html' URLs and 308-redirects '/index.html' to '/', which
+# strips the original path and query string before the SPA's router ever
+# sees them. Rewriting straight to '/' avoids that extra hop.
+#
+# No wildcard (`/* / 200`) on purpose: that would make every URL on the
+# domain return 200 with the app shell, which is both bad for crawlers and
+# breaks the "an unknown path returns a real 404" requirement. Anything
+# not listed below keeps falling through to 404.html.
+/practice / 200
+/daily / 200
+/rush / 200
+/trace / 200
+/browse / 200
+/legal / 200
 # /puzzle/:id (v2 Phase 1b) is the first *dynamic* route — Cloudflare's
 # _redirects doesn't understand wouter's ':id' param syntax, only a glob
 # ('*'), so this is scoped to /puzzle/* rather than a literal per-id line
@@ -24,4 +29,4 @@
 # any other path the client-side router doesn't recognize; a truly unknown
 # top-level path (e.g. /nonsense) still isn't covered by any rule here and
 # keeps 404ing for real.
-/puzzle/* /index.html 200
+/puzzle/* / 200

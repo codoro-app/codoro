@@ -65,7 +65,7 @@ export const DYNAMIC_ROUTES: readonly DynamicRouteMetaEntry[] = [
   {
     pattern: '/puzzle/:id',
     test: (pathname) => PUZZLE_ID_PATH.test(pathname),
-    redirectsRule: '/puzzle/* /index.html 200',
+    redirectsRule: '/puzzle/* / 200',
     label: 'Puzzle',
     title: 'Puzzle — Codoro',
     description: 'Solve a shared Codoro puzzle.',

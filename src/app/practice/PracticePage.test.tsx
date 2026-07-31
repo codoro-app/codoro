@@ -6,7 +6,25 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PATTERN_LABELS } from '../../content'
 import { nth } from '../../test/nth'
-import type { Attempt } from '../../storage'
+import type { Attempt, UserProfile } from '../../storage'
+
+// Counts real selectNext calls — the "puzzle actually served" churn that a
+// runaway pattern-filter effect (v2 Phase 1b corrective, Finding 1) would
+// multiply without bound. Wraps the real implementation (not a stub) so the
+// counter reflects genuine serveNext activity, same spirit as this file's
+// other importOriginal mocks below.
+const { selectNextCalls } = vi.hoisted(() => ({ selectNextCalls: { count: 0 } }))
+
+vi.mock('../../engine', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../engine')>()
+  return {
+    ...actual,
+    selectNext: (...args: Parameters<typeof actual.selectNext>) => {
+      selectNextCalls.count += 1
+      return actual.selectNext(...args)
+    },
+  }
+})
 
 const practicePagePath = join(dirname(fileURLToPath(import.meta.url)), 'PracticePage.tsx')
 
@@ -64,6 +82,7 @@ describe('PracticePage', () => {
     // /practice so every test starts from the non-browse view, matching
     // what these tests assumed before the extraction.
     window.history.pushState({}, '', '/practice')
+    selectNextCalls.count = 0
   })
 
   it('keys the rendered PuzzleCardShell by puzzle.id (required concern-b fix)', () => {
@@ -139,6 +158,66 @@ describe('PracticePage', () => {
   it('applies a ?pattern= query param as the filter on load (the /puzzle/:id "practice more like this" CTA\'s destination)', async () => {
     window.history.pushState({}, '', '/practice?pattern=null-undefined')
     render(<PracticePage />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(new RegExp(`filtering: ${PATTERN_LABELS['null-undefined']}`, 'i')),
+      ).toBeInTheDocument()
+    })
+  })
+
+  // Finding 1 (v2 Phase 1b corrective, P0): the effect applying ?pattern=
+  // used to depend on session.setPatternFilter, whose identity churns on
+  // every call (serveNext always creates a new profile object) — an
+  // infinite render loop, measured at 247 setPatternFilter calls in 400ms
+  // of instrumented idle time before this fix. A waitFor() on "does the
+  // chip appear" (the test above) cannot detect this: the chip appears on
+  // the *first* iteration and the test ends before observing the loop
+  // never stops. This asserts a *count*, across a settling delay, instead.
+  it('applies the ?pattern= filter exactly once — asserted by call count over a settling delay, not just presence', async () => {
+    window.history.pushState({}, '', '/practice?pattern=null-undefined')
+    render(<PracticePage />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(new RegExp(`filtering: ${PATTERN_LABELS['null-undefined']}`, 'i')),
+      ).toBeInTheDocument()
+    })
+
+    // Exactly two real serves: the initial unfiltered mount serve, then the
+    // one filtered serve the pattern-filter effect triggers. The original
+    // bug kept calling setPatternFilter (and therefore selectNext) well
+    // past this point.
+    expect(selectNextCalls.count).toBe(2)
+
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    expect(selectNextCalls.count).toBe(2)
+  })
+
+  // The naive fix for Finding 1 — latching "applied" on the very first
+  // effect run — is wrong: setPatternFilter no-ops while session.profile is
+  // still null (loadProfile hasn't resolved yet on that first run), so a
+  // bare latch marks the pattern "applied" on a no-op and the filter is
+  // then never actually applied. This defers loadProfile's resolution to
+  // prove the filter still applies once profile becomes available on a
+  // later tick — reverting the profile gate (keeping only the latch) turns
+  // this test red with a 5s waitFor timeout.
+  it('still applies the ?pattern= filter once session.profile resolves on a later tick (naive-latch regression guard)', async () => {
+    let resolveLoadProfile: ((profile: UserProfile) => void) | undefined
+    vi.mocked(loadProfile).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveLoadProfile = resolve
+        }),
+    )
+    window.history.pushState({}, '', '/practice?pattern=null-undefined')
+    render(<PracticePage />)
+
+    // Still loading — session.profile is null, so the effect must not have
+    // latched "applied" yet.
+    expect(screen.getByText(/loading your practice session/i)).toBeInTheDocument()
+
+    resolveLoadProfile?.(createDefaultProfile())
 
     await waitFor(() => {
       expect(

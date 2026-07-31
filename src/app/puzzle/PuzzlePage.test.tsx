@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -154,6 +155,25 @@ describe('PuzzlePageForId — telemetry', () => {
     trackPuzzleLinkAttempt.mockClear()
     const user = userEvent.setup()
     render(<PuzzlePageForId id="tc-009" />)
+    await solveScrubberToCompletion(user)
+
+    expect(trackPuzzleLinkAttempt).toHaveBeenCalledTimes(1)
+    expect(trackPuzzleLinkAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({ puzzle_id: 'tc-009', interaction: 'scrubber' }),
+    )
+  })
+
+  // Finding 2 (v2 Phase 1b corrective): trackPuzzleLinkAttempt used to fire
+  // from inside the setCheckpointResults updater, which React (deliberately,
+  // under StrictMode) can invoke more than once per logical update — a
+  // double-fire that would corrupt the one telemetry record link-play
+  // completion is evaluated by (Decision 1: no rated attempts are ever
+  // recorded for this surface). Wrapping in StrictMode here is what would
+  // have caught it; a plain render() would not.
+  it('fires puzzle_link_attempt exactly once per completed scrubber link attempt under StrictMode', async () => {
+    trackPuzzleLinkAttempt.mockClear()
+    const user = userEvent.setup()
+    render(<PuzzlePageForId id="tc-009" />, { wrapper: StrictMode })
     await solveScrubberToCompletion(user)
 
     expect(trackPuzzleLinkAttempt).toHaveBeenCalledTimes(1)

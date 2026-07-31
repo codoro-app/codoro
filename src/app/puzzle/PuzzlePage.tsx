@@ -110,23 +110,32 @@ function ScrubberLinkPuzzle({ puzzle }: ScrubberLinkPuzzleProps) {
     servedAtRef.current = Date.now()
   }, [])
 
+  // Source of truth for "how many checkpoints answered so far", mutated
+  // synchronously — mirrors useTraceSession's own checkpointResultsRef.
+  // setState updaters must stay pure (React may invoke one more than once
+  // for a single logical update, and this app renders under StrictMode,
+  // which does so deliberately in development); telemetry is a side
+  // effect, so it can't live inside the updater the way it used to.
+  const checkpointResultsRef = useRef<CheckpointResult[]>([])
+
   const isComplete = checkpointResults.length >= puzzle.checkpoints.length
   const solved = isComplete ? scoreScrubberAttempt(checkpointResults) : null
 
   const handleCheckpointAnswered = (result: CheckpointResult) => {
-    setCheckpointResults((prev) => {
-      if (prev.length >= puzzle.checkpoints.length) return prev // already complete — mirrors useTraceSession's no-op guard
-      const next = [...prev, result]
-      if (next.length >= puzzle.checkpoints.length) {
-        trackPuzzleLinkAttempt({
-          puzzle_id: puzzle.id,
-          interaction: puzzle.interaction,
-          correct: scoreScrubberAttempt(next),
-          time_ms: Math.max(0, Date.now() - servedAtRef.current),
-        })
-      }
-      return next
-    })
+    if (checkpointResultsRef.current.length >= puzzle.checkpoints.length) return // already complete — mirrors useTraceSession's no-op guard
+
+    const next = [...checkpointResultsRef.current, result]
+    checkpointResultsRef.current = next
+    setCheckpointResults(next)
+
+    if (next.length >= puzzle.checkpoints.length) {
+      trackPuzzleLinkAttempt({
+        puzzle_id: puzzle.id,
+        interaction: puzzle.interaction,
+        correct: scoreScrubberAttempt(next),
+        time_ms: Math.max(0, Date.now() - servedAtRef.current),
+      })
+    }
   }
 
   return (

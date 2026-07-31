@@ -239,6 +239,26 @@ describe('App', () => {
     })
   })
 
+  // A second bypass of the same guard: new URL('/..//evil.com', origin)'s
+  // WHATWG path normalization pops the leading '/..', leaving
+  // pathname === '//evil.com' with the origin unchanged — so the origin
+  // check alone passes even though the result is protocol-relative. Each
+  // of these must fall back to the normal boot decision, same as the
+  // protocol-relative and backslash cases above.
+  it.each([
+    ['/..//evil.com', 'a dot-dot-collapsed protocol-relative value'],
+    ['/..//..//evil.com', 'a repeated dot-dot-collapsed protocol-relative value'],
+    ['/%2e%2e//evil.com', 'a percent-encoded dot-dot-collapsed protocol-relative value'],
+  ])('ignores %s (%s) and falls back to the normal boot decision', async (target) => {
+    window.history.pushState({}, '', `/?redirect=${encodeURIComponent(target)}`)
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/practice')
+    })
+  })
+
   it('opens Home when the logo is clicked, and can navigate back to Practice from there', async () => {
     const user = userEvent.setup()
     render(<App />)

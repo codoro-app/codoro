@@ -100,11 +100,20 @@ describe('public/_redirects', () => {
     .split('\n')
     .map((line) => line.trim())
 
-  it('has a 200 rewrite to /index.html for every ROUTE_META route except the root', () => {
+  it('has a 200 rewrite to / for every ROUTE_META route except the root', () => {
     for (const path of Object.keys(ROUTE_META)) {
       if (path === '/') continue
-      expect(redirectsLines).toContain(`${path} /index.html 200`)
+      expect(redirectsLines).toContain(`${path} / 200`)
     }
+  })
+
+  // Rewrite target must be '/', not '/index.html': Cloudflare Pages
+  // canonicalizes '.html' URLs and 308-redirects '/index.html' to '/',
+  // stripping the original path and query string before the SPA's router
+  // ever sees them (v2 Phase 1b Finding 4).
+  it('has no rewrite rule targeting /index.html', () => {
+    const ruleLines = redirectsLines.filter((line) => line && !line.startsWith('#'))
+    expect(ruleLines.some((line) => line.includes('/index.html'))).toBe(false)
   })
 
   // Explicit, rather than just skipping '/' in the loop above: Vite emits
@@ -112,7 +121,7 @@ describe('public/_redirects', () => {
   // rewrite rule the way the other five routes do — this asserts that's
   // still true rather than leaving it as an implied gap in the loop.
   it("has no rewrite rule for '/' — Vite emits index.html there directly", () => {
-    expect(redirectsLines).not.toContain('/ /index.html 200')
+    expect(redirectsLines).not.toContain('/ / 200')
     expect(redirectsLines.some((line) => /^\/\s/.test(line))).toBe(false)
   })
 

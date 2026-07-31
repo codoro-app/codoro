@@ -63,7 +63,7 @@ import { useMediaQuery } from '../useMediaQuery'
 import { PATTERN_LABELS, PATTERN_SLUGS } from '../../content'
 import type { PatternSlug } from '../../content'
 import { CloseIcon } from '../Icons'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CommitPayload } from './interactionTypes'
 import './practicePage.css'
 
@@ -105,13 +105,30 @@ export function PracticePage() {
   // this" CTA on a shared /puzzle/:id link. Validated against PATTERN_SLUGS
   // rather than passed through: an unrecognized or absent param is silently
   // ignored, leaving the normal unfiltered pool rather than erroring.
+  //
+  // Applied exactly once, gated on session.profile being available (v2
+  // Phase 1b corrective, Finding 1). This used to depend only on
+  // `session.setPatternFilter`, whose identity churns on every call — it
+  // calls serveNext, which unconditionally calls setProfile with a brand
+  // new object, so calling it once produces a new setPatternFilter, which
+  // re-fires this effect, which calls it again: an infinite render loop. A
+  // bare `useRef` latch alone is NOT sufficient: setPatternFilter no-ops
+  // while `profile` is still null (loadProfile hasn't resolved on the
+  // first render), so latching on that first no-op run would mark the
+  // pattern "applied" and it would then never actually apply. Gating on
+  // `session.profile !== null` before setting the latch preserves the
+  // retry-until-profile-exists behavior the runaway dependency used to
+  // provide by accident, on purpose instead.
+  const appliedPatternFilterRef = useRef(false)
   useEffect(() => {
+    if (appliedPatternFilterRef.current || session.profile === null) return
+    appliedPatternFilterRef.current = true
     const pattern = new URLSearchParams(search).get('pattern')
     if (pattern && PATTERN_SLUG_SET.has(pattern)) {
       session.setPatternFilter(pattern as PatternSlug)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, session.setPatternFilter])
+  }, [search, session.profile, session.setPatternFilter])
 
   // The page (not a nested container — practicePage.css has no overflow-y
   // scroll region) scrolls with whatever height the previous puzzle's

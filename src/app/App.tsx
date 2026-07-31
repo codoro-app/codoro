@@ -47,7 +47,15 @@ function resolveIntendedPath(): string | null {
     return null
   }
   if (resolved.origin !== window.location.origin) return null
-  return resolved.pathname + resolved.search + resolved.hash
+  const intended = resolved.pathname + resolved.search + resolved.hash
+  // The origin check above isn't sufficient on its own: a target like
+  // '/..//evil.com' has its leading '/..' popped by WHATWG path
+  // normalization, leaving pathname === '//evil.com' with the origin
+  // unchanged — so the check above passes even though the result violates
+  // this function's own invariant (must start with exactly one '/').
+  // Validate the value actually being returned, not just the parsed origin.
+  if (intended.startsWith('//')) return null
+  return intended
 }
 
 // Each mode is its own chunk (and pulls prismjs/framer-motion along with it
