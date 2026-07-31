@@ -2,14 +2,14 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { labelForPath, ROUTE_META } from './routes'
+import { DYNAMIC_ROUTES, labelForPath, ROUTE_META } from './routes'
 
 // Mirrors vite.config.ts's workbox.navigateFallbackDenylist[0] exactly —
 // not imported from there, since vite.config.ts lives in its own isolated
 // tsconfig.node.json project and doesn't export anything for src/ to
 // import. Kept in sync by hand; this test is what would catch drift.
 const SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN =
-  /^\/(?!(?:practice|daily|rush|browse|legal|trace)?(?:\?|$))/
+  /^\/(?!(?:practice|daily|rush|browse|legal|trace|puzzle\/[^/?]+)?(?:\?|$))/
 
 describe('labelForPath', () => {
   it('labels the known routes', () => {
@@ -19,8 +19,13 @@ describe('labelForPath', () => {
     expect(labelForPath('/legal')).toBe('Legal')
   })
 
-  it('falls back to "Codoro" for an unknown path', () => {
+  it('labels a dynamic /puzzle/<id> route generically, without needing the real id', () => {
+    expect(labelForPath('/puzzle/tc-009')).toBe('Puzzle')
+  })
+
+  it('falls back to "Codoro" for an unknown path, including a bare /puzzle/ with no id', () => {
     expect(labelForPath('/nonsense')).toBe('Codoro')
+    expect(labelForPath('/puzzle/')).toBe('Codoro')
   })
 })
 
@@ -56,6 +61,25 @@ describe('SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN', () => {
 
   it('denies the fallback for an unknown top-level path with a query string', () => {
     expect(SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN.test('/nonsense?x=1')).toBe(true)
+  })
+
+  // v2 Phase 1b: /puzzle/:id is the first dynamic route, and workbox-routing
+  // matches this pattern against pathname + search (see the query-string
+  // case above) — so a real id needs the same four-case coverage every
+  // static route already gets: bare, with a query string, the no-id edge
+  // case, and confirmation an unrelated unknown path is still denied.
+  it('does not deny the fallback for a real /puzzle/<id> path', () => {
+    expect(SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN.test('/puzzle/tc-009')).toBe(false)
+  })
+
+  it('does not deny the fallback for a /puzzle/<id> path with a query string', () => {
+    expect(SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN.test('/puzzle/tc-009?utm_source=twitter')).toBe(
+      false,
+    )
+  })
+
+  it('denies the fallback for a bare /puzzle/ with no id', () => {
+    expect(SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN.test('/puzzle/')).toBe(true)
   })
 })
 
@@ -94,5 +118,11 @@ describe('public/_redirects', () => {
 
   it('has no /* catch-all rewrite (an unknown path must still 404)', () => {
     expect(redirectsLines.some((line) => line.startsWith('/*'))).toBe(false)
+  })
+
+  it('has a rewrite rule for every DYNAMIC_ROUTES entry', () => {
+    for (const route of DYNAMIC_ROUTES) {
+      expect(redirectsLines).toContain(route.redirectsRule)
+    }
   })
 })

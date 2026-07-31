@@ -12,15 +12,32 @@
  */
 import { useEffect } from 'react'
 import { useLocation } from 'wouter'
-import { ROUTE_META } from './routes'
+import { DYNAMIC_ROUTES, ROUTE_META } from './routes'
 
 const NOT_FOUND_TITLE = 'Page not found — Codoro'
+
+/**
+ * A dynamic route (e.g. /puzzle/<id>) has no ROUTE_META entry — see
+ * routes.ts's DYNAMIC_ROUTES doc comment for why it can't — so this falls
+ * back to that route's own generic title/description instead of
+ * NOT_FOUND_TITLE. Per the Phase 1b OG-unfurl decision (option (a): accept
+ * the generic site card for v2), this is intentionally the same generic
+ * copy for every puzzle id, not a per-puzzle title — unfurl bots never run
+ * this code anyway, and a per-puzzle browser-tab title is out of scope this
+ * phase.
+ */
+function metaForLocation(location: string): { title: string; description: string } | undefined {
+  const exact = ROUTE_META[location]
+  if (exact) return exact
+  const dynamicRoute = DYNAMIC_ROUTES.find((route) => route.test(location))
+  return dynamicRoute
+}
 
 export function useRouteMeta() {
   const [location] = useLocation()
 
   useEffect(() => {
-    const meta = ROUTE_META[location]
+    const meta = metaForLocation(location)
     document.title = meta?.title ?? NOT_FOUND_TITLE
     if (meta) {
       document.querySelector('meta[name="description"]')?.setAttribute('content', meta.description)

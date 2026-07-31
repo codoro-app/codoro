@@ -15,3 +15,13 @@
 /trace /index.html 200
 /browse /index.html 200
 /legal /index.html 200
+# /puzzle/:id (v2 Phase 1b) is the first *dynamic* route — Cloudflare's
+# _redirects doesn't understand wouter's ':id' param syntax, only a glob
+# ('*'), so this is scoped to /puzzle/* rather than a literal per-id line
+# (which would be infinite anyway). A bare /puzzle/ (no id) still matches
+# this glob and rewrites to the app shell — App.tsx's router then falls
+# through to its ordinary "Nothing here" catch-all for that case, same as
+# any other path the client-side router doesn't recognize; a truly unknown
+# top-level path (e.g. /nonsense) still isn't covered by any rule here and
+# keeps 404ing for real.
+/puzzle/* /index.html 200
