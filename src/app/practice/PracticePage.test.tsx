@@ -104,6 +104,27 @@ describe('PracticePage', () => {
     expect(screen.getByRole('button', { name: /practice all patterns/i })).toBeInTheDocument()
   })
 
+  it('applies a ?pattern= query param as the filter on load (the /puzzle/:id "practice more like this" CTA\'s destination)', async () => {
+    window.history.pushState({}, '', '/practice?pattern=null-undefined')
+    render(<PracticePage />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(new RegExp(`filtering: ${PATTERN_LABELS['null-undefined']}`, 'i')),
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('ignores an unrecognized ?pattern= value and falls back to the unfiltered pool', async () => {
+    window.history.pushState({}, '', '/practice?pattern=not-a-real-pattern')
+    render(<PracticePage />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/filtering: /i)).not.toBeInTheDocument()
+  })
+
   it('the filter chip clears the pattern filter directly, without losing session stats', async () => {
     const user = userEvent.setup()
     render(<PracticePage />)

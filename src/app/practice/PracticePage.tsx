@@ -52,27 +52,44 @@
  * routing extraction Phase 0 deferred here.
  */
 import { AnimatePresence, motion } from 'framer-motion'
-import { Link, useLocation } from 'wouter'
+import { Link, useLocation, useSearch } from 'wouter'
 import { PuzzleCardShell } from './PuzzleCardShell'
 import { StatusBar } from './StatusBar'
 import { PatternPicker } from './PatternPicker'
 import { MasteryView } from './MasteryView'
 import { usePracticeSession } from './usePracticeSession'
 import { useMediaQuery } from '../useMediaQuery'
-import { PATTERN_LABELS } from '../../content'
+import { PATTERN_LABELS, PATTERN_SLUGS } from '../../content'
+import type { PatternSlug } from '../../content'
 import { CloseIcon } from '../Icons'
 import { useEffect, useState } from 'react'
 import './practicePage.css'
 
 type View = 'practice' | 'mastery'
 
+const PATTERN_SLUG_SET: ReadonlySet<string> = new Set(PATTERN_SLUGS)
+
 export function PracticePage() {
   const [location, navigate] = useLocation()
+  const search = useSearch()
   const isBrowseRoute = location === '/browse'
   const [view, setView] = useState<View>('practice')
   const session = usePracticeSession()
   const puzzleId = session.puzzle?.id
   const isDesktop = useMediaQuery('(min-width: 1024px)')
+
+  // Applies a '/practice?pattern=<slug>' query param as the pattern filter —
+  // the receiving end of PuzzlePage's (v2 Phase 1b) "practice more like
+  // this" CTA on a shared /puzzle/:id link. Validated against PATTERN_SLUGS
+  // rather than passed through: an unrecognized or absent param is silently
+  // ignored, leaving the normal unfiltered pool rather than erroring.
+  useEffect(() => {
+    const pattern = new URLSearchParams(search).get('pattern')
+    if (pattern && PATTERN_SLUG_SET.has(pattern)) {
+      session.setPatternFilter(pattern as PatternSlug)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, session.setPatternFilter])
 
   // The page (not a nested container — practicePage.css has no overflow-y
   // scroll region) scrolls with whatever height the previous puzzle's
