@@ -13,6 +13,9 @@ export {
   trackRushAttempt,
   trackRushRunEnd,
   trackTraceAttempt,
+  trackPuzzleLinkView,
+  trackPuzzleLinkAttempt,
+  trackShareClick,
   trackError,
 } from './events'
 export type {
@@ -20,4 +23,7 @@ export type {
   RushAttemptContext,
   RushRunEndPayload,
   TraceAttemptContext,
+  PuzzleLinkViewPayload,
+  PuzzleLinkAttemptPayload,
+  ShareClickPayload,
 } from './events'
