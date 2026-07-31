@@ -59,3 +59,38 @@ extended to `content/` here — `schema.ts` and `tools/validatePuzzles.ts` have
 solid unit tests, but the two CLI entrypoints (`validateContent.ts`,
 `contentStats.ts`) are thin I/O/console glue that don't lend themselves to
 the same 100%-branches bar. Revisit if that tradeoff stops feeling right.
+
+## Testing standard: UI guarantees about checkpoint presentation must hit real content
+
+Any test asserting what a player actually sees at a Trace checkpoint — a
+choice label, a masked value, a reveal string — must run against the real
+`scrubberPool` export from `src/content/index.ts`, not a hand-built fixture.
+A fixture puzzle is written by whoever writes the test, so it silently
+encodes the author's own assumptions about the content shape; it cannot
+catch a defect that only exists because real content violates one of those
+assumptions.
+
+This is not a hypothetical: the Phase 3 pre-merge corrective found two
+player-facing bugs that shipped past a fully green suite for exactly this
+reason. `CheckpointPanel.test.tsx` and `Scrubber.test.tsx` each used a
+synthetic fixture where every `next-line` checkpoint's choices happened to
+render unambiguously and no two variable rows ever shared a value — neither
+property holds across the real pool. The two defects:
+
+- **Line-number base mismatch.** `next-line` choices are validated as
+  0-indexed line offsets (matching `ScrubberStepSchema.line`), but the code
+  gutter and the answer reveal both display 1-indexed line numbers. Every
+  fixture's choices happened to still "look right" either way; three real
+  puzzles (`mut-009`, `oob-009`, `scl-009`) did not, and a player saw a
+  choice list that disagreed with its own reveal.
+- **Mask defeated by a co-valued row.** Masking only the target row is
+  correct in a fixture where no other row shares its value. In real content
+  built around mutable-state aliasing (e.g. `mut-009`, where `original` and
+  `cart` are the same array by construction), the masked answer was sitting
+  in plain text one row away.
+
+Going forward, any new assertion of this kind — "this string is/isn't
+visible at this checkpoint," "this label reads as X" — needs a pool-level
+test (see `CheckpointPanel.pool.test.tsx` and the mask-propagation pool test
+added alongside it) iterating the real `scrubberPool`, in addition to any
+fixture-level test kept for fast, targeted regression coverage.

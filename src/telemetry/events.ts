@@ -61,6 +61,16 @@ export function trackRushRunEnd(payload: RushRunEndPayload): void {
   safeCapture('rush_run_end', payload)
 }
 
+/** Per-checkpoint context attached to every Trace `attempt` event, additive to the locked AttemptEventPayload shape above (new field, nothing renamed/removed). One entry per checkpoint on the puzzle, in answer order — mirrors the `checkpoint_results` field persisted on the Attempt record (src/storage/schema.ts's CheckpointResultSchema), just snake_cased for the analytics stream. */
+export interface TraceAttemptContext {
+  checkpoint_results: { correct: boolean; choice_index: number }[]
+}
+
+/** Fires the same `attempt` event as trackAttempt, with Trace's per-checkpoint context appended — so Trace attempts land in the same event stream (mode: 'practice', per the build plan's shared-rating decision) with their checkpoint-level detail attached. Called once per completed puzzle (all checkpoints answered), not once per checkpoint. */
+export function trackTraceAttempt(payload: AttemptEventPayload & TraceAttemptContext): void {
+  safeCapture('attempt', payload)
+}
+
 /**
  * Lightweight error-tracking event, not part of the locked schema above —
  * this is our call for V1: PostHog's own error capture is enough for now,

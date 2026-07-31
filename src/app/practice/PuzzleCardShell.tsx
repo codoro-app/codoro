@@ -21,6 +21,7 @@ import { CodeSnippet } from './CodeSnippet'
 import { Mcq } from './interactions/Mcq'
 import { SwipeBinary } from './interactions/SwipeBinary'
 import { TapLine } from './interactions/TapLine'
+import '../tokens.css'
 import './practice.css'
 
 export interface PuzzleCardShellProps {

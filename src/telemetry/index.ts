@@ -12,6 +12,12 @@ export {
   trackAttempt,
   trackRushAttempt,
   trackRushRunEnd,
+  trackTraceAttempt,
   trackError,
 } from './events'
-export type { AttemptEventPayload, RushAttemptContext, RushRunEndPayload } from './events'
+export type {
+  AttemptEventPayload,
+  RushAttemptContext,
+  RushRunEndPayload,
+  TraceAttemptContext,
+} from './events'

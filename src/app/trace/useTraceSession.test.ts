@@ -1,0 +1,337 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { updateRating, roundForDisplay } from '../../engine'
+import type { Puzzle } from '../../content'
+import { useTraceSession } from './useTraceSession'
+
+const { FIXTURE_SCRUBBER_POOL } = vi.hoisted(() => {
+  const pool = Array.from({ length: 12 }, (_, i) => ({
+    id: `s${String(i)}`,
+    pattern: i % 2 === 0 ? 'off-by-one' : 'null-undefined',
+    difficulty_rating: 1150 + i * 10,
+    explanation: `explanation ${String(i)}`,
+    prompt: `prompt ${String(i)}`,
+    language: 'javascript',
+    snippet: 'let x = 0;\nx = x + 1;\nconsole.log(x);',
+    interaction: 'scrubber',
+    steps: [
+      { line: 0, vars: { x: '0' } },
+      { line: 1, vars: { x: '1' } },
+      { line: 2, vars: { x: '1' }, output: '1' },
+    ],
+    checkpoints: [
+      { afterStep: 0, question: 'var-value', target: 'x', choices: ['0', '1'], correct: 0 },
+      { afterStep: 1, question: 'next-line', choices: ['1', '2'], correct: 1 },
+    ],
+  })) as unknown as Puzzle[]
+  return { FIXTURE_SCRUBBER_POOL: pool }
+})
+
+vi.mock('../../content', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../content')>()
+  return { ...actual, puzzlePool: FIXTURE_SCRUBBER_POOL, scrubberPool: FIXTURE_SCRUBBER_POOL }
+})
+
+vi.mock('../../storage', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../storage')>()
+  return {
+    ...actual,
+    loadProfile: vi.fn(),
+    saveProfile: vi.fn(),
+    appendAttempt: vi.fn(),
+  }
+})
+
+vi.mock('../../telemetry', () => ({ trackTraceAttempt: vi.fn(), trackError: vi.fn() }))
+
+const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
+  await import('../../storage')
+const { trackTraceAttempt, trackError } = await import('../../telemetry')
+
+/** Answers every checkpoint on the currently-served puzzle, in order. */
+function answerAllCheckpoints(
+  result: { current: ReturnType<typeof useTraceSession> },
+  correct: boolean,
+) {
+  const puzzle = result.current.puzzle
+  if (!puzzle) throw new Error('expected a puzzle to be served')
+  act(() => {
+    puzzle.checkpoints.forEach(() => {
+      result.current.handleCheckpointAnswered({ correct, choiceIndex: correct ? 0 : 1 })
+    })
+  })
+}
+
+describe('useTraceSession', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(loadProfile).mockResolvedValue(createDefaultProfile())
+    vi.mocked(saveProfile).mockResolvedValue(undefined)
+    vi.mocked(appendAttempt).mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('loads the profile and serves a first scrubber puzzle from scrubberPool on mount', async () => {
+    const { result } = renderHook(() => useTraceSession())
+
+    expect(result.current.status).toBe('loading')
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    expect(loadProfile).toHaveBeenCalledTimes(1)
+    expect(result.current.puzzle).not.toBeNull()
+    expect(FIXTURE_SCRUBBER_POOL.some((p) => p.id === result.current.puzzle?.id)).toBe(true)
+    expect(result.current.checkpointResults).toEqual([])
+    expect(result.current.isComplete).toBe(false)
+    expect(result.current.solved).toBeNull()
+    expect(result.current.ratingDelta).toBeNull()
+  })
+
+  it('accumulates checkpoint results one at a time and only completes on the final checkpoint', async () => {
+    const { result } = renderHook(() => useTraceSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    const puzzle = result.current.puzzle
+    if (!puzzle) throw new Error('expected a puzzle to be served')
+    expect(puzzle.checkpoints.length).toBe(2)
+
+    act(() => {
+      result.current.handleCheckpointAnswered({ correct: true, choiceIndex: 0 })
+    })
+    expect(result.current.checkpointResults).toEqual([{ correct: true, choiceIndex: 0 }])
+    expect(result.current.isComplete).toBe(false)
+    expect(appendAttempt).not.toHaveBeenCalled()
+
+    act(() => {
+      result.current.handleCheckpointAnswered({ correct: true, choiceIndex: 1 })
+    })
+    expect(result.current.checkpointResults).toEqual([
+      { correct: true, choiceIndex: 0 },
+      { correct: true, choiceIndex: 1 },
+    ])
+    expect(result.current.isComplete).toBe(true)
+    expect(appendAttempt).toHaveBeenCalledTimes(1)
+  })
+
+  it('a fully-correct attempt scores solved via scoreScrubberAttempt, rates via engine updateRating, persists mode "practice" with non-null checkpoint_results, and fires trackTraceAttempt', async () => {
+    const { result } = renderHook(() => useTraceSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    const puzzle = result.current.puzzle
+    if (!puzzle) throw new Error('expected a puzzle to be served')
+    const before = result.current.profile
+    if (!before) throw new Error('expected a profile to be loaded')
+
+    const expectedNewRating = updateRating(
+      before.rating,
+      puzzle.difficulty_rating,
+      true,
+      before.ratedAttemptCount,
+    )
+    const expectedDelta = roundForDisplay(expectedNewRating) - roundForDisplay(before.rating)
+
+    answerAllCheckpoints(result, true)
+
+    expect(result.current.isComplete).toBe(true)
+    expect(result.current.solved).toBe(true)
+    expect(result.current.ratingDelta).toBe(expectedDelta)
+    expect(result.current.profile?.rating).toBe(expectedNewRating)
+    expect(result.current.profile?.ratedAttemptCount).toBe(1)
+
+    expect(saveProfile).toHaveBeenCalledWith(
+      expect.objectContaining({ rating: expectedNewRating, ratedAttemptCount: 1 }),
+    )
+
+    // Reviewer focus: this must fail if the hook ever stamps a wrong mode
+    // or a null checkpoint_results.
+    expect(appendAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        puzzleId: puzzle.id,
+        correct: true,
+        mode: 'practice',
+        choice_index: null,
+        checkpoint_results: [
+          { correct: true, choiceIndex: 0 },
+          { correct: true, choiceIndex: 0 },
+        ],
+        userRatingBefore: before.rating,
+        userRatingAfter: expectedNewRating,
+      }),
+    )
+    const persistedAttempt = vi.mocked(appendAttempt).mock.calls[0]?.[0]
+    expect(persistedAttempt?.mode).not.toBe('rush')
+    expect(persistedAttempt?.mode).not.toBe('daily')
+    expect(persistedAttempt?.checkpoint_results).not.toBeNull()
+    expect(persistedAttempt?.checkpoint_results).toHaveLength(2)
+
+    expect(trackTraceAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        puzzle_id: puzzle.id,
+        correct: true,
+        mode: 'practice',
+        interaction: 'scrubber',
+        user_rating_before: before.rating,
+        user_rating_after: expectedNewRating,
+        checkpoint_results: [
+          { correct: true, choice_index: 0 },
+          { correct: true, choice_index: 0 },
+        ],
+      }),
+    )
+    // trackTraceAttempt fires once per completed puzzle, not once per checkpoint.
+    expect(trackTraceAttempt).toHaveBeenCalledTimes(1)
+  })
+
+  it('any missed checkpoint fails the whole attempt (scoreScrubberAttempt semantics) and records a requeue miss', async () => {
+    const { result } = renderHook(() => useTraceSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    const puzzle = result.current.puzzle
+    if (!puzzle) throw new Error('expected a puzzle to be served')
+
+    act(() => {
+      result.current.handleCheckpointAnswered({ correct: true, choiceIndex: 0 })
+    })
+    act(() => {
+      result.current.handleCheckpointAnswered({ correct: false, choiceIndex: 1 })
+    })
+
+    expect(result.current.solved).toBe(false)
+    expect(result.current.profile?.requeueState).toEqual([
+      { puzzleId: puzzle.id, stage: 0, served: 0 },
+    ])
+    expect(appendAttempt).toHaveBeenCalledWith(expect.objectContaining({ correct: false }))
+  })
+
+  it('a missed puzzle resurfaces via requeue after 3 continues (stage-0 ladder interval)', async () => {
+    const { result } = renderHook(() => useTraceSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    const missedId = result.current.puzzle?.id
+    if (!missedId) throw new Error('expected a puzzle to be served')
+
+    answerAllCheckpoints(result, false)
+    expect(result.current.isComplete).toBe(true)
+
+    act(() => {
+      result.current.handleContinue()
+    })
+    answerAllCheckpoints(result, true)
+    act(() => {
+      result.current.handleContinue()
+    })
+    answerAllCheckpoints(result, true)
+    act(() => {
+      result.current.handleContinue()
+    })
+
+    expect(result.current.puzzle?.id).toBe(missedId)
+  })
+
+  it('handleContinue no-ops until the current puzzle is complete', async () => {
+    const { result } = renderHook(() => useTraceSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    const onScreenId = result.current.puzzle?.id
+    act(() => {
+      result.current.handleCheckpointAnswered({ correct: true, choiceIndex: 0 })
+    })
+    act(() => {
+      result.current.handleContinue()
+    })
+
+    expect(result.current.puzzle?.id).toBe(onScreenId)
+    expect(result.current.isComplete).toBe(false)
+    expect(appendAttempt).not.toHaveBeenCalled()
+  })
+
+  it('extra handleCheckpointAnswered calls past isComplete are ignored', async () => {
+    const { result } = renderHook(() => useTraceSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    answerAllCheckpoints(result, true)
+    expect(result.current.isComplete).toBe(true)
+    expect(appendAttempt).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      result.current.handleCheckpointAnswered({ correct: false, choiceIndex: 1 })
+    })
+
+    expect(appendAttempt).toHaveBeenCalledTimes(1)
+    expect(result.current.checkpointResults).toHaveLength(2)
+  })
+
+  it('a rejected loadProfile() on mount transitions to an error status, reports via trackError, and retryLoad recovers', async () => {
+    vi.mocked(loadProfile).mockRejectedValueOnce(new Error('IndexedDB blocked'))
+
+    const { result } = renderHook(() => useTraceSession())
+
+    expect(result.current.status).toBe('loading')
+    await waitFor(() => {
+      expect(result.current.status).toBe('error')
+    })
+
+    expect(trackError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.stringContaining('loadProfile'),
+    )
+    expect(result.current.puzzle).toBeNull()
+
+    vi.mocked(loadProfile).mockResolvedValueOnce(createDefaultProfile())
+
+    act(() => {
+      result.current.retryLoad()
+    })
+
+    expect(result.current.status).toBe('loading')
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+    expect(result.current.puzzle).not.toBeNull()
+    expect(loadProfile).toHaveBeenCalledTimes(2)
+  })
+
+  it('appendAttempt/saveProfile failures are reported via trackError without blocking completion state', async () => {
+    vi.mocked(appendAttempt).mockRejectedValueOnce(new Error('quota exceeded'))
+    vi.mocked(saveProfile).mockRejectedValueOnce(new Error('quota exceeded'))
+
+    const { result } = renderHook(() => useTraceSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    answerAllCheckpoints(result, true)
+
+    expect(result.current.isComplete).toBe(true)
+    expect(result.current.solved).toBe(true)
+
+    await waitFor(() => {
+      expect(trackError).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.stringContaining('appendAttempt'),
+      )
+    })
+    await waitFor(() => {
+      expect(trackError).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.stringContaining('saveProfile'),
+      )
+    })
+  })
+})

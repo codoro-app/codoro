@@ -107,7 +107,23 @@
 @media (min-width: 640px) {
   .home__cards-secondary {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    /* auto-fit/minmax rather than a fixed 1fr 1fr: Daily+Rush filled two
+       even columns, and Trace (a third card, same tier) needs to join that
+       row evenly rather than wrapping alone into a half-empty row.
+       The minmax floor has to actually fit 3 tracks in the narrowest band
+       this rule applies to (640-1023px, where `.home`'s max-width is still
+       --content-width-mobile, not --content-width-desktop): container is
+       480px (--content-width-mobile) minus 2x16px (--space-4 left/right
+       padding) = 448px available, minus 2x12px (--space-3) column gaps =
+       424px for the 3 tracks themselves, i.e. ~141px/track. 160px doesn't
+       fit (needs 160*3 + 12*2 = 504px > 448px, so auto-fit silently
+       collapsed to 2 tracks there and Trace wrapped alone anyway); 130px
+       does (130*3 + 12*2 = 414px <= 448px, ~34px of slack for rounding),
+       with room to spare even if the tokens above ever change slightly.
+       At >=1024px (--content-width-desktop, 640px max-width, 608px
+       available) 3 tracks still fit and grow evenly via `1fr` regardless
+       of this floor, same as before. */
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   }
 }
 

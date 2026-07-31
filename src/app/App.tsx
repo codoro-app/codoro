@@ -27,12 +27,14 @@ const VISITED_KEY = 'codoro:has-visited'
 const practiceImporter = () => import('./practice/PracticePage')
 const dailyImporter = () => import('./daily/DailyPage')
 const rushImporter = () => import('./rush/RushPage')
+const traceImporter = () => import('./trace/TracePage')
 const homeImporter = () => import('./Home')
 const legalImporter = () => import('./legal/LegalPage')
 
 const PracticePage = lazy(async () => ({ default: (await practiceImporter()).PracticePage }))
 const DailyPage = lazy(async () => ({ default: (await dailyImporter()).DailyPage }))
 const RushPage = lazy(async () => ({ default: (await rushImporter()).RushPage }))
+const TracePage = lazy(async () => ({ default: (await traceImporter()).TracePage }))
 const Home = lazy(async () => ({ default: (await homeImporter()).Home }))
 const LegalPage = lazy(async () => ({ default: (await legalImporter()).LegalPage }))
 
@@ -154,6 +156,9 @@ export function App() {
             </Route>
             <Route path="/rush">
               <RushPage />
+            </Route>
+            <Route path="/trace">
+              <TracePage />
             </Route>
             <Route path="/legal">
               <LegalPage />

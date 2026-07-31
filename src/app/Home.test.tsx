@@ -82,6 +82,13 @@ describe('Home', () => {
     expect(await screen.findByRole('link', { name: /rush/i })).toHaveAttribute('href', '/rush')
   })
 
+  it('links the Trace card to /trace', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    render(<Home />)
+
+    expect(await screen.findByRole('link', { name: /trace/i })).toHaveAttribute('href', '/trace')
+  })
+
   it('shows no best-score badge on the Rush card when rushStats is null', async () => {
     vi.mocked(loadProfile).mockResolvedValue(baseProfile())
     render(<Home />)

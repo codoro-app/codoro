@@ -25,6 +25,14 @@ describe('NavRail', () => {
     expect(window.location.pathname).toBe('/rush')
   })
 
+  it('navigates to /trace when Trace is clicked', async () => {
+    const user = userEvent.setup()
+    render(<NavRail />)
+
+    await user.click(screen.getByRole('link', { name: 'Trace' }))
+    expect(window.location.pathname).toBe('/trace')
+  })
+
   it('marks the active route with aria-current="page"', () => {
     render(<NavRail />)
     expect(screen.getByRole('link', { name: 'Practice' })).toHaveAttribute('aria-current', 'page')

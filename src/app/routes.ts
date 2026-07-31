@@ -8,6 +8,7 @@ export const ROUTES = {
   practice: { path: '/practice', label: 'Practice' },
   daily: { path: '/daily', label: 'Daily' },
   rush: { path: '/rush', label: 'Rush' },
+  trace: { path: '/trace', label: 'Trace' },
   legal: { path: '/legal', label: 'Legal' },
 } as const
 
@@ -52,6 +53,10 @@ export const ROUTE_META: Record<string, RouteMetaEntry> = {
   '/rush': {
     title: 'Rush — Codoro',
     description: "Escalating coding puzzles — three strikes and you're out.",
+  },
+  '/trace': {
+    title: 'Trace — Codoro',
+    description: 'Step through code one line at a time and predict each variable and output.',
   },
   '/browse': {
     title: 'Browse patterns — Codoro',

@@ -1,0 +1,167 @@
+/*
+ * Shared, mode-agnostic rules referenced by more than one route chunk:
+ * Prism `.token.*` syntax-highlight colors (all `var(--syn-*)`/`var(--text-1)`
+ * design tokens, no new values — see src/index.css) and the `.feedback-panel*`
+ * solve/explanation panel (PuzzleCardShell for Practice, TraceRunner for
+ * Trace).
+ *
+ * These used to be copy-pasted independently into practice.css and
+ * scrubber.css — each mode is its own lazy-loaded route chunk (App.tsx) and
+ * neither wants to pull in the other's unrelated rules just for a handful of
+ * shared-looking primitives. But two independent copies of the same
+ * `.token.*` selectors is exactly what let scrubber.css's copy silently drift
+ * from practice.css's (wrong var(--syn-fn) instead of var(--syn-num) on
+ * class-name/builtin, and a missing parameter/annotation/macro/directive/
+ * generics rule entirely) — both files declare the same unscoped global
+ * selectors, so whichever chunk's styles were injected last in a given SPA
+ * session would silently win. Importing this file from both consumers keeps
+ * exactly one copy of these rules from now on.
+ */
+
+.token.keyword {
+  color: var(--syn-kw);
+}
+
+.token.string {
+  color: var(--syn-str);
+}
+
+.token.function {
+  color: var(--syn-fn);
+}
+
+.token.class-name,
+.token.builtin {
+  color: var(--syn-num);
+}
+
+.token.number,
+.token.boolean,
+.token.constant,
+.token.property,
+.token.literal-property {
+  color: var(--syn-num);
+}
+
+.token.comment {
+  color: var(--syn-cm);
+}
+
+.token.punctuation,
+.token.operator {
+  color: var(--text-1);
+}
+
+.token.parameter,
+.token.annotation,
+.token.macro,
+.token.directive,
+.token.directive-hash,
+.token.generics {
+  color: var(--text-1);
+}
+
+/* --- feedback panel (solve/explanation screen) --------------------------
+ * Same class names/structure used by both PuzzleCardShell (Practice) and
+ * TraceRunner (Trace) for visual consistency across modes.
+ */
+
+.feedback-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: var(--radius-xl);
+  animation: feedback-panel-slide-in 0.18s ease-out;
+}
+
+@keyframes feedback-panel-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.feedback-panel--correct {
+  border: 1.5px solid var(--accent);
+  background: linear-gradient(160deg, var(--ok-dim), var(--surface-1));
+}
+
+.feedback-panel--wrong {
+  border: 1.5px solid var(--danger);
+  background: linear-gradient(160deg, var(--danger-dim), var(--surface-1));
+}
+
+.feedback-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.feedback-panel--correct .feedback-panel__icon,
+.feedback-panel--correct .feedback-panel__verdict,
+.feedback-panel--correct .feedback-panel__delta {
+  color: var(--accent);
+}
+
+.feedback-panel--wrong .feedback-panel__icon,
+.feedback-panel--wrong .feedback-panel__verdict,
+.feedback-panel--wrong .feedback-panel__delta {
+  color: var(--danger);
+}
+
+.feedback-panel__icon {
+  display: flex;
+  align-items: center;
+}
+
+.feedback-panel__verdict {
+  flex: 1;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.feedback-panel__delta {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.feedback-panel__explanation {
+  margin: 0;
+  color: var(--text-0);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+.feedback-panel__continue {
+  min-height: 44px;
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 0.05s ease-out,
+    opacity 0.05s ease-out;
+}
+
+/* Flat-button press pattern (decision #6): scale + fade instead of the
+   retired Duolingo border-bottom "lip". */
+.feedback-panel__continue:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}
+
+.feedback-panel__continue:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

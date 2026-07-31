@@ -21,6 +21,13 @@ convention as `src/engine/` and `src/storage/`.
   renamed or restructured.
 - `trackRushRunEnd(payload)` — fires once per completed Rush run with the final
   score/streak/difficulty.
+- `trackTraceAttempt(payload)` — fires the same `attempt` event as `trackAttempt`,
+  with Trace's per-checkpoint context (`checkpoint_results`: an array of
+  `{ correct, choice_index }`, one entry per checkpoint on the puzzle, in
+  answer order) appended. Additive only — the locked `AttemptEventPayload`
+  fields are never renamed or restructured. Called once per completed puzzle
+  (all checkpoints answered), not once per checkpoint; `mode` is `'practice'`
+  since Trace shares Practice's rating pool.
 - `trackError(error, context?)` — fires an `app_error` event with a truncated
   message/stack. Used by `src/app/ErrorBoundary.tsx`; call it directly for any
   other caught error worth reporting.
