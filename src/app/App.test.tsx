@@ -229,6 +229,16 @@ describe('App', () => {
     })
   })
 
+  it('ignores a backslash-disguised cross-origin ?redirect= value — a regex like /^\\/(?!\\/)/ would wrongly admit this, since WHATWG URL parsing treats a leading backslash the same as a second forward slash', async () => {
+    window.history.pushState({}, '', '/?redirect=%2F%5Cevil.example.com')
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/practice')
+    })
+  })
+
   it('opens Home when the logo is clicked, and can navigate back to Practice from there', async () => {
     const user = userEvent.setup()
     render(<App />)

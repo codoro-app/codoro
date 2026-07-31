@@ -99,7 +99,7 @@ export function RushPage() {
         </div>
       )}
 
-      {session.phase === 'ended' && session.runSummary && session.puzzle && (
+      {session.phase === 'ended' && session.runSummary && (
         <>
           <div className="daily-hero">
             <div className="daily-hero__top">
@@ -134,11 +134,13 @@ export function RushPage() {
             </div>
           </div>
 
-          <RushShareCard
-            solvedCount={session.runSummary.solvedCount}
-            bestStreakThisRun={session.runSummary.bestStreakThisRun}
-            puzzleId={session.puzzle.id}
-          />
+          {session.puzzle && (
+            <RushShareCard
+              solvedCount={session.runSummary.solvedCount}
+              bestStreakThisRun={session.runSummary.bestStreakThisRun}
+              puzzleId={session.puzzle.id}
+            />
+          )}
 
           <button type="button" className="share-card__button" onClick={session.handleRunItBack}>
             Run it back

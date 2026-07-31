@@ -149,6 +149,18 @@ describe('PuzzlePageForId — telemetry', () => {
       expect.objectContaining({ puzzle_id: 'con-005', interaction: 'mcq' }),
     )
   })
+
+  it('fires puzzle_link_attempt once every scrubber checkpoint is answered', async () => {
+    trackPuzzleLinkAttempt.mockClear()
+    const user = userEvent.setup()
+    render(<PuzzlePageForId id="tc-009" />)
+    await solveScrubberToCompletion(user)
+
+    expect(trackPuzzleLinkAttempt).toHaveBeenCalledTimes(1)
+    expect(trackPuzzleLinkAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({ puzzle_id: 'tc-009', interaction: 'scrubber' }),
+    )
+  })
 })
 
 describe('PuzzlePageForId — not-found state', () => {

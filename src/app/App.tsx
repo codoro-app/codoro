@@ -33,8 +33,21 @@ const REDIRECT_PARAM = 'redirect'
 function resolveIntendedPath(): string | null {
   if (window.location.pathname !== '/') return null
   const target = new URLSearchParams(window.location.search).get(REDIRECT_PARAM)
-  if (!target || !/^\/(?!\/)/.test(target)) return null
-  return target
+  if (!target) return null
+  // Resolve against the real origin and compare origins, rather than
+  // pattern-matching the raw string: a regex like /^\/(?!\/)/ looks like it
+  // rejects a protocol-relative '//host', but WHATWG URL parsing treats a
+  // backslash the same as a forward slash for special schemes, so
+  // '/\\evil.com' also resolves to a different origin while still passing
+  // that regex — confirmed via new URL(), not assumed.
+  let resolved: URL
+  try {
+    resolved = new URL(target, window.location.origin)
+  } catch {
+    return null
+  }
+  if (resolved.origin !== window.location.origin) return null
+  return resolved.pathname + resolved.search + resolved.hash
 }
 
 // Each mode is its own chunk (and pulls prismjs/framer-motion along with it
