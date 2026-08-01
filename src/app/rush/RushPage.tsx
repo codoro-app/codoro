@@ -134,10 +134,13 @@ export function RushPage() {
             </div>
           </div>
 
-          <RushShareCard
-            solvedCount={session.runSummary.solvedCount}
-            bestStreakThisRun={session.runSummary.bestStreakThisRun}
-          />
+          {session.puzzle && (
+            <RushShareCard
+              solvedCount={session.runSummary.solvedCount}
+              bestStreakThisRun={session.runSummary.bestStreakThisRun}
+              puzzleId={session.puzzle.id}
+            />
+          )}
 
           <button type="button" className="share-card__button" onClick={session.handleRunItBack}>
             Run it back

@@ -61,7 +61,7 @@ import type { ScrubberPuzzle } from '../../content'
 import '../tokens.css'
 import './scrubber.css'
 
-interface TraceRunnerPuzzleProps {
+export interface TraceRunnerPuzzleProps {
   puzzle: ScrubberPuzzle
   checkpointResults: readonly CheckpointResult[]
   isComplete: boolean
@@ -71,7 +71,7 @@ interface TraceRunnerPuzzleProps {
   onContinue: () => void
 }
 
-function TraceRunnerPuzzle({
+export function TraceRunnerPuzzle({
   puzzle,
   checkpointResults,
   isComplete,

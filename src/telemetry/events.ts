@@ -72,6 +72,56 @@ export function trackTraceAttempt(payload: AttemptEventPayload & TraceAttemptCon
 }
 
 /**
+ * Fired once per `/puzzle/:id` page view. `found: false` is the signal that
+ * someone shared a link that no longer resolves to a real bundled puzzle —
+ * `interaction` is `null` in that case, since there's no puzzle to report
+ * one for. Not part of the locked AttemptEventPayload schema above — this is
+ * a new, additive event for the Phase 1b shareable-link surface.
+ */
+export interface PuzzleLinkViewPayload {
+  puzzle_id: string
+  interaction: Puzzle['interaction'] | null
+  found: boolean
+}
+
+export function trackPuzzleLinkView(payload: PuzzleLinkViewPayload): void {
+  safeCapture('puzzle_link_view', payload)
+}
+
+/**
+ * Fired once a `/puzzle/:id` visitor completes an attempt (commits a quiz
+ * answer, or answers every scrubber checkpoint). Deliberately never routed
+ * through trackAttempt/trackTraceAttempt — `/puzzle/:id` attempts are never
+ * rated (see the Phase 1b build plan's locked "don't record link attempts"
+ * decision) and must not enter the locked `attempt` event stream those
+ * functions feed. This event is the *only* record that link play happened.
+ */
+export interface PuzzleLinkAttemptPayload {
+  puzzle_id: string
+  interaction: Puzzle['interaction']
+  correct: boolean
+  time_ms: number
+}
+
+export function trackPuzzleLinkAttempt(payload: PuzzleLinkAttemptPayload): void {
+  safeCapture('puzzle_link_attempt', payload)
+}
+
+/**
+ * Fired whenever a share affordance is used — Daily and Rush's existing
+ * post-solve ShareCard/RushShareCard, and Practice's new solve-state share
+ * button (Phase 1b). `surface` names the calling mode.
+ */
+export interface ShareClickPayload {
+  surface: 'daily' | 'rush' | 'practice'
+  puzzle_id: string
+}
+
+export function trackShareClick(payload: ShareClickPayload): void {
+  safeCapture('share_click', payload)
+}
+
+/**
  * Lightweight error-tracking event, not part of the locked schema above —
  * this is our call for V1: PostHog's own error capture is enough for now,
  * we're not pulling in Sentry (see the PR description for the reasoning).

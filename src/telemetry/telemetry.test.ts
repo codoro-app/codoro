@@ -196,6 +196,75 @@ describe('trackRushRunEnd', () => {
   })
 })
 
+describe('trackPuzzleLinkView', () => {
+  it('captures puzzle_link_view with the exact property shape for a found puzzle', async () => {
+    const { trackPuzzleLinkView } = await loadTelemetry('phc_test_key')
+    const payload = { puzzle_id: 'tc-009', interaction: 'scrubber' as const, found: true }
+    trackPuzzleLinkView(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('puzzle_link_view', payload)
+  })
+
+  it('captures found: false with a null interaction for an unresolvable id', async () => {
+    const { trackPuzzleLinkView } = await loadTelemetry('phc_test_key')
+    const payload = { puzzle_id: 'nonsense-id', interaction: null, found: false }
+    trackPuzzleLinkView(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('puzzle_link_view', payload)
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackPuzzleLinkView } = await loadTelemetry(undefined)
+    trackPuzzleLinkView({ puzzle_id: 'tc-009', interaction: 'scrubber', found: true })
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
+describe('trackPuzzleLinkAttempt', () => {
+  it('captures puzzle_link_attempt with the exact property shape', async () => {
+    const { trackPuzzleLinkAttempt } = await loadTelemetry('phc_test_key')
+    const payload = {
+      puzzle_id: 'cf-001',
+      interaction: 'mcq' as const,
+      correct: true,
+      time_ms: 3100,
+    }
+    trackPuzzleLinkAttempt(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('puzzle_link_attempt', payload)
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackPuzzleLinkAttempt } = await loadTelemetry(undefined)
+    trackPuzzleLinkAttempt({
+      puzzle_id: 'cf-001',
+      interaction: 'mcq',
+      correct: false,
+      time_ms: 500,
+    })
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
+describe('trackShareClick', () => {
+  it('captures share_click with the exact property shape', async () => {
+    const { trackShareClick } = await loadTelemetry('phc_test_key')
+    const payload = { surface: 'practice' as const, puzzle_id: 'cf-001' }
+    trackShareClick(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('share_click', payload)
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackShareClick } = await loadTelemetry(undefined)
+    trackShareClick({ surface: 'daily', puzzle_id: 'cf-001' })
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
 describe('trackError', () => {
   it('captures an error event with message, stack, and context', async () => {
     const { trackError } = await loadTelemetry('phc_test_key')

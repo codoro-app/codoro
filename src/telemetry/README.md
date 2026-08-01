@@ -28,6 +28,21 @@ convention as `src/engine/` and `src/storage/`.
   fields are never renamed or restructured. Called once per completed puzzle
   (all checkpoints answered), not once per checkpoint; `mode` is `'practice'`
   since Trace shares Practice's rating pool.
+- `trackPuzzleLinkView(payload)` — fires the `puzzle_link_view` event
+  (`{ puzzle_id, interaction, found }`) once per `/puzzle/:id` page view.
+  `interaction` is `null` and `found` is `false` when the id doesn't resolve
+  to a real bundled puzzle — the signal someone shared a broken link.
+- `trackPuzzleLinkAttempt(payload)` — fires the `puzzle_link_attempt` event
+  (`{ puzzle_id, interaction, correct, time_ms }`) once a `/puzzle/:id`
+  visitor completes an attempt. Deliberately separate from `trackAttempt`/
+  `trackTraceAttempt` — `/puzzle/:id` attempts are never rated and must never
+  enter the locked `attempt` event stream those fire. Per the Phase 1b build
+  plan's decision not to record link attempts in storage at all, this event
+  is the _only_ record that link play happened.
+- `trackShareClick(payload)` — fires the `share_click` event
+  (`{ surface, puzzle_id }`) whenever a share affordance is used — Daily and
+  Rush's existing post-solve share cards, and Practice's solve-state share
+  button (Phase 1b). `surface` is `'daily' | 'rush' | 'practice'`.
 - `trackError(error, context?)` — fires an `app_error` event with a truncated
   message/stack. Used by `src/app/ErrorBoundary.tsx`; call it directly for any
   other caught error worth reporting.

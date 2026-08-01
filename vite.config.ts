@@ -79,7 +79,19 @@ export default defineConfig({
         // module resolution for a marginal DRY win. Keep this list in sync
         // with ROUTE_META's keys by hand — routes.test.ts asserts the
         // same pattern.
-        navigateFallbackDenylist: [/^\/(?!(?:practice|daily|rush|browse|legal|trace)?(?:\?|$))/],
+        //
+        // v2 Phase 1b adds /puzzle/:id, the first dynamic route — a second
+        // path segment no bare alternative above admits. The
+        // 'puzzle\/[^/?]+' alternative requires at least one non-'/'
+        // non-'?' character after 'puzzle/', so it matches /puzzle/<id>
+        // (with or without a trailing '?query') but not a bare /puzzle/
+        // (no id) — that falls through to this pattern's default "deny"
+        // branch just like an unknown top-level path, consistent with
+        // _redirects treating a bare /puzzle/ as "rewrite to the app shell,
+        // let the client router 404 it" rather than a real route of its own.
+        navigateFallbackDenylist: [
+          /^\/(?!(?:practice|daily|rush|browse|legal|trace|puzzle\/[^/?]+)?(?:\?|$))/,
+        ],
         cleanupOutdatedCaches: true,
       },
     }),

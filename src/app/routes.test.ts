@@ -2,14 +2,14 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { labelForPath, ROUTE_META } from './routes'
+import { DYNAMIC_ROUTES, labelForPath, ROUTE_META } from './routes'
 
 // Mirrors vite.config.ts's workbox.navigateFallbackDenylist[0] exactly —
 // not imported from there, since vite.config.ts lives in its own isolated
 // tsconfig.node.json project and doesn't export anything for src/ to
 // import. Kept in sync by hand; this test is what would catch drift.
 const SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN =
-  /^\/(?!(?:practice|daily|rush|browse|legal|trace)?(?:\?|$))/
+  /^\/(?!(?:practice|daily|rush|browse|legal|trace|puzzle\/[^/?]+)?(?:\?|$))/
 
 describe('labelForPath', () => {
   it('labels the known routes', () => {
@@ -19,8 +19,13 @@ describe('labelForPath', () => {
     expect(labelForPath('/legal')).toBe('Legal')
   })
 
-  it('falls back to "Codoro" for an unknown path', () => {
+  it('labels a dynamic /puzzle/<id> route generically, without needing the real id', () => {
+    expect(labelForPath('/puzzle/tc-009')).toBe('Puzzle')
+  })
+
+  it('falls back to "Codoro" for an unknown path, including a bare /puzzle/ with no id', () => {
     expect(labelForPath('/nonsense')).toBe('Codoro')
+    expect(labelForPath('/puzzle/')).toBe('Codoro')
   })
 })
 
@@ -57,6 +62,25 @@ describe('SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN', () => {
   it('denies the fallback for an unknown top-level path with a query string', () => {
     expect(SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN.test('/nonsense?x=1')).toBe(true)
   })
+
+  // v2 Phase 1b: /puzzle/:id is the first dynamic route, and workbox-routing
+  // matches this pattern against pathname + search (see the query-string
+  // case above) — so a real id needs the same four-case coverage every
+  // static route already gets: bare, with a query string, the no-id edge
+  // case, and confirmation an unrelated unknown path is still denied.
+  it('does not deny the fallback for a real /puzzle/<id> path', () => {
+    expect(SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN.test('/puzzle/tc-009')).toBe(false)
+  })
+
+  it('does not deny the fallback for a /puzzle/<id> path with a query string', () => {
+    expect(SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN.test('/puzzle/tc-009?utm_source=twitter')).toBe(
+      false,
+    )
+  })
+
+  it('denies the fallback for a bare /puzzle/ with no id', () => {
+    expect(SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN.test('/puzzle/')).toBe(true)
+  })
 })
 
 // public/_redirects had no drift guard at all — unlike the SW denylist
@@ -76,11 +100,20 @@ describe('public/_redirects', () => {
     .split('\n')
     .map((line) => line.trim())
 
-  it('has a 200 rewrite to /index.html for every ROUTE_META route except the root', () => {
+  it('has a 200 rewrite to / for every ROUTE_META route except the root', () => {
     for (const path of Object.keys(ROUTE_META)) {
       if (path === '/') continue
-      expect(redirectsLines).toContain(`${path} /index.html 200`)
+      expect(redirectsLines).toContain(`${path} / 200`)
     }
+  })
+
+  // Rewrite target must be '/', not '/index.html': Cloudflare Pages
+  // canonicalizes '.html' URLs and 308-redirects '/index.html' to '/',
+  // stripping the original path and query string before the SPA's router
+  // ever sees them (v2 Phase 1b Finding 4).
+  it('has no rewrite rule targeting /index.html', () => {
+    const ruleLines = redirectsLines.filter((line) => line && !line.startsWith('#'))
+    expect(ruleLines.some((line) => line.includes('/index.html'))).toBe(false)
   })
 
   // Explicit, rather than just skipping '/' in the loop above: Vite emits
@@ -88,11 +121,17 @@ describe('public/_redirects', () => {
   // rewrite rule the way the other five routes do — this asserts that's
   // still true rather than leaving it as an implied gap in the loop.
   it("has no rewrite rule for '/' — Vite emits index.html there directly", () => {
-    expect(redirectsLines).not.toContain('/ /index.html 200')
+    expect(redirectsLines).not.toContain('/ / 200')
     expect(redirectsLines.some((line) => /^\/\s/.test(line))).toBe(false)
   })
 
   it('has no /* catch-all rewrite (an unknown path must still 404)', () => {
     expect(redirectsLines.some((line) => line.startsWith('/*'))).toBe(false)
+  })
+
+  it('has a rewrite rule for every DYNAMIC_ROUTES entry', () => {
+    for (const route of DYNAMIC_ROUTES) {
+      expect(redirectsLines).toContain(route.redirectsRule)
+    }
   })
 })

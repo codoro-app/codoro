@@ -167,6 +167,7 @@ export function DailyPage() {
               dayNumber={session.dayNumber}
               correct={session.profile.dailyCompletion?.correct ?? false}
               streak={session.profile.streak.currentStreak}
+              puzzleId={session.puzzle.id}
             />
           </>
         )}

@@ -24,6 +24,10 @@ vi.mock('../telemetry', () => ({
   trackAttempt: vi.fn(),
   trackRushAttempt: vi.fn(),
   trackRushRunEnd: vi.fn(),
+  trackTraceAttempt: vi.fn(),
+  trackPuzzleLinkView: vi.fn(),
+  trackPuzzleLinkAttempt: vi.fn(),
+  trackShareClick: vi.fn(),
   trackError: vi.fn(),
 }))
 
@@ -118,6 +122,25 @@ describe('App', () => {
     })
   })
 
+  it('renders a real bundled puzzle directly at /puzzle/<id> (v2 Phase 1b shareable link)', async () => {
+    window.history.pushState({}, '', '/puzzle/con-005')
+    const { container } = render(<App />)
+
+    await waitFor(() => {
+      expect(container.querySelector('.puzzle-card')).toBeInTheDocument()
+    })
+    expect(screen.getByRole('link', { name: /practice more like this/i })).toBeInTheDocument()
+  })
+
+  it('shows a real not-found state for /puzzle/<unknown-id>, not a crash', async () => {
+    window.history.pushState({}, '', '/puzzle/not-a-real-puzzle-id')
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/couldn.t find that puzzle/i)).toBeInTheDocument()
+    })
+  })
+
   it("boots straight into Practice on a device's first-ever visit — the cold-start path is untouched", async () => {
     const { container } = render(<App />)
 
@@ -180,6 +203,60 @@ describe('App', () => {
     for (const match of effectBodies) {
       expect(match[0]).not.toMatch(/bootImporters/)
     }
+  })
+
+  it("honors a same-origin ?redirect= param on '/' instead of the normal first-visit boot decision", async () => {
+    window.history.pushState({}, '', '/?redirect=%2Flegal')
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/legal')
+    })
+    await screen.findByText('Terms & privacy', { selector: '.legal-page__title' })
+    // Recovering from an upstream redirect isn't a real first visit — the
+    // has-visited flag must stay untouched, unlike the normal Practice boot.
+    expect(localStorage.getItem('codoro:has-visited')).toBeNull()
+  })
+
+  it('ignores a protocol-relative ?redirect= value (open-redirect guard) and falls back to the normal boot decision', async () => {
+    window.history.pushState({}, '', '/?redirect=%2F%2Fevil.example.com')
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/practice')
+    })
+  })
+
+  it('ignores a backslash-disguised cross-origin ?redirect= value — a regex like /^\\/(?!\\/)/ would wrongly admit this, since WHATWG URL parsing treats a leading backslash the same as a second forward slash', async () => {
+    window.history.pushState({}, '', '/?redirect=%2F%5Cevil.example.com')
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/practice')
+    })
+  })
+
+  // A second bypass of the same guard: new URL('/..//evil.com', origin)'s
+  // WHATWG path normalization pops the leading '/..', leaving
+  // pathname === '//evil.com' with the origin unchanged — so the origin
+  // check alone passes even though the result is protocol-relative. Each
+  // of these must fall back to the normal boot decision, same as the
+  // protocol-relative and backslash cases above.
+  it.each([
+    ['/..//evil.com', 'a dot-dot-collapsed protocol-relative value'],
+    ['/..//..//evil.com', 'a repeated dot-dot-collapsed protocol-relative value'],
+    ['/%2e%2e//evil.com', 'a percent-encoded dot-dot-collapsed protocol-relative value'],
+  ])('ignores %s (%s) and falls back to the normal boot decision', async (target) => {
+    window.history.pushState({}, '', `/?redirect=${encodeURIComponent(target)}`)
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/practice')
+    })
   })
 
   it('opens Home when the logo is clicked, and can navigate back to Practice from there', async () => {

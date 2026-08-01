@@ -52,27 +52,83 @@
  * routing extraction Phase 0 deferred here.
  */
 import { AnimatePresence, motion } from 'framer-motion'
-import { Link, useLocation } from 'wouter'
+import { Link, useLocation, useSearch } from 'wouter'
 import { PuzzleCardShell } from './PuzzleCardShell'
 import { StatusBar } from './StatusBar'
 import { PatternPicker } from './PatternPicker'
 import { MasteryView } from './MasteryView'
+import { PracticeShareCard } from './PracticeShareCard'
 import { usePracticeSession } from './usePracticeSession'
 import { useMediaQuery } from '../useMediaQuery'
-import { PATTERN_LABELS } from '../../content'
+import { PATTERN_LABELS, PATTERN_SLUGS } from '../../content'
+import type { PatternSlug } from '../../content'
 import { CloseIcon } from '../Icons'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { CommitPayload } from './interactionTypes'
 import './practicePage.css'
 
 type View = 'practice' | 'mastery'
 
+const PATTERN_SLUG_SET: ReadonlySet<string> = new Set(PATTERN_SLUGS)
+
+interface LastAnswer {
+  puzzleId: string
+  correct: boolean
+}
+
 export function PracticePage() {
   const [location, navigate] = useLocation()
+  const search = useSearch()
   const isBrowseRoute = location === '/browse'
   const [view, setView] = useState<View>('practice')
   const session = usePracticeSession()
   const puzzleId = session.puzzle?.id
   const isDesktop = useMediaQuery('(min-width: 1024px)')
+
+  // Tracks the puzzle's own solve state for the share card below (v2 Phase
+  // 1b) — usePracticeSession's onAnswered callback doesn't expose committed
+  // state to the caller (it lives inside PuzzleCardShell), so this wraps it
+  // rather than reaching into the shell. Compared against session.puzzle.id
+  // at render time (not just "is there a lastAnswer") so the card
+  // disappears the instant Continue serves a genuinely new puzzle, without
+  // needing a separate reset effect.
+  const [lastAnswer, setLastAnswer] = useState<LastAnswer | null>(null)
+  const handleAnswered = (payload: CommitPayload) => {
+    if (session.puzzle) {
+      setLastAnswer({ puzzleId: session.puzzle.id, correct: payload.correct })
+    }
+    session.handleAnswered(payload)
+  }
+
+  // Applies a '/practice?pattern=<slug>' query param as the pattern filter —
+  // the receiving end of PuzzlePage's (v2 Phase 1b) "practice more like
+  // this" CTA on a shared /puzzle/:id link. Validated against PATTERN_SLUGS
+  // rather than passed through: an unrecognized or absent param is silently
+  // ignored, leaving the normal unfiltered pool rather than erroring.
+  //
+  // Applied exactly once, gated on session.profile being available (v2
+  // Phase 1b corrective, Finding 1). This used to depend only on
+  // `session.setPatternFilter`, whose identity churns on every call — it
+  // calls serveNext, which unconditionally calls setProfile with a brand
+  // new object, so calling it once produces a new setPatternFilter, which
+  // re-fires this effect, which calls it again: an infinite render loop. A
+  // bare `useRef` latch alone is NOT sufficient: setPatternFilter no-ops
+  // while `profile` is still null (loadProfile hasn't resolved on the
+  // first render), so latching on that first no-op run would mark the
+  // pattern "applied" and it would then never actually apply. Gating on
+  // `session.profile !== null` before setting the latch preserves the
+  // retry-until-profile-exists behavior the runaway dependency used to
+  // provide by accident, on purpose instead.
+  const appliedPatternFilterRef = useRef(false)
+  useEffect(() => {
+    if (appliedPatternFilterRef.current || session.profile === null) return
+    appliedPatternFilterRef.current = true
+    const pattern = new URLSearchParams(search).get('pattern')
+    if (pattern && PATTERN_SLUG_SET.has(pattern)) {
+      session.setPatternFilter(pattern as PatternSlug)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, session.profile, session.setPatternFilter])
 
   // The page (not a nested container — practicePage.css has no overflow-y
   // scroll region) scrolls with whatever height the previous puzzle's
@@ -227,11 +283,15 @@ export function PracticePage() {
                 key={session.puzzle.id}
                 puzzle={session.puzzle}
                 ratingDelta={session.ratingDelta}
-                onAnswered={session.handleAnswered}
+                onAnswered={handleAnswered}
                 onContinue={session.handleContinue}
               />
             </motion.div>
           </AnimatePresence>
+        )}
+
+        {lastAnswer && lastAnswer.puzzleId === session.puzzle?.id && (
+          <PracticeShareCard puzzleId={lastAnswer.puzzleId} correct={lastAnswer.correct} />
         )}
       </div>
 
