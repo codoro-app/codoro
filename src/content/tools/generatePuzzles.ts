@@ -14,10 +14,8 @@
  * ../GENERATING_PUZZLES.md for usage, budget notes, and what to do when a
  * puzzle is discarded.
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 import {
   MAX_DIFFICULTY,
@@ -34,6 +32,12 @@ import { loadRawPuzzleFiles } from './loadPuzzles'
 import { validatePuzzleFiles } from './validatePuzzles'
 import { costOf, createBackend, parseBackendArg } from './llmBackend'
 import type { Backend } from './llmBackend'
+import {
+  CALIBRATION,
+  createIdCounters,
+  createUsageTracker,
+  writePuzzle,
+} from './puzzleAuthoringShared'
 
 // Per-model, not a single MODEL constant (Phase 4 blocking precondition,
 // docs/v2-build-plan.md): "the moment the models differ, the guard is
@@ -89,27 +93,6 @@ const INTERACTION_SCHEMAS = {
   'tap-line': TapLineSchema,
 } as const
 
-/** Short, stable per-pattern id prefix. Once assigned, never change — ids are forever. */
-const PATTERN_PREFIXES: Record<PatternSlug, string> = {
-  'off-by-one': 'oob',
-  'null-undefined': 'nul',
-  'type-coercion': 'tc',
-  'mutable-state': 'mut',
-  'scope-closures': 'scl',
-  concurrency: 'con',
-  'resource-management': 'res',
-  'error-handling': 'err',
-  'recursion-termination': 'rec',
-  'data-structure-misuse': 'dsm',
-  'string-formatting': 'str',
-  'input-validation': 'inp',
-  'control-flow': 'cf',
-}
-
-const CONTENT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
-const PUZZLES_DIR = join(CONTENT_DIR, 'puzzles')
-const CALIBRATION = readFileSync(join(CONTENT_DIR, 'CALIBRATION.md'), 'utf-8')
-
 const ReviewSchema = z.object({
   pass: z.boolean(),
   reason: z.string().min(1),
@@ -120,36 +103,11 @@ const ReviewSchema = z.object({
  * tokens across calls and pricing the total at one rate — that aggregate
  * approach is exactly the bug class this Phase 4 fix closes (see
  * COST_CEILING_USD's neighboring comment): correct even if generate/review
- * are ever on different models. callCount/inputTokens/outputTokens still
- * accumulate as simple totals since the cli backend's ceiling is
- * denominated in calls and tokens directly, not dollars.
+ * are ever on different models. See puzzleAuthoringShared.ts's
+ * createUsageTracker for the implementation, shared with the scrubber
+ * pipeline.
  */
-const totals = { callCount: 0, inputTokens: 0, outputTokens: 0, costUsd: 0 }
-
-function logUsage(
-  label: string,
-  model: string,
-  usage: { inputTokens: number; outputTokens: number },
-): void {
-  totals.callCount += 1
-  totals.inputTokens += usage.inputTokens
-  totals.outputTokens += usage.outputTokens
-  try {
-    totals.costUsd += costOf(model, usage.inputTokens, usage.outputTokens)
-  } catch (err) {
-    // Only the api backend's COST_CEILING_USD guard actually needs this
-    // number — the cli backend's ceiling is calls/tokens, not dollars, so
-    // an unpriced model here (e.g. MODEL_PRICING missing an entry) must
-    // never discard a call that already happened. Cost tracking degrades
-    // to "unknown," never fatal.
-    console.warn(
-      `    [${label}] cost tracking skipped (${err instanceof Error ? err.message : String(err)})`,
-    )
-  }
-  console.log(
-    `    [${label}] model=${model} in=${String(usage.inputTokens)} out=${String(usage.outputTokens)} — running total: ${String(totals.callCount)} call(s), ${String(totals.inputTokens + totals.outputTokens)} tokens, ~$${totals.costUsd.toFixed(4)}`,
-  )
-}
+const { totals, log: logUsage } = createUsageTracker()
 
 const FEW_SHOT_EXAMPLES: Puzzle[] = [
   {
@@ -474,39 +432,6 @@ async function selfReview(
   }
 }
 
-function loadExistingCounters(): Map<string, number> {
-  const counters = new Map<string, number>()
-  for (const { raw } of loadRawPuzzleFiles()) {
-    if (raw && typeof raw === 'object' && 'id' in raw && typeof raw.id === 'string') {
-      const match = /^([a-z]+)-(\d+)$/.exec(raw.id)
-      if (match?.[1] !== undefined && match[2] !== undefined) {
-        const prefix = match[1]
-        counters.set(prefix, Math.max(counters.get(prefix) ?? 0, Number(match[2])))
-      }
-    }
-  }
-  return counters
-}
-
-/** Returns the next id without consuming it — call commitId() only after a successful write. */
-function peekNextId(pattern: PatternSlug, counters: Map<string, number>): string {
-  const prefix = PATTERN_PREFIXES[pattern]
-  const next = (counters.get(prefix) ?? 0) + 1
-  return `${prefix}-${String(next).padStart(3, '0')}`
-}
-
-function commitId(pattern: PatternSlug, id: string, counters: Map<string, number>): void {
-  const prefix = PATTERN_PREFIXES[pattern]
-  const num = Number(id.slice(prefix.length + 1))
-  counters.set(prefix, Math.max(counters.get(prefix) ?? 0, num))
-}
-
-function writePuzzle(puzzle: Puzzle): void {
-  const dir = join(PUZZLES_DIR, puzzle.pattern)
-  mkdirSync(dir, { recursive: true })
-  writeFileSync(join(dir, `${puzzle.id}.json`), JSON.stringify(puzzle, null, 2) + '\n', 'utf-8')
-}
-
 interface PuzzleSpec {
   pattern: PatternSlug
   interaction: Interaction
@@ -532,8 +457,23 @@ function bucketLabel(rating: number): string {
   return `${String(bucketStart)}-${String(bucketEnd)}`
 }
 
+/**
+ * Quiz puzzles only. Phase 4 (docs/prompts/claude_code_prompt_v2_phase4.md,
+ * Item 4) found buildGapManifest reading the unfiltered pool here — the
+ * five scrubber pilots that predate this fix were already counting toward
+ * per-pattern spread and bucket coverage below, exactly the contamination
+ * generateScrubberPuzzles.ts's own manifest exists to keep scoped away
+ * from. Verified before fixing: none of the four overlapping patterns
+ * (off-by-one, mutable-state, scope-closures, type-coercion) currently flip
+ * deficient/covered because of it — each already clears the 800pt spread
+ * on quiz-only ratings alone — but Item 4 is about to add 40-60 more
+ * scrubber puzzles into these same patterns, at which point the
+ * contamination would start mattering for real.
+ */
 function loadValidPuzzles(): Puzzle[] {
-  return validatePuzzleFiles(loadRawPuzzleFiles()).valid.map((entry) => entry.puzzle)
+  return validatePuzzleFiles(loadRawPuzzleFiles())
+    .valid.map((entry) => entry.puzzle)
+    .filter((puzzle) => puzzle.interaction !== 'scrubber')
 }
 
 const INTERACTION_CYCLE: Interaction[] = ['swipe-binary', 'mcq', 'tap-line', 'swipe-binary', 'mcq']
@@ -680,7 +620,7 @@ async function main(): Promise<void> {
   const backendKind = parseBackendArg()
   const fullManifest = buildGapManifest()
   const manifest = limit !== null ? fullManifest.slice(0, limit) : fullManifest
-  const counters = loadExistingCounters()
+  const counters = createIdCounters()
 
   if (fullManifest.length === 0) {
     console.log(
@@ -757,7 +697,7 @@ async function main(): Promise<void> {
       break
     }
 
-    const id = peekNextId(spec.pattern, counters)
+    const id = counters.peek(spec.pattern)
     console.log(`=== ${id} (${spec.pattern}, ${spec.interaction}, target ${spec.targetRange}) ===`)
 
     const puzzle = await generatePuzzle(backend, { ...spec, id })
@@ -774,7 +714,7 @@ async function main(): Promise<void> {
     }
 
     writePuzzle(puzzle)
-    commitId(spec.pattern, id, counters)
+    counters.commit(spec.pattern, id)
     written++
     console.log(`  WROTE ${id}`)
   }
@@ -792,7 +732,18 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err: unknown) => {
-  console.error(err)
-  process.exitCode = 1
-})
+// Only run as a side effect when this file is executed directly (`tsx
+// .../generatePuzzles.ts`), never when imported — nothing imports this
+// module today, but generateScrubberPuzzles.ts's identical pattern turned
+// out to be a real bug (a test importing it for one pure export silently
+// triggered a full generation run, including spawning the claude CLI) the
+// moment something did import it. Guarding here closes the same latent
+// hazard before it can bite the same way.
+const isEntryPoint =
+  process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]
+if (isEntryPoint) {
+  main().catch((err: unknown) => {
+    console.error(err)
+    process.exitCode = 1
+  })
+}
