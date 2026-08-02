@@ -87,8 +87,23 @@ import type { TraceResult, TraceStep } from './traceGen/types'
 // Locked decisions (docs/prompts/claude_code_prompt_v2_phase4.md)
 // ---------------------------------------------------------------------------
 
-/** Decision 3: Haiku 4.5 generates (propose + placement — both are schema/trace/validator-bounded), Sonnet 5 reviews (the only stage where a wrong judgment ships). */
-const GENERATE_MODEL = 'claude-haiku-4-5-20251001'
+/**
+ * Decision 3 (locked) was Haiku 4.5 generates, Sonnet 5 reviews, with an
+ * abort criterion in Item 6: switch to Sonnet if Haiku's category-2
+ * (semantic) rejection rate runs well above Sonnet's. Live pilot evidence
+ * before a full category-1/2/3 breakdown could be measured: 3 of the first
+ * 2 completed+attempted puzzles were discarded by Sonnet's review for real
+ * content defects (a systematic trace line-number mislabeling, a factual
+ * arithmetic error in an explanation, an answerable-without-tracing
+ * checkpoint) — not backend parse failures. Given that live signal, the
+ * user directed switching generation to Sonnet 5 mid-pilot rather than
+ * running the full formal comparison first. Recorded here (and to be
+ * recorded in the Phase 4 amendment) as a user decision, not a unilateral
+ * call — consistent with the plan's own "if ambiguous, stop and ask"
+ * instruction, just resolved faster than the plan's own measurement
+ * protocol would have.
+ */
+const GENERATE_MODEL = 'claude-sonnet-5'
 const REVIEW_MODEL = 'claude-sonnet-5'
 const MAX_GENERATION_ATTEMPTS = 3
 
