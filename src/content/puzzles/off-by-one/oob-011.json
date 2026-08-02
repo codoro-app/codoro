@@ -282,7 +282,12 @@
     {
       "afterStep": 10,
       "question": "output",
-      "choices": ["[Function]", "0", "10", "\"initial window sum:\" 9"],
+      "choices": [
+        "\"window ending at index\" 5 \"sum:\" 7",
+        "\"max sum:\" 10",
+        "\"window ending at index\" 4 \"sum:\" 10",
+        "\"initial window sum:\" 9"
+      ],
       "correct": 3
     },
     {
@@ -295,7 +300,12 @@
     {
       "afterStep": 23,
       "question": "output",
-      "choices": ["0", "3", "\"max sum:\" 10", "[2,1,5,1,3,2]"],
+      "choices": [
+        "\"window ending at index\" 3 \"sum:\" 8",
+        "\"window ending at index\" 5 \"sum:\" 7",
+        "\"max sum:\" 10",
+        "\"window ending at index\" 4 \"sum:\" 10"
+      ],
       "correct": 2
     }
   ]
