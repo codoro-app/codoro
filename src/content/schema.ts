@@ -100,6 +100,23 @@ export const ScrubberSchema = BaseSchema.extend({
   checkpoints: z.array(ScrubberCheckpointSchema).min(2).max(4),
 })
 
+/**
+ * Phase 4 (docs/v2-build-plan.md, Item 4): the shape requested from the
+ * model's "propose" call in the scrubber pipeline's two-pass generation —
+ * every BaseSchema field plus the interaction discriminant, but neither
+ * `steps` nor `checkpoints`. Generation is necessarily two-pass because a
+ * `var-value`/`output` checkpoint's `choices` are real values at real steps
+ * that don't exist until the trace generator (the only source of truth for
+ * `steps[]`) has actually executed the snippet — the model is never asked
+ * to emit a trace. Exported for generateScrubberPuzzles.ts's structured-
+ * output request, same pattern as McqSchema/SwipeBinarySchema/TapLineSchema
+ * above (Claude's structured-output API rejects the $defs shape
+ * zodOutputFormat produces for a discriminated union).
+ */
+export const ScrubberProposeSchema = BaseSchema.extend({
+  interaction: z.literal('scrubber'),
+})
+
 /** `steps[index]`, guarding noUncheckedIndexedAccess for an index already bounds-checked at the call site. */
 function requireStep(
   steps: readonly z.infer<typeof ScrubberStepSchema>[],
