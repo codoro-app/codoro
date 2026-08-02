@@ -16,6 +16,16 @@ const INTERACTION_TYPES = ['mcq', 'swipe-binary', 'tap-line', 'scrubber'] as con
 /** Phase 8 DoD: every pattern's difficulty ratings must span at least this many points. */
 const MIN_PATTERN_SPREAD = 800
 /**
+ * Anti-anchoring clustering check (docs/prompts/claude_code_prompt_v2_phase4.md,
+ * decision 8 / Item 5): v1 clustered most of 104 puzzles at exactly
+ * 1000/1600/1700/1900 — the difficulty rubric is the actual fix (forcing a
+ * non-round S/T/D/C sum), this is a visibility check that the rubric is
+ * working. Advisory only in Phase 4 (the plan's own explicit call: at a
+ * staged 10-puzzle pilot, two puzzles sharing a rating is already 20% and
+ * would block a run for a non-defect) — becomes a hard Phase 6 DoD gate.
+ */
+const CLUSTERING_WARNING_THRESHOLD = 0.15
+/**
  * Highest bucket start the dead-zone check covers — bucket 2000-2199 is the
  * last one included, matching generatePuzzles.ts's MAX_DEAD_ZONE_BUCKET_START.
  */
@@ -53,6 +63,35 @@ function printPatternSpread(puzzles: readonly Puzzle[]): void {
       ? '\n  FAIL: one or more patterns are under the 800-point spread DoD.'
       : '\n  OK: every pattern spans >= 800 points.',
   )
+}
+
+/** Advisory (Phase 4) anti-anchoring check: any single exact difficulty_rating value used by more than CLUSTERING_WARNING_THRESHOLD of the pool. */
+function printClusteringWarning(puzzles: readonly Puzzle[]): void {
+  if (puzzles.length === 0) return
+
+  const counts = new Map<number, number>()
+  for (const puzzle of puzzles) {
+    counts.set(puzzle.difficulty_rating, (counts.get(puzzle.difficulty_rating) ?? 0) + 1)
+  }
+
+  const clustered = [...counts.entries()]
+    .map(([rating, count]) => ({ rating, count, share: count / puzzles.length }))
+    .filter((entry) => entry.share > CLUSTERING_WARNING_THRESHOLD)
+    .sort((a, b) => b.share - a.share)
+
+  if (clustered.length === 0) {
+    console.log(
+      `\nNo difficulty_rating value used by more than ${String(CLUSTERING_WARNING_THRESHOLD * 100)}% of the pool.`,
+    )
+    return
+  }
+
+  console.log(
+    `\nADVISORY (anti-anchoring, Phase 4 — becomes a hard gate in Phase 6): difficulty_rating clustering above ${String(CLUSTERING_WARNING_THRESHOLD * 100)}% of the pool (${String(puzzles.length)} puzzles):`,
+  )
+  for (const { rating, count, share } of clustered) {
+    console.log(`  ${String(rating)}: ${String(count)} puzzle(s) (${(share * 100).toFixed(1)}%)`)
+  }
 }
 
 /** Empty 200pt global difficulty buckets between MIN_DIFFICULTY and MAX_DEAD_ZONE_BUCKET_START. */
@@ -121,6 +160,7 @@ function main(): void {
 
   printPatternSpread(puzzles)
   printEmptyBuckets(puzzles)
+  printClusteringWarning(puzzles)
 }
 
 main()
