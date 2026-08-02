@@ -113,7 +113,10 @@
 
 .daily-hero__stats {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  /* 3 tiles as of Phase 5 Item 3 (Rating, Streak, Puzzle rating) — was
+     hard-coded to 2 and left the third tile wrapping to its own row as a
+     lone half-width cell once the puzzle-rating stat was added. */
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-3);
 }
 

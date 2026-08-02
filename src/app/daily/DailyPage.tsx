@@ -160,6 +160,36 @@ export function DailyPage() {
                   </span>
                   <span className="daily-hero__stat-label">Streak</span>
                 </div>
+                {/* Puzzle difficulty, revealed only here — inside the
+                    completedToday block, which flips true synchronously in
+                    the same commit as the first answer (useDailySession's
+                    handleAnswered calls setProfile before this renders).
+                    Never rendered, not even hidden, before that — a rating a
+                    player could find pre-attempt (devtools, a title attr)
+                    would anchor the attempt, which is the whole point of
+                    revealing it only after (Phase 5 Item 3). */}
+                <div className="daily-hero__stat">
+                  <svg
+                    aria-hidden="true"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="var(--text-2)"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                    <path d="M4 22h16" />
+                    <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+                  </svg>
+                  <span className="daily-hero__stat-value">
+                    {Math.round(session.puzzle.difficulty_rating)}
+                  </span>
+                  <span className="daily-hero__stat-label">Puzzle rating</span>
+                </div>
               </div>
             </div>
 
