@@ -31,13 +31,20 @@
  * "Practice more like this": both branches render the same CTA into
  * `/practice?pattern=<slug>` below the puzzle — PracticePage reads that
  * query param once on mount and applies it as the pattern filter (see its
- * own doc comment). `onContinue`/`onCheckpointAnswered`'s completion path is
- * intentionally a no-op beyond firing telemetry: there is no "next puzzle"
- * to serve on a fixed single-puzzle link, and forking either shell to hide
- * its Continue button was ruled out — the CTA below is the real next step.
+ * own doc comment). Both shells' own Continue button (`PuzzleCardShell`'s
+ * `feedback-panel__continue`; `TraceRunnerPuzzle`'s equivalent) now
+ * navigates to that same destination via `onContinue` — forking either
+ * shell to hide the button was ruled out (still true), but an earlier
+ * version of this file wired `onContinue` as a no-op, leaving a button
+ * that looked actionable and did nothing. On a tall completed trace
+ * puzzle the CTA sits far below the fold, so the dead Continue sat right
+ * under the feedback panel and read as the obvious next action; on a
+ * short quiz card the CTA was visible enough that the same dead button
+ * went unnoticed. Same defect, different visibility — both branches are
+ * fixed here, not just the one that was reported (Phase 5 Item 1).
  */
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'wouter'
+import { Link, useLocation, useParams } from 'wouter'
 import { puzzlePool } from '../../content'
 import type { Puzzle, QuizPuzzle, ScrubberPuzzle } from '../../content'
 import { scoreScrubberAttempt } from '../../engine'
@@ -70,6 +77,7 @@ interface QuizLinkPuzzleProps {
 }
 
 function QuizLinkPuzzle({ puzzle }: QuizLinkPuzzleProps) {
+  const [, navigate] = useLocation()
   const servedAtRef = useRef(0)
   useEffect(() => {
     servedAtRef.current = Date.now()
@@ -91,7 +99,7 @@ function QuizLinkPuzzle({ puzzle }: QuizLinkPuzzleProps) {
         ratingDelta={null}
         onAnswered={handleAnswered}
         onContinue={() => {
-          /* no next puzzle on a fixed single-puzzle link — see doc comment above */
+          navigate(`/practice?pattern=${puzzle.pattern}`)
         }}
       />
       <PracticeMoreCta pattern={puzzle.pattern} />
@@ -104,6 +112,7 @@ interface ScrubberLinkPuzzleProps {
 }
 
 function ScrubberLinkPuzzle({ puzzle }: ScrubberLinkPuzzleProps) {
+  const [, navigate] = useLocation()
   const [checkpointResults, setCheckpointResults] = useState<CheckpointResult[]>([])
   const servedAtRef = useRef(0)
   useEffect(() => {
@@ -148,7 +157,7 @@ function ScrubberLinkPuzzle({ puzzle }: ScrubberLinkPuzzleProps) {
         ratingDelta={null}
         onCheckpointAnswered={handleCheckpointAnswered}
         onContinue={() => {
-          /* no next puzzle on a fixed single-puzzle link — see doc comment above */
+          navigate(`/practice?pattern=${puzzle.pattern}`)
         }}
       />
       <PracticeMoreCta pattern={puzzle.pattern} />

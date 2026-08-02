@@ -1,5 +1,5 @@
 import { StrictMode } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { puzzlePool } from '../../content'
@@ -198,5 +198,57 @@ describe('PuzzlePageForId — "practice more like this" CTA', () => {
     render(<PuzzlePageForId id="con-005" />)
     const cta = screen.getByRole('link', { name: /practice more like this/i })
     expect(cta).toHaveAttribute('href', `/practice?pattern=${puzzle.pattern}`)
+  })
+})
+
+describe('PuzzlePageForId — Continue button navigates (Phase 5 Item 1)', () => {
+  // Revert check: asserting the button exists/is clickable is not enough —
+  // an onContinue={() => {}} no-op renders and is clickable too. Only
+  // asserting the resulting location proves it isn't dead. Reset both
+  // before and after: jsdom gives this whole file one shared window, so a
+  // before-only or after-only reset would make each test's precondition
+  // depend on file-wide declaration order rather than being self-contained.
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+  afterEach(() => {
+    window.history.replaceState(null, '', '/')
+  })
+
+  it('navigates to /practice?pattern=<slug> on a quiz puzzle after answering', async () => {
+    const puzzle = puzzlePool.find((candidate) => candidate.id === 'con-005')
+    if (!puzzle) throw new Error('expected con-005 to exist in puzzlePool')
+    const user = userEvent.setup()
+    render(<PuzzlePageForId id="con-005" />)
+
+    const [firstChoice] = await screen.findAllByRole('button')
+    if (!firstChoice) throw new Error('expected at least one choice button')
+    await user.click(firstChoice)
+
+    const continueButton = await screen.findByRole('button', { name: 'Continue' })
+    await user.click(continueButton)
+
+    await waitFor(() => {
+      expect(window.location.pathname + window.location.search).toBe(
+        `/practice?pattern=${puzzle.pattern}`,
+      )
+    })
+  })
+
+  it('navigates to /practice?pattern=<slug> on a scrubber puzzle after full completion', async () => {
+    const puzzle = puzzlePool.find((candidate) => candidate.id === 'tc-009')
+    if (!puzzle) throw new Error('expected tc-009 to exist in puzzlePool')
+    const user = userEvent.setup()
+    render(<PuzzlePageForId id="tc-009" />)
+    await solveScrubberToCompletion(user)
+
+    const continueButton = await screen.findByRole('button', { name: 'Continue' })
+    await user.click(continueButton)
+
+    await waitFor(() => {
+      expect(window.location.pathname + window.location.search).toBe(
+        `/practice?pattern=${puzzle.pattern}`,
+      )
+    })
   })
 })
