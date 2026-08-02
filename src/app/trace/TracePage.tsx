@@ -20,6 +20,7 @@
  * it rather than a duplicate of RushPage's own status-branching.
  */
 import { TraceRunner } from './TraceRunner'
+import './tracePage.css'
 
 export function TracePage() {
   return (

@@ -1,0 +1,39 @@
+/*
+ * /trace page chrome — same layout convention as practicePage.css/
+ * dailyPage.css/puzzlePage.css. `.trace-page` (TracePage.tsx) had no CSS
+ * rule anywhere in the codebase before Phase 5 Item 2 — the class rendered,
+ * nothing defined it. `.trace-runner` (scrubber.css) accidentally covered
+ * part of the page-level block (flex column, gap, max-width, centering, the
+ * >=1024px width bump), which is why Trace looked nearly right rather than
+ * obviously broken, but it never carried the padding + safe-area inset every
+ * other page wrapper has — the actual reported symptom (Trace rendering
+ * flush against the top of the screen, and under the status bar/notch in
+ * iOS standalone PWA mode, since index.html sets
+ * apple-mobile-web-app-status-bar-style: black-translucent).
+ *
+ * Layering call: `.trace-runner`'s max-width/margin/width were removed
+ * (scrubber.css) now that this page-level block supplies them — the same
+ * page-vs-shell split practicePage.css/practice.css already use, rather
+ * than leaving a redundant constraint nested inside an identical one.
+ * `.trace-runner` renders inside `.puzzle-page` too (the /puzzle/:id
+ * shared-link route), which already carries this same block, so stripping
+ * it from `.trace-runner` doesn't regress that route — verified visually
+ * at mobile width and >=1024px on both /trace and /puzzle/:id.
+ */
+
+.trace-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--content-width-mobile);
+  margin: 0 auto;
+  padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--space-4) var(--space-4);
+  box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+  .trace-page {
+    max-width: var(--content-width-desktop);
+  }
+}

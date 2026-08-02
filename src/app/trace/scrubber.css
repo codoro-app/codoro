@@ -225,19 +225,16 @@
  * header comment).
  */
 
+/* Pure inner layout only (flex column + gap) — width/max-width/margin/
+   centering moved to the page-level wrapper (tracePage.css's `.trace-page`
+   on /trace, puzzlePage.css's `.puzzle-page` on /puzzle/:id, both of which
+   `.trace-runner` renders inside) as of Phase 5 Item 2. Previously
+   duplicated that block itself, which is how `.trace-page` having zero CSS
+   went unnoticed — Trace looked nearly right instead of obviously broken. */
 .trace-runner {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  width: 100%;
-  max-width: var(--content-width-mobile);
-  margin: 0 auto;
-}
-
-@media (min-width: 1024px) {
-  .trace-runner {
-    max-width: var(--content-width-desktop);
-  }
 }
 
 .trace-runner__prompt {
