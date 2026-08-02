@@ -14,12 +14,8 @@
  * ../GENERATING_PUZZLES.md for usage, budget notes, and what to do when a
  * puzzle is discarded.
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import process from 'node:process'
-import Anthropic from '@anthropic-ai/sdk'
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
+import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 import {
   MAX_DIFFICULTY,
@@ -34,17 +30,49 @@ import { PATTERN_LABELS, PATTERN_SLUGS } from '../patterns'
 import type { PatternSlug } from '../patterns'
 import { loadRawPuzzleFiles } from './loadPuzzles'
 import { validatePuzzleFiles } from './validatePuzzles'
+import { costOf, createBackend, parseBackendArg } from './llmBackend'
+import type { Backend } from './llmBackend'
+import {
+  CALIBRATION,
+  createIdCounters,
+  createUsageTracker,
+  writePuzzle,
+} from './puzzleAuthoringShared'
 
-const MODEL = 'claude-sonnet-5'
-// Intro pricing through 2026-08-31 (standard rate is $3/$15 after) — confirm
-// at https://platform.claude.com/docs/en/about-claude/pricing before trusting
-// this for a budget decision months from now.
-const INPUT_COST_PER_MTOK = 2
-const OUTPUT_COST_PER_MTOK = 10
+// Per-model, not a single MODEL constant (Phase 4 blocking precondition,
+// docs/v2-build-plan.md): "the moment the models differ, the guard is
+// silently wrong." Both are Sonnet 5 today — generate/review staying on the
+// same model for quiz content is unchanged from before this split; what
+// changed is that costOf (llmBackend.ts) now prices each call against the
+// model that actually made it, so this stays correct the moment either one
+// changes (Phase 6, or a future quiz-specific split).
+const GENERATE_MODEL = 'claude-sonnet-5'
+const REVIEW_MODEL = 'claude-sonnet-5'
 const MAX_GENERATION_ATTEMPTS = 3
 
-/** Hard stop on batch spend, checked before every puzzle in main()'s loop. */
+/**
+ * Hard stop on batch spend for the `api` backend, checked before every
+ * puzzle in main()'s loop. This is a runaway-loop circuit breaker, not a
+ * budget — see PROJECTED_COST_PER_PUZZLE for the real per-puzzle estimate
+ * --dry-run reports against.
+ */
 const COST_CEILING_USD = 0.7
+
+/**
+ * The `cli` backend spends no Console credits (draws on subscription usage
+ * instead), so COST_CEILING_USD above is meaningless for it — a dollar
+ * ceiling can't gate a quota it never touches. A runaway loop would instead
+ * be free to drain the invoking account's shared Claude usage limits, so
+ * this backend gets its own circuit breaker, denominated in calls and
+ * tokens rather than dollars. Sized generously against this pipeline's own
+ * existing per-puzzle estimates (~2 calls, ~8.7k tokens/puzzle — see
+ * PROJECTED_COST_PER_PUZZLE below) with a wide safety margin, since quiz
+ * batches here are typically small and gap-driven; the scrubber pipeline
+ * (generateScrubberPuzzles.ts) sizes its own ceiling against its pilot's
+ * measured per-puzzle call count instead of reusing this number.
+ */
+const CLI_CALL_CEILING = 150
+const CLI_TOKEN_CEILING = 2_000_000
 
 type Interaction = 'mcq' | 'swipe-binary' | 'tap-line'
 /** Which edge of a puzzle's targetRange to lean toward — see buildGapManifest. */
@@ -65,50 +93,21 @@ const INTERACTION_SCHEMAS = {
   'tap-line': TapLineSchema,
 } as const
 
-/** Short, stable per-pattern id prefix. Once assigned, never change — ids are forever. */
-const PATTERN_PREFIXES: Record<PatternSlug, string> = {
-  'off-by-one': 'oob',
-  'null-undefined': 'nul',
-  'type-coercion': 'tc',
-  'mutable-state': 'mut',
-  'scope-closures': 'scl',
-  concurrency: 'con',
-  'resource-management': 'res',
-  'error-handling': 'err',
-  'recursion-termination': 'rec',
-  'data-structure-misuse': 'dsm',
-  'string-formatting': 'str',
-  'input-validation': 'inp',
-  'control-flow': 'cf',
-}
-
-const CONTENT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..')
-const PUZZLES_DIR = join(CONTENT_DIR, 'puzzles')
-const CALIBRATION = readFileSync(join(CONTENT_DIR, 'CALIBRATION.md'), 'utf-8')
-
-const client = new Anthropic()
-
 const ReviewSchema = z.object({
   pass: z.boolean(),
   reason: z.string().min(1),
 })
 
-const totals = { inputTokens: 0, outputTokens: 0 }
-
-function costOf(inputTokens: number, outputTokens: number): number {
-  return (
-    (inputTokens / 1_000_000) * INPUT_COST_PER_MTOK +
-    (outputTokens / 1_000_000) * OUTPUT_COST_PER_MTOK
-  )
-}
-
-function logUsage(label: string, usage: { input_tokens: number; output_tokens: number }): void {
-  totals.inputTokens += usage.input_tokens
-  totals.outputTokens += usage.output_tokens
-  console.log(
-    `    [${label}] in=${String(usage.input_tokens)} out=${String(usage.output_tokens)} — running total: $${costOf(totals.inputTokens, totals.outputTokens).toFixed(4)}`,
-  )
-}
+/**
+ * costUsd accumulates via costOf(model, ...) per call, never by summing raw
+ * tokens across calls and pricing the total at one rate — that aggregate
+ * approach is exactly the bug class this Phase 4 fix closes (see
+ * COST_CEILING_USD's neighboring comment): correct even if generate/review
+ * are ever on different models. See puzzleAuthoringShared.ts's
+ * createUsageTracker for the implementation, shared with the scrubber
+ * pipeline.
+ */
+const { totals, log: logUsage } = createUsageTracker()
 
 const FEW_SHOT_EXAMPLES: Puzzle[] = [
   {
@@ -299,27 +298,32 @@ function buildUserPrompt(args: GenerateArgs, priorError: string | null): string 
   return lines.join('\n')
 }
 
-async function generatePuzzle(args: GenerateArgs): Promise<Puzzle | null> {
+async function generatePuzzle(backend: Backend, args: GenerateArgs): Promise<Puzzle | null> {
   let lastError: string | null = null
 
   for (let attempt = 1; attempt <= MAX_GENERATION_ATTEMPTS; attempt++) {
     let parsed: unknown
     try {
-      const response = await client.messages.parse({
-        model: MODEL,
+      const response = await backend.generateStructured({
+        model: GENERATE_MODEL,
         // Sonnet 5 defaults to adaptive thinking when `thinking` is
         // omitted, and thinking tokens draw from this same budget — a
         // tight cap here truncates mid-generation (seen in testing at
         // max_tokens: 4096, several calls hit the cap exactly and failed
         // to parse). This is a ceiling, not a target — extra headroom
         // costs nothing unless the model actually uses it.
-        max_tokens: 8192,
-        system: [{ type: 'text', text: buildSystemPrompt(), cache_control: { type: 'ephemeral' } }],
-        output_config: { format: zodOutputFormat(INTERACTION_SCHEMAS[args.interaction]) },
-        messages: [{ role: 'user', content: buildUserPrompt(args, lastError) }],
+        maxTokens: 8192,
+        systemPrompt: buildSystemPrompt(),
+        userPrompt: buildUserPrompt(args, lastError),
+        schema: INTERACTION_SCHEMAS[args.interaction],
       })
-      logUsage(`generate ${args.id} attempt ${String(attempt)}`, response.usage)
-      parsed = response.parsed_output
+      logUsage(`generate ${args.id} attempt ${String(attempt)}`, GENERATE_MODEL, response.usage)
+      parsed = response.parsed
+      if (parsed === null && response.parseFailureReason) {
+        lastError = response.parseFailureReason
+        console.warn(`    generate ${args.id} attempt ${String(attempt)} threw: ${lastError}`)
+        continue
+      }
     } catch (err) {
       lastError = err instanceof Error ? err.message : String(err)
       console.warn(`    generate ${args.id} attempt ${String(attempt)} threw: ${lastError}`)
@@ -382,67 +386,50 @@ Return pass=true only if every check above holds. If you have real doubt on
 any point, fail with a specific, actionable reason — don't rubber-stamp.`
 }
 
-async function selfReview(puzzle: Puzzle): Promise<{ pass: boolean; reason: string }> {
+async function selfReview(
+  backend: Backend,
+  puzzle: Puzzle,
+): Promise<{ pass: boolean; reason: string }> {
   try {
-    const response = await client.messages.parse({
-      model: MODEL,
+    const response = await backend.generateStructured({
+      model: REVIEW_MODEL,
       // Sonnet 5 defaults to adaptive thinking when `thinking` is omitted,
       // and thinking tokens draw from this same budget — too tight a limit
       // here truncates the JSON response before it completes (seen in
       // testing: several review calls hit exactly max_tokens and produced
       // unparseable output, even at 4096). Match generation's headroom.
-      max_tokens: 8192,
-      system: [
-        { type: 'text', text: buildReviewSystemPrompt(), cache_control: { type: 'ephemeral' } },
-      ],
-      output_config: { format: zodOutputFormat(ReviewSchema) },
-      messages: [
-        { role: 'user', content: `Review this puzzle:\n\n${JSON.stringify(puzzle, null, 2)}` },
-      ],
+      maxTokens: 8192,
+      systemPrompt: buildReviewSystemPrompt(),
+      userPrompt: `Review this puzzle:\n\n${JSON.stringify(puzzle, null, 2)}`,
+      schema: ReviewSchema,
     })
-    logUsage(`review ${puzzle.id}`, response.usage)
+    logUsage(`review ${puzzle.id}`, REVIEW_MODEL, response.usage)
 
-    if (response.parsed_output === null) {
-      return { pass: false, reason: 'Review response did not conform to the requested JSON shape.' }
-    }
-    return response.parsed_output
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    return { pass: false, reason: `Review API call failed: ${message}` }
-  }
-}
-
-function loadExistingCounters(): Map<string, number> {
-  const counters = new Map<string, number>()
-  for (const { raw } of loadRawPuzzleFiles()) {
-    if (raw && typeof raw === 'object' && 'id' in raw && typeof raw.id === 'string') {
-      const match = /^([a-z]+)-(\d+)$/.exec(raw.id)
-      if (match?.[1] !== undefined && match[2] !== undefined) {
-        const prefix = match[1]
-        counters.set(prefix, Math.max(counters.get(prefix) ?? 0, Number(match[2])))
+    if (response.parsed === null) {
+      return {
+        pass: false,
+        reason:
+          response.parseFailureReason ??
+          'Review response did not conform to the requested JSON shape.',
       }
     }
+    // The api backend's zodOutputFormat already guarantees this shape, but
+    // the cli backend's structured_output is never validated by anything
+    // upstream of here — without this check, a malformed {pass: "false"}
+    // (truthy) would read as an un-rejected review and let an un-reviewed
+    // puzzle get written.
+    const reviewResult = ReviewSchema.safeParse(response.parsed)
+    if (!reviewResult.success) {
+      return {
+        pass: false,
+        reason: `Review response did not match the expected shape: ${reviewResult.error.issues.map((issue) => issue.message).join('; ')}`,
+      }
+    }
+    return reviewResult.data
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { pass: false, reason: `Review call failed: ${message}` }
   }
-  return counters
-}
-
-/** Returns the next id without consuming it — call commitId() only after a successful write. */
-function peekNextId(pattern: PatternSlug, counters: Map<string, number>): string {
-  const prefix = PATTERN_PREFIXES[pattern]
-  const next = (counters.get(prefix) ?? 0) + 1
-  return `${prefix}-${String(next).padStart(3, '0')}`
-}
-
-function commitId(pattern: PatternSlug, id: string, counters: Map<string, number>): void {
-  const prefix = PATTERN_PREFIXES[pattern]
-  const num = Number(id.slice(prefix.length + 1))
-  counters.set(prefix, Math.max(counters.get(prefix) ?? 0, num))
-}
-
-function writePuzzle(puzzle: Puzzle): void {
-  const dir = join(PUZZLES_DIR, puzzle.pattern)
-  mkdirSync(dir, { recursive: true })
-  writeFileSync(join(dir, `${puzzle.id}.json`), JSON.stringify(puzzle, null, 2) + '\n', 'utf-8')
 }
 
 interface PuzzleSpec {
@@ -470,8 +457,23 @@ function bucketLabel(rating: number): string {
   return `${String(bucketStart)}-${String(bucketEnd)}`
 }
 
+/**
+ * Quiz puzzles only. Phase 4 (docs/prompts/claude_code_prompt_v2_phase4.md,
+ * Item 4) found buildGapManifest reading the unfiltered pool here — the
+ * five scrubber pilots that predate this fix were already counting toward
+ * per-pattern spread and bucket coverage below, exactly the contamination
+ * generateScrubberPuzzles.ts's own manifest exists to keep scoped away
+ * from. Verified before fixing: none of the four overlapping patterns
+ * (off-by-one, mutable-state, scope-closures, type-coercion) currently flip
+ * deficient/covered because of it — each already clears the 800pt spread
+ * on quiz-only ratings alone — but Item 4 is about to add 40-60 more
+ * scrubber puzzles into these same patterns, at which point the
+ * contamination would start mattering for real.
+ */
 function loadValidPuzzles(): Puzzle[] {
-  return validatePuzzleFiles(loadRawPuzzleFiles()).valid.map((entry) => entry.puzzle)
+  return validatePuzzleFiles(loadRawPuzzleFiles())
+    .valid.map((entry) => entry.puzzle)
+    .filter((puzzle) => puzzle.interaction !== 'scrubber')
 }
 
 const INTERACTION_CYCLE: Interaction[] = ['swipe-binary', 'mcq', 'tap-line', 'swipe-binary', 'mcq']
@@ -586,11 +588,23 @@ const EST_REVIEW_OUTPUT_TOKENS = 250
  * `in=3812 out=612` generate-call example in GENERATING_PUZZLES.md, rounded
  * up, plus an estimated review call, plus a 25% buffer for the occasional
  * validation retry — real batches don't hit max_tokens (8192) in practice.
+ * Priced per-model (GENERATE_MODEL for the generate call, REVIEW_MODEL for
+ * review) even though both are the same model today, for the same reason
+ * costOf itself takes a model — see this file's other per-model comments.
  */
 const PROJECTED_COST_PER_PUZZLE =
-  (costOf(EST_GENERATE_INPUT_TOKENS, EST_GENERATE_OUTPUT_TOKENS) +
-    costOf(EST_REVIEW_INPUT_TOKENS, EST_REVIEW_OUTPUT_TOKENS)) *
+  (costOf(GENERATE_MODEL, EST_GENERATE_INPUT_TOKENS, EST_GENERATE_OUTPUT_TOKENS) +
+    costOf(REVIEW_MODEL, EST_REVIEW_INPUT_TOKENS, EST_REVIEW_OUTPUT_TOKENS)) *
   1.25
+/** Same shape as the cost projection above, in calls/tokens rather than dollars — what --dry-run reports for the cli backend. */
+const PROJECTED_CALLS_PER_PUZZLE = 2
+const PROJECTED_TOKENS_PER_PUZZLE = Math.round(
+  (EST_GENERATE_INPUT_TOKENS +
+    EST_GENERATE_OUTPUT_TOKENS +
+    EST_REVIEW_INPUT_TOKENS +
+    EST_REVIEW_OUTPUT_TOKENS) *
+    1.25,
+)
 
 /** Parses --limit=N off argv, for testing a prompt change on a few puzzles before spending on the full manifest. */
 function parseLimitArg(): number | null {
@@ -603,9 +617,10 @@ function parseLimitArg(): number | null {
 async function main(): Promise<void> {
   const isDryRun = process.argv.includes('--dry-run')
   const limit = parseLimitArg()
+  const backendKind = parseBackendArg()
   const fullManifest = buildGapManifest()
   const manifest = limit !== null ? fullManifest.slice(0, limit) : fullManifest
-  const counters = loadExistingCounters()
+  const counters = createIdCounters()
 
   if (fullManifest.length === 0) {
     console.log(
@@ -615,9 +630,11 @@ async function main(): Promise<void> {
   }
 
   const projectedCost = manifest.length * PROJECTED_COST_PER_PUZZLE
+  const projectedCalls = manifest.length * PROJECTED_CALLS_PER_PUZZLE
+  const projectedTokens = manifest.length * PROJECTED_TOKENS_PER_PUZZLE
 
   console.log(
-    `generate:puzzles: ${isDryRun ? 'DRY RUN' : 'FULL BATCH'} — ${String(manifest.length)} puzzle(s) targeted (gap-driven)` +
+    `generate:puzzles: ${isDryRun ? 'DRY RUN' : 'FULL BATCH'} — backend=${backendKind} (${backendKind === 'cli' ? 'spends: Claude subscription usage' : 'spends: Console credits (USD)'}) — ${String(manifest.length)} puzzle(s) targeted (gap-driven)` +
       (limit !== null ? ` [--limit=${String(limit)} of ${String(fullManifest.length)}]` : '') +
       '\n',
   )
@@ -626,41 +643,70 @@ async function main(): Promise<void> {
       `  - ${spec.pattern} / ${spec.interaction} / target ${spec.targetRange} (bias: ${spec.bias})`,
     )
   }
-  console.log(
-    `\nProjected cost: ~$${projectedCost.toFixed(4)} (${String(manifest.length)} puzzle(s) x ~$${PROJECTED_COST_PER_PUZZLE.toFixed(4)}/puzzle, conservative estimate)`,
-  )
-  if (projectedCost > COST_CEILING_USD) {
-    console.warn(
-      `  WARNING: projected cost exceeds COST_CEILING_USD ($${COST_CEILING_USD.toFixed(2)}) — shrink the manifest before running for real.`,
+  console.log(`\nModels: generate=${GENERATE_MODEL}, review=${REVIEW_MODEL}`)
+  if (backendKind === 'api') {
+    console.log(
+      `Projected cost: ~$${projectedCost.toFixed(4)} (${String(manifest.length)} puzzle(s) x ~$${PROJECTED_COST_PER_PUZZLE.toFixed(4)}/puzzle, conservative estimate)`,
     )
+    if (projectedCost > COST_CEILING_USD) {
+      console.warn(
+        `  WARNING: projected cost exceeds COST_CEILING_USD ($${COST_CEILING_USD.toFixed(2)}) — shrink the manifest before running for real.`,
+      )
+    }
+  } else {
+    console.log(
+      `Projected usage: ~${String(projectedCalls)} call(s), ~${String(projectedTokens)} tokens (${String(manifest.length)} puzzle(s) x ~${String(PROJECTED_CALLS_PER_PUZZLE)} calls / ~${String(PROJECTED_TOKENS_PER_PUZZLE)} tokens/puzzle) — drawn from your Claude subscription's usage limits, not billed in dollars` +
+        ` (notional $-equivalent if it had run on the api backend: ~$${projectedCost.toFixed(4)})`,
+    )
+    if (projectedCalls > CLI_CALL_CEILING || projectedTokens > CLI_TOKEN_CEILING) {
+      console.warn(
+        `  WARNING: projected usage exceeds this run's cli ceiling (${String(CLI_CALL_CEILING)} calls / ${String(CLI_TOKEN_CEILING)} tokens) — shrink the manifest before running for real.`,
+      )
+    }
   }
 
   if (isDryRun) {
     return
   }
 
+  // Constructed here, not at module load: checkCliAvailable (inside
+  // createBackend for the cli kind) fails loudly before any generation
+  // attempt, but only for the backend actually selected — a --dry-run with
+  // no --backend flag shouldn't require the claude binary to be installed
+  // just to print a projection.
+  const backend = createBackend(backendKind)
+
   let written = 0
   let discarded = 0
 
   for (const spec of manifest) {
-    const currentCost = costOf(totals.inputTokens, totals.outputTokens)
-    if (currentCost >= COST_CEILING_USD) {
+    if (backend.kind === 'api' && totals.costUsd >= COST_CEILING_USD) {
       console.warn(
-        `\ngenerate:puzzles: COST_CEILING_USD ($${COST_CEILING_USD.toFixed(2)}) reached at $${currentCost.toFixed(4)} — stopping before the next puzzle. ${String(manifest.length - written - discarded)} puzzle(s) left un-attempted.`,
+        `\ngenerate:puzzles: COST_CEILING_USD ($${COST_CEILING_USD.toFixed(2)}) reached at $${totals.costUsd.toFixed(4)} — stopping before the next puzzle. ${String(manifest.length - written - discarded)} puzzle(s) left un-attempted.`,
+      )
+      break
+    }
+    if (
+      backend.kind === 'cli' &&
+      (totals.callCount >= CLI_CALL_CEILING ||
+        totals.inputTokens + totals.outputTokens >= CLI_TOKEN_CEILING)
+    ) {
+      console.warn(
+        `\ngenerate:puzzles: cli ceiling reached (${String(totals.callCount)} calls, ${String(totals.inputTokens + totals.outputTokens)} tokens) — stopping before the next puzzle. ${String(manifest.length - written - discarded)} puzzle(s) left un-attempted.`,
       )
       break
     }
 
-    const id = peekNextId(spec.pattern, counters)
+    const id = counters.peek(spec.pattern)
     console.log(`=== ${id} (${spec.pattern}, ${spec.interaction}, target ${spec.targetRange}) ===`)
 
-    const puzzle = await generatePuzzle({ ...spec, id })
+    const puzzle = await generatePuzzle(backend, { ...spec, id })
     if (!puzzle) {
       discarded++
       continue
     }
 
-    const review = await selfReview(puzzle)
+    const review = await selfReview(backend, puzzle)
     if (!review.pass) {
       console.warn(`  DISCARDED ${id}: self-review failed — ${review.reason}`)
       discarded++
@@ -668,15 +714,17 @@ async function main(): Promise<void> {
     }
 
     writePuzzle(puzzle)
-    commitId(spec.pattern, id, counters)
+    counters.commit(spec.pattern, id)
     written++
     console.log(`  WROTE ${id}`)
   }
 
-  const totalCost = costOf(totals.inputTokens, totals.outputTokens)
   console.log(
     `\ngenerate:puzzles: ${String(written)} written, ${String(discarded)} discarded. ` +
-      `Total: in=${String(totals.inputTokens)} out=${String(totals.outputTokens)} tokens, ~$${totalCost.toFixed(4)}.`,
+      `Total: ${String(totals.callCount)} call(s), in=${String(totals.inputTokens)} out=${String(totals.outputTokens)} tokens` +
+      (backend.kind === 'api'
+        ? `, ~$${totals.costUsd.toFixed(4)}.`
+        : ` (subscription usage; notional ~$${totals.costUsd.toFixed(4)}).`),
   )
 
   if (written === 0 && manifest.length > 0) {
@@ -684,7 +732,18 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err: unknown) => {
-  console.error(err)
-  process.exitCode = 1
-})
+// Only run as a side effect when this file is executed directly (`tsx
+// .../generatePuzzles.ts`), never when imported — nothing imports this
+// module today, but generateScrubberPuzzles.ts's identical pattern turned
+// out to be a real bug (a test importing it for one pure export silently
+// triggered a full generation run, including spawning the claude CLI) the
+// moment something did import it. Guarding here closes the same latent
+// hazard before it can bite the same way.
+const isEntryPoint =
+  process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]
+if (isEntryPoint) {
+  main().catch((err: unknown) => {
+    console.error(err)
+    process.exitCode = 1
+  })
+}

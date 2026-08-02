@@ -26,23 +26,30 @@
  * revealed if it's already been answered (including checkpoints the player
  * scrubs back to after answering).
  *
- * Masking a pending checkpoint is not just "mask the target row": a `Scrubber`
- * state panel can hold two variables with the identical display value (e.g.
- * an aliased mutable-state trace, or an output string that also happens to
- * equal a variable's current value), and masking only the checkpoint's own
- * target/output would leave the answer readable verbatim in a sibling row.
- * So `maskedVarNames` (passed to `Scrubber`) is computed as every variable
- * name in the pending checkpoint's step whose *value* equals the value being
- * asked about, not just the named target — for `var-value` that's every
- * name co-valued with `target`'s value (always includes `target` itself);
- * for `output` it's every name co-valued with the step's `output` string
- * (a different value than any target). `maskOutput` mirrors this: true
- * whenever the output checkpoint is pending, and also true for a pending
- * `var-value` checkpoint if this step's `output` happens to equal the
- * target's value — the same co-valued leak, just on the output surface
- * instead of a variable row. Both directions read from `step.vars`/
- * `step.output` at `checkpointAtStep.afterStep`, which is exactly `stepIndex`
- * whenever `isPendingAtStep` is true.
+ * Masking a pending checkpoint is not just "mask the target row at the exact
+ * pause step": backward scrubbing is unbounded (OD-3, docs/v2-build-plan.md)
+ * — a player can always tap "Previous step" back toward step 0 — so the
+ * answer value must stay masked at *every* step the player can currently
+ * reach, not just the one where the checkpoint's `afterStep` happens to sit.
+ * Confirmed live on `tc-009`: checkpoint 1's answer ("3") sits unmasked in
+ * sibling row `v` as early as step 12, four steps before its `afterStep`
+ * (16) pause — a "mask one step back" rule would still miss it.
+ *
+ * The fix: compute the pending checkpoint's *answer value* once, by reading
+ * `puzzle.steps[pendingCheckpoint.afterStep]` directly (not the currently
+ * displayed step) — for `var-value` that's the target's value at the pause
+ * step, for `output` it's the pause step's `output` string. Then, for
+ * whichever step is *actually* on screen right now (`stepIndex`, which can
+ * be anywhere in `[0, pendingCheckpoint.afterStep]` since forward scrubbing
+ * is already capped there), mask every cell — variable row or output line —
+ * whose value equals that answer value. This is deliberately narrow, per
+ * the locked decision: it masks the specific co-valued *cells* wherever
+ * they recur across the reachable range, not whole rows and not whole
+ * steps, so a player scrubbing backward to re-read unrelated state can
+ * still do so. It also subsumes the Phase 3 corrective's co-valued-row fix
+ * (Finding 2) as the special case `stepIndex === pendingCheckpoint.afterStep`,
+ * so that fix's own behavior at the exact pause is unchanged, not
+ * superseded by a second mechanism.
  *
  * First-try-only scoring: `CheckpointPanel` commits a choice immediately —
  * there is no retry UI, matching `scoreScrubberAttempt`'s "each checkpoint
@@ -91,31 +98,40 @@ export function TraceRunnerPuzzle({
   const checkpointIndexAtStep = checkpoints.findIndex((cp) => cp.afterStep === stepIndex)
   const checkpointAtStep =
     checkpointIndexAtStep === -1 ? undefined : checkpoints[checkpointIndexAtStep]
-  const isPendingAtStep = checkpointIndexAtStep !== -1 && checkpointIndexAtStep === answeredCount
   const isAnsweredAtStep = checkpointIndexAtStep !== -1 && checkpointIndexAtStep < answeredCount
   const resultAtStep = isAnsweredAtStep ? checkpointResults[checkpointIndexAtStep] : undefined
 
   const step = puzzle.steps[stepIndex]
 
+  // Answer value is read from the checkpoint's own pause step
+  // (pendingCheckpoint.afterStep), never from `step` (the currently
+  // displayed step) — those coincide only when stepIndex === afterStep.
+  // Forward scrubbing is already capped at maxAllowedIndex === afterStep,
+  // so stepIndex is always <= afterStep whenever pendingCheckpoint exists;
+  // the explicit comparison below is a defensive match to that invariant,
+  // not a range restriction of its own.
   let maskedVarNames: readonly string[] | undefined
   let maskOutput = false
-  if (isPendingAtStep && checkpointAtStep?.question === 'var-value' && checkpointAtStep.target) {
-    const target = checkpointAtStep.target
-    const targetValue = step?.vars[target]
-    maskedVarNames = step
-      ? Object.keys(step.vars).filter((name) => step.vars[name] === targetValue)
-      : undefined
-    // Symmetric with the output-checkpoint branch below: if this step's
-    // output happens to equal the target's value, that value would
-    // otherwise sit unmasked in the output line even though maskedVarNames
-    // already hides every co-valued *variable* row.
-    maskOutput = step?.output === targetValue
-  } else if (isPendingAtStep && checkpointAtStep?.question === 'output') {
-    maskOutput = true
-    maskedVarNames =
-      step?.output !== undefined
-        ? Object.keys(step.vars).filter((name) => step.vars[name] === step.output)
-        : []
+  if (pendingCheckpoint && stepIndex <= pendingCheckpoint.afterStep) {
+    const answerStep = puzzle.steps[pendingCheckpoint.afterStep]
+    if (pendingCheckpoint.question === 'var-value' && pendingCheckpoint.target && answerStep) {
+      const answerValue = answerStep.vars[pendingCheckpoint.target]
+      maskedVarNames = step
+        ? Object.keys(step.vars).filter((name) => step.vars[name] === answerValue)
+        : undefined
+      // Symmetric with the output-checkpoint branch below: if this step's
+      // output happens to equal the target's answer value, that value
+      // would otherwise sit unmasked in the output line even though
+      // maskedVarNames already hides every co-valued *variable* row.
+      maskOutput = step?.output === answerValue
+    } else if (pendingCheckpoint.question === 'output' && answerStep) {
+      const answerValue = answerStep.output
+      maskOutput = step?.output === answerValue
+      maskedVarNames =
+        answerValue !== undefined && step
+          ? Object.keys(step.vars).filter((name) => step.vars[name] === answerValue)
+          : []
+    }
   }
 
   const handleAnswer = (result: CheckpointResult) => {

@@ -171,3 +171,55 @@ describe('generateJsTrace — sandbox isolation', () => {
     expect(() => generateJsTrace(snippet)).toThrow(/setTimeout/)
   })
 })
+
+describe('generateJsTrace — OD-2: node:vm escape cannot reach the host process', () => {
+  // node:vm's isolation is not a security boundary — this exact payload
+  // (docs/v2-build-plan.md, OD-2) is confirmed to escape vm.runInContext
+  // and resolve a real `process` object via Function's constructor, which
+  // is still reachable because it's part of the JS realm itself, not
+  // something the sandbox adds. The fix is not "block the payload" (it
+  // can't be, short of disabling Function entirely) — it's that whatever
+  // `process` it resolves now belongs to a disposable child OS process,
+  // never this test's own (the one that would hold an API key in a real
+  // generatePuzzles.ts run).
+  const ESCAPE = "this.constructor.constructor('return process')()"
+
+  // Whole-surface, not a suspect list: a blocklist of "known-dangerous"
+  // members was tried first (process.binding/dlopen), then a wider but
+  // still-named list, and each missed something on the very next
+  // adversarial pass (process.getBuiltinModule, Node 22.3+, was the
+  // second miss). Enumerating every OWN key actually left on the escaped
+  // process object and asserting it's a subset of a small, explicitly-named
+  // allowlist closes that class of gap for good — a future Node release
+  // adding hatch #4 fails this test by construction, without needing
+  // anyone to have already thought of the new property's name.
+  // `features`/`argv0` are the two non-configurable residues confirmed on
+  // this Node build (`delete` on them is a no-op) — neither is a
+  // capability (a version-flags object and this Node binary's own launch
+  // path), unlike everything neutralizeProcess successfully removes.
+  const ALLOWED_RESIDUAL_KEYS = ['exitCode', 'features', 'argv0', 'Symbol(Symbol.toStringTag)']
+
+  it('the escaped process object retains no own keys beyond a small, explicitly-named, non-configurable residue', () => {
+    const snippet = `
+const escaped = ${ESCAPE};
+const allowed = new Set(${JSON.stringify(ALLOWED_RESIDUAL_KEYS)});
+const keys = Reflect.ownKeys(escaped).map(String);
+const unexpected = keys.filter((k) => !allowed.has(k));
+console.log(JSON.stringify(unexpected));
+`
+    const result = generateJsTrace(snippet)
+    expect(result.steps.at(-1)?.output).toBe('"[]"')
+  })
+
+  it('keeps exactly one deliberate exception (exitCode, inert data) present on the escaped process object', () => {
+    // Positive control for the test above: confirms neutralizeProcess's one
+    // intentional carve-out is real (not that the whole mechanism silently
+    // no-ops and everything just happens to read as absent).
+    const snippet = `
+const escaped = ${ESCAPE};
+console.log(JSON.stringify(Reflect.has(escaped, 'exitCode')));
+`
+    const result = generateJsTrace(snippet)
+    expect(result.steps.at(-1)?.output).toBe('"true"')
+  })
+})

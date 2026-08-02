@@ -1,0 +1,302 @@
+{
+  "id": "oob-011",
+  "pattern": "off-by-one",
+  "difficulty_rating": 1100,
+  "explanation": "The initial window-sum loop uses `i <= k` instead of `i < k`, so it runs 4 times (i = 0,1,2,3) instead of 3, summing k+1 = 4 elements (2+1+5+1 = 9) into what should be a 3-element window. That inflated starting sum then gets carried through every subsequent slide (`windowSum += arr[i] - arr[i - k]`), which correctly swaps one element in and one out but is now operating on a window that's permanently one element too wide in composition. The correct maximum 3-element window sum is 9 (from [5,1,3]), but the bug produces a reported max of 10 because the corrupted window sums happen to peak higher at index 4.",
+  "prompt": "Step through this fixed-window max-sum function and predict the final printed value.",
+  "language": "javascript",
+  "snippet": "function maxSumSubarray(arr, k) {\n  let windowSum = 0;\n  for (let i = 0; i <= k; i++) {\n    windowSum += arr[i];\n  }\n  let maxSum = windowSum;\n  console.log(\"initial window sum:\", windowSum);\n\n  for (let i = k; i < arr.length; i++) {\n    windowSum += arr[i] - arr[i - k];\n    maxSum = Math.max(maxSum, windowSum);\n    console.log(\"window ending at index\", i, \"sum:\", windowSum);\n  }\n\n  console.log(\"max sum:\", maxSum);\n  return maxSum;\n}\n\nmaxSumSubarray([2, 1, 5, 1, 3, 2], 3);",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 1,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "0",
+        "maxSumSubarray": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "0",
+        "maxSumSubarray": "[Function]",
+        "i": "0"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "2",
+        "maxSumSubarray": "[Function]",
+        "i": "0"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "2",
+        "maxSumSubarray": "[Function]",
+        "i": "1"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "3",
+        "maxSumSubarray": "[Function]",
+        "i": "1"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "3",
+        "maxSumSubarray": "[Function]",
+        "i": "2"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "8",
+        "maxSumSubarray": "[Function]",
+        "i": "2"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "8",
+        "maxSumSubarray": "[Function]",
+        "i": "3"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "9",
+        "maxSumSubarray": "[Function]",
+        "i": "3"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "9",
+        "maxSumSubarray": "[Function]",
+        "maxSum": "9"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "9",
+        "maxSumSubarray": "[Function]",
+        "maxSum": "9"
+      },
+      "output": "\"initial window sum:\" 9"
+    },
+    {
+      "line": 8,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "9",
+        "maxSumSubarray": "[Function]",
+        "i": "3",
+        "maxSum": "9"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "8",
+        "maxSumSubarray": "[Function]",
+        "i": "3",
+        "maxSum": "9"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "8",
+        "maxSumSubarray": "[Function]",
+        "i": "3",
+        "maxSum": "9"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "8",
+        "maxSumSubarray": "[Function]",
+        "i": "3",
+        "maxSum": "9"
+      },
+      "output": "\"window ending at index\" 3 \"sum:\" 8"
+    },
+    {
+      "line": 8,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "8",
+        "maxSumSubarray": "[Function]",
+        "i": "4",
+        "maxSum": "9"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "10",
+        "maxSumSubarray": "[Function]",
+        "i": "4",
+        "maxSum": "9"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "10",
+        "maxSumSubarray": "[Function]",
+        "i": "4",
+        "maxSum": "10"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "10",
+        "maxSumSubarray": "[Function]",
+        "i": "4",
+        "maxSum": "10"
+      },
+      "output": "\"window ending at index\" 4 \"sum:\" 10"
+    },
+    {
+      "line": 8,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "10",
+        "maxSumSubarray": "[Function]",
+        "i": "5",
+        "maxSum": "10"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "7",
+        "maxSumSubarray": "[Function]",
+        "i": "5",
+        "maxSum": "10"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "7",
+        "maxSumSubarray": "[Function]",
+        "i": "5",
+        "maxSum": "10"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "7",
+        "maxSumSubarray": "[Function]",
+        "i": "5",
+        "maxSum": "10"
+      },
+      "output": "\"window ending at index\" 5 \"sum:\" 7"
+    },
+    {
+      "line": 14,
+      "vars": {
+        "arr": "[2,1,5,1,3,2]",
+        "k": "3",
+        "windowSum": "7",
+        "maxSumSubarray": "[Function]",
+        "maxSum": "10"
+      },
+      "output": "\"max sum:\" 10"
+    },
+    {
+      "line": 18,
+      "vars": {
+        "maxSumSubarray": "[Function]"
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 8,
+      "question": "var-value",
+      "target": "windowSum",
+      "choices": ["7", "10", "8", "9"],
+      "correct": 3
+    },
+    {
+      "afterStep": 10,
+      "question": "output",
+      "choices": ["[Function]", "0", "10", "\"initial window sum:\" 9"],
+      "correct": 3
+    },
+    {
+      "afterStep": 16,
+      "question": "var-value",
+      "target": "windowSum",
+      "choices": ["0", "8", "7", "10"],
+      "correct": 3
+    },
+    {
+      "afterStep": 23,
+      "question": "output",
+      "choices": ["0", "3", "\"max sum:\" 10", "[2,1,5,1,3,2]"],
+      "correct": 2
+    }
+  ]
+}
