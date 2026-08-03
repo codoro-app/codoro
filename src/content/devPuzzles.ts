@@ -70,5 +70,19 @@ export const DEV_STUB_PUZZLES: Puzzle[] = BANDS.flatMap((rating, i) => {
       interaction: 'tap-line',
       correct_line: 0,
     },
+    {
+      id: `dev-drag-${String(rating)}`,
+      pattern: 'recursion-termination',
+      difficulty_rating: rating,
+      explanation: `DEV STUB (drag-order, ${String(rating)}) — blocks are already labeled with their correct order; drag them into 1, 2, 3.`,
+      prompt: 'DEV STUB — drag the blocks into the correct order.',
+      language: 'javascript',
+      snippet: `// dev stub drag-order #${String(i)}`,
+      interaction: 'drag-order',
+      // Trivial identity mapping — unambiguous by design, same convention
+      // as the other three stubs above (see this file's module doc).
+      blocks: ['Correct order: 1', 'Correct order: 2', 'Correct order: 3'],
+      correct_order: [0, 1, 2],
+    },
   ]
 })

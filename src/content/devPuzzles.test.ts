@@ -32,6 +32,11 @@ describe('DEV_STUB_PUZZLES', () => {
       if (puzzle.interaction === 'tap-line') {
         expect(puzzle.correct_line).toBe(0)
       }
+      if (puzzle.interaction === 'drag-order') {
+        expect(puzzle.correct_order.map((index) => puzzle.blocks[index])).toEqual([
+          ...puzzle.blocks,
+        ])
+      }
     }
   })
 
