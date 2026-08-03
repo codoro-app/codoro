@@ -36,6 +36,14 @@ const MIN_ELIGIBLE = 1
 const BASE_HALF_WINDOW = 200
 const WIDEN_STEP = 100
 
+/**
+ * `drag-order` (Phase 5b Item 5) is deliberately excluded from this union,
+ * not an oversight: a multi-block drag-to-reorder interaction needs more
+ * precise, slower pointer control than a tap/swipe/mcq pick — a bad fit for
+ * Rush's timed, phone-first speed format. `useRushSession.ts`'s
+ * `isRushEligible` guard whitelists exactly these three values by name, so
+ * a drag-order puzzle can never enter Rush's pool.
+ */
 export type RushInteraction = 'mcq' | 'swipe-binary' | 'tap-line'
 
 /** Minimal shape rush.ts needs — mirrors selection.ts's own minimal Puzzle, plus the interaction discriminant Rush weights on. */
