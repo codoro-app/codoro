@@ -12,8 +12,13 @@ import type { Attempt, UserProfile } from '../../storage'
 // runaway pattern-filter effect (v2 Phase 1b corrective, Finding 1) would
 // multiply without bound. Wraps the real implementation (not a stub) so the
 // counter reflects genuine serveNext activity, same spirit as this file's
-// other importOriginal mocks below.
-const { selectNextCalls } = vi.hoisted(() => ({ selectNextCalls: { count: 0 } }))
+// other importOriginal mocks below. Also records each call's pool (ids
+// only) — selectNext's actual pick uses real Math.random(), so asserting on
+// which puzzle got served is non-deterministic; the pool argument itself is
+// deterministic and is what the combined-filter test below checks instead.
+const { selectNextCalls } = vi.hoisted(() => ({
+  selectNextCalls: { count: 0, pools: [] as string[][] },
+}))
 
 vi.mock('../../engine', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../engine')>()
@@ -21,6 +26,7 @@ vi.mock('../../engine', async (importOriginal) => {
     ...actual,
     selectNext: (...args: Parameters<typeof actual.selectNext>) => {
       selectNextCalls.count += 1
+      selectNextCalls.pools.push(args[0].pool.map((p) => p.id))
       return actual.selectNext(...args)
     },
   }
@@ -83,6 +89,7 @@ describe('PracticePage', () => {
     // what these tests assumed before the extraction.
     window.history.pushState({}, '', '/practice')
     selectNextCalls.count = 0
+    selectNextCalls.pools = []
   })
 
   it('keys the rendered PuzzleCardShell by puzzle.id (required concern-b fix)', () => {
@@ -236,6 +243,101 @@ describe('PracticePage', () => {
     expect(screen.queryByText(/filtering: /i)).not.toBeInTheDocument()
   })
 
+  it('applies the ?interaction= filter from the URL (Phase 5 Item 4)', async () => {
+    window.history.pushState({}, '', '/practice?interaction=mcq')
+    render(<PracticePage />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/filtering: multiple choice/i)).toBeInTheDocument()
+    })
+    // Every fixture puzzle is mcq, so the filter is a no-op on content —
+    // this only proves the param was read and applied, not that filtering works.
+    expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+  })
+
+  it('ignores an unrecognized ?interaction= value and falls back to the unfiltered pool', async () => {
+    window.history.pushState({}, '', '/practice?interaction=not-a-real-interaction')
+    render(<PracticePage />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/filtering: /i)).not.toBeInTheDocument()
+  })
+
+  it('applies ?pattern= and ?interaction= together as one combined filter, not two independent serveNext calls', async () => {
+    // Revert check for the setFilters fix: calling setPatternFilter then
+    // setInteractionFilter back to back in one effect (no render between
+    // them) each closes over the OTHER filter's stale value, so the second
+    // call's serveNext silently drops the first filter from the pool passed
+    // to selectNext — even though both filter values end up correct in
+    // state. Asserting on which puzzle got SERVED isn't a reliable check
+    // here: selectNext uses real Math.random(), and every fixture puzzle is
+    // 'mcq', so an interaction=mcq-only (pattern dropped) pool still
+    // contains a valid answer some of the time by chance. The pool actually
+    // passed to selectNext is deterministic and is what this checks
+    // instead (via the selectNext mock above).
+    window.history.pushState({}, '', '/practice?pattern=off-by-one&interaction=mcq')
+    render(<PracticePage />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          new RegExp(`filtering: multiple choice \\+ ${PATTERN_LABELS['off-by-one']}`, 'i'),
+        ),
+      ).toBeInTheDocument()
+    })
+
+    const lastPool = selectNextCalls.pools.at(-1)
+    if (!lastPool) throw new Error('expected at least one selectNext call')
+    expect(lastPool.length).toBeGreaterThan(0)
+    // Even-indexed fixture puzzles (p0, p2, ...) are 'off-by-one';
+    // odd-indexed are 'null-undefined'. The pool must contain only the
+    // pattern-matching half — if it were the full 12 (pattern silently
+    // dropped, per the double-dispatch bug), this fails.
+    for (const id of lastPool) {
+      const index = Number(id.replace('p', ''))
+      expect(index % 2).toBe(0)
+    }
+  })
+
+  it('shows a named empty state (not a stall or crash) when a pattern+interaction combination has zero content', async () => {
+    // Every fixture puzzle is mcq — off-by-one + swipe-binary is a real,
+    // valid combination with no matching content.
+    window.history.pushState({}, '', '/practice?pattern=off-by-one&interaction=swipe-binary')
+    render(<PracticePage />)
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          new RegExp(`no puzzles available for swipe \\+ ${PATTERN_LABELS['off-by-one']}`, 'i'),
+        ),
+      ).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/prompt \d/)).not.toBeInTheDocument()
+  })
+
+  it('an interaction chip toggles the filter on click and clears it on a second click', async () => {
+    const user = userEvent.setup()
+    render(<PracticePage />)
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+
+    const mcqChip = screen.getByRole('button', { name: 'Multiple choice' })
+    expect(mcqChip).toHaveAttribute('aria-pressed', 'false')
+
+    await user.click(mcqChip)
+    expect(mcqChip).toHaveAttribute('aria-pressed', 'true')
+    await waitFor(() => {
+      expect(screen.getByText(/filtering: multiple choice/i)).toBeInTheDocument()
+    })
+
+    await user.click(mcqChip)
+    expect(mcqChip).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByText(/filtering: /i)).not.toBeInTheDocument()
+  })
+
   it('the filter chip clears the pattern filter directly, without losing session stats', async () => {
     const user = userEvent.setup()
     render(<PracticePage />)
@@ -259,7 +361,7 @@ describe('PracticePage', () => {
       ).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: 'All patterns' }))
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }))
 
     expect(screen.queryByText(/filtering: /i)).not.toBeInTheDocument()
     // Session stat survived the clear — this was a pure filter swap, not a reset.

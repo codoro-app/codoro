@@ -65,11 +65,13 @@ import type { PatternSlug } from '../../content'
 import { CloseIcon } from '../Icons'
 import { useEffect, useRef, useState } from 'react'
 import type { CommitPayload } from './interactionTypes'
+import { QUIZ_INTERACTIONS, QUIZ_INTERACTION_LABELS } from './interactionTypes'
 import './practicePage.css'
 
 type View = 'practice' | 'mastery'
 
 const PATTERN_SLUG_SET: ReadonlySet<string> = new Set(PATTERN_SLUGS)
+const QUIZ_INTERACTION_SET: ReadonlySet<string> = new Set(QUIZ_INTERACTIONS)
 
 interface LastAnswer {
   puzzleId: string
@@ -100,13 +102,16 @@ export function PracticePage() {
     session.handleAnswered(payload)
   }
 
-  // Applies a '/practice?pattern=<slug>' query param as the pattern filter —
-  // the receiving end of PuzzlePage's (v2 Phase 1b) "practice more like
-  // this" CTA on a shared /puzzle/:id link. Validated against PATTERN_SLUGS
-  // rather than passed through: an unrecognized or absent param is silently
-  // ignored, leaving the normal unfiltered pool rather than erroring.
+  // Applies '/practice?pattern=<slug>' and '/practice?interaction=<type>'
+  // query params as filters — the former is the receiving end of
+  // PuzzlePage's (v2 Phase 1b) "practice more like this" CTA on a shared
+  // /puzzle/:id link; the latter is new (Phase 5 Item 4), same shape. Both
+  // are validated against their known-value sets rather than passed
+  // through: an unrecognized or absent param is silently ignored, leaving
+  // that filter unset rather than erroring. Filters combine (AND) — both
+  // can apply from the same URL (?pattern=off-by-one&interaction=mcq).
   //
-  // Applied exactly once, gated on session.profile being available (v2
+  // Applied exactly once each, gated on session.profile being available (v2
   // Phase 1b corrective, Finding 1). This used to depend only on
   // `session.setPatternFilter`, whose identity churns on every call — it
   // calls serveNext, which unconditionally calls setProfile with a brand
@@ -115,20 +120,33 @@ export function PracticePage() {
   // bare `useRef` latch alone is NOT sufficient: setPatternFilter no-ops
   // while `profile` is still null (loadProfile hasn't resolved on the
   // first render), so latching on that first no-op run would mark the
-  // pattern "applied" and it would then never actually apply. Gating on
+  // filter "applied" and it would then never actually apply. Gating on
   // `session.profile !== null` before setting the latch preserves the
   // retry-until-profile-exists behavior the runaway dependency used to
-  // provide by accident, on purpose instead.
-  const appliedPatternFilterRef = useRef(false)
+  // provide by accident, on purpose instead. One shared latch (not two)
+  // since both params are read from the same URLSearchParams instance and
+  // must apply together as a single combined filter call, not two separate
+  // serveNext calls that would each discard the other's selection.
+  const appliedFiltersFromUrlRef = useRef(false)
   useEffect(() => {
-    if (appliedPatternFilterRef.current || session.profile === null) return
-    appliedPatternFilterRef.current = true
-    const pattern = new URLSearchParams(search).get('pattern')
-    if (pattern && PATTERN_SLUG_SET.has(pattern)) {
-      session.setPatternFilter(pattern as PatternSlug)
+    if (appliedFiltersFromUrlRef.current || session.profile === null) return
+    appliedFiltersFromUrlRef.current = true
+    const params = new URLSearchParams(search)
+    const pattern = params.get('pattern')
+    const interaction = params.get('interaction')
+    const validPattern = pattern && PATTERN_SLUG_SET.has(pattern) ? (pattern as PatternSlug) : null
+    const validInteraction =
+      interaction && QUIZ_INTERACTION_SET.has(interaction)
+        ? (interaction as (typeof QUIZ_INTERACTIONS)[number])
+        : null
+    // One call, not two sequential setter calls — see setFilters's doc
+    // comment in usePracticeSession.ts for why that would silently drop one
+    // filter from the puzzle actually served on a combined URL.
+    if (validPattern || validInteraction) {
+      session.setFilters(validPattern, validInteraction)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, session.profile, session.setPatternFilter])
+  }, [search, session.profile, session.setFilters])
 
   // The page (not a nested container — practicePage.css has no overflow-y
   // scroll region) scrolls with whatever height the previous puzzle's
@@ -202,6 +220,13 @@ export function PracticePage() {
     )
   }
 
+  // Shared by the filter banner and the empty-state message below, so both
+  // describe the exact same active-filter combination the same way.
+  const activeFilterLabels = [
+    session.interactionFilter ? QUIZ_INTERACTION_LABELS[session.interactionFilter] : null,
+    session.patternFilter ? PATTERN_LABELS[session.patternFilter] : null,
+  ].filter((label): label is string => label !== null)
+
   return (
     <>
       <div className="practice-page app-shell__main">
@@ -252,24 +277,55 @@ export function PracticePage() {
           )}
         </div>
 
-        {session.patternFilter && (
+        {/* Interaction-type filter chips (Phase 5 Item 4) — combines (AND)
+            with the pattern filter below, not mutually exclusive. Clicking
+            an already-active chip clears just that filter; the banner below
+            clears both at once. */}
+        <div
+          className="practice-page__interaction-filter"
+          role="group"
+          aria-label="Filter by interaction type"
+        >
+          {QUIZ_INTERACTIONS.map((interaction) => {
+            const active = session.interactionFilter === interaction
+            return (
+              <button
+                key={interaction}
+                type="button"
+                className={`practice-page__interaction-chip${active ? ' practice-page__interaction-chip--active' : ''}`}
+                aria-pressed={active}
+                onClick={() => {
+                  session.setInteractionFilter(active ? null : interaction)
+                }}
+              >
+                {QUIZ_INTERACTION_LABELS[interaction]}
+              </button>
+            )
+          })}
+        </div>
+
+        {activeFilterLabels.length > 0 && (
           <div className="practice-page__filter-banner">
-            <span>Filtering: {PATTERN_LABELS[session.patternFilter]}</span>
+            <span>Filtering: {activeFilterLabels.join(' + ')}</span>
             <button
               type="button"
               className="practice-page__filter-clear"
               onClick={() => {
-                session.setPatternFilter(null)
+                session.setFilters(null, null)
               }}
             >
               <CloseIcon size={12} />
-              All patterns
+              Clear filters
             </button>
           </div>
         )}
 
         {session.status === 'empty' || session.puzzle === null ? (
-          <p className="practice-page__status">No puzzles available for this pattern yet.</p>
+          <p className="practice-page__status">
+            {activeFilterLabels.length > 0
+              ? `No puzzles available for ${activeFilterLabels.join(' + ')} yet.`
+              : 'No puzzles available yet.'}
+          </p>
         ) : (
           <AnimatePresence mode="wait">
             <motion.div
