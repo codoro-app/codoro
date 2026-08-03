@@ -18,20 +18,23 @@ This plan absorbs `docs/v2-backlog.md`. Every backlog item is either assigned to
 
 ## Phase map
 
-| Phase | What                                                                                          | Est. sessions    |
-| ----- | --------------------------------------------------------------------------------------------- | ---------------- |
-| 0     | Carryover bug fixes + live-deploy verification                                                | 1–2              |
-| 1a    | URL routing                                                                                   | 1                |
-| 1b    | Shareable puzzle links (gated on Phase 2 go/no-go **and** Phase 3 completion — see amendment) | 1                |
-| 2     | Scrubber spike: trace format, engine, tooling                                                 | 2–3              |
-| 3     | Scrubber UI                                                                                   | 2–3              |
-| 4     | Scrubber content pipeline + volume                                                            | 2–3              |
-| 5     | Quiz upgrades: drag-and-drop, Daily, Rush                                                     | 2                |
-| 6     | Content calibration + quiz volume                                                             | 1–2 + batch runs |
-| 7     | Export/import UI + performance to Lighthouse 90+                                              | 1–2              |
-| 8     | Hardening + regression                                                                        | 1                |
+| Phase | What                                                                                                  | Est. sessions    |
+| ----- | ----------------------------------------------------------------------------------------------------- | ---------------- |
+| 0     | Carryover bug fixes + live-deploy verification                                                        | 1–2              |
+| 1a    | URL routing                                                                                           | 1                |
+| 1b    | Shareable puzzle links (gated on Phase 2 go/no-go **and** Phase 3 completion — see amendment)         | 1                |
+| 2     | Scrubber spike: trace format, engine, tooling                                                         | 2–3              |
+| 3     | Scrubber UI                                                                                           | 2–3              |
+| 4     | Scrubber content pipeline + volume                                                                    | 2–3              |
+| 5     | Quiz upgrades: drag-and-drop, Daily, Rush, timers, streak-pause + payoff moments (5a merged; 5b open) | 2                |
+| 5c    | Challenge links — URL-encoded, no backend (added 2026-08 from todo.md; see its section)               | 1–2              |
+| 6     | Content calibration + quiz volume + scrubber volume + interaction-mix target                          | 1–2 + batch runs |
+| 6b    | Boss challenges — 10-puzzle escalating run type (added 2026-08 from todo.md)                          | 2                |
+| 6c    | Missions + click-meaningfulness UX pass (added 2026-08 from todo.md; needs a definition session)      | 2–3              |
+| 7     | Export/import UI + performance to Lighthouse 90+                                                      | 1–2              |
+| 8     | Hardening + regression                                                                                | 1                |
 
-Phases 0 and 1a are prerequisites. Phases 2→3→4 are the flagship arc and must run in order. **Phase 1b is gated on the Phase 2 go/no-go _and_ Phase 3 shipping a scrubber renderer** (amended post-Phase-2-corrective — see the Phase 1 amendment and the Phase 1b section's own note for why: `/puzzle/:id` renders a puzzle in its native interaction, and there is no scrubber renderer until Phase 3). Phases 5–7 are independent of Phase 1b and each other and can interleave anywhere after the Phase 2 checkpoint if a scrubber session stalls.
+Phases 0 and 1a are prerequisites. Phases 2→3→4 are the flagship arc and must run in order. **Phase 1b is gated on the Phase 2 go/no-go _and_ Phase 3 shipping a scrubber renderer** (amended post-Phase-2-corrective — see the Phase 1 amendment and the Phase 1b section's own note for why: `/puzzle/:id` renders a puzzle in its native interaction, and there is no scrubber renderer until Phase 3). Phases 5–7 are independent of Phase 1b and each other and can interleave anywhere after the Phase 2 checkpoint if a scrubber session stalls. **The 2026-08 additions sequence as follows:** 5c runs immediately after 5b merges (the user wants challenge links out soon — it's the only distribution channel before v3); 6b requires Phase 6's content volume (an escalating 10-puzzle run needs library depth to draw from); 6c requires 6b (missions chain Trace → Speed Round → Boss, so the Boss run type must exist). 6b/6c can interleave with Phase 7. Phase 8 stays last and its regression scope now includes every added surface.
 
 ## Known open defects
 
@@ -468,6 +471,7 @@ The v1 modes stay worth playing. Everything here is from the todo-list items in 
 1. **Drag-and-drop code blocks** as a fourth quiz interaction type (`interaction: 'drag-order'`): rearrange shuffled lines/blocks into correct order (or drag the fix into place). Schema + validation + generation support. This directly re-fights v1's known enemy — **drag jank and sizing on phones** — so build it mobile-first with pointer events, explicit touch-action handling, and generous hit targets; test on a real phone before merging, not after.
 2. **Daily**: reveal the puzzle's rating after solving (not before — don't anchor the attempt).
 3. **Rush**: right-side progress bar; difficulty escalates as the run progresses (selection window shifts upward with streak length — engine change, unit-tested); timer pressure escalates (e.g., shrinking per-puzzle bonus time) to raise stakes late in a run. Rush stays unrated; best-score stats only, per v1's locked decision.
+4. **Payoff moments** (added 2026-08 by direct user decision, from todo.md item 5 — folded into 5b since it shares the streak-pause surface): celebrate a new highest run-streak (Practice/Trace, riding the streak-pause component 5b already builds) and a new Rush personal-best score (on the run-ended screen Rush already renders). Smallest version that lands the beat — a moment, not a stats dashboard, same restraint the streak-pause brief already carries. New-best-_rating_ celebrations are deliberately excluded: the stored rating is still inflated by pre-rebalance blind-right swipes (Phase 0's export→edit→import reset note), so "new peak rating" would celebrate an artifact.
 
 **DoD:**
 
@@ -497,7 +501,32 @@ Written personally, not delegated, per this phase's own instruction. Phase 5's o
 
 **8. Phase 6 scope widening (Item 11).** Phase 4's unmet "≥40 scrubber puzzles live" DoD line had no owner phase after being deferred on its own cost finding. Widened Phase 6 (already content calibration + quiz volume + batch runs) to own it explicitly, under the usage-window-aware pacing the Phase 4 amendment called for — small batches spread across usage-reset windows, checking actual usage consumed after each one, not just the generator's own running total. Documentation only; no scrubber puzzles generated in Phase 5.
 
+**9. Scope addition, pre-5b (2026-08, direct user decision):** payoff moments (todo.md item 5) join 5b as build item 4 above — they ride the streak-pause surface 5b already owns, so folding them in costs less than a separate phase. 5b's build prompt is `docs/prompts/claude_code_prompt_v2_phase5b.md`, an addendum to the Phase 5 prompt rather than a rewrite.
+
+**10. Pre-merge review note (5a, external review before merge):** the new format-tell schema rule requires a quoted-label distractor whenever the correct output choice carries a quoted label, but `synthesizeOutputDistractors` doesn't _guarantee_ one survives — if the correct answer is the trace's only labeled output, distractors fall back to variable values and the generated puzzle fails validation, burning a retry. Cost-only (the mechanical gate still holds; nothing wrong ships), surfaces at volume in Phase 6's batch — noted there in build item 6.
+
 ---
+
+## Phase 5c — Challenge links (1–2 sessions, added 2026-08, runs immediately after 5b merges)
+
+todo.md item 2, pulled forward by direct user decision: challenge links are v5.0's async duel minus accounts and minus a server, buildable now, and the only distribution channel Codoro has before v3 — a friend receiving a challenge link is the first stranger-adjacent user the product gets. **The no-backend lock holds**: the entire challenge lives in the URL.
+
+**Build:**
+
+1. **Challenge payload, versioned and URL-encoded.** Compact JSON → base64url: `{ v: 1, ids: string[], results: per-puzzle correct/time, totalMs }`, capped at ~5 puzzle ids so the encoded URL stays well under the ~2K practical length limit. A malformed, truncated, or unknown-version payload renders a legible "this challenge link is broken" state, not a crash — same standard as `/puzzle/:id`'s bad-id branch. **Forgeability is accepted, in writing**: with no server there is no integrity check; a friend who hand-edits a URL to claim a perfect run is a social problem at friend scale, not an engineering one. Do not add crypto to a party trick.
+2. **Route + serving.** `/challenge` (payload in query or fragment — decide and record; a fragment never reaches Cloudflare or the SW, which simplifies both). Whatever the choice, run the full Phase 1a/1b routing checklist: `_redirects` entry, SW `navigateFallbackDenylist`, `routes.test.ts` drift guards, `DYNAMIC_ROUTES` if pathful — and the Finding 4 lesson: verify a cold load on production **in a fresh incognito window**, not through an installed SW's cache.
+3. **Flow.** Challenger finishes a Practice streak / Rush run / Daily solve → "Challenge a friend" affordance → link encodes their result. Recipient opens the link, plays the same puzzles in sequence, then a comparison screen (you 4/5 in 63s vs. their 5/5 in 48s) with two CTAs: counter-challenge (re-encode with your result) and "practice more like this". Serves from `puzzlePool` (full union — same reasoning as `/puzzle/:id`; a scrubber puzzle in a challenge is fine, the comparison is per-puzzle correct/time either way).
+4. **Unrated, structurally.** Same as Phase 1b's Decision 1: challenge attempts are never recorded to the attempt log or profile — "never rated" stays structurally true rather than switch-case true. Telemetry is therefore the only record: `challenge_create` (`{ surface, puzzle_count }`), `challenge_link_view` (`{ found }`), `challenge_link_complete` (`{ beat_challenger }`) — additive, snake_case, `src/telemetry/README.md` updated in the same commit.
+5. **OG stays option (a)** (generic card). Note for the record: (b1) build-time prerendering can never cover challenge URLs — the payload is dynamic — so the generic card is permanent for this surface until a v3 edge function exists. Acceptable; the link's pitch is the message text around it, not the unfurl.
+
+**DoD:**
+
+- [ ] Payload round-trips encode→decode with a versioned schema and tests; tampered/truncated/unknown-version payloads produce the legible broken-link state
+- [ ] Cold load of a real challenge link on production renders the challenge (verified incognito, per Finding 4)
+- [ ] Challenge attempts never touch the attempt log or profile — asserted at the storage layer, same standard as `/puzzle/:id`'s test
+- [ ] Comparison screen renders both results and both CTAs; counter-challenge produces a valid link
+- [ ] All three telemetry events land in PostHog from production (depends on the Phase 0 PostHog verification actually being done)
+- [ ] `pnpm validate` green; zero new dependencies
 
 ## Phase 6 — Content calibration + quiz volume + scrubber volume (1–2 sessions + generation runs)
 
@@ -510,7 +539,8 @@ Written personally, not delegated, per this phase's own instruction. Phase 5's o
 3. **Volume**: grow the quiz library toward ~200 (including new drag-order puzzles) — the backlog's "puzzle separation + bigger puzzle libraries" item. 108 puzzles ≈ four sessions before repeats; combined with 40–60 scrubber puzzles this roughly triples total content.
 4. Self-review pass over every new explanation — the explanation is the educational product (carried forward from v1's unfinished Phase 8 checkbox).
 5. **Give swipe-binary a real negative class** — the half of the Phase 0 skew bug that Phase 0 deliberately didn't fix. Every snippet in the v1 library contains a bug, so the label naming a bug is always correct and a player who reads only the labels still wins without reading code. Author swipe puzzles whose code is genuinely fine (the "Safe" label is the correct answer), and extend the Phase 0 direction-skew validator with a second check on the correct-label _semantics_, not just the side. Target: at least a third of swipe-binary puzzles answer "the code is fine."
-6. **Scrubber volume: 3 → 40–60 live**, the Phase 4 volume target carried forward. Run as its own small, usage-window-aware activity per the Phase 4 amendment's recommendation, not one continuous batch: small batches spread across usage-reset windows, re-checking actual usage consumed (not just `generateScrubberPuzzles.ts`'s own running total) after every batch. Pull real per-call token numbers from the Phase 4 pilot's two run logs (`oob-010`/`011`/`012`) before trusting any cost projection going in. Same pattern allowlist as Phase 4 (seven patterns, `generateScrubberPuzzles.ts`'s manifest). Before this item's first batch, re-check the model-split decision (`GENERATE_MODEL`) against whatever the current subscription usage picture looks like — the Phase 4 pilot's evidence for Sonnet over Haiku was real but was a small sample under time pressure, not the full comparison the original plan called for.
+6. **Scrubber volume: 3 → 40–60 live**, the Phase 4 volume target carried forward. Run as its own small, usage-window-aware activity per the Phase 4 amendment's recommendation, not one continuous batch: small batches spread across usage-reset windows, re-checking actual usage consumed (not just `generateScrubberPuzzles.ts`'s own running total) after every batch. Pull real per-call token numbers from the Phase 4 pilot's two run logs (`oob-010`/`011`/`012`) before trusting any cost projection going in. Same pattern allowlist as Phase 4 (seven patterns, `generateScrubberPuzzles.ts`'s manifest). Before this item's first batch, re-check the model-split decision (`GENERATE_MODEL`) against whatever the current subscription usage picture looks like — the Phase 4 pilot's evidence for Sonnet over Haiku was real but was a small sample under time pressure, not the full comparison the original plan called for. **Known retry-cost gap (5a review note):** the Phase 5 format-tell schema rule can reject a generated output checkpoint whose correct answer is the trace's only labeled output — `synthesizeOutputDistractors` prefers labeled distractors but can't manufacture one that doesn't exist in the trace. If this batch's retry rate runs hot, the cheap fix is a pre-check in `synthesizeChoices` (drop the checkpoint instead of emitting a doomed one), same drop-don't-patch convention the pipeline already uses.
+7. **Interaction-mix target** (added 2026-08 from todo.md item 7 — "replace 'what is the answer?' with 'interact with the code'"): set and record a target share of interactive-first content among everything new this phase generates, and steer generation toward it the same way item 2 steers language mix. Recommended starting target: ≤⅓ of _new_ quiz puzzles are plain `mcq`; scrubber + drag-order together ≥⅓ of total new content. The todo item's fuller interaction list (dragging, stepping, predicting, fixing, ordering, debugging) is a v3+ interaction-design track — this phase's job is only to stop the library skewing further toward one-shot recognition.
 
 **DoD:**
 
@@ -520,6 +550,23 @@ Written personally, not delegated, per this phase's own instruction. Phase 5's o
 - [ ] ≥⅓ of swipe-binary puzzles have non-buggy code as the correct answer; label-semantics check enforced in validation
 - [ ] ≥40 scrubber puzzles live (Phase 4's unmet target, carried forward — was 3), spanning ≥800 rating points per major pattern represented, no empty 200-point bucket in the 800–2199 range; each batch's real usage consumption checked against the running total before starting the next
 - [ ] Item 0's format-tell rule (Phase 5) confirmed clean across every newly generated scrubber puzzle, not just the two `oob-011` checkpoints it was written against — this phase's batch is the first real volume test of that rule as a generation-time gate, not just a validate:content backstop
+- [ ] Interaction-mix target set, recorded here as an amendment, and met within ±10 points across this phase's new content
+
+---
+
+## Phase 6b — Boss challenges (2 sessions, added 2026-08, gated on Phase 6 volume)
+
+todo.md item 1: a run of 10 puzzles that get harder and harder — a fourth own-mode (session hook + page, following Rush's structural precedent), distinct from Rush in that it's a _fixed-length, curated-difficulty_ run rather than an endless escalation against a clock. Sketch-level here; gets its own build prompt when the gate opens, per the roadmap's convention.
+
+**Gate: Phase 6's content volume.** An escalating 10-puzzle run drawn from 113 puzzles repeats itself by the third run; drawn from ~200+, it doesn't. Do not build this mode against the current library.
+
+Open design questions to settle in the build prompt, not here: curated fixed sets vs. rating-laddered selection per run; rated or best-score-only (Rush precedent says best-score-only, but a boss run is the natural home for the todo's `+24 Elo` payoff framing — this is the one place the rated question is genuinely open); how a boss run ends (survive all 10 vs. strikes); and whether boss completion is the trigger surface for mission progression (see 6c).
+
+## Phase 6c — Missions + click-meaningfulness UX pass (2–3 sessions, added 2026-08, gated on 6b)
+
+todo.md items 6 and 8. Missions are the structured session arc — 🧠 Trace → ⚡ Speed Round → 🏆 Boss Challenge → Elo payoff — chaining the modes that already exist into one directed flow with a payoff at the end. Gated on 6b because the chain's final link is the boss run.
+
+**"How to make every click feel meaningful" (todo item 8) lives here as an explicit open design track, not yet specced.** Per the user: needs a definition session first and may involve UI/UX redesign — it is a lens (does every tap advance something the player can feel?) rather than a feature, and it should be applied across the mission flow while that flow is being designed rather than retrofitted after. **Do not open this phase without that definition session happening first.**
 
 ---
 
@@ -544,7 +591,7 @@ Feature freeze. Verification only — the v1 Phase 9 checklist, minus the adopti
 
 - [ ] `pnpm validate` green from a fresh clone
 - [ ] **Every row in "Known open defects" is closed by a commit, or carries a written waiver here.** Two rows are currently open, both owned by this phase: OD-1 (swipe reliability on phone) — a flagship-interaction defect on the app's most-used gesture, so a waiver is a high bar, not a formality — and OD-4 (output-checkpoint containment leak, found Phase 5 Item 0)
-- [ ] Full interaction regression on two real phones (iOS + Android): all four quiz types + scrubber, Practice/Daily/Rush/Browse/puzzle-link paths
+- [ ] Full interaction regression on two real phones (iOS + Android): all four quiz types + scrubber, Practice/Daily/Rush/Browse/puzzle-link paths — plus every surface added since this list was written: challenge-link create/open/compare (5c), boss runs (6b), and mission flow (6c)
 - [ ] PWA: install, offline boot, SW update prompt against a real deploy
 - [ ] Production checks: 404, robots, per-route OG/meta, deep links, Lighthouse numbers recorded here as an amendment
 - [ ] Telemetry: scrubber and drag-order events visible in PostHog from production
@@ -594,6 +641,21 @@ No backend code in v2, but three cheap conventions keep v3's door open:
 | Security/accounts block (Clerk, 2FA, rate limits, token storage)  | **Deferred to v3** (follows backend)                                                                                                          |
 | AI features (unspecified)                                         | **Deferred** — undefined; define before scoping. The scrubber pipeline _is_ the v2 AI investment.                                             |
 | AI-generated reel videos (marketing)                              | **Deferred** — v2 is build-only, no marketing                                                                                                 |
+
+## Traceability — every `docs/todo.md` item (2026-08 fold-in)
+
+Same rule as the backlog table above: every item is assigned or explicitly deferred. Nothing gets to hide. Dispositions decided by direct user decision, 2026-08-02.
+
+| todo.md item                                             | Disposition                                                                                                                                   |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Boss challenges (10 escalating puzzles)               | **Phase 6b** (new), gated on Phase 6 volume                                                                                                   |
+| 2. Challenge share link                                  | **Phase 5c** (new) — URL-encoded, no backend; runs immediately after 5b. v5.0's async duel later upgrades this with accounts + server storage |
+| 3. Accounts with Elo stats                               | **Deferred to v4** — already the roadmap's accounts version; no change                                                                        |
+| 4. Stronger puzzles, more/better content                 | **Phase 6** — already owns calibration + volume; no change                                                                                    |
+| 5. Payoff moments (new highest streak, personal best, …) | **Phase 5b** (folded in as build item 4) — rides the streak-pause surface                                                                     |
+| 6. Missions (Trace → Speed Round → Boss → Elo)           | **Phase 6c** (new), gated on 6b                                                                                                               |
+| 7. Interact-with-the-code over what-is-the-answer        | **Phase 6** as a generation interaction-mix target (build item 7); the fuller interaction-design list is a v3+ track                          |
+| 8. Make every click feel meaningful                      | **Phase 6c** as an explicit open design track — needs a definition session before that phase opens; may involve UI/UX redesign                |
 
 ## Deferred to v3 — the trigger
 
