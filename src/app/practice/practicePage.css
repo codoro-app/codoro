@@ -64,6 +64,32 @@
   cursor: pointer;
 }
 
+/* --- interaction-type filter chips (Phase 5 Item 4) --------------------- */
+
+.practice-page__interaction-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.practice-page__interaction-chip {
+  min-height: var(--tap-target-min);
+  padding: var(--space-1-5) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface-1);
+  color: var(--text-1);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.practice-page__interaction-chip--active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--text-0);
+}
+
 .practice-page__nav {
   display: flex;
   flex-direction: column;

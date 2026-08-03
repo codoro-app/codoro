@@ -535,6 +535,45 @@ export interface SynthesizedChoices {
   readonly correct: number
 }
 
+/** Leading quoted string literal (e.g. `"label:"` from `"label:" 9`), or null if the value doesn't start with one. A `console.log`/`print` call's literal label prefix — used to tell a real recorded output apart from a bare variable value when ranking distractors below. */
+function quotedLabelOf(value: string): string | null {
+  return /^"[^"]*"/.exec(value)?.[0] ?? null
+}
+
+/**
+ * Output-checkpoint distractors, tiered rather than pooled-and-sliced:
+ * other real outputs first (ranked above variable values, and among
+ * outputs, ones sharing the correct answer's own quoted print-label ranked
+ * above ones that don't), falling back to variable values only to fill out
+ * MAX_DISTRACTORS if too few real outputs exist. A uniform
+ * shuffle-then-slice over "every var value and every output, unioned" (the
+ * shape next-line/var-value use) starves this tier in practice — a trace
+ * with several tracked variables has an order of magnitude more distinct
+ * variable values than console.log calls, so real outputs almost never
+ * survive a uniform slice, and the correct choice ends up the only one
+ * that looks like printed output at all (Phase 5 Item 0).
+ */
+function synthesizeOutputDistractors(
+  trace: TraceResult,
+  correctValue: string,
+  seed: number,
+): string[] {
+  const correctLabel = quotedLabelOf(correctValue)
+  const otherOutputs = [
+    ...new Set(trace.steps.map((s) => s.output).filter((v): v is string => v !== undefined)),
+  ].filter((v) => v !== correctValue)
+  const sameLabel = otherOutputs.filter(
+    (v) => correctLabel !== null && quotedLabelOf(v) === correctLabel,
+  )
+  const otherLabel = otherOutputs.filter((v) => !sameLabel.includes(v))
+  const rankedOutputs = [...seededShuffle(sameLabel, seed), ...seededShuffle(otherLabel, seed + 11)]
+  const varValues = [...new Set(trace.steps.flatMap((s) => Object.values(s.vars)))].filter(
+    (v) => v !== correctValue && !otherOutputs.includes(v),
+  )
+  const shuffledVars = seededShuffle(varValues, seed + 22)
+  return [...rankedOutputs, ...shuffledVars].slice(0, MAX_DISTRACTORS)
+}
+
 /**
  * Computes choices/correct for one checkpoint straight from the trace — see
  * this file's module doc comment for why (real stale-state values are
@@ -550,41 +589,41 @@ export function synthesizeChoices(
   const step: TraceStep | undefined = trace.steps[placement.afterStep]
   if (!step) return null
 
+  const seed = seedFrom(
+    `${String(placement.afterStep)}-${placement.question}-${placement.target ?? ''}`,
+  )
+
   let correctValue: string | undefined
-  let pool: string[]
+  let distractors: string[]
 
   if (placement.question === 'next-line') {
     const nextStep = trace.steps[placement.afterStep + 1]
     if (!nextStep) return null
     correctValue = String(nextStep.line)
-    pool = [...new Set(trace.steps.map((s) => String(s.line)))].filter((v) => v !== correctValue)
+    const pool = [...new Set(trace.steps.map((s) => String(s.line)))].filter(
+      (v) => v !== correctValue,
+    )
+    distractors = seededShuffle(pool, seed).slice(0, MAX_DISTRACTORS)
   } else if (placement.question === 'var-value') {
     if (!placement.target) return null
     correctValue = step.vars[placement.target]
     if (correctValue === undefined) return null
-    pool = [
+    const pool = [
       ...new Set(
         trace.steps
           .map((s) => (placement.target ? s.vars[placement.target] : undefined))
           .filter((v): v is string => v !== undefined),
       ),
     ].filter((v) => v !== correctValue)
+    distractors = seededShuffle(pool, seed).slice(0, MAX_DISTRACTORS)
   } else {
     correctValue = step.output
     if (correctValue === undefined) return null
-    const varValues = trace.steps.flatMap((s) => Object.values(s.vars))
-    const outputValues = trace.steps
-      .map((s) => s.output)
-      .filter((v): v is string => v !== undefined)
-    pool = [...new Set([...varValues, ...outputValues])].filter((v) => v !== correctValue)
+    distractors = synthesizeOutputDistractors(trace, correctValue, seed)
   }
 
-  if (pool.length === 0) return null
+  if (distractors.length === 0) return null
 
-  const seed = seedFrom(
-    `${String(placement.afterStep)}-${placement.question}-${placement.target ?? ''}`,
-  )
-  const distractors = seededShuffle(pool, seed).slice(0, MAX_DISTRACTORS)
   const raw = [
     { value: correctValue, isCorrect: true },
     ...distractors.map((value) => ({ value, isCorrect: false })),

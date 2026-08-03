@@ -1,10 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { updateRating, roundForDisplay } from '../../engine'
-import type { Puzzle } from '../../content'
+import type { Puzzle, QuizPuzzle } from '../../content'
 import { usePracticeSession } from './usePracticeSession'
 
-const { FIXTURE_POOL, FIXTURE_SCRUBBER_ID, FIXTURE_POOL_WITH_SCRUBBER } = vi.hoisted(() => {
+const {
+  FIXTURE_POOL,
+  FIXTURE_SCRUBBER_ID,
+  FIXTURE_POOL_WITH_SCRUBBER,
+  FIXTURE_SWIPE_ID,
+  FIXTURE_POOL_WITH_MIXED_INTERACTIONS,
+} = vi.hoisted(() => {
   const pool = Array.from({ length: 12 }, (_, i) => ({
     id: `p${String(i)}`,
     pattern: i % 2 === 0 ? 'off-by-one' : 'null-undefined',
@@ -17,6 +23,39 @@ const { FIXTURE_POOL, FIXTURE_SCRUBBER_ID, FIXTURE_POOL_WITH_SCRUBBER } = vi.hoi
     choices: ['a', 'b'],
     correct_choice: 0,
   })) as unknown as Puzzle[]
+  // Two non-mcq puzzles, appended (not woven into the base 12, so existing
+  // index/rating-based assumptions elsewhere in this file are undisturbed)
+  // — every base-pool puzzle is 'mcq', so proving an interaction filter
+  // actually NARROWS (not just excludes-to-empty) needs at least one
+  // puzzle of a different interaction type to narrow to. Ratings (2200,
+  // 2300) sit far outside the default profile's 1200, so they can't be
+  // preferentially selected by an unfiltered/differently-filtered serve.
+  const swipeId = 'p-swipe-0'
+  const tapId = 'p-tap-0'
+  const swipeBinaryFixture = {
+    id: swipeId,
+    pattern: 'off-by-one',
+    difficulty_rating: 2200,
+    explanation: 'explanation swipe',
+    prompt: 'prompt swipe',
+    language: 'javascript',
+    snippet: 'let i = 0',
+    interaction: 'swipe-binary',
+    left_label: 'Buggy',
+    right_label: 'Safe',
+    correct_direction: 'left',
+  } as unknown as Puzzle
+  const tapLineFixture = {
+    id: tapId,
+    pattern: 'null-undefined',
+    difficulty_rating: 2300,
+    explanation: 'explanation tap',
+    prompt: 'prompt tap',
+    language: 'javascript',
+    snippet: 'let i = 0',
+    interaction: 'tap-line',
+    correct_line: 0,
+  } as unknown as Puzzle
   const scrubberId = 'scrubber-only-fixture'
   // A scrubber puzzle present in `puzzlePool` but absent from `quizPool` —
   // mirrors the real split (quizPool = puzzlePool minus scrubber). Only
@@ -37,6 +76,7 @@ const { FIXTURE_POOL, FIXTURE_SCRUBBER_ID, FIXTURE_POOL_WITH_SCRUBBER } = vi.hoi
   return {
     FIXTURE_POOL: pool,
     FIXTURE_SCRUBBER_ID: scrubberId,
+    FIXTURE_SWIPE_ID: swipeId,
     // Prepended, not appended: with rng mocked to 0 (see the test below),
     // selection.ts's sample() picks index 0 of the eligible/not-recent
     // candidate list, which preserves pool order — so if the source under
@@ -46,12 +86,29 @@ const { FIXTURE_POOL, FIXTURE_SCRUBBER_ID, FIXTURE_POOL_WITH_SCRUBBER } = vi.hoi
     // never be picked at index 0 regardless of which pool is read, making
     // the assertion vacuous.
     FIXTURE_POOL_WITH_SCRUBBER: [scrubberPuzzle, ...pool],
+    FIXTURE_POOL_WITH_MIXED_INTERACTIONS: [...pool, swipeBinaryFixture, tapLineFixture],
   }
 })
 
+// Practice's own served puzzle is structurally guaranteed to never be
+// scrubber (quizPool excludes it — content/index.ts's own doc comment), but
+// `result.current.puzzle` is typed as the full `Puzzle` union, so its
+// `.interaction` is wider than `InteractionFilter` (QuizPuzzle['interaction']
+// | null). Narrows with a real runtime check rather than an `as` cast.
+function assertQuizInteraction(interaction: Puzzle['interaction']): QuizPuzzle['interaction'] {
+  if (interaction === 'scrubber') {
+    throw new Error('expected a quiz interaction, got scrubber')
+  }
+  return interaction
+}
+
 vi.mock('../../content', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../content')>()
-  return { ...actual, puzzlePool: FIXTURE_POOL_WITH_SCRUBBER, quizPool: FIXTURE_POOL }
+  return {
+    ...actual,
+    puzzlePool: FIXTURE_POOL_WITH_SCRUBBER,
+    quizPool: FIXTURE_POOL_WITH_MIXED_INTERACTIONS,
+  }
 })
 
 vi.mock('../../storage', async (importOriginal) => {
@@ -269,6 +326,108 @@ describe('usePracticeSession', () => {
     expect(result.current.puzzle?.id).not.toBe(onScreenPuzzle.id)
 
     randomSpy.mockRestore()
+  })
+
+  it('setInteractionFilter narrows subsequent selection to the chosen interaction type', async () => {
+    // FIXTURE_SWIPE_ID is the only swipe-binary puzzle in the pool — every
+    // other fixture puzzle is mcq or tap-line, so this proves the filter
+    // actually narrows (excludes the mcq majority), not just that it
+    // doesn't crash on a puzzle that happens to already be mcq.
+    const { result } = renderHook(() => usePracticeSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    act(() => {
+      result.current.setInteractionFilter('swipe-binary')
+    })
+
+    expect(result.current.interactionFilter).toBe('swipe-binary')
+    expect(result.current.puzzle?.id).toBe(FIXTURE_SWIPE_ID)
+  })
+
+  it('setInteractionFilter does not immediately re-serve the puzzle currently on screen, even without a prior Continue', async () => {
+    // Mirrors the setPatternFilter regression test above exactly, same
+    // mechanism, different dimension.
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0)
+
+    const { result } = renderHook(() => usePracticeSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    const onScreenPuzzle = result.current.puzzle
+    if (!onScreenPuzzle) throw new Error('expected a puzzle to be served')
+
+    act(() => {
+      result.current.setInteractionFilter(assertQuizInteraction(onScreenPuzzle.interaction))
+    })
+
+    expect(result.current.puzzle?.id).not.toBe(onScreenPuzzle.id)
+
+    randomSpy.mockRestore()
+  })
+
+  it('setFilters narrows selection to the intersection of both filters, not just one', async () => {
+    // FIXTURE_SWIPE_ID (off-by-one, swipe-binary) is the only puzzle
+    // matching both — every other off-by-one puzzle is mcq, and the
+    // tap-line fixture is null-undefined. If setFilters silently dropped
+    // either argument (the double-dispatch bug this function exists to
+    // avoid — see its doc comment in usePracticeSession.ts), this would
+    // instead serve a different, wrong puzzle.
+    const { result } = renderHook(() => usePracticeSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    act(() => {
+      result.current.setFilters('off-by-one', 'swipe-binary')
+    })
+
+    expect(result.current.patternFilter).toBe('off-by-one')
+    expect(result.current.interactionFilter).toBe('swipe-binary')
+    expect(result.current.puzzle?.id).toBe(FIXTURE_SWIPE_ID)
+  })
+
+  it('setFilters does not immediately re-serve the puzzle currently on screen, even without a prior Continue', async () => {
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0)
+
+    const { result } = renderHook(() => usePracticeSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    const onScreenPuzzle = result.current.puzzle
+    if (!onScreenPuzzle) throw new Error('expected a puzzle to be served')
+
+    act(() => {
+      result.current.setFilters(
+        onScreenPuzzle.pattern,
+        assertQuizInteraction(onScreenPuzzle.interaction),
+      )
+    })
+
+    expect(result.current.puzzle?.id).not.toBe(onScreenPuzzle.id)
+
+    randomSpy.mockRestore()
+  })
+
+  it('setFilters(null, null) clears both filters and returns to the unfiltered pool', async () => {
+    const { result } = renderHook(() => usePracticeSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    act(() => {
+      result.current.setFilters('off-by-one', 'swipe-binary')
+    })
+    expect(result.current.puzzle?.id).toBe(FIXTURE_SWIPE_ID)
+
+    act(() => {
+      result.current.setFilters(null, null)
+    })
+    expect(result.current.patternFilter).toBeNull()
+    expect(result.current.interactionFilter).toBeNull()
   })
 
   it('a rejected loadProfile() on mount transitions to an error status (not a stuck loading state), reports via trackError, and retryLoad recovers', async () => {

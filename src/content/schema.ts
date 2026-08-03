@@ -290,6 +290,24 @@ function validateScrubberCheckpoints(
           path: [...path, 'choices'],
         })
       }
+
+      // Phase 5 Item 0: an output checkpoint whose correct choice carries a
+      // quoted console.log/print literal label (e.g. `"max sum:" 10`) is
+      // answerable by format alone — it's the only choice that looks like
+      // real printed output — unless at least one distractor also carries a
+      // quoted label. Confirmed live on oob-011 (both output checkpoints).
+      const correctLabel = /^"[^"]*"/.exec(actual)?.[0] ?? null
+      if (correctLabel !== null) {
+        const distractors = checkpoint.choices.filter((_, ci) => ci !== checkpoint.correct)
+        const hasLabeledDistractor = distractors.some((c) => /^"[^"]*"/.test(c))
+        if (!hasLabeledDistractor) {
+          ctx.addIssue({
+            code: 'custom',
+            message: `output checkpoint's correct choice ("${actual}") carries a quoted print-statement label, but none of its distractors do — the correct answer is identifiable by format alone, without tracing execution. Add at least one distractor that also carries a quoted label.`,
+            path: [...path, 'choices'],
+          })
+        }
+      }
     }
   })
 }

@@ -19,10 +19,12 @@ import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, UserProfile } from '../../storage'
 import { quizPool } from '../../content'
 import { resolvePool } from '../devTools/devPuzzleMode'
-import type { Puzzle as ContentPuzzle, PatternSlug } from '../../content'
+import type { Puzzle as ContentPuzzle, PatternSlug, QuizPuzzle } from '../../content'
 import { trackAttempt, trackError } from '../../telemetry'
 import type { CommitPayload } from './interactionTypes'
 import { hapticTick } from './haptics'
+
+type InteractionFilter = QuizPuzzle['interaction'] | null
 
 // Matches src/engine/selection.ts's own no-repeat-within-20 convention for
 // `recentIds` — see that file's doc comment.
@@ -40,9 +42,17 @@ function toEnginePuzzle(puzzle: ContentPuzzle): { id: string; rating: number } {
   return { id: puzzle.id, rating: puzzle.difficulty_rating }
 }
 
-function poolForPattern(pattern: PatternSlug | null): ContentPuzzle[] {
+/** Filters combine (AND), not mutually exclusive — a pattern and an interaction filter can both be active at once. */
+function poolForFilters(
+  pattern: PatternSlug | null,
+  interaction: InteractionFilter,
+): ContentPuzzle[] {
   const pool = resolvePool(quizPool) as ContentPuzzle[]
-  return pattern === null ? pool : pool.filter((puzzle) => puzzle.pattern === pattern)
+  return pool.filter(
+    (puzzle) =>
+      (pattern === null || puzzle.pattern === pattern) &&
+      (interaction === null || puzzle.interaction === interaction),
+  )
 }
 
 // 'error': loadProfile() rejected on mount (e.g. IndexedDB blocked in private
@@ -65,6 +75,11 @@ export interface PracticeSession {
   attemptVersion: number
   patternFilter: PatternSlug | null
   setPatternFilter: (pattern: PatternSlug | null) => void
+  /** Combines (AND) with patternFilter, not mutually exclusive — both can be active at once. */
+  interactionFilter: InteractionFilter
+  setInteractionFilter: (interaction: InteractionFilter) => void
+  /** Sets both filters as one atomic update — see the implementation's doc comment for why this isn't just two sequential setter calls. */
+  setFilters: (pattern: PatternSlug | null, interaction: InteractionFilter) => void
   handleAnswered: (payload: CommitPayload) => void
   handleContinue: () => void
   /** Re-attempts loadProfile() after a mount-time load failure (status === 'error'). */
@@ -80,6 +95,7 @@ export function usePracticeSession(): PracticeSession {
   const [solvedThisSession, setSolvedThisSession] = useState(0)
   const [attemptVersion, setAttemptVersion] = useState(0)
   const [patternFilter, setPatternFilterState] = useState<PatternSlug | null>(null)
+  const [interactionFilter, setInteractionFilterState] = useState<InteractionFilter>(null)
 
   // Plain refs, not state: these feed the *next* selection call rather than
   // driving a render themselves.
@@ -90,45 +106,48 @@ export function usePracticeSession(): PracticeSession {
   // two requeue entries can never be served back-to-back.
   const lastSourceRef = useRef<SelectionSource | null>(null)
 
-  const contentById = useRef(new Map(poolForPattern(null).map((p) => [p.id, p])))
+  const contentById = useRef(new Map(poolForFilters(null, null).map((p) => [p.id, p])))
 
-  const serveNext = useCallback((currentProfile: UserProfile, pattern: PatternSlug | null) => {
-    const pool = poolForPattern(pattern).map(toEnginePuzzle)
-    const result = selectNext({
-      pool,
-      rating: currentProfile.rating,
-      recentIds: recentIdsRef.current,
-      requeueState: currentProfile.requeueState,
-      rng: Math.random,
-      lastSource: lastSourceRef.current,
-    })
+  const serveNext = useCallback(
+    (currentProfile: UserProfile, pattern: PatternSlug | null, interaction: InteractionFilter) => {
+      const pool = poolForFilters(pattern, interaction).map(toEnginePuzzle)
+      const result = selectNext({
+        pool,
+        rating: currentProfile.rating,
+        recentIds: recentIdsRef.current,
+        requeueState: currentProfile.requeueState,
+        rng: Math.random,
+        lastSource: lastSourceRef.current,
+      })
 
-    if (result === null) {
-      setPuzzle(null)
+      if (result === null) {
+        setPuzzle(null)
+        setRatingDelta(null)
+        setStatus('empty')
+        return
+      }
+
+      lastSourceRef.current = result.source
+
+      // selectNext advances the requeue ladder as a side effect of being
+      // called (one call == one puzzle served, per its own doc comment) even
+      // when the tick isn't itself an answered attempt — keep that state in
+      // memory now; it's persisted for real the next time an attempt is
+      // recorded (handleAnswered's saveProfile call), matching the brief's
+      // "Per-attempt flow" persistence step rather than writing on every serve.
+      setProfile({ ...currentProfile, requeueState: result.newRequeueState })
+
+      const fullPuzzle = contentById.current.get(result.puzzle.id)
+      if (!fullPuzzle) {
+        throw new Error(`selectNext returned unknown puzzle id "${result.puzzle.id}"`)
+      }
+      setPuzzle(fullPuzzle)
       setRatingDelta(null)
-      setStatus('empty')
-      return
-    }
-
-    lastSourceRef.current = result.source
-
-    // selectNext advances the requeue ladder as a side effect of being
-    // called (one call == one puzzle served, per its own doc comment) even
-    // when the tick isn't itself an answered attempt — keep that state in
-    // memory now; it's persisted for real the next time an attempt is
-    // recorded (handleAnswered's saveProfile call), matching the brief's
-    // "Per-attempt flow" persistence step rather than writing on every serve.
-    setProfile({ ...currentProfile, requeueState: result.newRequeueState })
-
-    const fullPuzzle = contentById.current.get(result.puzzle.id)
-    if (!fullPuzzle) {
-      throw new Error(`selectNext returned unknown puzzle id "${result.puzzle.id}"`)
-    }
-    setPuzzle(fullPuzzle)
-    setRatingDelta(null)
-    servedAtRef.current = Date.now()
-    setStatus('ready')
-  }, [])
+      servedAtRef.current = Date.now()
+      setStatus('ready')
+    },
+    [],
+  )
 
   const cancelledRef = useRef(false)
 
@@ -151,7 +170,7 @@ export function usePracticeSession(): PracticeSession {
         const loaded = await loadProfile()
         if (cancelledRef.current) return
         setProfile(loaded)
-        serveNext(loaded, null)
+        serveNext(loaded, null, null)
       } catch (error) {
         if (cancelledRef.current) return
         trackError(error, 'usePracticeSession: loadProfile failed on mount')
@@ -161,7 +180,7 @@ export function usePracticeSession(): PracticeSession {
     return () => {
       cancelledRef.current = true
     }
-    // Mount-only: subsequent puzzle changes go through handleContinue/setPatternFilter.
+    // Mount-only: subsequent puzzle changes go through handleContinue/setPatternFilter/setInteractionFilter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -177,7 +196,7 @@ export function usePracticeSession(): PracticeSession {
         const loaded = await loadProfile()
         if (cancelledRef.current) return
         setProfile(loaded)
-        serveNext(loaded, null)
+        serveNext(loaded, null, null)
       } catch (error) {
         if (cancelledRef.current) return
         trackError(error, 'usePracticeSession: loadProfile failed on mount')
@@ -271,8 +290,8 @@ export function usePracticeSession(): PracticeSession {
   const handleContinue = useCallback(() => {
     if (!profile || !puzzle) return
     recentIdsRef.current = [puzzle.id, ...recentIdsRef.current].slice(0, RECENT_IDS_WINDOW)
-    serveNext(profile, patternFilter)
-  }, [profile, puzzle, patternFilter, serveNext])
+    serveNext(profile, patternFilter, interactionFilter)
+  }, [profile, puzzle, patternFilter, interactionFilter, serveNext])
 
   const setPatternFilter = useCallback(
     (pattern: PatternSlug | null) => {
@@ -291,7 +310,44 @@ export function usePracticeSession(): PracticeSession {
         recentIdsRef.current = [puzzle.id, ...recentIdsRef.current].slice(0, RECENT_IDS_WINDOW)
       }
       setPatternFilterState(pattern)
-      serveNext(profile, pattern)
+      serveNext(profile, pattern, interactionFilter)
+    },
+    [profile, puzzle, interactionFilter, serveNext],
+  )
+
+  // Mirrors setPatternFilter exactly (same recentIdsRef exclusion reasoning
+  // — switching this filter isn't a "continue" either) with pattern/
+  // interaction's roles swapped.
+  const setInteractionFilter = useCallback(
+    (interaction: InteractionFilter) => {
+      if (!profile) return
+      if (puzzle) {
+        recentIdsRef.current = [puzzle.id, ...recentIdsRef.current].slice(0, RECENT_IDS_WINDOW)
+      }
+      setInteractionFilterState(interaction)
+      serveNext(profile, patternFilter, interaction)
+    },
+    [profile, puzzle, patternFilter, serveNext],
+  )
+
+  // Sets both filters as one atomic update. NOT equivalent to calling
+  // setPatternFilter then setInteractionFilter back to back: each of those
+  // closes over the OTHER filter's value at the time it was created, so two
+  // calls in the same tick (no render in between) would serveNext once with
+  // (newPattern, oldInteraction) and again with (staleOldPattern,
+  // newInteraction) — the second call's serveNext wins, silently dropping
+  // the first filter from the puzzle actually served even though both
+  // filter values end up correct in state. Needed for applying
+  // ?pattern=&interaction= together from one URL (Phase 5 Item 4).
+  const setFilters = useCallback(
+    (pattern: PatternSlug | null, interaction: InteractionFilter) => {
+      if (!profile) return
+      if (puzzle) {
+        recentIdsRef.current = [puzzle.id, ...recentIdsRef.current].slice(0, RECENT_IDS_WINDOW)
+      }
+      setPatternFilterState(pattern)
+      setInteractionFilterState(interaction)
+      serveNext(profile, pattern, interaction)
     },
     [profile, puzzle, serveNext],
   )
@@ -306,6 +362,9 @@ export function usePracticeSession(): PracticeSession {
     attemptVersion,
     patternFilter,
     setPatternFilter,
+    interactionFilter,
+    setInteractionFilter,
+    setFilters,
     handleAnswered,
     handleContinue,
     retryLoad,

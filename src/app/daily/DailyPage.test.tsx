@@ -70,6 +70,56 @@ describe('DailyPage', () => {
     expect(screen.queryByText(/Copy share text/i)).not.toBeInTheDocument()
   })
 
+  it("never renders the puzzle's rating before an attempt is committed (Phase 5 Item 3 — anchoring)", async () => {
+    render(<DailyPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Codoro Daily #/)).toBeInTheDocument()
+    })
+    // DOM-absence, not visual hiding: a rating findable in devtools before
+    // answering would still anchor the attempt even if invisible on screen.
+    expect(screen.queryByText('Puzzle rating')).not.toBeInTheDocument()
+    // Every fixture puzzle's difficulty_rating (1150, 1160, ... 1260) must
+    // be absent too — not just the label — in case a future refactor moves
+    // the value into a differently-labeled node. Note: 1200 (the default
+    // profile's player rating, FIXTURE_POOL[5].difficulty_rating too) is
+    // covered by this loop already; the desktop sidebar that would render
+    // that player-rating pill doesn't mount in this test (matchMedia never
+    // matches by default — src/test/setup.ts), so this loop is asserting
+    // puzzle-rating absence specifically, not accidentally passing because
+    // the player-rating pill happens to be off-screen for an unrelated reason.
+    for (const puzzle of FIXTURE_POOL) {
+      expect(screen.queryByText(String(puzzle.difficulty_rating))).not.toBeInTheDocument()
+    }
+  })
+
+  it("reveals the puzzle's rating only after the first attempt is committed", async () => {
+    const user = userEvent.setup()
+    render(<DailyPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Codoro Daily #/)).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Puzzle rating')).not.toBeInTheDocument()
+
+    const choiceButtons = screen.getAllByRole('button', { name: /^[ab]$/i })
+    const firstChoice = choiceButtons[0]
+    if (!firstChoice) throw new Error('expected at least one choice button')
+    await user.click(firstChoice)
+
+    await waitFor(() => {
+      expect(screen.getByText('Puzzle rating')).toBeInTheDocument()
+    })
+    // Pin to the ACTUALLY-served puzzle's own rating, not "any fixture
+    // rating" — the served puzzle is identifiable by its rendered prompt
+    // text (PuzzleCardShell always renders puzzle.prompt). A looser
+    // "does any fixture rating appear" check would pass even if the wrong
+    // puzzle's rating rendered (e.g. a calendar-index off-by-one bug).
+    const servedPuzzle = FIXTURE_POOL.find((p) => screen.queryByText(p.prompt) !== null)
+    if (!servedPuzzle) throw new Error('could not identify which fixture puzzle was served')
+    expect(screen.getByText(String(servedPuzzle.difficulty_rating))).toBeInTheDocument()
+  })
+
   it('reveals the share card after the first attempt, with a working copy button', async () => {
     const user = userEvent.setup()
     render(<DailyPage />)

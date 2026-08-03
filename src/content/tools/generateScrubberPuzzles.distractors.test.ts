@@ -110,6 +110,72 @@ describe('synthesizeChoices — output', () => {
   })
 })
 
+describe('synthesizeChoices — output distractor tell (Phase 5 Item 0)', () => {
+  // Helper: N steps of 7 tracked variables each (a large, numerous var-value
+  // pool — an order of magnitude more distinct values than any trace here
+  // has real outputs), with `outputsByStep` overlaying specific outputs at
+  // specific steps. Pool sizes here (44 and 75 respectively) were chosen by
+  // simulating the pre-fix algorithm (uniform shuffle-then-slice over the
+  // unioned pool) against these exact seeds and confirming it excludes
+  // every real output — an earlier version of these fixtures had a pool
+  // small enough that the real outputs survived the old algorithm by
+  // seed coincidence, which made the tests pass whether or not the fix was
+  // present. These fixtures were verified to fail (assertions go red)
+  // against the pre-fix pooling behavior.
+  function buildTrace(stepCount: number, outputsByStep: Record<number, string>): TraceResult {
+    const steps = []
+    for (let i = 0; i < stepCount; i++) {
+      const vars: Record<string, string> = {}
+      for (const v of ['a', 'b', 'c', 'd', 'e', 'f', 'g']) {
+        vars[v] = String(i * 10 + (v.charCodeAt(0) - 96))
+      }
+      const output = outputsByStep[i]
+      steps.push(output === undefined ? { line: i, vars } : { line: i, vars, output })
+    }
+    return { steps }
+  }
+
+  it('prefers real recorded outputs over variable values as distractors, even when variable values vastly outnumber them', () => {
+    const labelTrace = buildTrace(6, {
+      3: '"total:" 9',
+      4: '"step:" 1 "value:" 7',
+      5: '"total:" 16',
+    })
+    const result = synthesizeChoices(labelTrace, { afterStep: 5, question: 'output' })
+    if (result === null) throw new Error('expected a non-null result')
+    const distractors = result.choices.filter((_, i) => i !== result.correct)
+    const realOutputs = new Set(['"total:" 9', '"step:" 1 "value:" 7'])
+    const realOutputDistractors = distractors.filter((d) => realOutputs.has(d))
+    // Both other real outputs exist in this trace and must both survive —
+    // the whole point is that a small real-output pool isn't starved by a
+    // much larger variable-value pool.
+    expect(realOutputDistractors).toHaveLength(2)
+  })
+
+  it("ranks distractors sharing the correct answer's quoted print-label above ones that don't, satisfying the format-tell rule", () => {
+    // 5 other real outputs (more than MAX_DISTRACTORS=3) so ranking, not
+    // just tiering, is actually exercised: 2 share the "total:" label, 3
+    // carry the unrelated "step:" label. If ranking were removed (real
+    // outputs shuffled together with no label preference), a same-label
+    // distractor could be excluded in favor of two "step:" ones.
+    const labelTrace = buildTrace(10, {
+      3: '"total:" 9',
+      4: '"total:" 4',
+      6: '"step:" 1',
+      7: '"step:" 2',
+      8: '"step:" 3',
+      9: '"total:" 16',
+    })
+    const result = synthesizeChoices(labelTrace, { afterStep: 9, question: 'output' })
+    if (result === null) throw new Error('expected a non-null result')
+    const distractors = result.choices.filter((_, i) => i !== result.correct)
+    // correct is '"total:" 16' — both other same-label outputs must survive
+    // ahead of the differently-labeled "step:" ones.
+    expect(distractors).toContain('"total:" 9')
+    expect(distractors).toContain('"total:" 4')
+  })
+})
+
 describe('synthesizeChoices — general contract', () => {
   it('choices are between 2 and 5 (ScrubberCheckpointSchema bounds) and unique', () => {
     const result = synthesizeChoices(trace, {
