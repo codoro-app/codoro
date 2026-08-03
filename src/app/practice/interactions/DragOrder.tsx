@@ -1,9 +1,15 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import type { InteractionBodyProps } from '../interactionTypes'
 import type { DragOrderPuzzle } from '../../../content'
 import type { AnswerState } from '../answerState'
-import { resolveDragSwap, resolveSlotPitch } from '../dragOrderReorder'
+import {
+  computeTranslateYs,
+  identityOrder,
+  resolveDragSwap,
+  restCenterAt,
+} from '../dragOrderReorder'
+import type { RowLayout } from '../dragOrderReorder'
 
 interface DragState {
   /** Identity of the dragged block — a `puzzle.blocks` index, fixed for the whole gesture. Rows render in fixed DOM order by this index (see the component doc comment); only this block's *position* within `order` moves. */
@@ -51,8 +57,22 @@ function swapPositions(order: readonly number[], a: number, b: number): number[]
   return next
 }
 
-function identityOrder(length: number): number[] {
-  return Array.from({ length }, (_, i) => i)
+/**
+ * Measures every row's own height (independent of its current position —
+ * a row's height depends only on its own text and the row's fixed width,
+ * never on where it sits in the list) plus the list's inter-row gap, read
+ * straight from computed style rather than derived from two rows'
+ * positions — robust regardless of any transform already applied to those
+ * rows (a mid-reorder remeasure can't accidentally read a displaced row's
+ * transformed position as if it were natural flow).
+ */
+function measureLayout(
+  rowRefs: readonly (HTMLDivElement | null)[],
+  listEl: HTMLDivElement | null,
+): RowLayout {
+  const heights = rowRefs.map((el) => el?.getBoundingClientRect().height ?? 0)
+  const gap = listEl ? Number.parseFloat(getComputedStyle(listEl).rowGap) || 0 : 0
+  return { heights, gap }
 }
 
 /**
@@ -78,13 +98,13 @@ function identityOrder(length: number): number[] {
  * dragged row gets `transition: none` (practice.css's `--dragging`
  * modifier) so it tracks the pointer 1:1 instead of easing behind it.
  *
- * The pitch used for that transform — and fed to `resolveDragSwap` — is the
- * real top-to-top distance between adjacent rows (`resolveSlotPitch`,
- * dragOrderReorder.ts), NOT `getBoundingClientRect().height` alone: the
- * list has a `gap` between rows (practice.css), so height alone
- * under-measures the real slot spacing and both the rest-position
- * transform and the swap threshold would drift off by the gap's width per
- * displaced slot.
+ * Rows are NOT uniform height (dragOrderReorder.ts's own doc comment) — a
+ * `RowLayout` (each row's own measured height, plus the list's CSS gap) is
+ * measured once per puzzle via a mount effect (`layoutRef`, below) rather
+ * than lazily on first interaction, so it's already populated before any
+ * pointer or keyboard input is even possible, and every transform/swap
+ * calculation (`dragOrderReorder.ts`) works off real per-row heights
+ * instead of a single shared constant.
  *
  * `order[i]` is the `puzzle.blocks` index currently occupying position `i`
  * — initialized as the identity permutation (blocks start in their
@@ -115,63 +135,64 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
     setSubmitted(false)
   }
 
+  const listRef = useRef<HTMLDivElement | null>(null)
   const rowRefs = useRef<(HTMLDivElement | null)[]>([])
   const startClientYRef = useRef(0)
-  const slotPitchRef = useRef(0)
+  const startCenterRef = useRef(0)
+  const layoutRef = useRef<RowLayout | null>(null)
+
+  // Measured once per puzzle (blocks are static per id — no reason to
+  // remeasure on every render), after the puzzle's own rows have painted,
+  // so it's ready before a human could possibly drag or press a key.
+  useEffect(() => {
+    layoutRef.current = measureLayout(rowRefs.current, listRef.current)
+  }, [puzzle.id])
 
   const locked = committed || submitted
 
-  /** Real top-to-top slot pitch for `blockIndex`'s row, measured against whichever neighbor row exists (below preferred, else above). */
-  const measureSlotPitch = (blockIndex: number): number => {
-    const rowEl = rowRefs.current[blockIndex]
-    if (!rowEl) return 0
-    const rect = rowEl.getBoundingClientRect()
-
-    const position = order.indexOf(blockIndex)
-    const neighborPosition = position + 1 < order.length ? position + 1 : position - 1
-    if (neighborPosition < 0 || neighborPosition >= order.length) {
-      return resolveSlotPitch(rect, null)
-    }
-    const neighborEl = rowRefs.current[requirePosition(order, neighborPosition)]
-    if (!neighborEl) return resolveSlotPitch(rect, null)
-    return resolveSlotPitch(rect, neighborEl.getBoundingClientRect())
-  }
-
   const handlePointerDown = (blockIndex: number) => (event: ReactPointerEvent<HTMLSpanElement>) => {
     if (locked) return
+    const layout = layoutRef.current
+    if (!layout) return
     setPointerCaptureIfSupported(event.currentTarget, event.pointerId)
-    slotPitchRef.current = measureSlotPitch(blockIndex)
+    const position = order.indexOf(blockIndex)
+    startCenterRef.current = restCenterAt(order, layout, position)
     startClientYRef.current = event.clientY
     setDragState({ blockIndex, offsetY: 0 })
   }
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLSpanElement>) => {
     if (dragState === null) return
+    const layout = layoutRef.current
+    if (!layout) return
 
-    let offsetY = event.clientY - startClientYRef.current
+    // Track the dragged row's live absolute center directly (its rest
+    // center at gesture start, plus total pointer movement since) rather
+    // than adjusting a relative offset after each swap — with non-uniform
+    // row heights, "subtract one row-height per swap" (this module's first
+    // version) doesn't generalize, since each neighbor can contribute a
+    // different height.
+    const liveCenter = startCenterRef.current + (event.clientY - startClientYRef.current)
     let position = order.indexOf(dragState.blockIndex)
     let nextOrder = order
 
     // Loop rather than a single check: a fast pointermove can in principle
-    // cross more than one neighbor's midpoint in a single event, and each
-    // resolved swap must adjust offsetY by exactly one slot pitch (see
-    // dragOrderReorder.ts's doc comment) before the next check runs.
+    // cross more than one neighbor's center in a single event.
     for (;;) {
       const target = resolveDragSwap({
+        order: nextOrder,
         draggingPosition: position,
-        offsetY,
-        slotPitch: slotPitchRef.current,
-        length: nextOrder.length,
+        liveCenter,
+        layout,
       })
       if (target === null) break
-      const delta = target - position
       nextOrder = swapPositions(nextOrder, position, target)
-      offsetY -= delta * slotPitchRef.current
       position = target
     }
 
     if (nextOrder !== order) setOrder(nextOrder)
-    setDragState({ blockIndex: dragState.blockIndex, offsetY })
+    const restCenter = restCenterAt(nextOrder, layout, position)
+    setDragState({ blockIndex: dragState.blockIndex, offsetY: liveCenter - restCenter })
   }
 
   const endDrag = (event: ReactPointerEvent<HTMLSpanElement>) => {
@@ -184,7 +205,7 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
     setDragState(null)
   }
 
-  /** Non-pointer fallback: moves `blockIndex`'s row one slot toward `direction`, swapping with whichever neighbor is there. Same swap logic the drag gesture uses, just a single discrete step per keypress instead of a continuous midpoint check. */
+  /** Non-pointer fallback: moves `blockIndex`'s row one slot toward `direction`, swapping with whichever neighbor is there. Same swap logic the drag gesture uses, just a single discrete step per keypress instead of a continuous midpoint check. Needs no layout of its own — the render below reads `layoutRef.current` (already populated by the mount effect) to compute the resulting transform. */
   const moveByKeyboard = (blockIndex: number, direction: -1 | 1) => {
     if (locked) return
     const position = order.indexOf(blockIndex)
@@ -237,17 +258,20 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
     )
   }
 
+  const translateYs = layoutRef.current
+    ? computeTranslateYs(order, layoutRef.current)
+    : order.map(() => 0)
+
   return (
     <div className="drag-order">
       <p className="drag-order__hint">
         Drag the blocks into the correct order (or focus a block and use the up/down arrow keys).
       </p>
-      <div className="drag-order__list" role="list">
+      <div className="drag-order__list" role="list" ref={listRef}>
         {puzzle.blocks.map((text, blockIndex) => {
           const position = order.indexOf(blockIndex)
           const isDragging = dragState?.blockIndex === blockIndex
-          const translateY =
-            (position - blockIndex) * slotPitchRef.current + (isDragging ? dragState.offsetY : 0)
+          const translateY = (translateYs[blockIndex] ?? 0) + (isDragging ? dragState.offsetY : 0)
           return (
             <div
               key={blockIndex}

@@ -239,10 +239,16 @@ describe('PuzzleCardShell', () => {
     expect(screen.getByText('Step 1')).toBeInTheDocument()
     expect(document.querySelector('.code-snippet')).toBeNull()
 
+    // Submitted without reordering — blocks stay in their authored display
+    // order ([0, 1, 2]), which correct_order ([2, 0, 1], a 3-cycle with no
+    // fixed point) never matches. This is a shell-wiring test (DragOrder
+    // renders under PuzzleCardShell, "Check order" reaches onAnswered, the
+    // feedback panel appears) — DragOrder.test.tsx already covers the
+    // correct-via-real-drag path at the component level.
     await user.click(screen.getByRole('button', { name: 'Check order' }))
 
-    expect(onAnswered).toHaveBeenCalledWith({ correct: true, choiceIndex: null })
-    expect(screen.getByText('Nice — correct')).toBeInTheDocument()
+    expect(onAnswered).toHaveBeenCalledWith({ correct: false, choiceIndex: null })
+    expect(screen.getByText('Not quite')).toBeInTheDocument()
   })
 
   it('resets committed state when the puzzle prop changes', async () => {

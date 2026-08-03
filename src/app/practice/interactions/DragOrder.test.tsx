@@ -28,31 +28,35 @@ const puzzle: DragOrderPuzzle = {
 const SLOT_PITCH = 50
 
 /**
- * jsdom never lays out or applies transforms, so `getBoundingClientRect`
- * on its own tells DragOrder.tsx nothing — `measureSlotPitch` needs two
- * rows' real top-to-top distance (dragOrderReorder.ts's `resolveSlotPitch`).
- * This derives a row's mocked `top` from its DOM position among siblings
- * (rows render in fixed blockIndex order, per the component's own doc
- * comment) times a uniform pitch, which is what a real browser's layout +
- * `transform: translateY(...)` would converge to for the single,
- * from-identity drag every test below performs.
+ * jsdom never lays out, so `getBoundingClientRect` on its own tells
+ * DragOrder.tsx nothing — `measureLayout` (DragOrder.tsx) reads each row's
+ * own `.height` (never `.top`; the list's gap comes from `getComputedStyle`
+ * instead, which jsdom has no stylesheet to resolve, so it falls back to 0
+ * here — covered separately, and thoroughly, by dragOrderReorder.test.ts's
+ * pure-math gap tests). `heights` is indexed by DOM position, i.e. block
+ * index (rows render in fixed blockIndex order, per the component's own
+ * doc comment) — defaulting every row to the same `SLOT_PITCH` reproduces
+ * this file's original uniform-height fixture; passing distinct values per
+ * test exercises the actual bug this model was rewritten to fix (real
+ * blocks wrap to different heights, see dragOrderReorder.ts's own doc
+ * comment).
  */
-function mockRowGeometry(pitch = SLOT_PITCH) {
+function mockRowGeometry(heights: readonly number[] = [SLOT_PITCH, SLOT_PITCH, SLOT_PITCH]) {
   return vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
     this: HTMLElement,
   ) {
     const parent = this.parentElement
     const domIndex = parent ? Array.from(parent.children).indexOf(this) : 0
-    const top = domIndex * pitch
+    const height = heights[domIndex] ?? SLOT_PITCH
     return {
-      top,
-      height: pitch,
-      bottom: top + pitch,
+      top: 0,
+      height,
+      bottom: height,
       left: 0,
       right: 300,
       width: 300,
       x: 0,
-      y: top,
+      y: 0,
       toJSON: () => ({}),
     }
   })
@@ -194,5 +198,38 @@ describe('DragOrder', () => {
     expect(nth(lockedRows, 0).className).toContain('drag-order__row--wrong')
     expect(nth(lockedRows, 1).className).toContain('drag-order__row--wrong')
     expect(nth(lockedRows, 2).className).toContain('drag-order__row--wrong')
+  })
+
+  it('swaps at the correct threshold when rows are NOT uniform height — the actual real-device bug this model was rewritten to fix', async () => {
+    // Block A wraps to two lines (100px); Block B and Block C stay one
+    // line (40px) — exactly the "some blocks wrap, some don't" shape real
+    // content has (rec-009.json's blocks range ~31-47 characters under
+    // `white-space: pre-wrap`). A shared "row height" model (this file's
+    // first version) would use Block A's 100px for every row's pitch,
+    // putting Block B's swap threshold 30px further down than its real
+    // (40px-tall) center — visibly wrong on any device where blocks
+    // actually differ in height.
+    const rectSpy = mockRowGeometry([100, 40, 40])
+    const user = userEvent.setup()
+    const { container } = render(<Harness />)
+
+    const handles = Array.from(container.querySelectorAll('.drag-order__handle'))
+    const blockAHandle = nth(handles, 0)
+    // Rest centers, per dragOrderReorder.test.ts's own math (gap 0): Block
+    // A at 50 (0 + 100/2), Block B at 120 (100 + 40/2). Crossing Block B's
+    // center requires offsetY > 70; 80 crosses it without also reaching
+    // Block C's center (160).
+    fireEvent.pointerDown(blockAHandle, { pointerId: 1, clientY: 0 })
+    fireEvent.pointerMove(blockAHandle, { pointerId: 1, clientY: 80 })
+    fireEvent.pointerUp(blockAHandle, { pointerId: 1 })
+
+    await user.click(screen.getByRole('button', { name: 'Check order' }))
+
+    const lockedRows = Array.from(container.querySelectorAll('.drag-order__row--locked'))
+    expect(nth(lockedRows, 0).textContent).toContain('Block B')
+    expect(nth(lockedRows, 1).textContent).toContain('Block A')
+    expect(nth(lockedRows, 2).textContent).toContain('Block C')
+
+    rectSpy.mockRestore()
   })
 })
