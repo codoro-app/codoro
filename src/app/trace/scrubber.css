@@ -273,6 +273,17 @@
   gap: var(--space-3);
 }
 
+/* Phase 5b Item 6's per-checkpoint clock — a small, quiet countdown, not a
+ * bar (Rush's format), since scrubbing away pauses it and it isn't the
+ * dominant piece of state here the way Rush's clock is. */
+.checkpoint-timer {
+  margin: 0;
+  align-self: flex-end;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-1);
+}
+
 .checkpoint-panel__question {
   margin: 0;
   color: var(--text-1);

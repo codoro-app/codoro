@@ -58,6 +58,7 @@ export type {
   McqPuzzle,
   SwipeBinaryPuzzle,
   TapLinePuzzle,
+  DragOrderPuzzle,
   ScrubberPuzzle,
   QuizPuzzle,
 } from './schema'

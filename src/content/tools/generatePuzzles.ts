@@ -18,6 +18,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 import {
+  DragOrderSchema,
   MAX_DIFFICULTY,
   McqSchema,
   MIN_DIFFICULTY,
@@ -74,7 +75,11 @@ const COST_CEILING_USD = 0.7
 const CLI_CALL_CEILING = 150
 const CLI_TOKEN_CEILING = 2_000_000
 
-type Interaction = 'mcq' | 'swipe-binary' | 'tap-line'
+// 'drag-order' is a valid generation target (INTERACTION_SCHEMAS below can
+// produce it), but no generation run targets it this phase — INTERACTION_CYCLE
+// and the prompt text below stay scoped to the three interactions this
+// pipeline actually authors content for; see docs/prompts for Phase 5b Item 5.
+type Interaction = 'mcq' | 'swipe-binary' | 'tap-line' | 'drag-order'
 /** Which edge of a puzzle's targetRange to lean toward — see buildGapManifest. */
 type Bias = 'low' | 'mid' | 'high'
 
@@ -91,6 +96,7 @@ const INTERACTION_SCHEMAS = {
   mcq: McqSchema,
   'swipe-binary': SwipeBinarySchema,
   'tap-line': TapLineSchema,
+  'drag-order': DragOrderSchema,
 } as const
 
 const ReviewSchema = z.object({
@@ -213,6 +219,14 @@ Requirements for every puzzle you generate:
   reading, which defeats the puzzle. Flip a mental coin per puzzle rather
   than defaulting to whichever side felt natural to write first.
 - For "tap-line": correct_line is a 0-based index into the snippet's lines.
+- For "drag-order" (not targeted by this pipeline yet, but the shape must
+  still be right if it ever is): "blocks" is the SHUFFLED display order the
+  player sees on load, never the correct order — "correct_order" is a
+  permutation array pointing at the correct reading order
+  (correct_order[i] is the index into "blocks" belonging at position i of
+  the correct sequence). "blocks" must NOT already be in correct_order's
+  order; correct_order must not be the identity permutation
+  ([0, 1, 2, ...]) — a puzzle that's already solved on load isn't a puzzle.
 - "id" must be lowercase kebab-case matching the exact id you are given —
   do not invent your own id.
 - "language" is the snippet's real language (e.g. "javascript", "python",

@@ -13,10 +13,15 @@
  * that comparison happens there, not here; this module only aggregates
  * already-scored results. Also the shape src/storage/schema.ts's
  * CheckpointResultSchema mirrors for the attempt log.
+ *
+ * `choiceIndex` is nullable: a checkpoint that times out (Phase 5b Item 6,
+ * decision 7) must produce this same shape, not a third state — `null`
+ * ("no choice was made") is unambiguous against every real answer, which is
+ * always a nonnegative index into that checkpoint's `choices`.
  */
 export interface CheckpointResult {
   readonly correct: boolean
-  readonly choiceIndex: number
+  readonly choiceIndex: number | null
 }
 
 /**

@@ -5,7 +5,13 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PuzzleCardShell } from './PuzzleCardShell'
-import type { McqPuzzle, ScrubberPuzzle, SwipeBinaryPuzzle, TapLinePuzzle } from '../../content'
+import type {
+  DragOrderPuzzle,
+  McqPuzzle,
+  ScrubberPuzzle,
+  SwipeBinaryPuzzle,
+  TapLinePuzzle,
+} from '../../content'
 import { nth } from '../../test/nth'
 
 // join(), not `new URL('./practice.css', import.meta.url)` — Vite
@@ -57,6 +63,19 @@ const tapLinePuzzle: TapLinePuzzle = {
   snippet: 'for (let i = 0; i < 3; i++) {\n  console.log(i)\n  break\n}',
   interaction: 'tap-line',
   correct_line: 2,
+}
+
+const dragOrderPuzzle: DragOrderPuzzle = {
+  id: 'rec-900',
+  pattern: 'recursion-termination',
+  difficulty_rating: 1200,
+  explanation: 'The base case has to be checked before the function recurses further.',
+  prompt: 'Drag the steps into the order they execute.',
+  language: 'javascript',
+  snippet: '// unused for drag-order',
+  interaction: 'drag-order',
+  blocks: ['Step 1', 'Step 2', 'Step 3'],
+  correct_order: [2, 0, 1],
 }
 
 const scrubberPuzzle: ScrubberPuzzle = {
@@ -205,6 +224,33 @@ describe('PuzzleCardShell', () => {
     expect(screen.getByText('Nice — correct')).toBeInTheDocument()
   })
 
+  it('drag-order: renders the DragOrder body (no separate static snippet) and commits through the Check order button', async () => {
+    const onAnswered = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <PuzzleCardShell
+        puzzle={dragOrderPuzzle}
+        ratingDelta={4}
+        onAnswered={onAnswered}
+        onContinue={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Step 1')).toBeInTheDocument()
+    expect(document.querySelector('.code-snippet')).toBeNull()
+
+    // Submitted without reordering — blocks stay in their authored display
+    // order ([0, 1, 2]), which correct_order ([2, 0, 1], a 3-cycle with no
+    // fixed point) never matches. This is a shell-wiring test (DragOrder
+    // renders under PuzzleCardShell, "Check order" reaches onAnswered, the
+    // feedback panel appears) — DragOrder.test.tsx already covers the
+    // correct-via-real-drag path at the component level.
+    await user.click(screen.getByRole('button', { name: 'Check order' }))
+
+    expect(onAnswered).toHaveBeenCalledWith({ correct: false, choiceIndex: null })
+    expect(screen.getByText('Not quite')).toBeInTheDocument()
+  })
+
   it('resets committed state when the puzzle prop changes', async () => {
     const user = userEvent.setup()
     const { rerender } = render(
@@ -252,6 +298,88 @@ describe('PuzzleCardShell', () => {
     for (const button of screen.getAllByRole('button', { name: /break|order|const|if\/else/ })) {
       expect(button).toBeDisabled()
     }
+  })
+
+  // Phase 5b Item 6: Rush's per-puzzle clock reaches the shell through
+  // forcedCommit rather than a real tap — these confirm it behaves exactly
+  // like one (same onAnswered call, same locked feedback view), not a
+  // parallel code path that could drift from the real-tap behavior.
+  describe('forcedCommit (Phase 5b Item 6 — Rush clock timeout)', () => {
+    it('commits automatically, calling onAnswered once with the forced payload and showing the matching feedback', () => {
+      const onAnswered = vi.fn()
+      render(
+        <PuzzleCardShell
+          puzzle={mcqPuzzle}
+          ratingDelta={null}
+          onAnswered={onAnswered}
+          onContinue={vi.fn()}
+          forcedCommit={{ correct: false, choiceIndex: null }}
+        />,
+      )
+
+      expect(onAnswered).toHaveBeenCalledTimes(1)
+      expect(onAnswered).toHaveBeenCalledWith({ correct: false, choiceIndex: null })
+      expect(screen.getByText('Not quite')).toBeInTheDocument()
+    })
+
+    it('does not double-commit if a forcedCommit is present but the player already answered first', async () => {
+      const onAnswered = vi.fn()
+      const user = userEvent.setup()
+      const { rerender } = render(
+        <PuzzleCardShell
+          puzzle={mcqPuzzle}
+          ratingDelta={null}
+          onAnswered={onAnswered}
+          onContinue={vi.fn()}
+        />,
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+      expect(onAnswered).toHaveBeenCalledTimes(1)
+
+      // The clock firing just after a real, in-time tap — same puzzle,
+      // forcedCommit now arrives. `committed` is already true, so the
+      // shell's effect must not fire a second, conflicting commit.
+      rerender(
+        <PuzzleCardShell
+          puzzle={mcqPuzzle}
+          ratingDelta={null}
+          onAnswered={onAnswered}
+          onContinue={vi.fn()}
+          forcedCommit={{ correct: false, choiceIndex: null }}
+        />,
+      )
+
+      expect(onAnswered).toHaveBeenCalledTimes(1)
+    })
+
+    it('ignores a stale forcedCommit left over from the previous puzzle once the puzzle prop changes', () => {
+      const onAnswered = vi.fn()
+      const { rerender } = render(
+        <PuzzleCardShell
+          puzzle={mcqPuzzle}
+          ratingDelta={null}
+          onAnswered={onAnswered}
+          onContinue={vi.fn()}
+          forcedCommit={{ correct: false, choiceIndex: null }}
+        />,
+      )
+      expect(onAnswered).toHaveBeenCalledTimes(1)
+
+      // A fresh puzzle, no new forcedCommit for it (the caller clears it on
+      // every new serve — see useRushSession's serveNext) — the shell must
+      // not re-fire the OLD forcedCommit value against the new puzzle.
+      rerender(
+        <PuzzleCardShell
+          puzzle={{ ...mcqPuzzle, id: 'cf-002' }}
+          ratingDelta={null}
+          onAnswered={onAnswered}
+          onContinue={vi.fn()}
+        />,
+      )
+      expect(onAnswered).toHaveBeenCalledTimes(1)
+      expect(screen.queryByText('Not quite')).not.toBeInTheDocument()
+    })
   })
 
   // Regression guard for concern (a): highlightSnippet.ts emits Prism

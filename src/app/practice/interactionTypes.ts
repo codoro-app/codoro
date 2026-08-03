@@ -14,6 +14,7 @@ export const QUIZ_INTERACTION_LABELS: Record<QuizPuzzle['interaction'], string> 
   mcq: 'Multiple choice',
   'swipe-binary': 'Swipe',
   'tap-line': 'Tap the line',
+  'drag-order': 'Drag to reorder',
 }
 
 export const QUIZ_INTERACTIONS = Object.keys(
@@ -23,7 +24,7 @@ export const QUIZ_INTERACTIONS = Object.keys(
 /** What an interaction body reports back to the shell when the user commits an answer. */
 export interface CommitPayload {
   correct: boolean
-  /** Index into `choices` (mcq) or the snippet's lines (tap-line). null for swipe-binary. */
+  /** Index into `choices` (mcq) or the snippet's lines (tap-line). null for swipe-binary and drag-order (correctness is holistic across the whole arrangement, not a single index). */
   choiceIndex: number | null
 }
 

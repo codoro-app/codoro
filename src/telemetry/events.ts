@@ -37,11 +37,12 @@ export function trackAttempt(payload: AttemptEventPayload): void {
   safeCapture('attempt', payload)
 }
 
-/** Run-level context attached to every Rush `attempt` event, additive to the locked AttemptEventPayload shape above (new fields, nothing renamed/removed). */
+/** Run-level context attached to every Rush `attempt` event, additive to the locked AttemptEventPayload shape above (new fields, nothing renamed/removed). `timed_out` (Phase 5b Item 6): true when this attempt's outcome came from the per-puzzle clock reaching 0 rather than a real tap — a strike either way, but worth distinguishing at analysis time. */
 export interface RushAttemptContext {
   run_id: string
   position_in_run: number
   difficulty_served: number
+  timed_out: boolean
 }
 
 /** Fires the same `attempt` event as trackAttempt, with Rush's run-level context appended — so Rush attempts land in the same event stream (mode: 'rush') for calibration, per the build plan. */
@@ -54,6 +55,10 @@ export interface RushRunEndPayload {
   solved_count: number
   best_streak_in_run: number
   final_difficulty: number
+  /** Phase 5b Item 6: which of the run's two ending conditions produced its final strike — a real wrong answer, or the per-puzzle clock reaching 0. Both still end the run the same way (same ended phase, same stats write); this only distinguishes the trigger for analysis. */
+  ended_reason: 'strikes' | 'clock'
+  /** Phase 5b Item 8: true when this run's solved_count just beat the profile's prior all-time bestScore — the run-ended screen's "new personal best" moment. Never fires on a rating basis (no rating-based celebration exists anywhere in this feature — the stored rating is still inflated by pre-rebalance blind-right swipes). */
+  is_new_best_score: boolean
 }
 
 /** Fired once per completed Rush run (3 strikes), independent of the per-attempt `attempt` events above. */
@@ -61,9 +66,9 @@ export function trackRushRunEnd(payload: RushRunEndPayload): void {
   safeCapture('rush_run_end', payload)
 }
 
-/** Per-checkpoint context attached to every Trace `attempt` event, additive to the locked AttemptEventPayload shape above (new field, nothing renamed/removed). One entry per checkpoint on the puzzle, in answer order — mirrors the `checkpoint_results` field persisted on the Attempt record (src/storage/schema.ts's CheckpointResultSchema), just snake_cased for the analytics stream. */
+/** Per-checkpoint context attached to every Trace `attempt` event, additive to the locked AttemptEventPayload shape above (new fields, nothing renamed/removed). One entry per checkpoint on the puzzle, in answer order — mirrors the `checkpoint_results` field persisted on the Attempt record (src/storage/schema.ts's CheckpointResultSchema), just snake_cased for the analytics stream. `choice_index` is nullable and `timed_out` is additive (Phase 5b Item 6): a checkpoint whose per-checkpoint clock (30s) reached 0 before an answer reports `choice_index: null, timed_out: true` rather than reusing an existing value as a repurposed signal. */
 export interface TraceAttemptContext {
-  checkpoint_results: { correct: boolean; choice_index: number }[]
+  checkpoint_results: { correct: boolean; choice_index: number | null; timed_out: boolean }[]
 }
 
 /** Fires the same `attempt` event as trackAttempt, with Trace's per-checkpoint context appended — so Trace attempts land in the same event stream (mode: 'practice', per the build plan's shared-rating decision) with their checkpoint-level detail attached. Called once per completed puzzle (all checkpoints answered), not once per checkpoint. */
@@ -119,6 +124,23 @@ export interface ShareClickPayload {
 
 export function trackShareClick(payload: ShareClickPayload): void {
   safeCapture('share_click', payload)
+}
+
+/**
+ * Fired whenever the streak-pause moment (Phase 5b Item 7/8) is shown —
+ * Practice and Trace only (decision 8). `is_new_best` distinguishes a pause
+ * that carried the "new best streak" framing from one that didn't, per
+ * Item 8's explicit telemetry ask. Not part of the locked `attempt` schema
+ * — a new, additive event of its own.
+ */
+export interface StreakPausePayload {
+  mode: 'practice' | 'trace'
+  streak: number
+  is_new_best: boolean
+}
+
+export function trackStreakPause(payload: StreakPausePayload): void {
+  safeCapture('streak_pause', payload)
 }
 
 /**

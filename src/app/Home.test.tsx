@@ -19,6 +19,7 @@ function baseProfile(): UserProfile {
     storagePersisted: null,
     dailyCompletion: null,
     rushStats: null,
+    bestRunStreak: 0,
   }
 }
 

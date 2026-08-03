@@ -42,11 +42,15 @@ vi.mock('../../storage', async (importOriginal) => {
   }
 })
 
-vi.mock('../../telemetry', () => ({ trackTraceAttempt: vi.fn(), trackError: vi.fn() }))
+vi.mock('../../telemetry', () => ({
+  trackTraceAttempt: vi.fn(),
+  trackStreakPause: vi.fn(),
+  trackError: vi.fn(),
+}))
 
 const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
   await import('../../storage')
-const { trackTraceAttempt, trackError } = await import('../../telemetry')
+const { trackTraceAttempt, trackStreakPause, trackError } = await import('../../telemetry')
 
 /** Answers every checkpoint on the currently-served puzzle, in order. */
 function answerAllCheckpoints(
@@ -59,6 +63,14 @@ function answerAllCheckpoints(
     puzzle.checkpoints.forEach(() => {
       result.current.handleCheckpointAnswered({ correct, choiceIndex: correct ? 0 : 1 })
     })
+  })
+}
+
+/** Solves the current puzzle fully correctly, then advances to the next one. */
+function solveAndContinue(result: { current: ReturnType<typeof useTraceSession> }) {
+  answerAllCheckpoints(result, true)
+  act(() => {
+    result.current.handleContinue()
   })
 }
 
@@ -181,8 +193,8 @@ describe('useTraceSession', () => {
         user_rating_before: before.rating,
         user_rating_after: expectedNewRating,
         checkpoint_results: [
-          { correct: true, choice_index: 0 },
-          { correct: true, choice_index: 0 },
+          { correct: true, choice_index: 0, timed_out: false },
+          { correct: true, choice_index: 0, timed_out: false },
         ],
       }),
     )
@@ -332,6 +344,95 @@ describe('useTraceSession', () => {
         expect.any(Error),
         expect.stringContaining('saveProfile'),
       )
+    })
+  })
+
+  describe('streak-pause (Phase 5b Item 7/8)', () => {
+    it('fires at the 5th solved puzzle in a row, marks isNewBest, and persists bestRunStreak', async () => {
+      const { result } = renderHook(() => useTraceSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+      expect(result.current.streakPause).toBeNull()
+      expect(result.current.streak).toBe(0)
+
+      for (let i = 0; i < 4; i++) {
+        solveAndContinue(result)
+      }
+      expect(result.current.streakPause).toBeNull() // not yet — only 4 solved in a row
+
+      answerAllCheckpoints(result, true) // 5th solve
+
+      expect(result.current.streak).toBe(5)
+      expect(result.current.streakPause).toEqual({ streak: 5, isNewBest: true })
+      expect(trackStreakPause).toHaveBeenCalledWith({
+        mode: 'trace',
+        streak: 5,
+        is_new_best: true,
+      })
+      expect(saveProfile).toHaveBeenCalledWith(expect.objectContaining({ bestRunStreak: 5 }))
+    })
+
+    it('a missed checkpoint resets the streak, so it never fires from 4 solved + 1 missed + 4 solved', async () => {
+      const { result } = renderHook(() => useTraceSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+
+      for (let i = 0; i < 4; i++) {
+        solveAndContinue(result)
+      }
+      answerAllCheckpoints(result, false) // missed — streak resets to 0
+      act(() => {
+        result.current.handleContinue()
+      })
+      for (let i = 0; i < 4; i++) {
+        solveAndContinue(result)
+      }
+
+      expect(result.current.streakPause).toBeNull()
+      expect(trackStreakPause).not.toHaveBeenCalled()
+    })
+
+    it('handleStreakPauseKeepGoing dismisses the pause and serves the next puzzle', async () => {
+      const { result } = renderHook(() => useTraceSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+      for (let i = 0; i < 4; i++) {
+        solveAndContinue(result)
+      }
+      answerAllCheckpoints(result, true)
+      expect(result.current.streakPause).not.toBeNull()
+
+      act(() => {
+        result.current.handleStreakPauseKeepGoing()
+      })
+
+      expect(result.current.streakPause).toBeNull()
+      expect(result.current.puzzle).not.toBeNull()
+      expect(result.current.checkpointResults).toEqual([]) // a fresh puzzle was served
+    })
+
+    it('handleStreakPauseDoneForNow only dismisses the pause — the completed puzzle stays on screen', async () => {
+      const { result } = renderHook(() => useTraceSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+      for (let i = 0; i < 4; i++) {
+        solveAndContinue(result)
+      }
+      answerAllCheckpoints(result, true)
+      const puzzleAtPause = result.current.puzzle?.id
+      expect(result.current.streakPause).not.toBeNull()
+
+      act(() => {
+        result.current.handleStreakPauseDoneForNow()
+      })
+
+      expect(result.current.streakPause).toBeNull()
+      expect(result.current.puzzle?.id).toBe(puzzleAtPause)
+      expect(result.current.isComplete).toBe(true) // still showing the solved puzzle's own solve panel
     })
   })
 })

@@ -45,6 +45,20 @@ import type { Puzzle as ContentPuzzle } from '../../content'
 import { trackError, trackRushAttempt, trackRushRunEnd } from '../../telemetry'
 import type { CommitPayload } from '../practice/interactionTypes'
 
+/**
+ * Flat per-puzzle clock (Phase 5b Item 6, decision 4/5) — untuned: no
+ * production telemetry has ever fired (docs/v2-backlog.md), so there's no
+ * attempt-duration distribution to size this against. Flat rather than
+ * compressing with difficulty (decision 5): the difficulty ramp already
+ * makes each puzzle take longer to read against this same clock, and
+ * compounding two untuned curves would make a miss untraceable to either
+ * one. Play-test and adjust.
+ */
+export const RUSH_PUZZLE_TIME_LIMIT_MS = 15_000
+
+/** How often the on-screen countdown updates. Purely a render-smoothness constant, not a game-rule number — unrelated to RUSH_PUZZLE_TIME_LIMIT_MS's own tuning. */
+const RUSH_TIMER_TICK_MS = 100
+
 /** Local calendar-date string (YYYY-MM-DD) from wall-clock time — same convention as every other session hook. */
 function todayDateString(date = new Date()): string {
   const year = date.getFullYear()
@@ -85,6 +99,8 @@ export interface RushRunSummary {
   longestStreakEver: number
   /** All-time highest solved-count, post this run's update. */
   bestScoreEver: number
+  /** True when this run's solvedCount just beat the profile's prior all-time bestScore (Phase 5b Item 8) — never fires on a rating basis, see the build plan's amendment. */
+  isNewBestScore: boolean
 }
 
 export interface RushSession {
@@ -99,6 +115,10 @@ export interface RushSession {
   bestStreakThisRun: number
   /** Populated once phase === 'ended'. */
   runSummary: RushRunSummary | null
+  /** Milliseconds left on the current puzzle's clock (Phase 5b Item 6) — RUSH_PUZZLE_TIME_LIMIT_MS when a puzzle is freshly served, ticking down to 0. Meaningless once phase !== 'playing'. */
+  remainingMs: number
+  /** Set once the current puzzle's clock reaches 0 before the player answers — pass straight through to PuzzleCardShell's own `forcedCommit` prop. Cleared on every new puzzle. */
+  forcedCommit: CommitPayload | undefined
   handleAnswered: (payload: CommitPayload) => void
   handleContinue: () => void
   handleRunItBack: () => void
@@ -116,6 +136,8 @@ export function useRushSession(): RushSession {
   const [currentStreak, setCurrentStreak] = useState(0)
   const [bestStreakThisRun, setBestStreakThisRun] = useState(0)
   const [runSummary, setRunSummary] = useState<RushRunSummary | null>(null)
+  const [remainingMs, setRemainingMs] = useState(RUSH_PUZZLE_TIME_LIMIT_MS)
+  const [forcedCommit, setForcedCommit] = useState<CommitPayload | undefined>(undefined)
 
   const runIdRef = useRef(crypto.randomUUID())
   const positionRef = useRef(0)
@@ -124,6 +146,19 @@ export function useRushSession(): RushSession {
   const pendingDifficultyRef = useRef(0)
   const pendingEndRef = useRef(false)
   const cancelledRef = useRef(false)
+  // Deadline for the CURRENT puzzle's clock, in Date.now() terms (not a
+  // countdown-from value) — this is what a visibilitychange pause pushes
+  // back, rather than needing to separately track "how much was already
+  // ticked off."
+  const deadlineRef = useRef(0)
+  // Guards the timer from firing a forced commit after a real tap already
+  // landed for the current puzzle (and vice versa) — same race PuzzleCardShell
+  // itself already guards against via its own `committed` check, but the
+  // interval needs its own flag since it runs independently of that render.
+  const answeredRef = useRef(false)
+  // Whether the run's most recent MISS (if any) was itself a timeout —
+  // read by endRun to report `ended_reason` on the run that miss ends.
+  const lastMissTimedOutRef = useRef(false)
 
   const activePool = resolvePool(quizPool)
   const contentById = useRef(new Map(activePool.map((p) => [p.id, p])))
@@ -149,6 +184,10 @@ export function useRushSession(): RushSession {
     setPuzzle(fullPuzzle)
     setDifficulty(atDifficulty)
     servedAtRef.current = Date.now()
+    deadlineRef.current = Date.now() + RUSH_PUZZLE_TIME_LIMIT_MS
+    answeredRef.current = false
+    setRemainingMs(RUSH_PUZZLE_TIME_LIMIT_MS)
+    setForcedCommit(undefined)
     setStatus('ready')
   }, [])
 
@@ -208,9 +247,69 @@ export function useRushSession(): RushSession {
     })()
   }, [startRun])
 
+  // The clock itself: ticks deadlineRef down to a rendered remainingMs, and
+  // synthesizes a timeout (forcedCommit) once it reaches 0 — PuzzleCardShell
+  // reacts to forcedCommit exactly like a real tap (see its own doc
+  // comment), so handleAnswered below still only ever fires once per puzzle
+  // regardless of which path (tap or timeout) reaches it first.
+  useEffect(() => {
+    if (phase !== 'playing' || puzzle === null) return
+    const interval = setInterval(() => {
+      if (answeredRef.current) return
+      // Real browsers typically throttle/pause a backgrounded tab's
+      // intervals, but that's a performance behavior, not a correctness
+      // guarantee this code can rely on — skipping explicitly while hidden
+      // means the clock can't expire from ticks that fire anyway (a
+      // browser that doesn't throttle, or a test environment's fake
+      // timers, which don't). The visibilitychange effect below still
+      // pushes the deadline forward once the tab becomes visible again.
+      if (document.hidden) return
+      const left = Math.max(0, deadlineRef.current - Date.now())
+      setRemainingMs(left)
+      if (left <= 0) {
+        setForcedCommit({ correct: false, choiceIndex: null })
+      }
+    }, RUSH_TIMER_TICK_MS)
+    return () => {
+      clearInterval(interval)
+    }
+  }, [phase, puzzle])
+
+  // A backgrounded tab must not silently drain the clock (decision 6's
+  // visibilitychange requirement) — rather than pausing/resuming the
+  // interval above, this pushes the deadline itself back by however long
+  // the tab was hidden, so the interval's own `deadlineRef.current -
+  // Date.now()` math already reflects the pause with no other change.
+  useEffect(() => {
+    let hiddenAt: number | null = null
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        hiddenAt = Date.now()
+      } else if (hiddenAt !== null) {
+        deadlineRef.current += Date.now() - hiddenAt
+        hiddenAt = null
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [])
+
   const handleAnswered = useCallback(
     (payload: CommitPayload) => {
       if (!profile || !puzzle || phase !== 'playing') return
+      answeredRef.current = true
+
+      // Rush-eligible interactions (mcq/swipe-binary/tap-line) never
+      // naturally commit a null choiceIndex — only the clock's own
+      // synthesized forcedCommit does (see the ticking effect above) — so
+      // this is a safe, unambiguous "this outcome came from the clock, not
+      // a tap" signal without threading a separate flag through.
+      const timedOut = payload.choiceIndex === null
+      if (!payload.correct) {
+        lastMissTimedOutRef.current = timedOut
+      }
 
       const timeMs = Math.max(0, Date.now() - servedAtRef.current)
       const today = todayDateString()
@@ -260,6 +359,7 @@ export function useRushSession(): RushSession {
         run_id: runIdRef.current,
         position_in_run: positionRef.current,
         difficulty_served: difficulty,
+        timed_out: timedOut,
       })
 
       const newSolvedCount = payload.correct ? solvedCount + 1 : solvedCount
@@ -281,6 +381,7 @@ export function useRushSession(): RushSession {
   const endRun = useCallback(
     (currentProfile: UserProfile, finalSolvedCount: number, finalBestStreak: number) => {
       const priorStats = currentProfile.rushStats
+      const isNewBestScore = finalSolvedCount > (priorStats?.bestScore ?? 0)
       const newRushStats: RushStats = {
         bestScore: Math.max(priorStats?.bestScore ?? 0, finalSolvedCount),
         bestStreak: Math.max(priorStats?.bestStreak ?? 0, finalBestStreak),
@@ -297,12 +398,15 @@ export function useRushSession(): RushSession {
         solved_count: finalSolvedCount,
         best_streak_in_run: finalBestStreak,
         final_difficulty: difficulty,
+        ended_reason: lastMissTimedOutRef.current ? 'clock' : 'strikes',
+        is_new_best_score: isNewBestScore,
       })
       setRunSummary({
         solvedCount: finalSolvedCount,
         bestStreakThisRun: finalBestStreak,
         longestStreakEver: newRushStats.bestStreak,
         bestScoreEver: newRushStats.bestScore,
+        isNewBestScore,
       })
       setPhase('ended')
     },
@@ -333,6 +437,8 @@ export function useRushSession(): RushSession {
     currentStreak,
     bestStreakThisRun,
     runSummary,
+    remainingMs,
+    forcedCommit,
     handleAnswered,
     handleContinue,
     handleRunItBack,

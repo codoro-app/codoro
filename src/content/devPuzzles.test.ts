@@ -32,6 +32,15 @@ describe('DEV_STUB_PUZZLES', () => {
       if (puzzle.interaction === 'tap-line') {
         expect(puzzle.correct_line).toBe(0)
       }
+      if (puzzle.interaction === 'drag-order') {
+        // Each block literally names its own correct position ("Correct
+        // order: N") — unambiguous to solve by reading alone, without the
+        // display order itself being the answer (PuzzleSchema rejects an
+        // identity correct_order).
+        expect(puzzle.correct_order.map((index) => puzzle.blocks[index])).toEqual(
+          puzzle.blocks.map((_, position) => `Correct order: ${String(position + 1)}`),
+        )
+      }
     }
   })
 

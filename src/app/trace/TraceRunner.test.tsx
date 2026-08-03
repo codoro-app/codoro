@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { TraceRunner } from './TraceRunner'
+import { TRACE_CHECKPOINT_TIME_LIMIT_MS, TraceRunner, TraceRunnerPuzzle } from './TraceRunner'
 import type { ScrubberPuzzle } from '../../content'
 import type { TraceSession } from './useTraceSession'
 import type { CheckpointResult } from '../../engine'
@@ -78,6 +78,10 @@ function makeSession(overrides: Partial<TraceSession> = {}): TraceSession {
     solved: null,
     ratingDelta: null,
     attemptVersion: 0,
+    streak: 0,
+    streakPause: null,
+    handleStreakPauseKeepGoing: vi.fn(),
+    handleStreakPauseDoneForNow: vi.fn(),
     handleCheckpointAnswered: vi.fn(),
     handleContinue: vi.fn(),
     retryLoad: vi.fn(),
@@ -306,5 +310,140 @@ describe('TraceRunner solve screen', () => {
 
     expect(screen.getByText('Not quite')).toBeInTheDocument()
     expect(screen.getByText('-8')).toBeInTheDocument()
+  })
+})
+
+describe('TraceRunnerPuzzle: per-checkpoint clock (Phase 5b Item 6)', () => {
+  // Checkpoint 0 sits at afterStep 1, not 0 — so stepIndex 0 exists as a
+  // real place to scrub back to (pausing the clock) before returning to
+  // stepIndex 1 (resuming it), which the pause/resume tests below exercise
+  // for real via the actual Previous/Next step buttons rather than only
+  // through props.
+  const timerPuzzle: ScrubberPuzzle = {
+    id: 'trace-timer-001',
+    pattern: 'off-by-one',
+    difficulty_rating: 1200,
+    explanation: 'n/a',
+    prompt: 'n/a',
+    language: 'javascript',
+    snippet: 'let x = 0\nx = x + 1\nx = x + 1',
+    interaction: 'scrubber',
+    steps: [
+      { line: 0, vars: { x: '0' } },
+      { line: 1, vars: { x: '1' } },
+      { line: 2, vars: { x: '2' } },
+    ],
+    checkpoints: [
+      { afterStep: 1, question: 'var-value', target: 'x', choices: ['0', '1'], correct: 1 },
+    ],
+  }
+
+  function renderTimerPuzzle(
+    onCheckpointAnswered: (result: CheckpointResult) => void,
+    timed = true,
+  ) {
+    return render(
+      <TraceRunnerPuzzle
+        puzzle={timerPuzzle}
+        checkpointResults={[]}
+        isComplete={false}
+        solved={null}
+        ratingDelta={null}
+        onCheckpointAnswered={onCheckpointAnswered}
+        onContinue={vi.fn()}
+        timed={timed}
+      />,
+    )
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('reaching the clock reports a normal CheckpointResult with choiceIndex null — no third state', () => {
+    const onCheckpointAnswered = vi.fn()
+    renderTimerPuzzle(onCheckpointAnswered)
+
+    // Reach the pending checkpoint (afterStep 1) first — it isn't active
+    // at mount (stepIndex 0).
+    fireEvent.click(screen.getByRole('button', { name: 'Next step' }))
+
+    act(() => {
+      vi.advanceTimersByTime(TRACE_CHECKPOINT_TIME_LIMIT_MS)
+    })
+
+    expect(onCheckpointAnswered).toHaveBeenCalledWith({ correct: false, choiceIndex: null })
+  })
+
+  it('passing timed={false} (the /puzzle/:id shared-link case) never fires a timeout, however long it sits unanswered', () => {
+    const onCheckpointAnswered = vi.fn()
+    renderTimerPuzzle(onCheckpointAnswered, false)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next step' }))
+    act(() => {
+      vi.advanceTimersByTime(TRACE_CHECKPOINT_TIME_LIMIT_MS * 10)
+    })
+
+    expect(onCheckpointAnswered).not.toHaveBeenCalled()
+  })
+
+  it('is not active at all before the checkpoint is reached — no timeout however long stepIndex 0 sits', () => {
+    const onCheckpointAnswered = vi.fn()
+    renderTimerPuzzle(onCheckpointAnswered)
+
+    // Never navigates to the checkpoint's step — the clock has nothing to
+    // run yet.
+    act(() => {
+      vi.advanceTimersByTime(TRACE_CHECKPOINT_TIME_LIMIT_MS * 10)
+    })
+
+    expect(onCheckpointAnswered).not.toHaveBeenCalled()
+  })
+
+  it('scrubbing away from the pending checkpoint pauses its clock — no timeout even well past the limit while away', () => {
+    const onCheckpointAnswered = vi.fn()
+    renderTimerPuzzle(onCheckpointAnswered)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next step' })) // -> stepIndex 1, checkpoint active
+    act(() => {
+      vi.advanceTimersByTime(TRACE_CHECKPOINT_TIME_LIMIT_MS / 2) // half the budget spent
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Previous step' })) // -> stepIndex 0, paused
+
+    act(() => {
+      vi.advanceTimersByTime(TRACE_CHECKPOINT_TIME_LIMIT_MS * 5) // well past the limit while away
+    })
+
+    expect(onCheckpointAnswered).not.toHaveBeenCalled()
+  })
+
+  it('resuming the same still-pending checkpoint does not grant a fresh clock — only the elapsed ACTIVE time carries over', () => {
+    const onCheckpointAnswered = vi.fn()
+    renderTimerPuzzle(onCheckpointAnswered)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next step' })) // -> stepIndex 1, checkpoint active
+    act(() => {
+      vi.advanceTimersByTime(TRACE_CHECKPOINT_TIME_LIMIT_MS - 500) // ~500ms left
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Previous step' })) // paused, away for a long time
+    act(() => {
+      vi.advanceTimersByTime(TRACE_CHECKPOINT_TIME_LIMIT_MS * 3)
+    })
+    expect(onCheckpointAnswered).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next step' })) // resume — should have ~500ms left, not a fresh 30s
+    act(() => {
+      vi.advanceTimersByTime(200)
+    })
+    expect(onCheckpointAnswered).not.toHaveBeenCalled() // not yet — only 200 of the ~500ms remaining spent
+
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(onCheckpointAnswered).toHaveBeenCalledWith({ correct: false, choiceIndex: null })
   })
 })

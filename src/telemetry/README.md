@@ -16,18 +16,27 @@ convention as `src/engine/` and `src/storage/`.
   Property names are a locked schema shared with Daily/Rush in later phases —
   do not rename or restructure them.
 - `trackRushAttempt(payload)` — fires the same `attempt` event as `trackAttempt`,
-  with Rush's run-level context (`run_id`, `position_in_run`, `difficulty_served`)
-  appended. Additive only — the locked `AttemptEventPayload` fields are never
-  renamed or restructured.
+  with Rush's run-level context (`run_id`, `position_in_run`, `difficulty_served`,
+  `timed_out`) appended. `timed_out` (Phase 5b Item 6) is true when this
+  attempt's outcome came from the per-puzzle clock reaching 0 rather than a
+  real tap — a strike either way, but distinguishable at analysis time.
+  Additive only — the locked `AttemptEventPayload` fields are never renamed
+  or restructured.
 - `trackRushRunEnd(payload)` — fires once per completed Rush run with the final
-  score/streak/difficulty.
+  score/streak/difficulty, `ended_reason` (`'strikes' | 'clock'` — which
+  trigger produced the run's final strike; Phase 5b Item 6), and
+  `is_new_best_score` (true when this run's score just beat the profile's
+  prior all-time best; Phase 5b Item 8 — never fires on a rating basis).
 - `trackTraceAttempt(payload)` — fires the same `attempt` event as `trackAttempt`,
   with Trace's per-checkpoint context (`checkpoint_results`: an array of
-  `{ correct, choice_index }`, one entry per checkpoint on the puzzle, in
-  answer order) appended. Additive only — the locked `AttemptEventPayload`
-  fields are never renamed or restructured. Called once per completed puzzle
-  (all checkpoints answered), not once per checkpoint; `mode` is `'practice'`
-  since Trace shares Practice's rating pool.
+  `{ correct, choice_index, timed_out }`, one entry per checkpoint on the
+  puzzle, in answer order) appended. `choice_index` is nullable and
+  `timed_out` is additive (Phase 5b Item 6): a checkpoint whose 30s clock
+  reached 0 before an answer reports `choice_index: null, timed_out: true`.
+  Additive only — the locked `AttemptEventPayload` fields are never renamed
+  or restructured. Called once per completed puzzle (all checkpoints
+  answered), not once per checkpoint; `mode` is `'practice'` since Trace
+  shares Practice's rating pool.
 - `trackPuzzleLinkView(payload)` — fires the `puzzle_link_view` event
   (`{ puzzle_id, interaction, found }`) once per `/puzzle/:id` page view.
   `interaction` is `null` and `found` is `false` when the id doesn't resolve
@@ -43,6 +52,11 @@ convention as `src/engine/` and `src/storage/`.
   (`{ surface, puzzle_id }`) whenever a share affordance is used — Daily and
   Rush's existing post-solve share cards, and Practice's solve-state share
   button (Phase 1b). `surface` is `'daily' | 'rush' | 'practice'`.
+- `trackStreakPause(payload)` — fires the `streak_pause` event
+  (`{ mode: 'practice' | 'trace', streak, is_new_best }`) whenever the
+  streak-pause moment (Phase 5b Item 7/8) is shown. `is_new_best`
+  distinguishes a pause that carried the "new best streak" framing from one
+  that didn't.
 - `trackError(error, context?)` — fires an `app_error` event with a truncated
   message/stack. Used by `src/app/ErrorBoundary.tsx`; call it directly for any
   other caught error worth reporting.

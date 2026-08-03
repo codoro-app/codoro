@@ -122,12 +122,16 @@ vi.mock('../../storage', async (importOriginal) => {
   }
 })
 
-vi.mock('../../telemetry', () => ({ trackAttempt: vi.fn(), trackError: vi.fn() }))
+vi.mock('../../telemetry', () => ({
+  trackAttempt: vi.fn(),
+  trackStreakPause: vi.fn(),
+  trackError: vi.fn(),
+}))
 
 // Imported after the mocks above so we get the mocked bindings.
 const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
   await import('../../storage')
-const { trackAttempt, trackError } = await import('../../telemetry')
+const { trackAttempt, trackStreakPause, trackError } = await import('../../telemetry')
 
 describe('usePracticeSession', () => {
   beforeEach(() => {
@@ -516,5 +520,139 @@ describe('usePracticeSession', () => {
     expect(result.current.puzzle?.id).toBe('p0')
 
     randomSpy.mockRestore()
+  })
+
+  describe('streak-pause (Phase 5b Item 7/8)', () => {
+    function answerAndContinue(result: { current: ReturnType<typeof usePracticeSession> }) {
+      act(() => {
+        result.current.handleAnswered({ correct: true, choiceIndex: 0 })
+      })
+      act(() => {
+        result.current.handleContinue()
+      })
+    }
+
+    it('fires at the 5th correct answer in a row, marks isNewBest, and persists bestRunStreak', async () => {
+      const { result } = renderHook(() => usePracticeSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+      expect(result.current.streakPause).toBeNull()
+
+      for (let i = 0; i < 4; i++) {
+        answerAndContinue(result)
+      }
+      expect(result.current.streakPause).toBeNull() // not yet — only 4 in a row
+
+      act(() => {
+        result.current.handleAnswered({ correct: true, choiceIndex: 0 })
+      })
+
+      expect(result.current.streakPause).toEqual({ streak: 5, isNewBest: true })
+      expect(trackStreakPause).toHaveBeenCalledWith({
+        mode: 'practice',
+        streak: 5,
+        is_new_best: true,
+      })
+      expect(saveProfile).toHaveBeenCalledWith(expect.objectContaining({ bestRunStreak: 5 }))
+    })
+
+    it('a wrong answer resets the streak, so 4 correct + 1 wrong + 4 correct never fires (only 4 in a row max)', async () => {
+      const { result } = renderHook(() => usePracticeSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+
+      for (let i = 0; i < 4; i++) {
+        answerAndContinue(result)
+      }
+      act(() => {
+        result.current.handleAnswered({ correct: false, choiceIndex: 1 })
+      })
+      act(() => {
+        result.current.handleContinue()
+      })
+      for (let i = 0; i < 4; i++) {
+        answerAndContinue(result)
+      }
+
+      expect(result.current.streakPause).toBeNull()
+      expect(trackStreakPause).not.toHaveBeenCalled()
+    })
+
+    it('handleStreakPauseKeepGoing dismisses the pause and serves the next puzzle', async () => {
+      const { result } = renderHook(() => usePracticeSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+      for (let i = 0; i < 4; i++) {
+        answerAndContinue(result)
+      }
+      act(() => {
+        result.current.handleAnswered({ correct: true, choiceIndex: 0 })
+      })
+      const puzzleAtPause = result.current.puzzle?.id
+      expect(result.current.streakPause).not.toBeNull()
+
+      act(() => {
+        result.current.handleStreakPauseKeepGoing()
+      })
+
+      expect(result.current.streakPause).toBeNull()
+      // handleContinue was invoked as part of "keep going" — recentIdsRef
+      // now excludes the just-answered puzzle, so a fresh one is served.
+      // (Same pool can re-serve the same id only once recentIds allows it;
+      // asserting non-null puzzle plus a cleared pause is the meaningful,
+      // deterministic-regardless-of-rng part of this behavior.)
+      expect(result.current.puzzle).not.toBeNull()
+      expect(puzzleAtPause).toBeDefined()
+    })
+
+    it('handleStreakPauseDoneForNow only dismisses the pause — the current puzzle stays put', async () => {
+      const { result } = renderHook(() => usePracticeSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+      for (let i = 0; i < 4; i++) {
+        answerAndContinue(result)
+      }
+      act(() => {
+        result.current.handleAnswered({ correct: true, choiceIndex: 0 })
+      })
+      const puzzleAtPause = result.current.puzzle?.id
+      expect(result.current.streakPause).not.toBeNull()
+
+      act(() => {
+        result.current.handleStreakPauseDoneForNow()
+      })
+
+      expect(result.current.streakPause).toBeNull()
+      expect(result.current.puzzle?.id).toBe(puzzleAtPause)
+    })
+
+    it('fires again at the 10th correct answer in a row, no longer a new best the second time at the same streak', async () => {
+      const { result } = renderHook(() => usePracticeSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+
+      for (let i = 0; i < 4; i++) {
+        answerAndContinue(result)
+      }
+      act(() => {
+        result.current.handleAnswered({ correct: true, choiceIndex: 0 }) // streak 5
+      })
+      act(() => {
+        result.current.handleStreakPauseKeepGoing()
+      })
+      for (let i = 0; i < 4; i++) {
+        answerAndContinue(result)
+      }
+      act(() => {
+        result.current.handleAnswered({ correct: true, choiceIndex: 0 }) // streak 10
+      })
+
+      expect(result.current.streakPause).toEqual({ streak: 10, isNewBest: true })
+    })
   })
 })

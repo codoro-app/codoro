@@ -20,9 +20,11 @@ import type { Attempt, UserProfile } from '../../storage'
 import { quizPool } from '../../content'
 import { resolvePool } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle, PatternSlug, QuizPuzzle } from '../../content'
-import { trackAttempt, trackError } from '../../telemetry'
+import { trackAttempt, trackError, trackStreakPause } from '../../telemetry'
 import type { CommitPayload } from './interactionTypes'
 import { hapticTick } from './haptics'
+import { resolveStreakPause } from '../streakPauseLogic'
+import type { StreakPauseState } from '../streakPauseLogic'
 
 type InteractionFilter = QuizPuzzle['interaction'] | null
 
@@ -80,6 +82,12 @@ export interface PracticeSession {
   setInteractionFilter: (interaction: InteractionFilter) => void
   /** Sets both filters as one atomic update — see the implementation's doc comment for why this isn't just two sequential setter calls. */
   setFilters: (pattern: PatternSlug | null, interaction: InteractionFilter) => void
+  /** Non-null when the streak-pause moment (Phase 5b Item 7/8) should be shown — every 5th correct answer in a row. Cleared by either exit callback below. */
+  streakPause: StreakPauseState | null
+  /** Dismisses the pause and serves the next puzzle immediately — the streak continues uninterrupted. */
+  handleStreakPauseKeepGoing: () => void
+  /** Dismisses the pause only — the underlying puzzle's own feedback panel (with its own Continue button) is still there if the player changes their mind. */
+  handleStreakPauseDoneForNow: () => void
   handleAnswered: (payload: CommitPayload) => void
   handleContinue: () => void
   /** Re-attempts loadProfile() after a mount-time load failure (status === 'error'). */
@@ -92,6 +100,7 @@ export function usePracticeSession(): PracticeSession {
   const [puzzle, setPuzzle] = useState<ContentPuzzle | null>(null)
   const [ratingDelta, setRatingDelta] = useState<number | null>(null)
   const [combo, setCombo] = useState(0)
+  const [streakPause, setStreakPause] = useState<StreakPauseState | null>(null)
   const [solvedThisSession, setSolvedThisSession] = useState(0)
   const [attemptVersion, setAttemptVersion] = useState(0)
   const [patternFilter, setPatternFilterState] = useState<PatternSlug | null>(null)
@@ -231,11 +240,18 @@ export function usePracticeSession(): PracticeSession {
         ? profile.requeueState
         : recordMiss(profile.requeueState, puzzle.id)
 
+      // Phase 5b Item 7/8: computed explicitly (not via setCombo's own
+      // functional updater) since the streak-pause check right below needs
+      // the actual new value synchronously, in this same closure.
+      const newCombo = payload.correct ? combo + 1 : 0
+      const pause = resolveStreakPause(newCombo, profile.bestRunStreak)
+
       const updatedProfile: UserProfile = {
         ...profile,
         rating: newRating,
         ratedAttemptCount: profile.ratedAttemptCount + 1,
         requeueState: newRequeueState,
+        bestRunStreak: pause?.isNewBest ? newCombo : profile.bestRunStreak,
       }
 
       const attempt: Attempt = {
@@ -255,11 +271,15 @@ export function usePracticeSession(): PracticeSession {
 
       setProfile(updatedProfile)
       setRatingDelta(delta)
-      setCombo((c) => (payload.correct ? c + 1 : 0))
+      setCombo(newCombo)
       if (payload.correct) {
         setSolvedThisSession((s) => s + 1)
       }
       setAttemptVersion((v) => v + 1)
+      if (pause) {
+        setStreakPause(pause)
+        trackStreakPause({ mode: 'practice', streak: pause.streak, is_new_best: pause.isNewBest })
+      }
 
       // Persistence failures here are non-fatal: the UI/telemetry below must
       // still run so the user sees their feedback even if the background
@@ -284,7 +304,7 @@ export function usePracticeSession(): PracticeSession {
 
       hapticTick()
     },
-    [profile, puzzle],
+    [profile, puzzle, combo],
   )
 
   const handleContinue = useCallback(() => {
@@ -292,6 +312,15 @@ export function usePracticeSession(): PracticeSession {
     recentIdsRef.current = [puzzle.id, ...recentIdsRef.current].slice(0, RECENT_IDS_WINDOW)
     serveNext(profile, patternFilter, interactionFilter)
   }, [profile, puzzle, patternFilter, interactionFilter, serveNext])
+
+  const handleStreakPauseKeepGoing = useCallback(() => {
+    setStreakPause(null)
+    handleContinue()
+  }, [handleContinue])
+
+  const handleStreakPauseDoneForNow = useCallback(() => {
+    setStreakPause(null)
+  }, [])
 
   const setPatternFilter = useCallback(
     (pattern: PatternSlug | null) => {
@@ -365,6 +394,9 @@ export function usePracticeSession(): PracticeSession {
     interactionFilter,
     setInteractionFilter,
     setFilters,
+    streakPause,
+    handleStreakPauseKeepGoing,
+    handleStreakPauseDoneForNow,
     handleAnswered,
     handleContinue,
     retryLoad,

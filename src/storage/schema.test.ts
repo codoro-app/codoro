@@ -15,6 +15,7 @@ const validProfile = {
   storagePersisted: true,
   dailyCompletion: { date: '2026-07-19', attemptId: 'a1', correct: true },
   rushStats: null,
+  bestRunStreak: 0,
 }
 
 const validAttempt = {
@@ -48,7 +49,7 @@ describe('UserProfileSchema', () => {
   })
 
   it('rejects a wrong schema_version', () => {
-    expect(() => UserProfileSchema.parse({ ...validProfile, schema_version: 5 })).toThrow()
+    expect(() => UserProfileSchema.parse({ ...validProfile, schema_version: 4 })).toThrow()
   })
 
   it('rejects a missing required field', () => {
