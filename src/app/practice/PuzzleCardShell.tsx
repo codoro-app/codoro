@@ -21,6 +21,7 @@ import { CodeSnippet } from './CodeSnippet'
 import { Mcq } from './interactions/Mcq'
 import { SwipeBinary } from './interactions/SwipeBinary'
 import { TapLine } from './interactions/TapLine'
+import { DragOrder } from './interactions/DragOrder'
 import '../tokens.css'
 import './practice.css'
 
@@ -82,9 +83,15 @@ export function PuzzleCardShell({
   // surface, and swipe-binary renders it inside its own draggable card
   // surface (the snippet has to move/tilt with the drag, Tinder-style) — a
   // separate static copy from the shell would just be a confusing duplicate
-  // for either, so the shell skips both.
+  // for either, so the shell skips both. drag-order rearranges `blocks`, not
+  // a fixed snippet with tap targets — it renders no snippet view at all
+  // (DragOrder.tsx owns its own block list), so `snippet` goes unused for
+  // this interaction (still present on BaseSchema; `prompt` still carries
+  // the puzzle's instruction line as usual).
   const staticLines =
-    puzzle.interaction === 'tap-line' || puzzle.interaction === 'swipe-binary'
+    puzzle.interaction === 'tap-line' ||
+    puzzle.interaction === 'swipe-binary' ||
+    puzzle.interaction === 'drag-order'
       ? null
       : highlightSnippet(puzzle.snippet, puzzle.language)
 
@@ -113,6 +120,16 @@ export function PuzzleCardShell({
     case 'tap-line':
       interactionBody = (
         <TapLine
+          puzzle={puzzle}
+          committed={committed}
+          committedPayload={committedPayload}
+          onCommit={handleCommit}
+        />
+      )
+      break
+    case 'drag-order':
+      interactionBody = (
+        <DragOrder
           puzzle={puzzle}
           committed={committed}
           committedPayload={committedPayload}

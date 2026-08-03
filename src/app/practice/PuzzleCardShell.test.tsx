@@ -5,7 +5,13 @@ import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PuzzleCardShell } from './PuzzleCardShell'
-import type { McqPuzzle, ScrubberPuzzle, SwipeBinaryPuzzle, TapLinePuzzle } from '../../content'
+import type {
+  DragOrderPuzzle,
+  McqPuzzle,
+  ScrubberPuzzle,
+  SwipeBinaryPuzzle,
+  TapLinePuzzle,
+} from '../../content'
 import { nth } from '../../test/nth'
 
 // join(), not `new URL('./practice.css', import.meta.url)` — Vite
@@ -57,6 +63,19 @@ const tapLinePuzzle: TapLinePuzzle = {
   snippet: 'for (let i = 0; i < 3; i++) {\n  console.log(i)\n  break\n}',
   interaction: 'tap-line',
   correct_line: 2,
+}
+
+const dragOrderPuzzle: DragOrderPuzzle = {
+  id: 'rec-900',
+  pattern: 'recursion-termination',
+  difficulty_rating: 1200,
+  explanation: 'The base case has to be checked before the function recurses further.',
+  prompt: 'Drag the steps into the order they execute.',
+  language: 'javascript',
+  snippet: '// unused for drag-order',
+  interaction: 'drag-order',
+  blocks: ['Step 1', 'Step 2', 'Step 3'],
+  correct_order: [0, 1, 2],
 }
 
 const scrubberPuzzle: ScrubberPuzzle = {
@@ -202,6 +221,27 @@ describe('PuzzleCardShell', () => {
     await user.click(nth(lineButtons, 2))
 
     expect(onAnswered).toHaveBeenCalledWith({ correct: true, choiceIndex: 2 })
+    expect(screen.getByText('Nice — correct')).toBeInTheDocument()
+  })
+
+  it('drag-order: renders the DragOrder body (no separate static snippet) and commits through the Check order button', async () => {
+    const onAnswered = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <PuzzleCardShell
+        puzzle={dragOrderPuzzle}
+        ratingDelta={4}
+        onAnswered={onAnswered}
+        onContinue={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('Step 1')).toBeInTheDocument()
+    expect(document.querySelector('.code-snippet')).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'Check order' }))
+
+    expect(onAnswered).toHaveBeenCalledWith({ correct: true, choiceIndex: null })
     expect(screen.getByText('Nice — correct')).toBeInTheDocument()
   })
 
