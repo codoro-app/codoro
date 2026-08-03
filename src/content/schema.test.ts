@@ -49,6 +49,22 @@ function validTapLine(overrides: Record<string, unknown> = {}): unknown {
   }
 }
 
+function validDragOrder(overrides: Record<string, unknown> = {}): unknown {
+  return {
+    id: 'rec-900',
+    pattern: 'recursion-termination',
+    difficulty_rating: 1200,
+    explanation: 'The base case has to be checked before the function recurses any further.',
+    prompt: 'Drag the steps into the order they execute.',
+    language: 'javascript',
+    snippet: '// unused for drag-order',
+    interaction: 'drag-order',
+    blocks: ['Check the base case', 'Recurse with a smaller input', 'Combine the result'],
+    correct_order: [0, 1, 2],
+    ...overrides,
+  }
+}
+
 describe('PuzzleSchema — valid puzzles', () => {
   it('accepts a valid mcq puzzle', () => {
     expect(PuzzleSchema.safeParse(validMcq()).success).toBe(true)
@@ -60,6 +76,10 @@ describe('PuzzleSchema — valid puzzles', () => {
 
   it('accepts a valid tap-line puzzle', () => {
     expect(PuzzleSchema.safeParse(validTapLine()).success).toBe(true)
+  })
+
+  it('accepts a valid drag-order puzzle', () => {
+    expect(PuzzleSchema.safeParse(validDragOrder()).success).toBe(true)
   })
 
   it('accepts difficulty at the min and max bounds', () => {
@@ -162,6 +182,51 @@ describe('PuzzleSchema — tap-line-specific', () => {
   it('rejects a negative correct_line', () => {
     const result = PuzzleSchema.safeParse(validTapLine({ correct_line: -1 }))
     expect(result.success).toBe(false)
+  })
+})
+
+describe('PuzzleSchema — drag-order-specific', () => {
+  it('rejects fewer than 3 blocks', () => {
+    const result = PuzzleSchema.safeParse(
+      validDragOrder({ blocks: ['only one', 'two'], correct_order: [0, 1] }),
+    )
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects correct_order shorter than blocks (length mismatch)', () => {
+    const result = PuzzleSchema.safeParse(validDragOrder({ correct_order: [0, 1] }))
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects correct_order longer than blocks (length mismatch)', () => {
+    const result = PuzzleSchema.safeParse(validDragOrder({ correct_order: [0, 1, 2, 0] }))
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects a duplicate index in correct_order', () => {
+    const result = PuzzleSchema.safeParse(validDragOrder({ correct_order: [0, 0, 2] }))
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects an out-of-range index in correct_order', () => {
+    const result = PuzzleSchema.safeParse(validDragOrder({ correct_order: [0, 1, 3] }))
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects correct_order missing an index (a duplicate elsewhere leaves one uncovered)', () => {
+    // Same length as blocks (3), but index 1 never appears — 0 is duplicated
+    // instead, so this must fail on "missing", not just pass because the
+    // length matches.
+    const result = PuzzleSchema.safeParse(validDragOrder({ correct_order: [0, 0, 2] }))
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.message.includes('missing'))).toBe(true)
+    }
+  })
+
+  it('accepts a non-identity permutation of correct_order', () => {
+    const result = PuzzleSchema.safeParse(validDragOrder({ correct_order: [2, 0, 1] }))
+    expect(result.success).toBe(true)
   })
 })
 

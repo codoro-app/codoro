@@ -10,10 +10,13 @@
  * A discriminated union on `interaction`, per CALIBRATION.md /
  * codoro_build_plan.md's Phase 3 spec: `mcq` (2-5 choices), `swipe-binary`
  * (left/right + correct direction), `tap-line` (correct_line indexes into
- * `snippet`). The two cross-field checks the per-variant schemas can't
- * express alone — `correct_choice` in range, `correct_line` in range — are
- * chained on as a `superRefine` after the union, since they need the
- * discriminant already narrowed.
+ * `snippet`), `drag-order` (Phase 5b Item 5: `blocks` in authored/display
+ * order, `correct_order` a permutation pointing at the correct reading
+ * order). The cross-field checks the per-variant schemas can't express
+ * alone — `correct_choice` in range, `correct_line` in range,
+ * `correct_order` a valid permutation of `blocks`' indices — are chained on
+ * as a `superRefine` after the union, since they need the discriminant
+ * already narrowed.
  */
 import { z } from 'zod'
 import { PATTERN_SLUGS } from './patterns'
@@ -58,6 +61,26 @@ export const SwipeBinarySchema = BaseSchema.extend({
 export const TapLineSchema = BaseSchema.extend({
   interaction: z.literal('tap-line'),
   correct_line: z.number().int().nonnegative(),
+})
+
+/**
+ * `blocks` is always display-ready — the AUTHORED (shuffled) order the
+ * player sees on load, never re-shuffled at runtime — mirroring McqSchema's
+ * `choices`/`correct_choice` and TapLineSchema's `correct_line` convention:
+ * content is display-ready, a separate field points at what's correct.
+ * `correct_order[i]` is the index into `blocks` belonging at position `i`
+ * of the correct sequence, so the correct reading order is
+ * `correct_order.map(idx => blocks[idx])`. `.min(3)`: fewer than three
+ * blocks is a coin flip, not a puzzle (see PuzzleSchema's superRefine for
+ * the permutation check `correct_order` gets on top of this).
+ *
+ * Deliberately excluded from Rush's puzzle pool — see rush.ts's
+ * `RushInteraction` doc comment for why.
+ */
+export const DragOrderSchema = BaseSchema.extend({
+  interaction: z.literal('drag-order'),
+  blocks: z.array(z.string().min(1)).min(3),
+  correct_order: z.array(z.number().int().nonnegative()),
 })
 
 /**
@@ -313,7 +336,13 @@ function validateScrubberCheckpoints(
 }
 
 export const PuzzleSchema = z
-  .discriminatedUnion('interaction', [McqSchema, SwipeBinarySchema, TapLineSchema, ScrubberSchema])
+  .discriminatedUnion('interaction', [
+    McqSchema,
+    SwipeBinarySchema,
+    TapLineSchema,
+    DragOrderSchema,
+    ScrubberSchema,
+  ])
   .superRefine((puzzle, ctx) => {
     if (puzzle.interaction === 'mcq' && puzzle.correct_choice >= puzzle.choices.length) {
       ctx.addIssue({
@@ -334,6 +363,43 @@ export const PuzzleSchema = z
       }
     }
 
+    if (puzzle.interaction === 'drag-order') {
+      if (puzzle.correct_order.length !== puzzle.blocks.length) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `correct_order.length (${String(puzzle.correct_order.length)}) must equal blocks.length (${String(puzzle.blocks.length)})`,
+          path: ['correct_order'],
+        })
+      } else {
+        const seen = new Set<number>()
+        puzzle.correct_order.forEach((index, i) => {
+          if (index >= puzzle.blocks.length) {
+            ctx.addIssue({
+              code: 'custom',
+              message: `correct_order[${String(i)}] (${String(index)}) is out of range for ${String(puzzle.blocks.length)} blocks`,
+              path: ['correct_order', i],
+            })
+          } else if (seen.has(index)) {
+            ctx.addIssue({
+              code: 'custom',
+              message: `correct_order[${String(i)}] (${String(index)}) is a duplicate — correct_order must be a permutation of every block index exactly once`,
+              path: ['correct_order', i],
+            })
+          }
+          seen.add(index)
+        })
+
+        const missing = puzzle.blocks.map((_, index) => index).filter((index) => !seen.has(index))
+        if (missing.length > 0) {
+          ctx.addIssue({
+            code: 'custom',
+            message: `correct_order is missing block index(es) ${missing.map(String).join(', ')} — it must be a permutation covering every block index exactly once`,
+            path: ['correct_order'],
+          })
+        }
+      }
+    }
+
     if (puzzle.interaction === 'scrubber') {
       validateScrubberCheckpoints(puzzle, ctx)
     }
@@ -343,6 +409,7 @@ export type Puzzle = z.infer<typeof PuzzleSchema>
 export type McqPuzzle = z.infer<typeof McqSchema>
 export type SwipeBinaryPuzzle = z.infer<typeof SwipeBinarySchema>
 export type TapLinePuzzle = z.infer<typeof TapLineSchema>
+export type DragOrderPuzzle = z.infer<typeof DragOrderSchema>
 export type ScrubberPuzzle = z.infer<typeof ScrubberSchema>
 
 /**
@@ -359,4 +426,4 @@ export type ScrubberPuzzle = z.infer<typeof ScrubberSchema>
  * there with an explicit throw (see PuzzleCardShell.tsx), not by narrowing
  * this prop's type. `QuizPuzzle` exists for the pool split, not the shell.
  */
-export type QuizPuzzle = McqPuzzle | SwipeBinaryPuzzle | TapLinePuzzle
+export type QuizPuzzle = McqPuzzle | SwipeBinaryPuzzle | TapLinePuzzle | DragOrderPuzzle
