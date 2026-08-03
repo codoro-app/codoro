@@ -14,7 +14,7 @@ afterEach(async () => {
 
 function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
   return {
-    schema_version: 4,
+    schema_version: 5,
     rating: RATING_FLOOR,
     ratedAttemptCount: 3,
     streak: { currentStreak: 2, longestStreak: 5, lastActiveDate: '2026-07-14' },
@@ -22,6 +22,7 @@ function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
     storagePersisted: true,
     dailyCompletion: null,
     rushStats: null,
+    bestRunStreak: 0,
     ...overrides,
   }
 }

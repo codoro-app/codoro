@@ -325,6 +325,10 @@ export function useTraceSession(): TraceSession {
         checkpoint_results: nextResults.map((r) => ({
           correct: r.correct,
           choice_index: r.choiceIndex,
+          // A real answer is always a nonnegative index into that
+          // checkpoint's choices — null is unambiguously the per-checkpoint
+          // clock (Phase 5b Item 6) reaching 0 before an answer landed.
+          timed_out: r.choiceIndex === null,
         })),
       })
     },

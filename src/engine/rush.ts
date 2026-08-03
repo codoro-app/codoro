@@ -29,7 +29,16 @@ export const RUSH_DIFFICULTY_STEP = 40
 /** Fraction of puzzles served from the swipe-binary bucket when it's non-empty. */
 export const RUSH_SWIPE_WEIGHT = 0.7
 
-/** Strikes (wrong answers) that end a run. Locked: 3-strikes, no countdown timer. */
+/**
+ * Strikes (wrong answers, including a per-puzzle clock timing out — see
+ * useRushSession's RUSH_PUZZLE_TIME_LIMIT_MS) that end a run. This
+ * supersedes the prior "3-strikes, no countdown timer" lock: Phase 5b
+ * Item 6 adds a flat 15s per-puzzle clock, so a run now ends either by 3
+ * strikes or by that clock running out on a puzzle — a timeout counts as a
+ * strike rather than opening a separate ending mechanism, so this constant
+ * and the ending logic around it are unchanged; only the sources that can
+ * push toward it grew by one. See the build plan's Phase 5 amendment.
+ */
 export const RUSH_STRIKE_LIMIT = 3
 
 const MIN_ELIGIBLE = 1

@@ -181,8 +181,8 @@ describe('useTraceSession', () => {
         user_rating_before: before.rating,
         user_rating_after: expectedNewRating,
         checkpoint_results: [
-          { correct: true, choice_index: 0 },
-          { correct: true, choice_index: 0 },
+          { correct: true, choice_index: 0, timed_out: false },
+          { correct: true, choice_index: 0, timed_out: false },
         ],
       }),
     )

@@ -12,7 +12,7 @@
  * Duolingo-style "lip"): `:active` scale/opacity + `:focus-visible` outline
  * — see practice.css.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { Puzzle } from '../../content'
 import type { CommitPayload } from './interactionTypes'
@@ -33,6 +33,14 @@ export interface PuzzleCardShellProps {
   onAnswered: (payload: CommitPayload) => void
   /** Called when the user presses Continue after a committed answer — the caller advances to the next puzzle. */
   onContinue: () => void
+  /**
+   * An externally-triggered commit — e.g. Rush's per-puzzle clock (Phase 5b
+   * Item 6) reaching 0 before the player answers. Behaves exactly like the
+   * interaction body calling `onCommit` with this payload (same feedback
+   * panel, same `onAnswered` call, same lock against further input), except
+   * the player never had to interact. Undefined outside a timed mode.
+   */
+  forcedCommit?: CommitPayload | undefined
 }
 
 interface CommitState {
@@ -67,6 +75,7 @@ export function PuzzleCardShell({
   ratingDelta,
   onAnswered,
   onContinue,
+  forcedCommit,
 }: PuzzleCardShellProps) {
   const [commit, setCommit] = useState<CommitState | null>(null)
 
@@ -78,6 +87,29 @@ export function PuzzleCardShell({
     setCommit({ puzzleId: puzzle.id, payload })
     onAnswered(payload)
   }
+
+  // A forced commit calls the exact same onAnswered/telemetry/storage path
+  // a real tap would — inside an effect, not during render, since
+  // onAnswered has real external side effects (the caller persists the
+  // attempt, fires telemetry) that must never run mid-render (an impure
+  // render is a real rules-of-react violation, unlike this lint rule's
+  // generic "avoid setState in an effect" caution, which exists to catch
+  // effects that redundantly re-derive state React could compute during
+  // render — not this case, an external prop driving a one-time side
+  // effect, exactly what an effect is for). `committed` already guards
+  // against double-firing for the current puzzle, same as a real tap
+  // racing a timeout would.
+  useEffect(() => {
+    if (forcedCommit && !committed) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      handleCommit(forcedCommit)
+    }
+    // handleCommit is intentionally excluded: it closes over `committed`/
+    // `puzzle.id`, both already deps here, and re-running this effect only
+    // when `forcedCommit` itself changes (or committed flips) is the point
+    // — including handleCommit would refire on every render for no reason.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forcedCommit, committed])
 
   // tap-line renders the snippet itself, as its interactive tap-target
   // surface, and swipe-binary renders it inside its own draggable card

@@ -72,6 +72,26 @@ function migrateV3ToV4(raw: Record<string, unknown>): Record<string, unknown> {
 }
 
 /**
+ * v4 -> v5: Phase 5b's timer + streak-pause work (Items 6 and 8). Two
+ * changes ride this single version bump rather than two sequential ones,
+ * since both ship in the same PR and each is small on its own (decision 1's
+ * "a few lines, not a project" standard):
+ *
+ * - `rushStats` resets to `null` outright. Rush's existing bestScore/
+ *   bestStreak were earned under the untimed regime (no per-puzzle clock);
+ *   once Item 6 ships a flat 15s clock, those numbers stop being
+ *   comparable to anything earned afterward. Decision 1 is explicit: there
+ *   is no real player data to preserve, so reset rather than building a
+ *   dual-key untimed/timed split.
+ * - `bestRunStreak` (new field, see UserProfile's own doc comment) starts
+ *   at 0 for every existing profile — equivalent to "no streak-pause has
+ *   fired yet," true for every profile that predates the feature.
+ */
+function migrateV4ToV5(raw: Record<string, unknown>): Record<string, unknown> {
+  return { ...raw, schema_version: 5, rushStats: null, bestRunStreak: 0 }
+}
+
+/**
  * Keyed by the version each migration migrates *from*. The first real entry:
  * schema v1 predates Daily mode, so any profile still on v1 gets a null
  * dailyCompletion (equivalent to "no Daily attempt recorded yet").
@@ -80,4 +100,5 @@ export const MIGRATIONS: Record<number, Migration> = {
   1: migrateV1ToV2,
   2: migrateV2ToV3,
   3: migrateV3ToV4,
+  4: migrateV4ToV5,
 }

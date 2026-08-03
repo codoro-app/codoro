@@ -111,6 +111,16 @@
   color: var(--accent);
 }
 
+/* Phase 5b Item 8's "new personal best" moment — Rush's run-ended screen
+ * only; lives here rather than rushPage.css since every other .daily-hero__*
+ * class already does (see RushPage.tsx's own doc comment on why). */
+.daily-hero__badge {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--accent);
+}
+
 .daily-hero__stats {
   display: grid;
   /* 3 tiles as of Phase 5 Item 3 (Rating, Streak, Puzzle rating) — was

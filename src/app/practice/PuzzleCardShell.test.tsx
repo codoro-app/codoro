@@ -300,6 +300,88 @@ describe('PuzzleCardShell', () => {
     }
   })
 
+  // Phase 5b Item 6: Rush's per-puzzle clock reaches the shell through
+  // forcedCommit rather than a real tap — these confirm it behaves exactly
+  // like one (same onAnswered call, same locked feedback view), not a
+  // parallel code path that could drift from the real-tap behavior.
+  describe('forcedCommit (Phase 5b Item 6 — Rush clock timeout)', () => {
+    it('commits automatically, calling onAnswered once with the forced payload and showing the matching feedback', () => {
+      const onAnswered = vi.fn()
+      render(
+        <PuzzleCardShell
+          puzzle={mcqPuzzle}
+          ratingDelta={null}
+          onAnswered={onAnswered}
+          onContinue={vi.fn()}
+          forcedCommit={{ correct: false, choiceIndex: null }}
+        />,
+      )
+
+      expect(onAnswered).toHaveBeenCalledTimes(1)
+      expect(onAnswered).toHaveBeenCalledWith({ correct: false, choiceIndex: null })
+      expect(screen.getByText('Not quite')).toBeInTheDocument()
+    })
+
+    it('does not double-commit if a forcedCommit is present but the player already answered first', async () => {
+      const onAnswered = vi.fn()
+      const user = userEvent.setup()
+      const { rerender } = render(
+        <PuzzleCardShell
+          puzzle={mcqPuzzle}
+          ratingDelta={null}
+          onAnswered={onAnswered}
+          onContinue={vi.fn()}
+        />,
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+      expect(onAnswered).toHaveBeenCalledTimes(1)
+
+      // The clock firing just after a real, in-time tap — same puzzle,
+      // forcedCommit now arrives. `committed` is already true, so the
+      // shell's effect must not fire a second, conflicting commit.
+      rerender(
+        <PuzzleCardShell
+          puzzle={mcqPuzzle}
+          ratingDelta={null}
+          onAnswered={onAnswered}
+          onContinue={vi.fn()}
+          forcedCommit={{ correct: false, choiceIndex: null }}
+        />,
+      )
+
+      expect(onAnswered).toHaveBeenCalledTimes(1)
+    })
+
+    it('ignores a stale forcedCommit left over from the previous puzzle once the puzzle prop changes', () => {
+      const onAnswered = vi.fn()
+      const { rerender } = render(
+        <PuzzleCardShell
+          puzzle={mcqPuzzle}
+          ratingDelta={null}
+          onAnswered={onAnswered}
+          onContinue={vi.fn()}
+          forcedCommit={{ correct: false, choiceIndex: null }}
+        />,
+      )
+      expect(onAnswered).toHaveBeenCalledTimes(1)
+
+      // A fresh puzzle, no new forcedCommit for it (the caller clears it on
+      // every new serve — see useRushSession's serveNext) — the shell must
+      // not re-fire the OLD forcedCommit value against the new puzzle.
+      rerender(
+        <PuzzleCardShell
+          puzzle={{ ...mcqPuzzle, id: 'cf-002' }}
+          ratingDelta={null}
+          onAnswered={onAnswered}
+          onContinue={vi.fn()}
+        />,
+      )
+      expect(onAnswered).toHaveBeenCalledTimes(1)
+      expect(screen.queryByText('Not quite')).not.toBeInTheDocument()
+    })
+  })
+
   // Regression guard for concern (a): highlightSnippet.ts emits Prism
   // `.token*` markup, but that markup is only useful if practice.css
   // actually colors it — otherwise every snippet renders in flat

@@ -149,6 +149,7 @@ describe('trackRushAttempt', () => {
       run_id: 'run-1',
       position_in_run: 4,
       difficulty_served: 880,
+      timed_out: false,
     }
     trackRushAttempt(payload)
     await flushPromises()
@@ -163,6 +164,7 @@ describe('trackRushAttempt', () => {
       run_id: 'run-1',
       position_in_run: 1,
       difficulty_served: 800,
+      timed_out: false,
     })
     await flushPromises()
     expect(posthogMock.capture).not.toHaveBeenCalled()
@@ -177,6 +179,8 @@ describe('trackRushRunEnd', () => {
       solved_count: 23,
       best_streak_in_run: 31,
       final_difficulty: 1600,
+      ended_reason: 'strikes' as const,
+      is_new_best_score: false,
     }
     trackRushRunEnd(payload)
     await flushPromises()
@@ -190,6 +194,8 @@ describe('trackRushRunEnd', () => {
       solved_count: 0,
       best_streak_in_run: 0,
       final_difficulty: 800,
+      ended_reason: 'strikes',
+      is_new_best_score: false,
     })
     await flushPromises()
     expect(posthogMock.capture).not.toHaveBeenCalled()

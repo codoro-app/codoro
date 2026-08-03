@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { Puzzle } from '../../content'
-import { useRushSession } from './useRushSession'
+import { RUSH_PUZZLE_TIME_LIMIT_MS, useRushSession } from './useRushSession'
 
 const { FIXTURE_POOL } = vi.hoisted(() => ({
   FIXTURE_POOL: [
@@ -94,7 +94,7 @@ vi.mock('../../engine', async (importOriginal) => {
 const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
   await import('../../storage')
 const { updateRating } = await import('../../engine')
-const { trackRushRunEnd } = await import('../../telemetry')
+const { trackRushAttempt, trackRushRunEnd } = await import('../../telemetry')
 
 /** Drives one commit + Continue through the hook, exactly like PuzzleCardShell's onAnswered/onContinue would. */
 function answerAndContinue(
@@ -174,6 +174,7 @@ describe('useRushSession', () => {
       bestStreakThisRun: 2,
       longestStreakEver: 2,
       bestScoreEver: 2,
+      isNewBestScore: true,
     })
     expect(saveProfile).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -188,6 +189,131 @@ describe('useRushSession', () => {
     expect(trackRushRunEnd).toHaveBeenCalledWith(
       expect.objectContaining({ solved_count: 2, best_streak_in_run: 2 }),
     )
+  })
+
+  describe('per-puzzle clock (Phase 5b Item 6)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('reaching the clock produces a forcedCommit payload; applying it counts as a strike and marks the attempt timed_out', async () => {
+      const { result } = renderHook(() => useRushSession())
+      // Flushes the mount effect's async loadProfile().then(startRun) — a
+      // microtask, not a timer, so it resolves without advancing fake time.
+      await act(async () => {
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+      expect(result.current.status).toBe('ready')
+      expect(result.current.forcedCommit).toBeUndefined()
+
+      act(() => {
+        vi.advanceTimersByTime(RUSH_PUZZLE_TIME_LIMIT_MS)
+      })
+
+      const commit = result.current.forcedCommit
+      expect(commit).toEqual({ correct: false, choiceIndex: null })
+      if (!commit) throw new Error('expected forcedCommit to be set')
+
+      // Applying it is PuzzleCardShell's own job (see its forcedCommit
+      // effect) — exercised directly here to keep this test scoped to
+      // useRushSession's own behavior once that payload lands.
+      act(() => {
+        result.current.handleAnswered(commit)
+      })
+      expect(result.current.strikes).toBe(1)
+      expect(trackRushAttempt).toHaveBeenCalledWith(expect.objectContaining({ timed_out: true }))
+    })
+
+    it('a real, in-time answer never sets forcedCommit — the clock only fires once it actually reaches 0', async () => {
+      const { result } = renderHook(() => useRushSession())
+      await act(async () => {
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+      expect(result.current.status).toBe('ready')
+
+      act(() => {
+        vi.advanceTimersByTime(RUSH_PUZZLE_TIME_LIMIT_MS / 2)
+      })
+      act(() => {
+        result.current.handleAnswered({ correct: true, choiceIndex: 0 })
+      })
+
+      expect(result.current.forcedCommit).toBeUndefined()
+      expect(trackRushAttempt).toHaveBeenCalledWith(expect.objectContaining({ timed_out: false }))
+    })
+
+    it('a run that ends on a clock timeout reports ended_reason "clock"; a run that ends on a real wrong tap reports "strikes"', async () => {
+      const { result } = renderHook(() => useRushSession())
+      await act(async () => {
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+      expect(result.current.status).toBe('ready')
+
+      answerAndContinue(result, false) // strike 1, real tap
+      answerAndContinue(result, false) // strike 2, real tap
+
+      act(() => {
+        vi.advanceTimersByTime(RUSH_PUZZLE_TIME_LIMIT_MS)
+      })
+      const commit = result.current.forcedCommit
+      if (!commit) throw new Error('expected forcedCommit to be set')
+      act(() => {
+        result.current.handleAnswered(commit) // strike 3, via the clock -> ends
+      })
+      act(() => {
+        result.current.handleContinue()
+      })
+
+      expect(result.current.phase).toBe('ended')
+      expect(trackRushRunEnd).toHaveBeenCalledWith(
+        expect.objectContaining({ ended_reason: 'clock' }),
+      )
+    })
+
+    it('backgrounding the tab does not drain the clock — hidden time is added back to the deadline', async () => {
+      const { result } = renderHook(() => useRushSession())
+      await act(async () => {
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+      expect(result.current.status).toBe('ready')
+
+      // Ticks forward to just shy of the limit, then "hides" the tab for
+      // longer than the remaining time — without the visibilitychange
+      // handling, the clock would already have fired well before it's
+      // shown again.
+      act(() => {
+        vi.advanceTimersByTime(RUSH_PUZZLE_TIME_LIMIT_MS - 1000)
+      })
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })
+      document.dispatchEvent(new Event('visibilitychange'))
+
+      act(() => {
+        vi.advanceTimersByTime(5000)
+      })
+      // Still hidden this whole time — no forcedCommit should have fired,
+      // since the interval's own tick checks are independent of visibility
+      // but the deadline itself hasn't been reached in wall-clock terms
+      // once the hidden gap is accounted for.
+      Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })
+      document.dispatchEvent(new Event('visibilitychange'))
+
+      expect(result.current.forcedCommit).toBeUndefined()
+
+      // The remaining ~1s (from before hiding) should still be left, not
+      // "long since expired" — advancing well past it now fires the clock.
+      act(() => {
+        vi.advanceTimersByTime(2000)
+      })
+      expect(result.current.forcedCommit).toEqual({ correct: false, choiceIndex: null })
+    })
   })
 
   it('steps the difficulty up only on a correct answer, never on a miss', async () => {

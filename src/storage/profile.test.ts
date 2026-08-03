@@ -34,7 +34,7 @@ describe('loadProfile', () => {
 
   it('round-trips a saved profile exactly', async () => {
     const profile: UserProfile = {
-      schema_version: 4,
+      schema_version: 5,
       rating: 1342.75,
       ratedAttemptCount: 7,
       streak: { currentStreak: 3, longestStreak: 9, lastActiveDate: '2026-07-14' },
@@ -42,6 +42,7 @@ describe('loadProfile', () => {
       storagePersisted: true,
       dailyCompletion: { date: '2026-07-14', attemptId: 'a1', correct: true },
       rushStats: null,
+      bestRunStreak: 0,
     }
     await saveProfile(profile)
     expect(await loadProfile()).toEqual(profile)
@@ -136,9 +137,10 @@ describe('schema migration on load', () => {
 
     expect(migrated).toEqual({
       ...v1Profile,
-      schema_version: 4,
+      schema_version: 5,
       dailyCompletion: null,
       rushStats: null,
+      bestRunStreak: 0,
     })
 
     // loadProfile migrates in-memory only — it does not write the upgraded

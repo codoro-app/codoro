@@ -20,7 +20,7 @@ import { INITIAL_RATING, emptyRequeueState } from '../engine'
  * migrated through migrations.ts — see AttemptSchema's own doc comment for
  * why `checkpoint_results` (the v4 addition) doesn't go through this chain.
  */
-export const CURRENT_SCHEMA_VERSION = 4
+export const CURRENT_SCHEMA_VERSION = 5
 
 /** Mirrors engine's StreakState shape. */
 export const StreakStateSchema = z.object({
@@ -82,6 +82,7 @@ export const UserProfileSchema = z.object({
   storagePersisted: z.boolean().nullable(),
   dailyCompletion: DailyCompletionSchema.nullable(),
   rushStats: RushStatsSchema.nullable(),
+  bestRunStreak: z.number().int().nonnegative(),
 })
 
 export interface UserProfile {
@@ -96,12 +97,23 @@ export interface UserProfile {
   dailyCompletion: DailyCompletion | null
   /** Non-null once at least one Rush run has completed — see RushStatsSchema's doc comment. */
   rushStats: RushStats | null
+  /** All-time best in-session correct-answer streak, Practice and Trace combined (Phase 5b Item 8) — the same two modes the streak-pause moment fires in (decision 8). 0 until the first streak-pause fires; unlike rushStats there's no "no data yet" state worth a null for a single counter. */
+  bestRunStreak: number
 }
 
-/** Mirrors engine's CheckpointResult shape (src/engine/scrubber.ts). */
+/**
+ * Mirrors engine's CheckpointResult shape (src/engine/scrubber.ts).
+ * `choiceIndex` is nullable — Phase 5b's per-checkpoint timer (Item 6, decision
+ * 7) needs a "no answer was given" outcome that produces this exact shape
+ * (`{ correct: false, choiceIndex: null }`), not a third state. `null` is
+ * already this schema's convention for "no real choice exists" (see
+ * AttemptSchema's `choice_index` below); a widened, still-optional field
+ * reads every choiceIndex ever actually stored (always a real nonnegative
+ * int) as valid without a migration — only new timeout records use `null`.
+ */
 export const CheckpointResultSchema = z.object({
   correct: z.boolean(),
-  choiceIndex: z.number().int().nonnegative(),
+  choiceIndex: z.number().int().nonnegative().nullable(),
 })
 
 export const AttemptSchema = z.object({
@@ -177,5 +189,6 @@ export function createDefaultProfile(): UserProfile {
     storagePersisted: null,
     dailyCompletion: null,
     rushStats: null,
+    bestRunStreak: 0,
   }
 }

@@ -57,8 +57,24 @@
  * handleCheckpointAnswered` already enforces server-side (no-ops once the
  * puzzle is complete). See CheckpointPanel.tsx's doc comment for how the
  * choice list itself makes re-answering unreachable, not just disabled.
+ *
+ * Per-checkpoint clock (Phase 5b Item 6, decision 7) lives here, not in
+ * useTraceSession — the session hook has no concept of `stepIndex` (that's
+ * purely local UI state, below), and "is a checkpoint on screen and
+ * unanswered right now" is a `stepIndex`-dependent question the hook
+ * structurally can't answer. `src/engine/` still stays untouched either
+ * way. The clock runs only while `checkpointAtStep` is the pending
+ * (unanswered) checkpoint — scrubbing away to an earlier step, or back to
+ * an already-answered one, pauses it; scrubbing back to the SAME still-
+ * pending checkpoint resumes from wherever it was, rather than granting a
+ * fresh 30s (a reset-on-return would let a player about to time out just
+ * scrub away and back for a free extension). A checkpoint timeout produces
+ * `{ correct: false, choiceIndex: null }` — the exact CheckpointResult
+ * shape a real answer produces, no third state (decision 7's explicit
+ * requirement) — via `onCheckpointAnswered` directly, not through
+ * CheckpointPanel (which only ever fires from a real tap).
  */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Scrubber } from './Scrubber'
 import { CheckpointPanel } from './CheckpointPanel'
 import { useTraceSession } from './useTraceSession'
@@ -68,6 +84,19 @@ import type { ScrubberPuzzle } from '../../content'
 import '../tokens.css'
 import './scrubber.css'
 
+/**
+ * Untuned — no production telemetry has ever fired (docs/v2-backlog.md), so
+ * there's no attempt-duration distribution to size this against. Per
+ * checkpoint, not per puzzle (decision 7): a whole-puzzle budget would
+ * punish a player for using Trace's own core interaction (scrubbing), and
+ * one number can't serve both a 3-checkpoint and a 4-checkpoint puzzle
+ * fairly. Play-test and adjust.
+ */
+export const TRACE_CHECKPOINT_TIME_LIMIT_MS = 30_000
+
+/** How often the on-screen countdown updates — render smoothness only, unrelated to TRACE_CHECKPOINT_TIME_LIMIT_MS's own tuning. */
+const TRACE_TIMER_TICK_MS = 100
+
 export interface TraceRunnerPuzzleProps {
   puzzle: ScrubberPuzzle
   checkpointResults: readonly CheckpointResult[]
@@ -76,6 +105,13 @@ export interface TraceRunnerPuzzleProps {
   ratingDelta: number | null
   onCheckpointAnswered: (result: CheckpointResult) => void
   onContinue: () => void
+  /**
+   * Whether the per-checkpoint clock runs at all. Defaults to true (real
+   * Trace mode); `/puzzle/:id` passes `false` — decision 7's explicit call
+   * that a stranger following a shared link cold, on a puzzle they didn't
+   * choose, unrated, shouldn't also be timed.
+   */
+  timed?: boolean
 }
 
 export function TraceRunnerPuzzle({
@@ -86,8 +122,10 @@ export function TraceRunnerPuzzle({
   ratingDelta,
   onCheckpointAnswered,
   onContinue,
+  timed = true,
 }: TraceRunnerPuzzleProps) {
   const [stepIndex, setStepIndex] = useState(0)
+  const [remainingMs, setRemainingMs] = useState(TRACE_CHECKPOINT_TIME_LIMIT_MS)
 
   const checkpoints = puzzle.checkpoints
   const answeredCount = checkpointResults.length
@@ -100,6 +138,89 @@ export function TraceRunnerPuzzle({
     checkpointIndexAtStep === -1 ? undefined : checkpoints[checkpointIndexAtStep]
   const isAnsweredAtStep = checkpointIndexAtStep !== -1 && checkpointIndexAtStep < answeredCount
   const resultAtStep = isAnsweredAtStep ? checkpointResults[checkpointIndexAtStep] : undefined
+
+  // The clock is "live" only while the pending (unanswered) checkpoint is
+  // the one actually on screen right now — see this file's own doc comment.
+  const pendingActive = timed && checkpointAtStep !== undefined && resultAtStep === undefined
+
+  const activeCheckpointKeyRef = useRef<number | null>(null)
+  const pausedAtRef = useRef<number | null>(null)
+  const deadlineRef = useRef(0)
+  const answeredRef = useRef(false)
+
+  useEffect(() => {
+    // TS narrows checkpointAtStep as defined below via pendingActive's own
+    // definition (`timed && checkpointAtStep !== undefined && ...`) — an
+    // aliased-condition narrow, not a second explicit undefined check.
+    if (!pendingActive) {
+      // Scrubbed away from the pending checkpoint (or nothing pending) —
+      // if a clock was running, mark the moment it paused so a later
+      // return to the SAME checkpoint can push the deadline forward by
+      // exactly how long we were away, not lose that time twice.
+      if (activeCheckpointKeyRef.current !== null && pausedAtRef.current === null) {
+        pausedAtRef.current = Date.now()
+      }
+      return
+    }
+
+    const key = checkpointAtStep.afterStep
+    if (activeCheckpointKeyRef.current !== key) {
+      // A genuinely new checkpoint became pending — fresh clock.
+      activeCheckpointKeyRef.current = key
+      deadlineRef.current = Date.now() + TRACE_CHECKPOINT_TIME_LIMIT_MS
+      pausedAtRef.current = null
+    } else if (pausedAtRef.current !== null) {
+      // Resuming the SAME checkpoint after scrubbing away and back.
+      deadlineRef.current += Date.now() - pausedAtRef.current
+      pausedAtRef.current = null
+    }
+
+    answeredRef.current = false
+    setRemainingMs(Math.max(0, deadlineRef.current - Date.now()))
+
+    const interval = setInterval(() => {
+      if (answeredRef.current) return
+      // See useRushSession.ts's identical guard: a backgrounded tab isn't
+      // guaranteed to have its intervals throttled/paused by the browser,
+      // so this can't rely on that to keep the clock from expiring on
+      // ticks that fire anyway. The separate visibilitychange effect below
+      // pushes the deadline forward once the tab becomes visible again.
+      if (document.hidden) return
+      const left = Math.max(0, deadlineRef.current - Date.now())
+      setRemainingMs(left)
+      if (left <= 0) {
+        answeredRef.current = true
+        onCheckpointAnswered({ correct: false, choiceIndex: null })
+      }
+    }, TRACE_TIMER_TICK_MS)
+
+    return () => {
+      clearInterval(interval)
+    }
+    // checkpointAtStep is read only for its own .afterStep (a primitive);
+    // depending on the primitive rather than the object avoids re-running
+    // this effect on every render when the object reference changes but
+    // afterStep doesn't.
+  }, [pendingActive, checkpointAtStep?.afterStep, onCheckpointAnswered])
+
+  // A backgrounded tab must not silently drain the clock (decision 6) —
+  // pushes the deadline forward by however long the tab was hidden, same
+  // technique useRushSession.ts uses for its own per-puzzle clock.
+  useEffect(() => {
+    let hiddenAt: number | null = null
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        hiddenAt = Date.now()
+      } else if (hiddenAt !== null) {
+        deadlineRef.current += Date.now() - hiddenAt
+        hiddenAt = null
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [])
 
   const step = puzzle.steps[stepIndex]
 
@@ -155,13 +276,24 @@ export function TraceRunnerPuzzle({
       />
 
       {checkpointAtStep && (
-        <CheckpointPanel
-          key={checkpointAtStep.afterStep}
-          checkpoint={checkpointAtStep}
-          steps={puzzle.steps}
-          result={resultAtStep}
-          onAnswer={handleAnswer}
-        />
+        <>
+          {pendingActive && (
+            // No aria-live role: a countdown ticking every
+            // TRACE_TIMER_TICK_MS would spam a screen reader with constant
+            // announcements — a purely visual supplement, not the kind of
+            // status change that needs narrating.
+            <p className="checkpoint-timer" aria-hidden="true">
+              {Math.ceil(remainingMs / 1000)}s
+            </p>
+          )}
+          <CheckpointPanel
+            key={checkpointAtStep.afterStep}
+            checkpoint={checkpointAtStep}
+            steps={puzzle.steps}
+            result={resultAtStep}
+            onAnswer={handleAnswer}
+          />
+        </>
       )}
 
       {isComplete && (

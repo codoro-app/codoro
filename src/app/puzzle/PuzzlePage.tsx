@@ -159,6 +159,7 @@ function ScrubberLinkPuzzle({ puzzle }: ScrubberLinkPuzzleProps) {
         onContinue={() => {
           navigate(`/practice?pattern=${puzzle.pattern}`)
         }}
+        timed={false}
       />
       <PracticeMoreCta pattern={puzzle.pattern} />
     </>

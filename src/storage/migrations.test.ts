@@ -67,7 +67,7 @@ describe('runMigrations', () => {
 })
 
 describe('MIGRATIONS: full chain from v1 to the current version', () => {
-  it('v1 -> v4, stamping schema_version 4, adding null dailyCompletion + rushStats, and preserving every existing field untouched', () => {
+  it('v1 -> v5, stamping schema_version 5, adding null dailyCompletion + rushStats + bestRunStreak 0, and preserving every existing field untouched', () => {
     const v1Profile = {
       schema_version: 1,
       rating: 1342.75,
@@ -81,9 +81,10 @@ describe('MIGRATIONS: full chain from v1 to the current version', () => {
 
     expect(migrated).toEqual({
       ...v1Profile,
-      schema_version: 4,
+      schema_version: 5,
       dailyCompletion: null,
       rushStats: null,
+      bestRunStreak: 0,
     })
   })
 })
@@ -101,9 +102,40 @@ describe('MIGRATIONS[3]: v3 -> v4 (profile shape unchanged — the v4 bump is dr
       rushStats: { bestScore: 12, bestStreak: 8, runs: 3, lastRunAt: '2026-07-24T10:00:00.000Z' },
     }
 
-    const migrated = runMigrations(v3Profile, 3, MIGRATIONS)
+    // Calls MIGRATIONS[3] directly rather than through runMigrations, which
+    // would keep chaining into MIGRATIONS[4] now that it's registered too —
+    // this test's whole point is to isolate v3->v4's own behavior.
+    const v3Migration = MIGRATIONS[3]
+    if (!v3Migration) throw new Error('MIGRATIONS[3] is not registered')
+    const migrated = v3Migration(v3Profile)
 
     expect(migrated).toEqual({ ...v3Profile, schema_version: 4 })
+  })
+})
+
+describe('MIGRATIONS[4]: v4 -> v5 (Phase 5b: resets rushStats, adds bestRunStreak)', () => {
+  it('stamps schema_version 5, resets a non-null rushStats to null, adds bestRunStreak 0, and preserves every other field untouched', () => {
+    const v4Profile = {
+      schema_version: 4,
+      rating: 1512.25,
+      ratedAttemptCount: 30,
+      streak: { currentStreak: 2, longestStreak: 20, lastActiveDate: '2026-08-01' },
+      requeueState: [{ puzzleId: 'p2', stage: 1, served: 5 }],
+      storagePersisted: true,
+      dailyCompletion: { date: '2026-08-01', attemptId: 'a5', correct: true },
+      rushStats: { bestScore: 40, bestStreak: 25, runs: 9, lastRunAt: '2026-07-30T09:00:00.000Z' },
+    }
+
+    const v4Migration = MIGRATIONS[4]
+    if (!v4Migration) throw new Error('MIGRATIONS[4] is not registered')
+    const migrated = v4Migration(v4Profile)
+
+    expect(migrated).toEqual({
+      ...v4Profile,
+      schema_version: 5,
+      rushStats: null,
+      bestRunStreak: 0,
+    })
   })
 })
 
