@@ -52,6 +52,11 @@ convention as `src/engine/` and `src/storage/`.
   (`{ surface, puzzle_id }`) whenever a share affordance is used — Daily and
   Rush's existing post-solve share cards, and Practice's solve-state share
   button (Phase 1b). `surface` is `'daily' | 'rush' | 'practice'`.
+- `trackStreakPause(payload)` — fires the `streak_pause` event
+  (`{ mode: 'practice' | 'trace', streak, is_new_best }`) whenever the
+  streak-pause moment (Phase 5b Item 7/8) is shown. `is_new_best`
+  distinguishes a pause that carried the "new best streak" framing from one
+  that didn't.
 - `trackError(error, context?)` — fires an `app_error` event with a truncated
   message/stack. Used by `src/app/ErrorBoundary.tsx`; call it directly for any
   other caught error worth reporting.

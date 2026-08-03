@@ -127,6 +127,23 @@ export function trackShareClick(payload: ShareClickPayload): void {
 }
 
 /**
+ * Fired whenever the streak-pause moment (Phase 5b Item 7/8) is shown —
+ * Practice and Trace only (decision 8). `is_new_best` distinguishes a pause
+ * that carried the "new best streak" framing from one that didn't, per
+ * Item 8's explicit telemetry ask. Not part of the locked `attempt` schema
+ * — a new, additive event of its own.
+ */
+export interface StreakPausePayload {
+  mode: 'practice' | 'trace'
+  streak: number
+  is_new_best: boolean
+}
+
+export function trackStreakPause(payload: StreakPausePayload): void {
+  safeCapture('streak_pause', payload)
+}
+
+/**
  * Lightweight error-tracking event, not part of the locked schema above —
  * this is our call for V1: PostHog's own error capture is enough for now,
  * we're not pulling in Sentry (see the PR description for the reasoning).

@@ -34,7 +34,9 @@ import type { Attempt, UserProfile } from '../../storage'
 import { scrubberPool } from '../../content'
 import { resolvePool } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle, ScrubberPuzzle } from '../../content'
-import { trackError, trackTraceAttempt } from '../../telemetry'
+import { trackError, trackStreakPause, trackTraceAttempt } from '../../telemetry'
+import { resolveStreakPause } from '../streakPauseLogic'
+import type { StreakPauseState } from '../streakPauseLogic'
 
 // Practice's own no-repeat-within-20 convention (src/engine/selection.ts) —
 // kept here as the upper bound, not the value actually used. See
@@ -129,6 +131,14 @@ export interface TraceSession {
   ratingDelta: number | null
   /** Bumped on every recorded attempt — lets a consumer (e.g. a mastery view) know to refetch. */
   attemptVersion: number
+  /** In-session consecutive-solved-puzzle streak (Phase 5b Item 7). Not persisted itself — resets to 0 on a miss, resets on reload. */
+  streak: number
+  /** Non-null when the streak-pause moment should be shown — every 5th solved puzzle in a row. Cleared by either exit callback below. */
+  streakPause: StreakPauseState | null
+  /** Dismisses the pause and serves the next puzzle immediately. */
+  handleStreakPauseKeepGoing: () => void
+  /** Dismisses the pause only — the underlying solve panel (with its own Continue button) is still there if the player changes their mind. */
+  handleStreakPauseDoneForNow: () => void
   /** Records one checkpoint's outcome. No-ops once isComplete (each checkpoint accepts exactly one answer). */
   handleCheckpointAnswered: (result: CheckpointResult) => void
   /** Serves the next puzzle. No-ops until isComplete. */
@@ -143,6 +153,8 @@ export function useTraceSession(): TraceSession {
   const [puzzle, setPuzzle] = useState<ScrubberPuzzle | null>(null)
   const [checkpointResults, setCheckpointResults] = useState<readonly CheckpointResult[]>([])
   const [solved, setSolved] = useState<boolean | null>(null)
+  const [streak, setStreak] = useState(0)
+  const [streakPause, setStreakPause] = useState<StreakPauseState | null>(null)
   const [ratingDelta, setRatingDelta] = useState<number | null>(null)
   const [attemptVersion, setAttemptVersion] = useState(0)
 
@@ -277,11 +289,19 @@ export function useTraceSession(): TraceSession {
         ? profile.requeueState
         : recordMiss(profile.requeueState, puzzle.id)
 
+      // Phase 5b Item 7/8: computed explicitly (not via setStreak's own
+      // functional updater) since the streak-pause check right below needs
+      // the actual new value synchronously, in this same closure — mirrors
+      // usePracticeSession.ts's identical combo/pause computation.
+      const newStreak = isSolved ? streak + 1 : 0
+      const pause = resolveStreakPause(newStreak, profile.bestRunStreak)
+
       const updatedProfile: UserProfile = {
         ...profile,
         rating: newRating,
         ratedAttemptCount: profile.ratedAttemptCount + 1,
         requeueState: newRequeueState,
+        bestRunStreak: pause?.isNewBest ? newStreak : profile.bestRunStreak,
       }
 
       const attempt: Attempt = {
@@ -302,7 +322,12 @@ export function useTraceSession(): TraceSession {
       setProfile(updatedProfile)
       setSolved(isSolved)
       setRatingDelta(delta)
+      setStreak(newStreak)
       setAttemptVersion((v) => v + 1)
+      if (pause) {
+        setStreakPause(pause)
+        trackStreakPause({ mode: 'trace', streak: pause.streak, is_new_best: pause.isNewBest })
+      }
 
       // Persistence failures here are non-fatal — same convention as
       // usePracticeSession: the UI/telemetry below must still run so the
@@ -332,7 +357,7 @@ export function useTraceSession(): TraceSession {
         })),
       })
     },
-    [profile, puzzle, status],
+    [profile, puzzle, status, streak],
   )
 
   const handleContinue = useCallback(() => {
@@ -342,6 +367,15 @@ export function useTraceSession(): TraceSession {
     recentIdsRef.current = [puzzle.id, ...recentIdsRef.current].slice(0, recentIdsWindow)
     serveNext(profile)
   }, [profile, puzzle, checkpointResults, serveNext])
+
+  const handleStreakPauseKeepGoing = useCallback(() => {
+    setStreakPause(null)
+    handleContinue()
+  }, [handleContinue])
+
+  const handleStreakPauseDoneForNow = useCallback(() => {
+    setStreakPause(null)
+  }, [])
 
   const isComplete = puzzle !== null && checkpointResults.length >= puzzle.checkpoints.length
 
@@ -354,6 +388,10 @@ export function useTraceSession(): TraceSession {
     solved,
     ratingDelta,
     attemptVersion,
+    streak,
+    streakPause,
+    handleStreakPauseKeepGoing,
+    handleStreakPauseDoneForNow,
     handleCheckpointAnswered,
     handleContinue,
     retryLoad,

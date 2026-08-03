@@ -81,6 +81,7 @@ import { useTraceSession } from './useTraceSession'
 import { hapticTick } from '../practice/haptics'
 import type { CheckpointResult } from '../../engine'
 import type { ScrubberPuzzle } from '../../content'
+import { StreakPause } from '../StreakPause'
 import '../tokens.css'
 import './scrubber.css'
 
@@ -382,15 +383,25 @@ export function TraceRunner() {
   }
 
   return (
-    <TraceRunnerPuzzle
-      key={session.puzzle.id}
-      puzzle={session.puzzle}
-      checkpointResults={session.checkpointResults}
-      isComplete={session.isComplete}
-      solved={session.solved}
-      ratingDelta={session.ratingDelta}
-      onCheckpointAnswered={session.handleCheckpointAnswered}
-      onContinue={session.handleContinue}
-    />
+    <>
+      {session.streakPause && (
+        <StreakPause
+          streak={session.streakPause.streak}
+          isNewBest={session.streakPause.isNewBest}
+          onKeepGoing={session.handleStreakPauseKeepGoing}
+          onDoneForNow={session.handleStreakPauseDoneForNow}
+        />
+      )}
+      <TraceRunnerPuzzle
+        key={session.puzzle.id}
+        puzzle={session.puzzle}
+        checkpointResults={session.checkpointResults}
+        isComplete={session.isComplete}
+        solved={session.solved}
+        ratingDelta={session.ratingDelta}
+        onCheckpointAnswered={session.handleCheckpointAnswered}
+        onContinue={session.handleContinue}
+      />
+    </>
   )
 }

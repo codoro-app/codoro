@@ -60,6 +60,7 @@ import { MasteryView } from './MasteryView'
 import { PracticeShareCard } from './PracticeShareCard'
 import { usePracticeSession } from './usePracticeSession'
 import { useMediaQuery } from '../useMediaQuery'
+import { StreakPause } from '../StreakPause'
 import { PATTERN_LABELS, PATTERN_SLUGS } from '../../content'
 import type { PatternSlug } from '../../content'
 import { CloseIcon } from '../Icons'
@@ -229,6 +230,15 @@ export function PracticePage() {
 
   return (
     <>
+      {session.streakPause && (
+        <StreakPause
+          streak={session.streakPause.streak}
+          isNewBest={session.streakPause.isNewBest}
+          onKeepGoing={session.handleStreakPauseKeepGoing}
+          onDoneForNow={session.handleStreakPauseDoneForNow}
+        />
+      )}
+
       <div className="practice-page app-shell__main">
         {!isDesktop && (
           <StatusBar
