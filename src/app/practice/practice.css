@@ -318,20 +318,22 @@
   background: var(--surface-1);
   color: var(--text-0);
   font-size: var(--font-size-md);
-  /* At rest, a row allows native vertical page scroll — only the row
-   * actively being dragged gets touch-action: none (DragOrder.tsx's inline
-   * style), so the drag gesture never fights page scroll except while a
-   * drag is actually in progress. */
+  /* A row itself allows native vertical page scroll — only its
+   * `.drag-order__handle` child (below) opts out, so touching anywhere
+   * else on the row for scrolling still works normally. */
   touch-action: pan-y;
-  cursor: grab;
   user-select: none;
   transition: transform 0.15s ease;
+}
+
+.drag-order__row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .drag-order__row--dragging {
   position: relative;
   z-index: 2;
-  cursor: grabbing;
   border-color: var(--accent);
   background: var(--surface-2);
   /* No transition on the dragged row itself — it must track the pointer
@@ -340,7 +342,6 @@
 }
 
 .drag-order__row--locked {
-  touch-action: auto;
   cursor: default;
 }
 
@@ -362,6 +363,38 @@
 .drag-order__row--wrong .drag-order__row-badge {
   background: var(--danger);
   color: var(--accent-ink);
+}
+
+/* The actual drag hit target — a real (>=44px) handle, not the whole row.
+ * `touch-action: none` here is STATIC (never toggled at runtime), which is
+ * the fix for the "scoped, not global" requirement: a browser decides
+ * whether a touch starts a native scroll or a custom gesture at hit-test
+ * time, BEFORE any JS event handler runs — a value only applied inside a
+ * pointerdown handler (this project's first attempt) is already too late
+ * on a real touchscreen, since the browser has already claimed the
+ * gesture as page-scroll by then. Scoping the static `none` to just this
+ * handle (not the whole row, not the list) is what keeps it "scoped, not
+ * global": everywhere else on the row, and every row not being touched by
+ * its handle, still scrolls the page normally. */
+.drag-order__handle {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--tap-target-min);
+  min-height: var(--tap-target-min);
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
+  color: var(--text-1);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: var(--font-size-sm);
+  cursor: grab;
+  touch-action: none;
+}
+
+.drag-order__row--dragging .drag-order__handle {
+  cursor: grabbing;
 }
 
 .drag-order__row-badge {

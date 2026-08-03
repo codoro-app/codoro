@@ -397,6 +397,23 @@ export const PuzzleSchema = z
             path: ['correct_order'],
           })
         }
+
+        // A drag-order puzzle whose blocks are already in the correct
+        // order isn't a puzzle — there's nothing to reorder. Only checked
+        // once correct_order is confirmed a real permutation (the branches
+        // above) so this doesn't also fire (confusingly) for a puzzle
+        // that's already broken in some other way.
+        if (
+          missing.length === 0 &&
+          puzzle.correct_order.every((index, position) => index === position)
+        ) {
+          ctx.addIssue({
+            code: 'custom',
+            message:
+              'correct_order is the identity permutation ([0, 1, 2, ...]) — blocks are already in their correct order, so there is nothing to drag. Shuffle blocks into a non-identity display order.',
+            path: ['correct_order'],
+          })
+        }
       }
     }
 

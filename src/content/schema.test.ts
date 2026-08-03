@@ -60,7 +60,10 @@ function validDragOrder(overrides: Record<string, unknown> = {}): unknown {
     snippet: '// unused for drag-order',
     interaction: 'drag-order',
     blocks: ['Check the base case', 'Recurse with a smaller input', 'Combine the result'],
-    correct_order: [0, 1, 2],
+    // Non-identity — PuzzleSchema rejects an identity correct_order (see
+    // the dedicated 'rejects an identity permutation' test below), so the
+    // default "valid" fixture can't be [0, 1, 2] either.
+    correct_order: [2, 0, 1],
     ...overrides,
   }
 }
@@ -227,6 +230,14 @@ describe('PuzzleSchema — drag-order-specific', () => {
   it('accepts a non-identity permutation of correct_order', () => {
     const result = PuzzleSchema.safeParse(validDragOrder({ correct_order: [2, 0, 1] }))
     expect(result.success).toBe(true)
+  })
+
+  it('rejects an identity permutation of correct_order (already-solved puzzle)', () => {
+    const result = PuzzleSchema.safeParse(validDragOrder({ correct_order: [0, 1, 2] }))
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.message.includes('identity'))).toBe(true)
+    }
   })
 })
 

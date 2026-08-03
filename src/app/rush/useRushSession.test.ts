@@ -41,6 +41,27 @@ const { FIXTURE_POOL } = vi.hoisted(() => ({
         { afterStep: 0, question: 'next-line', choices: ['0', '1'], correct: 1 },
       ],
     })),
+    // drag-order puzzles at the same ratings as the mcq set above, present
+    // for the same reason the scrubber decoys above are: RushInteraction
+    // deliberately excludes 'drag-order' (see rush.ts's own doc comment —
+    // a multi-block drag gesture is a bad fit for Rush's speed format), but
+    // isRushEligible (useRushSession.ts) is a hand-written type predicate —
+    // TypeScript never checks a predicate's body matches its asserted type,
+    // so a future edit could silently start admitting drag-order and no
+    // compile error would catch it. This fixture is what would catch it at
+    // runtime instead.
+    ...Array.from({ length: 8 }, (_, i) => ({
+      id: `d${String(i)}`,
+      pattern: 'off-by-one',
+      difficulty_rating: 700 + i * 20,
+      explanation: `drag-order explanation ${String(i)}`,
+      prompt: `drag-order prompt ${String(i)}`,
+      language: 'javascript',
+      snippet: 'const x = 1',
+      interaction: 'drag-order',
+      blocks: ['first', 'second', 'third'],
+      correct_order: [1, 2, 0],
+    })),
   ] as unknown as Puzzle[],
 }))
 
@@ -194,6 +215,19 @@ describe('useRushSession', () => {
       answerAndContinue(result, true)
     }
     expect(result.current.puzzle?.interaction).not.toBe('scrubber')
+  })
+
+  it('never serves a drag-order puzzle, even though the fixture pool contains several', async () => {
+    const { result } = renderHook(() => useRushSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    for (let i = 0; i < 12; i++) {
+      expect(result.current.puzzle?.interaction).not.toBe('drag-order')
+      answerAndContinue(result, true)
+    }
+    expect(result.current.puzzle?.interaction).not.toBe('drag-order')
   })
 
   it('handleRunItBack starts a fresh run: strikes/solved/streak reset, a new run id in play', async () => {

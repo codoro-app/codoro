@@ -44,6 +44,12 @@ fields:
   `blocks`' indices: `correct_order[i]` is the index into `blocks` that
   belongs at position `i` of the correct sequence)
 
+`cf-009`, `err-011`, and `rec-009` (the initial `drag-order` puzzles) are
+hand-authored fixtures, not output from `generatePuzzles.ts` — no generation
+run has targeted `drag-order` yet (see `GENERATING_PUZZLES.md` /
+`tools/generatePuzzles.ts`'s `Interaction` type, which can target it but
+isn't wired into any manifest logic this phase).
+
 ## Tooling (`tools/`)
 
 Node-side CLI scripts — not imported by app code, read puzzle files straight

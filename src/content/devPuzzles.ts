@@ -74,15 +74,19 @@ export const DEV_STUB_PUZZLES: Puzzle[] = BANDS.flatMap((rating, i) => {
       id: `dev-drag-${String(rating)}`,
       pattern: 'recursion-termination',
       difficulty_rating: rating,
-      explanation: `DEV STUB (drag-order, ${String(rating)}) — blocks are already labeled with their correct order; drag them into 1, 2, 3.`,
+      explanation: `DEV STUB (drag-order, ${String(rating)}) — every block states its own correct position; drag them into 1, 2, 3 order.`,
       prompt: 'DEV STUB — drag the blocks into the correct order.',
       language: 'javascript',
       snippet: `// dev stub drag-order #${String(i)}`,
       interaction: 'drag-order',
-      // Trivial identity mapping — unambiguous by design, same convention
-      // as the other three stubs above (see this file's module doc).
-      blocks: ['Correct order: 1', 'Correct order: 2', 'Correct order: 3'],
-      correct_order: [0, 1, 2],
+      // Unambiguous by design (same convention as the other three stubs
+      // above, see this file's module doc) without being the identity
+      // permutation — PuzzleSchema now rejects identity correct_order (a
+      // puzzle that's already solved on load isn't a puzzle). Each block
+      // literally names its own correct position, so it stays trivial to
+      // solve by reading alone.
+      blocks: ['Correct order: 2', 'Correct order: 3', 'Correct order: 1'],
+      correct_order: [2, 0, 1],
     },
   ]
 })
