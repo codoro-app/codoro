@@ -477,7 +477,9 @@ The v1 modes stay worth playing. Everything here is from the todo-list items in 
 
 ---
 
-## Phase 6 — Content calibration + quiz volume (1–2 sessions + generation runs)
+## Phase 6 — Content calibration + quiz volume + scrubber volume (1–2 sessions + generation runs)
+
+**Scope widened by the Phase 5 build prompt (locked decision 11), documentation-only — no scrubber puzzles generated in Phase 5.** Phase 4's DoD line "≥40 scrubber puzzles live" was unmet (3 live: `oob-010`/`011`/`012`) and deliberately deferred — see the Phase 4 amendment, item 7's cost finding, for why: real measured `cli`-backend generation cost ran far above `PROJECTED_TOKENS_PER_PUZZLE`'s estimate (Sonnet review calls alone ran 3,000–20,000+ output tokens against an estimated 250), consuming over a quarter of the user's Claude subscription usage allowance for 3 finished puzzles. That finding explicitly said the deferred target needed "its own small, usage-window-aware activity," not a continuation of the same session — and a deferred target with no owner phase is exactly the kind of thing this plan's own rule says doesn't get to hide. This phase is where it lands: already "content calibration + quiz volume + batch runs," the natural owner for any remaining generation-pipeline work.
 
 **Build:**
 
@@ -486,6 +488,7 @@ The v1 modes stay worth playing. Everything here is from the todo-list items in 
 3. **Volume**: grow the quiz library toward ~200 (including new drag-order puzzles) — the backlog's "puzzle separation + bigger puzzle libraries" item. 108 puzzles ≈ four sessions before repeats; combined with 40–60 scrubber puzzles this roughly triples total content.
 4. Self-review pass over every new explanation — the explanation is the educational product (carried forward from v1's unfinished Phase 8 checkbox).
 5. **Give swipe-binary a real negative class** — the half of the Phase 0 skew bug that Phase 0 deliberately didn't fix. Every snippet in the v1 library contains a bug, so the label naming a bug is always correct and a player who reads only the labels still wins without reading code. Author swipe puzzles whose code is genuinely fine (the "Safe" label is the correct answer), and extend the Phase 0 direction-skew validator with a second check on the correct-label _semantics_, not just the side. Target: at least a third of swipe-binary puzzles answer "the code is fine."
+6. **Scrubber volume: 3 → 40–60 live**, the Phase 4 volume target carried forward. Run as its own small, usage-window-aware activity per the Phase 4 amendment's recommendation, not one continuous batch: small batches spread across usage-reset windows, re-checking actual usage consumed (not just `generateScrubberPuzzles.ts`'s own running total) after every batch. Pull real per-call token numbers from the Phase 4 pilot's two run logs (`oob-010`/`011`/`012`) before trusting any cost projection going in. Same pattern allowlist as Phase 4 (seven patterns, `generateScrubberPuzzles.ts`'s manifest). Before this item's first batch, re-check the model-split decision (`GENERATE_MODEL`) against whatever the current subscription usage picture looks like — the Phase 4 pilot's evidence for Sonnet over Haiku was real but was a small sample under time pressure, not the full comparison the original plan called for.
 
 **DoD:**
 
@@ -493,6 +496,8 @@ The v1 modes stay worth playing. Everything here is from the todo-list items in 
 - [ ] Language mix within ±10 points of target
 - [ ] ≥200 total puzzles passing `validate:content`
 - [ ] ≥⅓ of swipe-binary puzzles have non-buggy code as the correct answer; label-semantics check enforced in validation
+- [ ] ≥40 scrubber puzzles live (Phase 4's unmet target, carried forward — was 3), spanning ≥800 rating points per major pattern represented, no empty 200-point bucket in the 800–2199 range; each batch's real usage consumption checked against the running total before starting the next
+- [ ] Item 0's format-tell rule (Phase 5) confirmed clean across every newly generated scrubber puzzle, not just the two `oob-011` checkpoints it was written against — this phase's batch is the first real volume test of that rule as a generation-time gate, not just a validate:content backstop
 
 ---
 
