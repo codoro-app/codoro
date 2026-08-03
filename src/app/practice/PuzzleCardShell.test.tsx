@@ -75,7 +75,7 @@ const dragOrderPuzzle: DragOrderPuzzle = {
   snippet: '// unused for drag-order',
   interaction: 'drag-order',
   blocks: ['Step 1', 'Step 2', 'Step 3'],
-  correct_order: [0, 1, 2],
+  correct_order: [2, 0, 1],
 }
 
 const scrubberPuzzle: ScrubberPuzzle = {
