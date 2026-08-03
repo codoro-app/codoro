@@ -18,6 +18,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { z } from 'zod'
 import {
+  DragOrderSchema,
   MAX_DIFFICULTY,
   McqSchema,
   MIN_DIFFICULTY,
@@ -74,7 +75,11 @@ const COST_CEILING_USD = 0.7
 const CLI_CALL_CEILING = 150
 const CLI_TOKEN_CEILING = 2_000_000
 
-type Interaction = 'mcq' | 'swipe-binary' | 'tap-line'
+// 'drag-order' is a valid generation target (INTERACTION_SCHEMAS below can
+// produce it), but no generation run targets it this phase — INTERACTION_CYCLE
+// and the prompt text below stay scoped to the three interactions this
+// pipeline actually authors content for; see docs/prompts for Phase 5b Item 5.
+type Interaction = 'mcq' | 'swipe-binary' | 'tap-line' | 'drag-order'
 /** Which edge of a puzzle's targetRange to lean toward — see buildGapManifest. */
 type Bias = 'low' | 'mid' | 'high'
 
@@ -91,6 +96,7 @@ const INTERACTION_SCHEMAS = {
   mcq: McqSchema,
   'swipe-binary': SwipeBinarySchema,
   'tap-line': TapLineSchema,
+  'drag-order': DragOrderSchema,
 } as const
 
 const ReviewSchema = z.object({

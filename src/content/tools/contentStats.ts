@@ -11,7 +11,7 @@ import { loadRawPuzzleFiles } from './loadPuzzles'
 import { validatePuzzleFiles } from './validatePuzzles'
 
 const BUCKET_SIZE = 200
-const INTERACTION_TYPES = ['mcq', 'swipe-binary', 'tap-line', 'scrubber'] as const
+const INTERACTION_TYPES = ['mcq', 'swipe-binary', 'tap-line', 'drag-order', 'scrubber'] as const
 
 /** Phase 8 DoD: every pattern's difficulty ratings must span at least this many points. */
 const MIN_PATTERN_SPREAD = 800
