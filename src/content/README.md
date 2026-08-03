@@ -6,9 +6,9 @@ Public API is `src/content/index.ts` — the only file anything outside this
 folder should import from: `puzzlePool` (every validated puzzle, aggregated
 at build time), its `quizPool`/`scrubberPool` derivatives (see below),
 `PATTERN_SLUGS`/`PATTERN_LABELS`, `PuzzleSchema`, and the
-`Puzzle`/`McqPuzzle`/`SwipeBinaryPuzzle`/`TapLinePuzzle`/`ScrubberPuzzle`/
-`QuizPuzzle` types. `schema.ts` and `patterns.ts` are internal, same barrel
-convention as `storage/`.
+`Puzzle`/`McqPuzzle`/`SwipeBinaryPuzzle`/`TapLinePuzzle`/`DragOrderPuzzle`/
+`ScrubberPuzzle`/`QuizPuzzle` types. `schema.ts` and `patterns.ts` are
+internal, same barrel convention as `storage/`.
 
 `quizPool` and `scrubberPool` partition `puzzlePool` by interaction —
 Practice, Daily, and Rush consume `quizPool` (scrubber has its own mode,
@@ -39,6 +39,10 @@ fields:
 - **`swipe-binary`** — `left_label`, `right_label`, `correct_direction`
   (`'left' | 'right'`)
 - **`tap-line`** — `correct_line` (0-based line index into `snippet`)
+- **`drag-order`** — `blocks` (>=3 strings, in authored/display order —
+  never re-shuffled at runtime), `correct_order` (a permutation of
+  `blocks`' indices: `correct_order[i]` is the index into `blocks` that
+  belongs at position `i` of the correct sequence)
 
 ## Tooling (`tools/`)
 

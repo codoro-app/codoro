@@ -1,0 +1,12 @@
+{
+  "id": "err-011",
+  "pattern": "error-handling",
+  "difficulty_rating": 1100,
+  "explanation": "The thrown error inside `try` aborts that block immediately, so `console.log('unreachable')` never runs. Control jumps straight to `catch`, which logs the caught message. `finally` always runs after `try`/`catch` settles, whether or not an error was thrown or caught, so 'cleanup' logs next. Since `catch` handled the error (no rethrow), the function returns normally and execution continues past the try/catch/finally block to 'after'.",
+  "prompt": "Drag these console.log outputs into the order they actually print when process() runs.",
+  "language": "javascript",
+  "snippet": "function process() {\n  try {\n    console.log('start');\n    throw new Error('fail');\n    console.log('unreachable');\n  } catch (e) {\n    console.log('caught: ' + e.message);\n  } finally {\n    console.log('cleanup');\n  }\n  console.log('after');\n}\nprocess();",
+  "interaction": "drag-order",
+  "blocks": ["Logs 'cleanup'", "Logs 'after'", "Logs 'start'", "Logs 'caught: fail'"],
+  "correct_order": [2, 3, 0, 1]
+}
