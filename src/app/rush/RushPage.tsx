@@ -108,20 +108,25 @@ export function RushPage() {
               )}
             </div>
           </div>
-          <div
-            className="rush-timer"
-            role="progressbar"
-            aria-label="Time remaining for this puzzle"
-            aria-valuemin={0}
-            aria-valuemax={RUSH_PUZZLE_TIME_LIMIT_MS}
-            aria-valuenow={Math.round(session.remainingMs)}
-          >
+          <div className="rush-timer-row">
             <div
-              className="rush-timer__fill"
-              style={{
-                width: `${String((session.remainingMs / RUSH_PUZZLE_TIME_LIMIT_MS) * 100)}%`,
-              }}
-            />
+              className="rush-timer"
+              role="progressbar"
+              aria-label="Time remaining for this puzzle"
+              aria-valuemin={0}
+              aria-valuemax={RUSH_PUZZLE_TIME_LIMIT_MS}
+              aria-valuenow={Math.round(session.remainingMs)}
+            >
+              <div
+                className="rush-timer__fill"
+                style={{
+                  width: `${String((session.remainingMs / RUSH_PUZZLE_TIME_LIMIT_MS) * 100)}%`,
+                }}
+              />
+            </div>
+            <span className="rush-timer__seconds" aria-hidden="true">
+              {Math.ceil(session.remainingMs / 1000)}s
+            </span>
           </div>
         </>
       )}

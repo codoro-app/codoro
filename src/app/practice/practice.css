@@ -323,7 +323,7 @@
    * else on the row for scrolling still works normally. */
   touch-action: pan-y;
   user-select: none;
-  transition: transform 0.15s ease;
+  transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .drag-order__row:focus-visible {
@@ -336,9 +336,17 @@
   z-index: 2;
   border-color: var(--accent);
   background: var(--surface-2);
-  /* No transition on the dragged row itself — it must track the pointer
-   * 1:1, not ease behind it. Rows it displaces keep the transition above. */
-  transition: none;
+  /* A picked-up row "lifts" off the list (scale + shadow) so the gesture
+   * reads as grabbing something physical, not just a color change. This
+   * rule's `transition` deliberately omits `transform` (unlike the base
+   * `.drag-order__row` rule above) and, at equal specificity, wins by
+   * source order — so `transform` stays untransitioned while dragging,
+   * tracking the pointer 1:1 instead of easing behind it. */
+  scale: 1.02;
+  box-shadow: 0 4px 12px var(--shadow-color, rgb(0 0 0 / 25%));
+  transition:
+    box-shadow 0.15s ease,
+    scale 0.15s ease;
 }
 
 .drag-order__row--locked {

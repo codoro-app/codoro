@@ -60,8 +60,14 @@
 
 /* --- per-puzzle countdown (Phase 5b Item 6) ---------------------------- */
 
+.rush-timer-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .rush-timer {
-  width: 100%;
+  flex: 1;
   height: 6px;
   border-radius: var(--radius-full);
   background: var(--surface-2);
@@ -75,4 +81,16 @@
    * a short linear transition smooths those discrete steps into what reads
    * as a continuous drain instead of a visible stutter. */
   transition: width 0.1s linear;
+}
+
+/* Numeric readout alongside the bar — the bar alone doesn't tell a player
+ * how many seconds are actually left. aria-hidden since the progressbar
+ * role above already exposes remaining time to assistive tech. */
+.rush-timer__seconds {
+  flex: none;
+  min-width: 2ch;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--text-1);
 }
