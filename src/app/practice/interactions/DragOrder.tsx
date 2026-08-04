@@ -38,6 +38,19 @@ function releasePointerCaptureIfSupported(el: HTMLElement, pointerId: number): v
   }
 }
 
+/**
+ * True when a pointerdown's actual target sits inside the row's
+ * `.drag-order__handle` child — used to gate touch drags to the handle only
+ * (see the component doc comment's two-layer hit-target model) while mouse
+ * and pen can grab the row anywhere.
+ */
+function pointerDownIsOnHandle(event: ReactPointerEvent<HTMLDivElement>): boolean {
+  return (
+    event.currentTarget.querySelector('.drag-order__handle')?.contains(event.target as Node) ??
+    false
+  )
+}
+
 /** `order[position]`, guarding noUncheckedIndexedAccess for a position already bounds-checked by the caller (mirrors schema.ts's requireStep) — every call site here derives `position` from `order.length` itself, so this is defensive only, never expected to actually throw. */
 function requirePosition(order: readonly number[], position: number): number {
   const blockIndex = order[position]
@@ -79,13 +92,19 @@ function measureLayout(
  * Native-Pointer-Events drag-to-reorder list — no gesture library dependency
  * (unlike SwipeBinary's `@use-gesture/react`; drag-order was deliberately
  * scoped to build on Pointer Events alone, see the Phase 5b Item 5 brief).
- * A dedicated `.drag-order__handle` child (>=44px, see practice.css) is the
- * drag hit target, not the whole row — a browser decides whether a touch
- * starts a native scroll or a custom gesture at hit-test time, before any
- * JS handler runs, so `touch-action: none` has to be a STATIC CSS property
- * on that handle rather than something toggled at runtime (too late on a
- * real touchscreen). The rest of the row stays `pan-y` (native scroll).
- * Arrow-key reordering (below) covers players without a pointer.
+ *
+ * Two-layer hit-target model: pointer handlers live on the row itself (so a
+ * mouse or pen can grab the card anywhere), but a touch pointer only starts
+ * a drag when it lands inside the `.drag-order__handle` child (>=44px, see
+ * practice.css; gated in JS via `pointerDownIsOnHandle`, above) — touching
+ * the rest of the row is left as native `pan-y` scroll. A browser decides
+ * whether a touch starts a native scroll or a custom gesture at hit-test
+ * time, before any JS handler runs, so the handle's `touch-action: none`
+ * has to be a STATIC CSS property (never toggled at runtime — too late on a
+ * real touchscreen) even though the JS gesture gate now also checks target.
+ * Arrow-key reordering (below) covers players without a pointer; clicking,
+ * tapping, or focusing a row also highlights it (`selected` state) so there
+ * is always a visible cue for which block is about to move.
  *
  * Rows render in FIXED DOM order (by `puzzle.blocks` index, never
  * reordered) and are positioned purely via a `transform: translateY(...)`
@@ -113,6 +132,10 @@ function measureLayout(
 export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<DragOrderPuzzle>) {
   const [order, setOrder] = useState<number[]>(() => identityOrder(puzzle.blocks.length))
   const [dragState, setDragState] = useState<DragState | null>(null)
+  // The block last clicked, tapped, or focused — a persistent highlight,
+  // since `:focus-visible` alone (browsers deliberately suppress it for
+  // mouse/touch clicks) leaves pointer users with no selection cue at all.
+  const [selected, setSelected] = useState<number | null>(null)
   // Tracks whether the player has pressed "Check order" — freezes `order`
   // against further drag/keyboard input immediately, without waiting for
   // the `committed` prop to flip (that happens one render later, once the
@@ -133,6 +156,7 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
     setOrder(identityOrder(puzzle.blocks.length))
     setDragState(null)
     setSubmitted(false)
+    setSelected(null)
   }
 
   const listRef = useRef<HTMLDivElement | null>(null)
@@ -140,20 +164,41 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
   const startClientYRef = useRef(0)
   const startCenterRef = useRef(0)
   const layoutRef = useRef<RowLayout | null>(null)
+  // The pointerId of the single gesture currently owning `dragState`, or
+  // null between drags — a second finger touching down mid-drag must not
+  // hijack or interleave with the first's move/up events (a bare
+  // `dragState === null` check alone can't tell the two pointers apart).
+  const activePointerIdRef = useRef<number | null>(null)
 
   // Measured once per puzzle (blocks are static per id — no reason to
   // remeasure on every render), after the puzzle's own rows have painted,
-  // so it's ready before a human could possibly drag or press a key.
+  // so it's ready before a human could possibly drag or press a key. Writing
+  // a ref during render (rather than here) trips react-hooks/refs, so the
+  // active-gesture ref is also reset in this effect, not the render-phase
+  // puzzle-id-change block above.
   useEffect(() => {
     layoutRef.current = measureLayout(rowRefs.current, listRef.current)
+    activePointerIdRef.current = null
   }, [puzzle.id])
 
   const locked = committed || submitted
 
-  const handlePointerDown = (blockIndex: number) => (event: ReactPointerEvent<HTMLSpanElement>) => {
+  const handlePointerDown = (blockIndex: number) => (event: ReactPointerEvent<HTMLDivElement>) => {
     if (locked) return
-    const layout = layoutRef.current
-    if (!layout) return
+    // Selecting happens before either guard below, so a touch tap on the
+    // row body still highlights the block even though it won't start a
+    // drag (see the component doc comment's two-layer hit-target model).
+    setSelected(blockIndex)
+    if (activePointerIdRef.current !== null) return
+    if (event.pointerType === 'touch' && !pointerDownIsOnHandle(event)) return
+
+    // Remeasured fresh at drag start (not just once on mount) so a stale
+    // font-load/resize measurement can never corrupt a drag that starts
+    // later — cheap, and transforms don't affect layout height.
+    const layout = measureLayout(rowRefs.current, listRef.current)
+    layoutRef.current = layout
+
+    activePointerIdRef.current = event.pointerId
     setPointerCaptureIfSupported(event.currentTarget, event.pointerId)
     const position = order.indexOf(blockIndex)
     startCenterRef.current = restCenterAt(order, layout, position)
@@ -161,8 +206,8 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
     setDragState({ blockIndex, offsetY: 0 })
   }
 
-  const handlePointerMove = (event: ReactPointerEvent<HTMLSpanElement>) => {
-    if (dragState === null) return
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (dragState === null || event.pointerId !== activePointerIdRef.current) return
     const layout = layoutRef.current
     if (!layout) return
 
@@ -195,14 +240,33 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
     setDragState({ blockIndex: dragState.blockIndex, offsetY: liveCenter - restCenter })
   }
 
-  const endDrag = (event: ReactPointerEvent<HTMLSpanElement>) => {
-    if (dragState === null) return
+  const endDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (dragState === null || event.pointerId !== activePointerIdRef.current) return
     releasePointerCaptureIfSupported(event.currentTarget, event.pointerId)
+    activePointerIdRef.current = null
     // order[] already holds the final arrangement from the live swaps above
     // — ending the drag just clears dragState, which drops the dragged row's
     // live offset back to 0 and (via the CSS transition on the now-plain
     // `.drag-order__row` class) animates it into its rest slot.
     setDragState(null)
+  }
+
+  /**
+   * A capture the row never releases itself (e.g. the browser reassigns it
+   * mid-gesture) would otherwise leave the row stuck "lifted" forever, since
+   * no pointerup would ever arrive to call `endDrag`. Only clears state —
+   * does NOT call `releasePointerCaptureIfSupported`, since releasing a
+   * capture that's already gone throws `NotFoundError` in real browsers.
+   */
+  const handleLostPointerCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerId !== activePointerIdRef.current) return
+    activePointerIdRef.current = null
+    setDragState(null)
+  }
+
+  const handleRowFocus = (blockIndex: number) => () => {
+    if (locked) return
+    setSelected(blockIndex)
   }
 
   /** Non-pointer fallback: moves `blockIndex`'s row one slot toward `direction`, swapping with whichever neighbor is there. Same swap logic the drag gesture uses, just a single discrete step per keypress instead of a continuous midpoint check. Needs no layout of its own — the render below reads `layoutRef.current` (already populated by the mount effect) to compute the resulting transform. */
@@ -271,6 +335,7 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
         {puzzle.blocks.map((text, blockIndex) => {
           const position = order.indexOf(blockIndex)
           const isDragging = dragState?.blockIndex === blockIndex
+          const isSelected = selected === blockIndex
           const translateY = (translateYs[blockIndex] ?? 0) + (isDragging ? dragState.offsetY : 0)
           return (
             <div
@@ -278,7 +343,11 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
               ref={(el) => {
                 rowRefs.current[blockIndex] = el
               }}
-              className={['drag-order__row', isDragging && 'drag-order__row--dragging']
+              className={[
+                'drag-order__row',
+                isSelected && 'drag-order__row--selected',
+                isDragging && 'drag-order__row--dragging',
+              ]
                 .filter(Boolean)
                 .join(' ')}
               style={{ transform: `translateY(${String(translateY)}px)` }}
@@ -286,15 +355,14 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
               tabIndex={0}
               aria-label={`${text}, position ${String(position + 1)} of ${String(puzzle.blocks.length)}. Use the up and down arrow keys to reorder.`}
               onKeyDown={handleRowKeyDown(blockIndex)}
+              onFocus={handleRowFocus(blockIndex)}
+              onPointerDown={handlePointerDown(blockIndex)}
+              onPointerMove={handlePointerMove}
+              onPointerUp={endDrag}
+              onPointerCancel={endDrag}
+              onLostPointerCapture={handleLostPointerCapture}
             >
-              <span
-                className="drag-order__handle"
-                aria-hidden="true"
-                onPointerDown={handlePointerDown(blockIndex)}
-                onPointerMove={handlePointerMove}
-                onPointerUp={endDrag}
-                onPointerCancel={endDrag}
-              >
+              <span className="drag-order__handle" aria-hidden="true">
                 {position + 1}
               </span>
               <span className="drag-order__row-text">{text}</span>

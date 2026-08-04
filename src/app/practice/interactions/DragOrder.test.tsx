@@ -83,9 +83,11 @@ function Harness({ onCommit }: { onCommit?: (p: CommitPayload) => void }) {
  * Drags Block C's row (blockIndex 2, starts at position 2) up past both
  * neighbors' midpoints in one continuous move and releases, landing order
  * at [2, 0, 1] — matching `puzzle.correct_order` exactly. Pointer events
- * fire on `.drag-order__handle` (the dedicated drag hit target), not the
- * row itself — DragOrder.tsx attaches the pointer handlers there, not to
- * the row div, so the row is no longer a valid dispatch target.
+ * fire on `.drag-order__handle`; DragOrder.tsx's pointer handlers live on
+ * the row div (whole-card drag on desktop), but pointerdown/move/up all
+ * bubble from the handle up to the row, so firing on the handle still
+ * reaches them and doubles as coverage that the handle remains a valid
+ * drag target.
  */
 function dragBlockCToFront(container: HTMLElement) {
   const handles = Array.from(container.querySelectorAll('.drag-order__handle'))
@@ -95,6 +97,15 @@ function dragBlockCToFront(container: HTMLElement) {
   // dragOrderReorder.test.ts for the single-swap boundary this builds on.
   fireEvent.pointerMove(blockCHandle, { pointerId: 1, clientY: -(2 * SLOT_PITCH + 10) })
   fireEvent.pointerUp(blockCHandle, { pointerId: 1 })
+}
+
+/** Same drag as `dragBlockCToFront`, but dispatched on the row body (not the handle) — the whole-card desktop drag surface. */
+function dragBlockCToFrontViaRow(container: HTMLElement) {
+  const rows = Array.from(container.querySelectorAll('.drag-order__row'))
+  const blockCRow = nth(rows, 2)
+  fireEvent.pointerDown(blockCRow, { pointerId: 1, clientY: 0 })
+  fireEvent.pointerMove(blockCRow, { pointerId: 1, clientY: -(2 * SLOT_PITCH + 10) })
+  fireEvent.pointerUp(blockCRow, { pointerId: 1 })
 }
 
 describe('DragOrder', () => {
@@ -231,5 +242,153 @@ describe('DragOrder', () => {
     expect(nth(lockedRows, 2).textContent).toContain('Block C')
 
     rectSpy.mockRestore()
+  })
+
+  it('highlights a row on click-select, and moves the highlight when another row is pressed', () => {
+    const { container } = render(<Harness />)
+    const rows = Array.from(container.querySelectorAll('.drag-order__row'))
+
+    fireEvent.pointerDown(nth(rows, 0), { pointerId: 1, clientY: 0 })
+    fireEvent.pointerUp(nth(rows, 0), { pointerId: 1 })
+    expect(nth(rows, 0).className).toContain('drag-order__row--selected')
+    expect(nth(rows, 0).className).not.toContain('drag-order__row--dragging')
+
+    fireEvent.pointerDown(nth(rows, 1), { pointerId: 2, clientY: 0 })
+    fireEvent.pointerUp(nth(rows, 1), { pointerId: 2 })
+    expect(nth(rows, 1).className).toContain('drag-order__row--selected')
+    expect(nth(rows, 0).className).not.toContain('drag-order__row--selected')
+  })
+
+  it('drags by the whole card body (not just the handle) with a mouse', async () => {
+    const rectSpy = mockRowGeometry()
+    const onCommit = vi.fn()
+    const user = userEvent.setup()
+    const { container } = render(<Harness onCommit={onCommit} />)
+
+    dragBlockCToFrontViaRow(container)
+
+    await user.click(screen.getByRole('button', { name: 'Check order' }))
+
+    expect(onCommit).toHaveBeenCalledWith({ correct: true, choiceIndex: null })
+
+    rectSpy.mockRestore()
+  })
+
+  it('does not start a drag from a touch on the row body — only the handle is a touch drag target', async () => {
+    const rectSpy = mockRowGeometry()
+    const user = userEvent.setup()
+    const { container } = render(<Harness />)
+    const rows = Array.from(container.querySelectorAll('.drag-order__row'))
+    const blockCText = nth(rows, 2).querySelector('.drag-order__row-text')
+    if (!blockCText) throw new Error('missing .drag-order__row-text')
+
+    fireEvent.pointerDown(blockCText, { pointerId: 1, clientY: 0, pointerType: 'touch' })
+    expect(nth(rows, 2).className).toContain('drag-order__row--selected')
+    expect(nth(rows, 2).className).not.toContain('drag-order__row--dragging')
+
+    fireEvent.pointerMove(blockCText, {
+      pointerId: 1,
+      clientY: -(2 * SLOT_PITCH + 10),
+      pointerType: 'touch',
+    })
+    expect(nth(rows, 2).className).not.toContain('drag-order__row--dragging')
+    fireEvent.pointerUp(blockCText, { pointerId: 1, pointerType: 'touch' })
+
+    await user.click(screen.getByRole('button', { name: 'Check order' }))
+    const lockedRows = Array.from(container.querySelectorAll('.drag-order__row--locked'))
+    // Untouched identity order — every slot still reads wrong against [2, 0, 1].
+    expect(nth(lockedRows, 0).className).toContain('drag-order__row--wrong')
+    expect(nth(lockedRows, 1).className).toContain('drag-order__row--wrong')
+    expect(nth(lockedRows, 2).className).toContain('drag-order__row--wrong')
+
+    rectSpy.mockRestore()
+  })
+
+  it('still drags from the handle with a touch pointer', async () => {
+    const rectSpy = mockRowGeometry()
+    const onCommit = vi.fn()
+    const user = userEvent.setup()
+    const { container } = render(<Harness onCommit={onCommit} />)
+    const handles = Array.from(container.querySelectorAll('.drag-order__handle'))
+    const blockCHandle = nth(handles, 2)
+
+    fireEvent.pointerDown(blockCHandle, { pointerId: 1, clientY: 0, pointerType: 'touch' })
+    fireEvent.pointerMove(blockCHandle, {
+      pointerId: 1,
+      clientY: -(2 * SLOT_PITCH + 10),
+      pointerType: 'touch',
+    })
+    fireEvent.pointerUp(blockCHandle, { pointerId: 1, pointerType: 'touch' })
+
+    await user.click(screen.getByRole('button', { name: 'Check order' }))
+
+    expect(onCommit).toHaveBeenCalledWith({ correct: true, choiceIndex: null })
+
+    rectSpy.mockRestore()
+  })
+
+  it('ignores a second simultaneous pointer while a drag is already in progress', async () => {
+    const rectSpy = mockRowGeometry()
+    const onCommit = vi.fn()
+    const user = userEvent.setup()
+    const { container } = render(<Harness onCommit={onCommit} />)
+    const rows = Array.from(container.querySelectorAll('.drag-order__row'))
+
+    // Pointer 1 starts dragging Block C.
+    fireEvent.pointerDown(nth(rows, 2), { pointerId: 1, clientY: 0 })
+
+    // Pointer 2 lands on Block A mid-gesture — must not hijack the drag.
+    fireEvent.pointerDown(nth(rows, 0), { pointerId: 2, clientY: 0 })
+    expect(nth(rows, 0).className).not.toContain('drag-order__row--dragging')
+    fireEvent.pointerMove(nth(rows, 0), { pointerId: 2, clientY: -(2 * SLOT_PITCH + 10) })
+    fireEvent.pointerUp(nth(rows, 0), { pointerId: 2 })
+
+    // Pointer 1 completes normally.
+    fireEvent.pointerMove(nth(rows, 2), { pointerId: 1, clientY: -(2 * SLOT_PITCH + 10) })
+    fireEvent.pointerUp(nth(rows, 2), { pointerId: 1 })
+
+    await user.click(screen.getByRole('button', { name: 'Check order' }))
+
+    expect(onCommit).toHaveBeenCalledWith({ correct: true, choiceIndex: null })
+
+    rectSpy.mockRestore()
+  })
+
+  it('recovers from a lost pointer capture instead of leaving the row stuck mid-drag', () => {
+    const rectSpy = mockRowGeometry()
+    const { container } = render(<Harness />)
+    const rows = Array.from(container.querySelectorAll('.drag-order__row'))
+    const blockCRow = nth(rows, 2)
+
+    fireEvent.pointerDown(blockCRow, { pointerId: 1, clientY: 0 })
+    fireEvent.pointerMove(blockCRow, { pointerId: 1, clientY: -(SLOT_PITCH + 10) })
+    expect(blockCRow.className).toContain('drag-order__row--dragging')
+
+    // A raw `dispatchEvent` bypasses RTL's `act()` wrapping, leaving the
+    // resulting `setDragState(null)` unflushed when the assertion below
+    // reads `className` — `fireEvent(el, event)` (the generic custom-event
+    // form) dispatches the same event but wrapped in `act()`.
+    fireEvent(blockCRow, new PointerEvent('lostpointercapture', { pointerId: 1, bubbles: true }))
+    expect(blockCRow.className).not.toContain('drag-order__row--dragging')
+
+    // A late pointerup for the same gesture must be a no-op, not a crash.
+    fireEvent.pointerUp(blockCRow, { pointerId: 1 })
+    expect(blockCRow.className).not.toContain('drag-order__row--dragging')
+
+    rectSpy.mockRestore()
+  })
+
+  it('selects a row on focus, and arrow-key reordering keeps the selection', () => {
+    const { container } = render(<Harness />)
+    const rows = Array.from(container.querySelectorAll('.drag-order__row'))
+    const blockARow = nth(rows, 0)
+
+    fireEvent.focus(blockARow)
+    expect(blockARow.className).toContain('drag-order__row--selected')
+
+    fireEvent.keyDown(blockARow, { key: 'ArrowDown' })
+
+    expect(blockARow.className).toContain('drag-order__row--selected')
+    expect(blockARow.getAttribute('aria-label')).toContain('position 2 of 3')
   })
 })
