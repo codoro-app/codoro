@@ -318,11 +318,13 @@
   background: var(--surface-1);
   color: var(--text-0);
   font-size: var(--font-size-md);
-  /* A row itself allows native vertical page scroll — only its
-   * `.drag-order__handle` child (below) opts out, so touching anywhere
-   * else on the row for scrolling still works normally. */
+  /* A mouse/pen can grab the row anywhere (JS pointer handlers live on the
+   * row itself); a touch pointer may only start a drag from the
+   * `.drag-order__handle` child (below), so the row itself keeps native
+   * vertical page scroll for touch everywhere else. */
   touch-action: pan-y;
   user-select: none;
+  cursor: grab;
   transition: transform 0.22s cubic-bezier(0.2, 0, 0, 1);
 }
 
@@ -331,11 +333,22 @@
   outline-offset: -2px;
 }
 
+/* Persistent click/tap/focus highlight — `:focus-visible` alone (above) is
+ * deliberately not painted by browsers for mouse/touch clicks, so without
+ * this rule a pointer user gets no selection cue at all. No `transition`
+ * of its own, so the base row's `transform` transition (above) still
+ * settles the row normally when this class toggles. */
+.drag-order__row--selected {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
 .drag-order__row--dragging {
   position: relative;
   z-index: 2;
   border-color: var(--accent);
   background: var(--surface-2);
+  cursor: grabbing;
   /* A picked-up row "lifts" off the list (scale + shadow) so the gesture
    * reads as grabbing something physical, not just a color change. This
    * rule's `transition` deliberately omits `transform` (unlike the base
@@ -373,13 +386,14 @@
   color: var(--accent-ink);
 }
 
-/* The actual drag hit target — a real (>=44px) handle, not the whole row.
- * `touch-action: none` here is STATIC (never toggled at runtime), which is
- * the fix for the "scoped, not global" requirement: a browser decides
- * whether a touch starts a native scroll or a custom gesture at hit-test
- * time, BEFORE any JS event handler runs — a value only applied inside a
- * pointerdown handler (this project's first attempt) is already too late
- * on a real touchscreen, since the browser has already claimed the
+/* The touch drag hit target — a real (>=44px) handle. A mouse/pen can grab
+ * the row anywhere (DragOrder.tsx's pointer handlers live on the row), but
+ * touch is JS-gated to just this handle (`pointerDownIsOnHandle`), so
+ * `touch-action: none` here is STATIC (never toggled at runtime): a browser
+ * decides whether a touch starts a native scroll or a custom gesture at
+ * hit-test time, BEFORE any JS event handler runs — a value only applied
+ * inside a pointerdown handler (this project's first attempt) is already
+ * too late on a real touchscreen, since the browser has already claimed the
  * gesture as page-scroll by then. Scoping the static `none` to just this
  * handle (not the whole row, not the list) is what keeps it "scoped, not
  * global": everywhere else on the row, and every row not being touched by
