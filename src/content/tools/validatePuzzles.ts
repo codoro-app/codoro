@@ -141,9 +141,9 @@ const SWIPE_SAFE_MIN_SHARE = 1 / 3
  * already-authored library.
  */
 const SAFE_VERDICT_CORRECT_LABEL_RE =
-  /\b(safe|no ?bug|correct|works?|fine|valid|properly|ok|right|normal)\b/i
+  /\b(no ?bug|safe(?:ly)?|correct(?:ly)?|works?|fine|valid(?:ly)?|proper(?:ly)?|ok|right|normal)\b/i
 const DEFECT_LABEL_RE =
-  /\b(bug|buggy|broken|race|leak|crash|throw|blow|corrupt|crashes|fails?|wrong|undefined behaviour|undefined behavior)\b/i
+  /\b((?<!no )bug|buggy|broken|race|leak|crash|throw|blow|corrupt|crashes|fails?|wrong|undefined behaviour|undefined behavior)\b/i
 
 function correctDirectionLabel(puzzle: SwipeBinaryPuzzle): string {
   return puzzle.correct_direction === 'right' ? puzzle.right_label : puzzle.left_label

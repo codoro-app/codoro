@@ -193,6 +193,26 @@ describe('validatePuzzleFiles', () => {
       expect(gate).toHaveLength(0)
     })
 
+    it('accepts a "safe" puzzle expressed as "No bug" on the correct side (negation guard)', () => {
+      // A negated-defect label is the most natural way to claim "code is
+      // fine", but a naive defect-token dictionary would flag it (it
+      // contains "bug"). The SAFE regex's `no ?bug` is meant to bless it, so
+      // DEFECT must not fire on a bare "bug" preceded by "no ".
+      const files: RawPuzzleFile[] = [
+        {
+          filePath: 'a.json',
+          raw: rawSwipeBinary('sb-100', 'left', 'safe', { left_label: 'No bug — runs correctly' }),
+        },
+        { filePath: 'b.json', raw: rawSwipeBinary('sb-101', 'right', 'bug') },
+        { filePath: 'c.json', raw: rawSwipeBinary('sb-102', 'left', 'bug') },
+      ]
+
+      const flagged = validatePuzzleFiles(files).errors.filter((e) =>
+        e.includes('does not claim the code is fine'),
+      )
+      expect(flagged).toHaveLength(0)
+    })
+
     it('flags a "safe" puzzle whose correct-side label names a bug', () => {
       // 2 safe (one bad label, one good) + 4 bug = 6 files → safe share is
       // exactly 1/3 (clears the pool gate), direction is 3/3 (clears the skew
