@@ -1,0 +1,165 @@
+{
+  "id": "cf-017",
+  "pattern": "control-flow",
+  "difficulty_rating": 1075,
+  "explanation": "user.get(\"completed_onboarding\") returns False for ada, and `False is None` is False, so the guard only catches users with a missing key. ada explicitly skipped onboarding but is never flagged; only cy (no key) is. It reports ['cy'] instead of ['ada', 'cy'].",
+  "prompt": "This flags users who haven't completed onboarding. Step through both branches and predict who gets flagged.",
+  "language": "python",
+  "snippet": "def flag_incomplete(users):\n    flagged = []\n    for user in users:\n        if user.get(\"completed_onboarding\") is None:\n            flagged.append(user[\"name\"])\n    return flagged\n\nprint(\"flagged:\", flag_incomplete([\n    {\"name\": \"ada\", \"completed_onboarding\": False},\n    {\"name\": \"lin\", \"completed_onboarding\": True},\n    {\"name\": \"cy\"},\n]))",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "flag_incomplete": "<function>"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "flag_incomplete": "<function>"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "flag_incomplete": "<function>"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "flag_incomplete": "<function>"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "flag_incomplete": "<function>"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "users": "[{'name': 'ada', 'completed_onboarding': False}, {'name': 'lin', 'completed_onboarding': True}, {'name': 'cy'}]",
+        "flagged": "[]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "users": "[{'name': 'ada', 'completed_onboarding': False}, {'name': 'lin', 'completed_onboarding': True}, {'name': 'cy'}]",
+        "flagged": "[]",
+        "user": "{'name': 'ada', 'completed_onboarding': False}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "users": "[{'name': 'ada', 'completed_onboarding': False}, {'name': 'lin', 'completed_onboarding': True}, {'name': 'cy'}]",
+        "flagged": "[]",
+        "user": "{'name': 'ada', 'completed_onboarding': False}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "users": "[{'name': 'ada', 'completed_onboarding': False}, {'name': 'lin', 'completed_onboarding': True}, {'name': 'cy'}]",
+        "flagged": "[]",
+        "user": "{'name': 'lin', 'completed_onboarding': True}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "users": "[{'name': 'ada', 'completed_onboarding': False}, {'name': 'lin', 'completed_onboarding': True}, {'name': 'cy'}]",
+        "flagged": "[]",
+        "user": "{'name': 'lin', 'completed_onboarding': True}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "users": "[{'name': 'ada', 'completed_onboarding': False}, {'name': 'lin', 'completed_onboarding': True}, {'name': 'cy'}]",
+        "flagged": "[]",
+        "user": "{'name': 'cy'}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "users": "[{'name': 'ada', 'completed_onboarding': False}, {'name': 'lin', 'completed_onboarding': True}, {'name': 'cy'}]",
+        "flagged": "[]",
+        "user": "{'name': 'cy'}"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "users": "[{'name': 'ada', 'completed_onboarding': False}, {'name': 'lin', 'completed_onboarding': True}, {'name': 'cy'}]",
+        "flagged": "['cy']",
+        "user": "{'name': 'cy'}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "users": "[{'name': 'ada', 'completed_onboarding': False}, {'name': 'lin', 'completed_onboarding': True}, {'name': 'cy'}]",
+        "flagged": "['cy']",
+        "user": "{'name': 'cy'}"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "users": "[{'name': 'ada', 'completed_onboarding': False}, {'name': 'lin', 'completed_onboarding': True}, {'name': 'cy'}]",
+        "flagged": "['cy']",
+        "user": "{'name': 'cy'}"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "flag_incomplete": "<function>"
+      },
+      "output": "flagged: ['cy']"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 6,
+      "question": "var-value",
+      "target": "user",
+      "choices": [
+        "{'name': 'ada', 'completed_onboarding': False}",
+        "{'name': 'cy'}",
+        "{'name': 'lin', 'completed_onboarding': True}"
+      ],
+      "correct": 0
+    },
+    {
+      "afterStep": 7,
+      "question": "next-line",
+      "choices": ["2", "9", "3", "5"],
+      "correct": 0
+    },
+    {
+      "afterStep": 12,
+      "question": "var-value",
+      "target": "flagged",
+      "choices": ["[]", "['cy']"],
+      "correct": 1
+    },
+    {
+      "afterStep": 15,
+      "question": "output",
+      "choices": [
+        "{'name': 'lin', 'completed_onboarding': True}",
+        "<function>",
+        "flagged: ['cy']",
+        "{'name': 'cy'}"
+      ],
+      "correct": 2
+    }
+  ]
+}

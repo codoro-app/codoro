@@ -1,0 +1,117 @@
+{
+  "id": "dsm-016",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 1125,
+  "explanation": "processed.push(uploadQueue.pop()) pulls from the END of the array, so the loop is LIFO even though the job is presented as a FIFO queue. The output prints doc,photo,thumb — reversed — instead of the intended thumb,photo,doc.",
+  "prompt": "This drains the upload queue of its pictures, one at a time, into the processed list. Step through and predict what the processed list actually shows.",
+  "language": "javascript",
+  "snippet": "const uploadQueue = [\"thumb\", \"photo\", \"doc\"];\nconst processed = [];\nwhile (uploadQueue.length) {\n  processed.push(uploadQueue.pop());\n}\nconsole.log(\"processed:\", processed.join(\",\"));\nconsole.log(\"queued:\", uploadQueue.length);",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "uploadQueue": "[\"thumb\",\"photo\",\"doc\"]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "uploadQueue": "[\"thumb\",\"photo\",\"doc\"]",
+        "processed": "[]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "uploadQueue": "[\"thumb\",\"photo\",\"doc\"]",
+        "processed": "[]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "uploadQueue": "[\"thumb\",\"photo\"]",
+        "processed": "[\"doc\"]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "uploadQueue": "[\"thumb\",\"photo\"]",
+        "processed": "[\"doc\"]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "uploadQueue": "[\"thumb\"]",
+        "processed": "[\"doc\",\"photo\"]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "uploadQueue": "[\"thumb\"]",
+        "processed": "[\"doc\",\"photo\"]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "uploadQueue": "[]",
+        "processed": "[\"doc\",\"photo\",\"thumb\"]"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "uploadQueue": "[]",
+        "processed": "[\"doc\",\"photo\",\"thumb\"]"
+      },
+      "output": "\"processed:\" \"doc,photo,thumb\""
+    },
+    {
+      "line": 6,
+      "vars": {
+        "uploadQueue": "[]",
+        "processed": "[\"doc\",\"photo\",\"thumb\"]"
+      },
+      "output": "\"queued:\" 0"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "processed",
+      "choices": ["[\"doc\",\"photo\",\"thumb\"]", "[]", "[\"doc\",\"photo\"]", "[\"doc\"]"],
+      "correct": 3
+    },
+    {
+      "afterStep": 5,
+      "question": "var-value",
+      "target": "processed",
+      "choices": ["[\"doc\",\"photo\",\"thumb\"]", "[\"doc\",\"photo\"]", "[\"doc\"]", "[]"],
+      "correct": 1
+    },
+    {
+      "afterStep": 7,
+      "question": "var-value",
+      "target": "uploadQueue",
+      "choices": ["[\"thumb\"]", "[]", "[\"thumb\",\"photo\",\"doc\"]", "[\"thumb\",\"photo\"]"],
+      "correct": 1
+    },
+    {
+      "afterStep": 8,
+      "question": "output",
+      "choices": [
+        "[\"doc\",\"photo\"]",
+        "[\"thumb\",\"photo\",\"doc\"]",
+        "\"queued:\" 0",
+        "\"processed:\" \"doc,photo,thumb\""
+      ],
+      "correct": 3
+    }
+  ]
+}

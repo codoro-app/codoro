@@ -1,0 +1,110 @@
+{
+  "id": "mut-018",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1775,
+  "explanation": "The returned objects all hold a reference to the SAME totals array inside the closure, so the 'snapshot' t1 is not frozen at capture time. When add(7) later appends to the same array, t1 grows to [5,7] too, so it prints 5,7 instead of the 5 it had when it was returned.",
+  "prompt": "This tallies amounts and returns the running totals, issuing each snapshot at the moment it's recorded. Step through and predict what t1 (the first snapshot) prints as.",
+  "language": "javascript",
+  "snippet": "function makeTally() {\n  const totals = [];\n  return {\n    add(amount) { totals.push(amount); return totals; },\n  };\n}\nconst add = makeTally().add;\nconst t1 = add(5);\nconst t2 = add(7);\nconsole.log(\"t1:\", t1.join(\",\"));\nconsole.log(\"t2:\", t2.join(\",\"));",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 1,
+      "vars": {
+        "totals": "[]",
+        "makeTally": "[Function]"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "makeTally": "[Function]",
+        "add": "[Function]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "totals": "[5]",
+        "makeTally": "[Function]",
+        "add": "[Function]",
+        "amount": "5"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "makeTally": "[Function]",
+        "add": "[Function]",
+        "t1": "[5]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "totals": "[5,7]",
+        "makeTally": "[Function]",
+        "add": "[Function]",
+        "amount": "7",
+        "t1": "[5,7]"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "makeTally": "[Function]",
+        "add": "[Function]",
+        "t1": "[5,7]",
+        "t2": "[5,7]"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "makeTally": "[Function]",
+        "add": "[Function]",
+        "t1": "[5,7]",
+        "t2": "[5,7]"
+      },
+      "output": "\"t1:\" \"5,7\""
+    },
+    {
+      "line": 10,
+      "vars": {
+        "makeTally": "[Function]",
+        "add": "[Function]",
+        "t1": "[5,7]",
+        "t2": "[5,7]"
+      },
+      "output": "\"t2:\" \"5,7\""
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "t1",
+      "choices": ["[5,7]", "[5]"],
+      "correct": 1
+    },
+    {
+      "afterStep": 4,
+      "question": "var-value",
+      "target": "t1",
+      "choices": ["[5]", "[5,7]"],
+      "correct": 1
+    },
+    {
+      "afterStep": 5,
+      "question": "next-line",
+      "choices": ["9", "7", "8", "1"],
+      "correct": 0
+    },
+    {
+      "afterStep": 6,
+      "question": "output",
+      "choices": ["\"t1:\" \"5,7\"", "7", "[]", "\"t2:\" \"5,7\""],
+      "correct": 0
+    }
+  ]
+}

@@ -1,0 +1,127 @@
+{
+  "id": "oob-016",
+  "pattern": "off-by-one",
+  "difficulty_rating": 1750,
+  "explanation": "A full batch needs batchSize items starting at each index, so valid start indexes run from 0 up to items.length - batchSize inclusive. The loop's strict `< items.length - batchSize` skips that last valid start, so it counts 2 full batches instead of 3.",
+  "prompt": "This counts how many full batches of a given size can be shipped from a load list. Step through the loop and predict what it prints.",
+  "language": "javascript",
+  "snippet": "function fullBatches(items, batchSize) {\n  let batches = 0;\n  for (let start = 0; start < items.length - batchSize; start++) {\n    batches++;\n  }\n  return batches;\n}\nconst loads = [10, 20, 30, 40, 50];\nconst n = fullBatches(loads, 3);\nconsole.log(\"full batches:\", n);\nconsole.log(\"leftover:\", loads.length % 3);",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 7,
+      "vars": {
+        "fullBatches": "[Function]",
+        "loads": "[10,20,30,40,50]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "fullBatches": "[Function]",
+        "loads": "[10,20,30,40,50]",
+        "items": "[10,20,30,40,50]",
+        "batchSize": "3",
+        "batches": "0"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fullBatches": "[Function]",
+        "loads": "[10,20,30,40,50]",
+        "items": "[10,20,30,40,50]",
+        "batchSize": "3",
+        "batches": "0",
+        "start": "0"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "fullBatches": "[Function]",
+        "loads": "[10,20,30,40,50]",
+        "items": "[10,20,30,40,50]",
+        "batchSize": "3",
+        "batches": "1",
+        "start": "0"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fullBatches": "[Function]",
+        "loads": "[10,20,30,40,50]",
+        "items": "[10,20,30,40,50]",
+        "batchSize": "3",
+        "batches": "1",
+        "start": "1"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "fullBatches": "[Function]",
+        "loads": "[10,20,30,40,50]",
+        "items": "[10,20,30,40,50]",
+        "batchSize": "3",
+        "batches": "2",
+        "start": "1"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "fullBatches": "[Function]",
+        "loads": "[10,20,30,40,50]",
+        "n": "2"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "fullBatches": "[Function]",
+        "loads": "[10,20,30,40,50]",
+        "n": "2"
+      },
+      "output": "\"full batches:\" 2"
+    },
+    {
+      "line": 10,
+      "vars": {
+        "fullBatches": "[Function]",
+        "loads": "[10,20,30,40,50]",
+        "n": "2"
+      },
+      "output": "\"leftover:\" 2"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "batches",
+      "choices": ["0", "1", "2"],
+      "correct": 1
+    },
+    {
+      "afterStep": 5,
+      "question": "var-value",
+      "target": "batches",
+      "choices": ["1", "0", "2"],
+      "correct": 2
+    },
+    {
+      "afterStep": 6,
+      "question": "next-line",
+      "choices": ["1", "9", "7", "3"],
+      "correct": 1
+    },
+    {
+      "afterStep": 7,
+      "question": "output",
+      "choices": ["3", "0", "\"full batches:\" 2", "\"leftover:\" 2"],
+      "correct": 2
+    }
+  ]
+}

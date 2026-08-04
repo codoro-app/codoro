@@ -1,0 +1,99 @@
+{
+  "id": "cf-016",
+  "pattern": "control-flow",
+  "difficulty_rating": 875,
+  "explanation": "break exits the loop entirely on the first negative reading, so every reading after that is dropped too. The intent was to skip just the negative and keep going, so it prints 3,5 instead of 3,5,7.",
+  "prompt": "This collects the leading positive readings, stopping at the first negative one. Step through and predict what it keeps and prints.",
+  "language": "javascript",
+  "snippet": "function leadingPositive(readings) {\n  const kept = [];\n  for (const r of readings) {\n    if (r < 0) break;\n    kept.push(r);\n  }\n  console.log(\"kept:\", kept.join(\",\"));\n  console.log(\"count:\", kept.length);\n}\nleadingPositive([3, 5, -1, 7]);",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 1,
+      "vars": {
+        "readings": "[3,5,-1,7]",
+        "kept": "[]",
+        "leadingPositive": "[Function]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "readings": "[3,5,-1,7]",
+        "kept": "[3]",
+        "leadingPositive": "[Function]",
+        "r": "3"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "readings": "[3,5,-1,7]",
+        "kept": "[3,5]",
+        "leadingPositive": "[Function]",
+        "r": "5"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "readings": "[3,5,-1,7]",
+        "kept": "[3,5]",
+        "leadingPositive": "[Function]",
+        "r": "-1"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "readings": "[3,5,-1,7]",
+        "kept": "[3,5]",
+        "leadingPositive": "[Function]"
+      },
+      "output": "\"kept:\" \"3,5\""
+    },
+    {
+      "line": 7,
+      "vars": {
+        "readings": "[3,5,-1,7]",
+        "kept": "[3,5]",
+        "leadingPositive": "[Function]"
+      },
+      "output": "\"count:\" 2"
+    },
+    {
+      "line": 9,
+      "vars": {
+        "leadingPositive": "[Function]"
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 2,
+      "question": "var-value",
+      "target": "kept",
+      "choices": ["[]", "[3,5]", "[3]"],
+      "correct": 1
+    },
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "r",
+      "choices": ["-1", "5", "3"],
+      "correct": 0
+    },
+    {
+      "afterStep": 4,
+      "question": "output",
+      "choices": ["-1", "\"count:\" 2", "5", "\"kept:\" \"3,5\""],
+      "correct": 3
+    },
+    {
+      "afterStep": 5,
+      "question": "output",
+      "choices": ["\"kept:\" \"3,5\"", "5", "[3,5,-1,7]", "\"count:\" 2"],
+      "correct": 3
+    }
+  ]
+}

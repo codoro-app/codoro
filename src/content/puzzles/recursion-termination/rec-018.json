@@ -1,0 +1,113 @@
+{
+  "id": "rec-018",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 1275,
+  "explanation": "Every node starts its own call with total = 1, counting itself as if it were a link region even when it's a leaf. The recursion terminates, but the total counts nodes rather than edges: this 3-node network prints 3 instead of the intended 2 links.",
+  "prompt": "This counts the links joining services in a dependency graph. Step through and predict the count it prints.",
+  "language": "javascript",
+  "snippet": "function linkCount(node) {\n  let total = 1;\n  if (node.connected) {\n    for (const child of node.connected) total += linkCount(child);\n  }\n  return total;\n}\nconst net = {\n  name: \"cloud\",\n  connected: [{ name: \"api\", connected: [{ name: \"db\" }] }],\n};\nconsole.log(linkCount(net));",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 7,
+      "vars": {
+        "linkCount": "[Function]",
+        "net": "{\"name\":\"cloud\",\"connected\":[{\"name\":\"api\",\"connected\":[{\"name\":\"db\"}]}]}"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "linkCount": "[Function]",
+        "net": "{\"name\":\"cloud\",\"connected\":[{\"name\":\"api\",\"connected\":[{\"name\":\"db\"}]}]}",
+        "node": "{\"name\":\"cloud\",\"connected\":[{\"name\":\"api\",\"connected\":[{\"name\":\"db\"}]}]}",
+        "total": "1"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "linkCount": "[Function]",
+        "net": "{\"name\":\"cloud\",\"connected\":[{\"name\":\"api\",\"connected\":[{\"name\":\"db\"}]}]}",
+        "node": "{\"name\":\"cloud\",\"connected\":[{\"name\":\"api\",\"connected\":[{\"name\":\"db\"}]}]}",
+        "total": "1"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "linkCount": "[Function]",
+        "net": "{\"name\":\"cloud\",\"connected\":[{\"name\":\"api\",\"connected\":[{\"name\":\"db\"}]}]}",
+        "node": "{\"name\":\"api\",\"connected\":[{\"name\":\"db\"}]}",
+        "total": "1"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "linkCount": "[Function]",
+        "net": "{\"name\":\"cloud\",\"connected\":[{\"name\":\"api\",\"connected\":[{\"name\":\"db\"}]}]}",
+        "node": "{\"name\":\"api\",\"connected\":[{\"name\":\"db\"}]}",
+        "total": "1"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "linkCount": "[Function]",
+        "net": "{\"name\":\"cloud\",\"connected\":[{\"name\":\"api\",\"connected\":[{\"name\":\"db\"}]}]}",
+        "node": "{\"name\":\"db\"}",
+        "total": "1"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "linkCount": "[Function]",
+        "net": "{\"name\":\"cloud\",\"connected\":[{\"name\":\"api\",\"connected\":[{\"name\":\"db\"}]}]}"
+      },
+      "output": "3"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 1,
+      "question": "var-value",
+      "target": "node",
+      "choices": [
+        "{\"name\":\"db\"}",
+        "{\"name\":\"api\",\"connected\":[{\"name\":\"db\"}]}",
+        "{\"name\":\"cloud\",\"connected\":[{\"name\":\"api\",\"connected\":[{\"name\":\"db\"}]}]}"
+      ],
+      "correct": 2
+    },
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "node",
+      "choices": [
+        "{\"name\":\"db\"}",
+        "{\"name\":\"api\",\"connected\":[{\"name\":\"db\"}]}",
+        "{\"name\":\"cloud\",\"connected\":[{\"name\":\"api\",\"connected\":[{\"name\":\"db\"}]}]}"
+      ],
+      "correct": 1
+    },
+    {
+      "afterStep": 5,
+      "question": "var-value",
+      "target": "node",
+      "choices": [
+        "{\"name\":\"db\"}",
+        "{\"name\":\"api\",\"connected\":[{\"name\":\"db\"}]}",
+        "{\"name\":\"cloud\",\"connected\":[{\"name\":\"api\",\"connected\":[{\"name\":\"db\"}]}]}"
+      ],
+      "correct": 0
+    },
+    {
+      "afterStep": 6,
+      "question": "output",
+      "choices": ["3", "1", "{\"name\":\"db\"}", "[Function]"],
+      "correct": 0
+    }
+  ]
+}

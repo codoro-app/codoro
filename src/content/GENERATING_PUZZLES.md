@@ -133,3 +133,61 @@ re-estimate their difficulty against `CALIBRATION.md`'s rubric yourself,
 confirm ≥12 land within ±200 of the assigned rating. This script gets you
 content fast. It does not get you content you never have to look at — treat
 every batch as a draft until you've eyeballed a sample of it.
+
+## The offline authoring path (no API)
+
+`pnpm generate:puzzles` spends an Anthropic API key. When you need a batch
+written without any API call — a Claude session authoring content directly —
+use the sibling harness `src/content/tools/authorScrubberPuzzles.ts`
+(`pnpm author:scrubber-puzzles`). It replaces only the _model calls_ of the
+pipeline above and reuses all of its local guarantees, so a written puzzle is
+structurally incapable of failing the schema: its steps came from a real
+execution, its choices were synthesized from that trace, and the assembled
+file passed the exact `PuzzleSchema` that `pnpm validate:content` runs.
+
+It's two-phase, over an intents JSON file:
+
+```sh
+pnpm author:scrubber-puzzles --intents=<path> --preview   # Phase A: print each snippet's real trace
+pnpm author:scrubber-puzzles --intents=<path>              # Phase B: synthesize choices, validate, write
+```
+
+- **Phase A** (`--preview`) executes every snippet via the real trace
+  generators and prints the step-by-step trace (`step N : line L | vars... |
+printed: ...`) so checkpoint placements are chosen against _actual_ steps,
+  not guessed. Never writes.
+- **Phase B** takes the same intents file (with `checkpoints` now filled in),
+  synthesizes answer choices from real trace state (`synthesizeChoices`),
+  assembles the full puzzle, runs `PuzzleSchema.safeParse`, and writes only on
+  pass. A schema failure or an authoring-rule failure **skips** that intent
+  (logged as `SKIP`/`WROTE`) rather than patching it — same drop-don't-patch
+  convention as the main pipeline.
+
+Authoring rules enforced before write (this batch's bar): **3–4 checkpoints**
+per puzzle and **≥2 distinct question types** across `next-line` /
+`var-value` / `output`. A puzzle that violates either is skipped, never
+written.
+
+Each intent is:
+
+```json
+{
+  "pattern": "control-flow",
+  "language": "javascript",
+  "difficulty_rating": 1475,
+  "prompt": "Step through ... and predict what it prints.",
+  "explanation": "The bug is ...",
+  "snippet": "line 0\nline 1...",
+  "checkpoints": [
+    { "afterStep": 2, "question": "var-value", "target": "tier" },
+    { "afterStep": 3, "question": "next-line" },
+    { "afterStep": 4, "question": "output" }
+  ]
+}
+```
+
+Ids come from the same per-pattern on-disk counters as the main pipeline, so
+writes never collide. Note the harness is **append-only**: rerunning Phase B
+rewrites the same intents as fresh files with new ids rather than
+overwriting, so don't rerun a finished batch expecting it to update in place —
+treat Phase B as one-shot per authored set.

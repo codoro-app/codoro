@@ -1,0 +1,108 @@
+{
+  "id": "cf-020",
+  "pattern": "control-flow",
+  "difficulty_rating": 1675,
+  "explanation": "return failed sits inside the loop right after the first failing score is appended, so the function stops and returns on the very first failure it sees. It reports [45] instead of gathering [45, 30].",
+  "prompt": "This collects the subjects that were failed (score below 60). Step through and predict how many failures it reports.",
+  "language": "python",
+  "snippet": "def failed_subjects(scores):\n    failed = []\n    for score in scores:\n        if score < 60:\n            failed.append(score)\n            return failed\n    return failed\n\nprint(\"failed:\", failed_subjects([85, 45, 90, 30]))",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "failed_subjects": "<function>"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "scores": "[85, 45, 90, 30]",
+        "failed": "[]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "scores": "[85, 45, 90, 30]",
+        "failed": "[]",
+        "score": "85"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "scores": "[85, 45, 90, 30]",
+        "failed": "[]",
+        "score": "85"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "scores": "[85, 45, 90, 30]",
+        "failed": "[]",
+        "score": "45"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "scores": "[85, 45, 90, 30]",
+        "failed": "[]",
+        "score": "45"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "scores": "[85, 45, 90, 30]",
+        "failed": "[45]",
+        "score": "45"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "scores": "[85, 45, 90, 30]",
+        "failed": "[45]",
+        "score": "45"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "failed_subjects": "<function>"
+      },
+      "output": "failed: [45]"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 4,
+      "question": "var-value",
+      "target": "score",
+      "choices": ["85", "45"],
+      "correct": 1
+    },
+    {
+      "afterStep": 6,
+      "question": "var-value",
+      "target": "failed",
+      "choices": ["[45]", "[]"],
+      "correct": 0
+    },
+    {
+      "afterStep": 7,
+      "question": "next-line",
+      "choices": ["8", "2", "0", "3"],
+      "correct": 0
+    },
+    {
+      "afterStep": 8,
+      "question": "output",
+      "choices": ["45", "85", "<function>", "failed: [45]"],
+      "correct": 3
+    }
+  ]
+}

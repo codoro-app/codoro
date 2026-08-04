@@ -1,0 +1,138 @@
+{
+  "id": "mut-015",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1050,
+  "explanation": "copy = configs[:] is a shallow copy: the outer list is new, but the dict objects inside are shared with the caller. Mutating copy's dicts therefore rewrites the caller's settings too, so settings[0][\"verbose\"] prints True even though the intent was to only change the returned copy.",
+  "prompt": "This tweaks a copy of the config list, leaving the original settings untouched. Step through and predict what the original's first entry reports.",
+  "language": "python",
+  "snippet": "def tweak_all(configs):\n    copy = configs[:]\n    for cfg in copy:\n        cfg[\"verbose\"] = True\n    return copy\n\nsettings = [{\"name\": \"a\", \"verbose\": False}, {\"name\": \"b\", \"verbose\": False}]\nresult = tweak_all(settings)\nprint(\"a verbose:\", settings[0][\"verbose\"])",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "tweak_all": "<function>"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "tweak_all": "<function>",
+        "settings": "[{'name': 'a', 'verbose': False}, {'name': 'b', 'verbose': False}]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "configs": "[{'name': 'a', 'verbose': False}, {'name': 'b', 'verbose': False}]",
+        "copy": "[{'name': 'a', 'verbose': False}, {'name': 'b', 'verbose': False}]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "configs": "[{'name': 'a', 'verbose': False}, {'name': 'b', 'verbose': False}]",
+        "copy": "[{'name': 'a', 'verbose': False}, {'name': 'b', 'verbose': False}]",
+        "cfg": "{'name': 'a', 'verbose': False}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "configs": "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': False}]",
+        "copy": "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': False}]",
+        "cfg": "{'name': 'a', 'verbose': True}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "configs": "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': False}]",
+        "copy": "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': False}]",
+        "cfg": "{'name': 'b', 'verbose': False}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "configs": "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': True}]",
+        "copy": "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': True}]",
+        "cfg": "{'name': 'b', 'verbose': True}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "configs": "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': True}]",
+        "copy": "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': True}]",
+        "cfg": "{'name': 'b', 'verbose': True}"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "configs": "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': True}]",
+        "copy": "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': True}]",
+        "cfg": "{'name': 'b', 'verbose': True}"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "tweak_all": "<function>",
+        "settings": "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': True}]",
+        "result": "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': True}]"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "tweak_all": "<function>",
+        "settings": "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': True}]",
+        "result": "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': True}]"
+      },
+      "output": "a verbose: True"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 2,
+      "question": "var-value",
+      "target": "copy",
+      "choices": [
+        "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': True}]",
+        "[{'name': 'a', 'verbose': False}, {'name': 'b', 'verbose': False}]",
+        "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': False}]"
+      ],
+      "correct": 1
+    },
+    {
+      "afterStep": 4,
+      "question": "var-value",
+      "target": "configs",
+      "choices": [
+        "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': True}]",
+        "[{'name': 'a', 'verbose': False}, {'name': 'b', 'verbose': False}]",
+        "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': False}]"
+      ],
+      "correct": 2
+    },
+    {
+      "afterStep": 8,
+      "question": "next-line",
+      "choices": ["7", "4", "0", "2"],
+      "correct": 0
+    },
+    {
+      "afterStep": 10,
+      "question": "output",
+      "choices": [
+        "<function>",
+        "{'name': 'a', 'verbose': False}",
+        "[{'name': 'a', 'verbose': True}, {'name': 'b', 'verbose': True}]",
+        "a verbose: True"
+      ],
+      "correct": 3
+    }
+  ]
+}

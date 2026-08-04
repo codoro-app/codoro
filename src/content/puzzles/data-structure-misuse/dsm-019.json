@@ -1,0 +1,118 @@
+{
+  "id": "dsm-019",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 1725,
+  "explanation": "dict.fromkeys(keys, []) attaches the SAME empty-list object as the value for every key. Appending to boxes['clients'] mutates that shared list, so every bucket — including 'staff' — ends up showing ['ada', 'lin', 'tal'] instead of its own empty list.",
+  "prompt": "This builds a list of stakeholders under each bucket name. Step through and predict what the 'staff' bucket holds when it prints.",
+  "language": "python",
+  "snippet": "boxes = dict.fromkeys([\"clients\", \"vendors\", \"staff\"], [])\nfor name in [\"ada\", \"lin\", \"tal\"]:\n    boxes[\"clients\"].append(name)\nprint(\"staff box shows:\", boxes[\"staff\"])",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "boxes": "{'clients': [], 'vendors': [], 'staff': []}"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "boxes": "{'clients': [], 'vendors': [], 'staff': []}",
+        "name": "'ada'"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "boxes": "{'clients': ['ada'], 'vendors': ['ada'], 'staff': ['ada']}",
+        "name": "'ada'"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "boxes": "{'clients': ['ada'], 'vendors': ['ada'], 'staff': ['ada']}",
+        "name": "'lin'"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "boxes": "{'clients': ['ada', 'lin'], 'vendors': ['ada', 'lin'], 'staff': ['ada', 'lin']}",
+        "name": "'lin'"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "boxes": "{'clients': ['ada', 'lin'], 'vendors': ['ada', 'lin'], 'staff': ['ada', 'lin']}",
+        "name": "'tal'"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "boxes": "{'clients': ['ada', 'lin', 'tal'], 'vendors': ['ada', 'lin', 'tal'], 'staff': ['ada', 'lin', 'tal']}",
+        "name": "'tal'"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "boxes": "{'clients': ['ada', 'lin', 'tal'], 'vendors': ['ada', 'lin', 'tal'], 'staff': ['ada', 'lin', 'tal']}",
+        "name": "'tal'"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "boxes": "{'clients': ['ada', 'lin', 'tal'], 'vendors': ['ada', 'lin', 'tal'], 'staff': ['ada', 'lin', 'tal']}",
+        "name": "'tal'"
+      },
+      "output": "staff box shows: ['ada', 'lin', 'tal']"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 2,
+      "question": "var-value",
+      "target": "boxes",
+      "choices": [
+        "{'clients': [], 'vendors': [], 'staff': []}",
+        "{'clients': ['ada', 'lin', 'tal'], 'vendors': ['ada', 'lin', 'tal'], 'staff': ['ada', 'lin', 'tal']}",
+        "{'clients': ['ada'], 'vendors': ['ada'], 'staff': ['ada']}",
+        "{'clients': ['ada', 'lin'], 'vendors': ['ada', 'lin'], 'staff': ['ada', 'lin']}"
+      ],
+      "correct": 2
+    },
+    {
+      "afterStep": 6,
+      "question": "var-value",
+      "target": "boxes",
+      "choices": [
+        "{'clients': [], 'vendors': [], 'staff': []}",
+        "{'clients': ['ada', 'lin', 'tal'], 'vendors': ['ada', 'lin', 'tal'], 'staff': ['ada', 'lin', 'tal']}",
+        "{'clients': ['ada', 'lin'], 'vendors': ['ada', 'lin'], 'staff': ['ada', 'lin']}",
+        "{'clients': ['ada'], 'vendors': ['ada'], 'staff': ['ada']}"
+      ],
+      "correct": 1
+    },
+    {
+      "afterStep": 7,
+      "question": "next-line",
+      "choices": ["3", "2", "0", "1"],
+      "correct": 0
+    },
+    {
+      "afterStep": 8,
+      "question": "output",
+      "choices": [
+        "{'clients': [], 'vendors': [], 'staff': []}",
+        "{'clients': ['ada', 'lin'], 'vendors': ['ada', 'lin'], 'staff': ['ada', 'lin']}",
+        "'tal'",
+        "staff box shows: ['ada', 'lin', 'tal']"
+      ],
+      "correct": 3
+    }
+  ]
+}

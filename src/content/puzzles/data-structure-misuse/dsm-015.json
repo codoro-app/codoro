@@ -1,0 +1,132 @@
+{
+  "id": "dsm-015",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 925,
+  "explanation": "The rows are objects, and indexOf tests with reference (identity) equality, so the two rows that look identical are still two different object references and are never considered equal. Every object is unique by reference, so unique grows to 3 instead of the true distinct-user count of 2, and the dupes line wrongly reports 0.",
+  "prompt": "This dedups the new sign-up rows by only keeping rows not already seen. Step through the loop and predict what it prints for both counts.",
+  "language": "javascript",
+  "snippet": "const signups = [\n  { userId: 7, plan: \"pro\", region: \"eu\" },\n  { userId: 7, plan: \"pro\", region: \"eu\" },\n  { userId: 9, plan: \"pro\", region: \"us\" },\n];\nconst unique = [];\nfor (const row of signups) {\n  if (unique.indexOf(row) === -1) unique.push(row);\n}\nconsole.log(\"unique signups:\", unique.length);\nconsole.log(\"dupes:\", signups.length - unique.length);",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "signups": "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}]"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "signups": "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}]",
+        "unique": "[]"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "signups": "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}]",
+        "unique": "[]",
+        "row": "{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"}"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "signups": "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}]",
+        "unique": "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"}]",
+        "row": "{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"}"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "signups": "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}]",
+        "unique": "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"}]",
+        "row": "{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"}"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "signups": "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}]",
+        "unique": "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"}]",
+        "row": "{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"}"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "signups": "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}]",
+        "unique": "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"}]",
+        "row": "{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "signups": "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}]",
+        "unique": "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}]",
+        "row": "{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "signups": "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}]",
+        "unique": "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}]"
+      },
+      "output": "\"unique signups:\" 3"
+    },
+    {
+      "line": 10,
+      "vars": {
+        "signups": "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}]",
+        "unique": "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}]"
+      },
+      "output": "\"dupes:\" 0"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "unique",
+      "choices": [
+        "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"}]",
+        "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"}]",
+        "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}]",
+        "[]"
+      ],
+      "correct": 0
+    },
+    {
+      "afterStep": 5,
+      "question": "var-value",
+      "target": "unique",
+      "choices": [
+        "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"}]",
+        "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"}]",
+        "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}]",
+        "[]"
+      ],
+      "correct": 1
+    },
+    {
+      "afterStep": 7,
+      "question": "next-line",
+      "choices": ["9", "0", "7", "5"],
+      "correct": 0
+    },
+    {
+      "afterStep": 8,
+      "question": "output",
+      "choices": [
+        "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":9,\"plan\":\"pro\",\"region\":\"us\"}]",
+        "[{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"},{\"userId\":7,\"plan\":\"pro\",\"region\":\"eu\"}]",
+        "\"dupes:\" 0",
+        "\"unique signups:\" 3"
+      ],
+      "correct": 3
+    }
+  ]
+}

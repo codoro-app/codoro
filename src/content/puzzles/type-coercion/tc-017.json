@@ -1,0 +1,125 @@
+{
+  "id": "tc-017",
+  "pattern": "type-coercion",
+  "difficulty_rating": 1475,
+  "explanation": "The == (loose) guard coerces the numeric string '8' to the number 8, so the cell whose value is the string '8' also matches the target 8. The result includes beta as well as alpha, printing 'alpha beta' instead of just 'alpha'.",
+  "prompt": "This collects the labels of every cell whose value matches the target. Step through and predict which labels print.",
+  "language": "javascript",
+  "snippet": "function mergeColumns(cells, match) {\n  const hits = [];\n  for (const cell of cells) {\n    if (cell.value == match) hits.push(cell.label);\n  }\n  console.log(hits.join(\" \"));\n  console.log(\"count:\", hits.length);\n}\nmergeColumns(\n  [{ value: 8, label: \"alpha\" }, { value: \"8\", label: \"beta\" }, { value: 12, label: \"gamma\" }],\n  8,\n);",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 1,
+      "vars": {
+        "cells": "[{\"value\":8,\"label\":\"alpha\"},{\"value\":\"8\",\"label\":\"beta\"},{\"value\":12,\"label\":\"gamma\"}]",
+        "match": "8",
+        "hits": "[]",
+        "mergeColumns": "[Function]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "cells": "[{\"value\":8,\"label\":\"alpha\"},{\"value\":\"8\",\"label\":\"beta\"},{\"value\":12,\"label\":\"gamma\"}]",
+        "match": "8",
+        "hits": "[]",
+        "mergeColumns": "[Function]",
+        "cell": "{\"value\":8,\"label\":\"alpha\"}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "cells": "[{\"value\":8,\"label\":\"alpha\"},{\"value\":\"8\",\"label\":\"beta\"},{\"value\":12,\"label\":\"gamma\"}]",
+        "match": "8",
+        "hits": "[\"alpha\"]",
+        "mergeColumns": "[Function]",
+        "cell": "{\"value\":8,\"label\":\"alpha\"}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "cells": "[{\"value\":8,\"label\":\"alpha\"},{\"value\":\"8\",\"label\":\"beta\"},{\"value\":12,\"label\":\"gamma\"}]",
+        "match": "8",
+        "hits": "[\"alpha\"]",
+        "mergeColumns": "[Function]",
+        "cell": "{\"value\":\"8\",\"label\":\"beta\"}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "cells": "[{\"value\":8,\"label\":\"alpha\"},{\"value\":\"8\",\"label\":\"beta\"},{\"value\":12,\"label\":\"gamma\"}]",
+        "match": "8",
+        "hits": "[\"alpha\",\"beta\"]",
+        "mergeColumns": "[Function]",
+        "cell": "{\"value\":\"8\",\"label\":\"beta\"}"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "cells": "[{\"value\":8,\"label\":\"alpha\"},{\"value\":\"8\",\"label\":\"beta\"},{\"value\":12,\"label\":\"gamma\"}]",
+        "match": "8",
+        "hits": "[\"alpha\",\"beta\"]",
+        "mergeColumns": "[Function]"
+      },
+      "output": "\"alpha beta\""
+    },
+    {
+      "line": 6,
+      "vars": {
+        "cells": "[{\"value\":8,\"label\":\"alpha\"},{\"value\":\"8\",\"label\":\"beta\"},{\"value\":12,\"label\":\"gamma\"}]",
+        "match": "8",
+        "hits": "[\"alpha\",\"beta\"]",
+        "mergeColumns": "[Function]"
+      },
+      "output": "\"count:\" 2"
+    },
+    {
+      "line": 8,
+      "vars": {
+        "mergeColumns": "[Function]"
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 2,
+      "question": "var-value",
+      "target": "hits",
+      "choices": ["[\"alpha\"]", "[\"alpha\",\"beta\"]", "[]"],
+      "correct": 0
+    },
+    {
+      "afterStep": 4,
+      "question": "var-value",
+      "target": "hits",
+      "choices": ["[\"alpha\"]", "[]", "[\"alpha\",\"beta\"]"],
+      "correct": 2
+    },
+    {
+      "afterStep": 5,
+      "question": "output",
+      "choices": [
+        "\"count:\" 2",
+        "{\"value\":\"8\",\"label\":\"beta\"}",
+        "[{\"value\":8,\"label\":\"alpha\"},{\"value\":\"8\",\"label\":\"beta\"},{\"value\":12,\"label\":\"gamma\"}]",
+        "\"alpha beta\""
+      ],
+      "correct": 3
+    },
+    {
+      "afterStep": 6,
+      "question": "output",
+      "choices": [
+        "\"count:\" 2",
+        "[{\"value\":8,\"label\":\"alpha\"},{\"value\":\"8\",\"label\":\"beta\"},{\"value\":12,\"label\":\"gamma\"}]",
+        "{\"value\":8,\"label\":\"alpha\"}",
+        "\"alpha beta\""
+      ],
+      "correct": 0
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "id": "rec-016",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 875,
+  "explanation": "When the head element is itself a list, the function returns headcount(org[0]) and drops the rest of the list entirely. The recursion still terminates (each reachable list is strictly smaller), but it abandons every sibling branch, so only the single name 'amy' is counted and it prints 1 instead of 4.",
+  "prompt": "This counts the people in an org chart. Step through the recursion and predict the headcount it prints.",
+  "language": "python",
+  "snippet": "def headcount(org):\n    if org == []:\n        return 0\n    if isinstance(org[0], list):\n        return headcount(org[0])\n    return 1 + headcount(org[1:])\n\nprint(headcount([[['amy']], ['bo'], ['cy'], ['de']]))",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "headcount": "<function>"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "org": "[[['amy']], ['bo'], ['cy'], ['de']]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "org": "[[['amy']], ['bo'], ['cy'], ['de']]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "org": "[['amy']]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "org": "[['amy']]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "org": "['amy']"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "org": "['amy']"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "org": "[]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "org": "[]"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "org": "['amy']"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "org": "[['amy']]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "org": "[[['amy']], ['bo'], ['cy'], ['de']]"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "headcount": "<function>"
+      },
+      "output": "1"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "org",
+      "choices": ["[['amy']]", "[]", "[[['amy']], ['bo'], ['cy'], ['de']]", "['amy']"],
+      "correct": 0
+    },
+    {
+      "afterStep": 5,
+      "question": "var-value",
+      "target": "org",
+      "choices": ["[['amy']]", "[[['amy']], ['bo'], ['cy'], ['de']]", "['amy']", "[]"],
+      "correct": 2
+    },
+    {
+      "afterStep": 7,
+      "question": "var-value",
+      "target": "org",
+      "choices": ["[['amy']]", "[[['amy']], ['bo'], ['cy'], ['de']]", "[]", "['amy']"],
+      "correct": 2
+    },
+    {
+      "afterStep": 12,
+      "question": "output",
+      "choices": ["[[['amy']], ['bo'], ['cy'], ['de']]", "1", "[]", "<function>"],
+      "correct": 1
+    }
+  ]
+}

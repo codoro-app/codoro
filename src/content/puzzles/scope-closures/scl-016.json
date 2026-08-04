@@ -1,0 +1,86 @@
+{
+  "id": "scl-016",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1075,
+  "explanation": "var level is function-scoped, so the declaration is hoisted out of the if block. On the denied call, level is still a live binding — just never assigned — so it prints 'level: undefined' instead of being out of scope entirely.",
+  "prompt": "This grants a caller an admin level only when permitted. Step through both calls and predict what the denied call prints.",
+  "language": "javascript",
+  "snippet": "function grant(permitted) {\n  if (permitted) {\n    var level = \"admin\";\n  }\n  console.log(\"level:\", level);\n}\ngrant(true);\ngrant(false);",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 1,
+      "vars": {
+        "permitted": "true",
+        "level": "undefined",
+        "grant": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "permitted": "true",
+        "level": "\"admin\"",
+        "grant": "[Function]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "permitted": "true",
+        "level": "\"admin\"",
+        "grant": "[Function]"
+      },
+      "output": "\"level:\" \"admin\""
+    },
+    {
+      "line": 6,
+      "vars": {
+        "grant": "[Function]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "permitted": "false",
+        "level": "undefined",
+        "grant": "[Function]"
+      },
+      "output": "\"level:\" undefined"
+    },
+    {
+      "line": 7,
+      "vars": {
+        "grant": "[Function]"
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 0,
+      "question": "var-value",
+      "target": "level",
+      "choices": ["\"admin\"", "undefined"],
+      "correct": 1
+    },
+    {
+      "afterStep": 1,
+      "question": "var-value",
+      "target": "level",
+      "choices": ["undefined", "\"admin\""],
+      "correct": 1
+    },
+    {
+      "afterStep": 3,
+      "question": "next-line",
+      "choices": ["4", "7", "1", "2"],
+      "correct": 0
+    },
+    {
+      "afterStep": 4,
+      "question": "output",
+      "choices": ["\"admin\"", "\"level:\" \"admin\"", "false", "\"level:\" undefined"],
+      "correct": 3
+    }
+  ]
+}

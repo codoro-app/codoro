@@ -1,0 +1,143 @@
+{
+  "id": "tc-019",
+  "pattern": "type-coercion",
+  "difficulty_rating": 1875,
+  "explanation": "warranty is a boolean, and Python treats True as the integer 1 in arithmetic (bool is a subclass of int), so total = total + warranty adds 1 rather than a real warranty fee. The subtotal of 130 silently becomes 131 in the printed total.",
+  "prompt": "This adds up a checkout total, plus an optional warranty flag. Step through and predict what total prints.",
+  "language": "python",
+  "snippet": "def checkout(items, warranty):\n    total = 0\n    for price in items:\n        total = total + price\n    total = total + warranty\n    print(total)\n\ncheckout([40, 60, 30], True)",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "checkout": "<function>"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "items": "[40, 60, 30]",
+        "warranty": "True",
+        "total": "0"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "items": "[40, 60, 30]",
+        "warranty": "True",
+        "total": "0",
+        "price": "40"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "items": "[40, 60, 30]",
+        "warranty": "True",
+        "total": "40",
+        "price": "40"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "items": "[40, 60, 30]",
+        "warranty": "True",
+        "total": "40",
+        "price": "60"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "items": "[40, 60, 30]",
+        "warranty": "True",
+        "total": "100",
+        "price": "60"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "items": "[40, 60, 30]",
+        "warranty": "True",
+        "total": "100",
+        "price": "30"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "items": "[40, 60, 30]",
+        "warranty": "True",
+        "total": "130",
+        "price": "30"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "items": "[40, 60, 30]",
+        "warranty": "True",
+        "total": "130",
+        "price": "30"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "items": "[40, 60, 30]",
+        "warranty": "True",
+        "total": "131",
+        "price": "30"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "items": "[40, 60, 30]",
+        "warranty": "True",
+        "total": "131",
+        "price": "30"
+      },
+      "output": "131"
+    },
+    {
+      "line": 7,
+      "vars": {
+        "checkout": "<function>"
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "total",
+      "choices": ["131", "130", "40", "100"],
+      "correct": 2
+    },
+    {
+      "afterStep": 7,
+      "question": "var-value",
+      "target": "total",
+      "choices": ["40", "131", "0", "130"],
+      "correct": 3
+    },
+    {
+      "afterStep": 9,
+      "question": "var-value",
+      "target": "total",
+      "choices": ["131", "0", "40", "130"],
+      "correct": 0
+    },
+    {
+      "afterStep": 10,
+      "question": "output",
+      "choices": ["30", "100", "True", "131"],
+      "correct": 3
+    }
+  ]
+}

@@ -1,0 +1,205 @@
+{
+  "id": "rec-019",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 1475,
+  "explanation": "The base case returns the node when depth == max_depth, so a node sitting exactly at the boundary is still included instead of stopping just before it. The deepest tier leaks in, printing [1, 2, 3] where ids at depth 2 (only [1, 2]) should appear.",
+  "prompt": "This collects ids down to a depth limit. Step through and predict which ids the list contains.",
+  "language": "python",
+  "snippet": "def collect(branch, max_depth, depth=0):\n    out = [branch[\"id\"]]\n    if depth == max_depth:\n        return out\n    for child in branch.get(\"sub\", []):\n        out += collect(child, max_depth, depth + 1)\n    return out\n\ntree = {\"id\": 1, \"sub\": [{\"id\": 2, \"sub\": [{\"id\": 3, \"sub\": [{\"id\": 4}]}]}]}\nprint(collect(tree, 2))",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "collect": "<function>"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "collect": "<function>",
+        "tree": "{'id': 1, 'sub': [{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}]}"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "branch": "{'id': 1, 'sub': [{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}]}",
+        "max_depth": "2",
+        "depth": "0",
+        "out": "[1]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "branch": "{'id': 1, 'sub': [{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}]}",
+        "max_depth": "2",
+        "depth": "0",
+        "out": "[1]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "branch": "{'id': 1, 'sub': [{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}]}",
+        "max_depth": "2",
+        "depth": "0",
+        "out": "[1]",
+        "child": "{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "branch": "{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}",
+        "max_depth": "2",
+        "depth": "1",
+        "out": "[2]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "branch": "{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}",
+        "max_depth": "2",
+        "depth": "1",
+        "out": "[2]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "branch": "{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}",
+        "max_depth": "2",
+        "depth": "1",
+        "out": "[2]",
+        "child": "{'id': 3, 'sub': [{'id': 4}]}"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "branch": "{'id': 3, 'sub': [{'id': 4}]}",
+        "max_depth": "2",
+        "depth": "2",
+        "out": "[3]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "branch": "{'id': 3, 'sub': [{'id': 4}]}",
+        "max_depth": "2",
+        "depth": "2",
+        "out": "[3]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "branch": "{'id': 3, 'sub': [{'id': 4}]}",
+        "max_depth": "2",
+        "depth": "2",
+        "out": "[3]"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "branch": "{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}",
+        "max_depth": "2",
+        "depth": "1",
+        "out": "[2, 3]",
+        "child": "{'id': 3, 'sub': [{'id': 4}]}"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "branch": "{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}",
+        "max_depth": "2",
+        "depth": "1",
+        "out": "[2, 3]",
+        "child": "{'id': 3, 'sub': [{'id': 4}]}"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "branch": "{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}",
+        "max_depth": "2",
+        "depth": "1",
+        "out": "[2, 3]",
+        "child": "{'id': 3, 'sub': [{'id': 4}]}"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "branch": "{'id': 1, 'sub': [{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}]}",
+        "max_depth": "2",
+        "depth": "0",
+        "out": "[1, 2, 3]",
+        "child": "{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "branch": "{'id': 1, 'sub': [{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}]}",
+        "max_depth": "2",
+        "depth": "0",
+        "out": "[1, 2, 3]",
+        "child": "{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "branch": "{'id': 1, 'sub': [{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}]}",
+        "max_depth": "2",
+        "depth": "0",
+        "out": "[1, 2, 3]",
+        "child": "{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "collect": "<function>",
+        "tree": "{'id': 1, 'sub': [{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}]}"
+      },
+      "output": "[1, 2, 3]"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 2,
+      "question": "var-value",
+      "target": "out",
+      "choices": ["[2]", "[3]", "[1]", "[2, 3]"],
+      "correct": 2
+    },
+    {
+      "afterStep": 5,
+      "question": "var-value",
+      "target": "out",
+      "choices": ["[2]", "[3]", "[1, 2, 3]", "[2, 3]"],
+      "correct": 0
+    },
+    {
+      "afterStep": 8,
+      "question": "var-value",
+      "target": "depth",
+      "choices": ["0", "1", "2"],
+      "correct": 2
+    },
+    {
+      "afterStep": 17,
+      "question": "output",
+      "choices": ["2", "{'id': 2, 'sub': [{'id': 3, 'sub': [{'id': 4}]}]}", "[1, 2, 3]", "1"],
+      "correct": 2
+    }
+  ]
+}

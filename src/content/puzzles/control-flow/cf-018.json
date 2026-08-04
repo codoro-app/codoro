@@ -1,0 +1,110 @@
+{
+  "id": "cf-018",
+  "pattern": "control-flow",
+  "difficulty_rating": 1275,
+  "explanation": "The condition is inverted: the order WITH an address fails `!order.address` and falls to the 'needs address' branch, while the order with no address passes the guard and ships. Both printed verdicts are swapped from the intent.",
+  "prompt": "This ships an order if it has an address and holds it otherwise. Step through both calls and predict what each prints.",
+  "language": "javascript",
+  "snippet": "function shipOrder(order) {\n  if (!order.address) {\n    return \"shipping\";\n  }\n  return \"needs address\";\n}\nconst orders = [{ address: \"main st\" }, {}];\nconst verdicts = [];\nfor (const order of orders) {\n  verdicts.push(shipOrder(order));\n}\nconsole.log(\"with addr:\", verdicts[0]);\nconsole.log(\"no addr:\", verdicts[1]);",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 6,
+      "vars": {
+        "shipOrder": "[Function]",
+        "orders": "[{\"address\":\"main st\"},{}]"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "shipOrder": "[Function]",
+        "orders": "[{\"address\":\"main st\"},{}]",
+        "verdicts": "[]"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "shipOrder": "[Function]",
+        "orders": "[{\"address\":\"main st\"},{}]",
+        "verdicts": "[\"needs address\"]",
+        "order": "{\"address\":\"main st\"}"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "shipOrder": "[Function]",
+        "orders": "[{\"address\":\"main st\"},{}]",
+        "verdicts": "[\"needs address\"]",
+        "order": "{}"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "shipOrder": "[Function]",
+        "orders": "[{\"address\":\"main st\"},{}]",
+        "verdicts": "[\"needs address\",\"shipping\"]",
+        "order": "{}"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "shipOrder": "[Function]",
+        "orders": "[{\"address\":\"main st\"},{}]",
+        "verdicts": "[\"needs address\",\"shipping\"]"
+      },
+      "output": "\"with addr:\" \"needs address\""
+    },
+    {
+      "line": 12,
+      "vars": {
+        "shipOrder": "[Function]",
+        "orders": "[{\"address\":\"main st\"},{}]",
+        "verdicts": "[\"needs address\",\"shipping\"]"
+      },
+      "output": "\"no addr:\" \"shipping\""
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "order",
+      "choices": ["{\"address\":\"main st\"}", "{}"],
+      "correct": 1
+    },
+    {
+      "afterStep": 4,
+      "question": "var-value",
+      "target": "verdicts",
+      "choices": ["[\"needs address\",\"shipping\"]", "[\"needs address\"]", "[]"],
+      "correct": 0
+    },
+    {
+      "afterStep": 5,
+      "question": "output",
+      "choices": [
+        "\"no addr:\" \"shipping\"",
+        "[]",
+        "[Function]",
+        "\"with addr:\" \"needs address\""
+      ],
+      "correct": 3
+    },
+    {
+      "afterStep": 6,
+      "question": "output",
+      "choices": [
+        "\"no addr:\" \"shipping\"",
+        "{\"address\":\"main st\"}",
+        "[\"needs address\",\"shipping\"]",
+        "\"with addr:\" \"needs address\""
+      ],
+      "correct": 0
+    }
+  ]
+}

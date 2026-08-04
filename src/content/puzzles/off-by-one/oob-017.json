@@ -1,0 +1,223 @@
+{
+  "id": "oob-017",
+  "pattern": "off-by-one",
+  "difficulty_rating": 1850,
+  "explanation": "check-out is inclusive, so a stay from day 3 through day 8 spans the six days 3, 4, 5, 6, 7 and 8. The while loop's strict `day < checked_out` stops at day 7, so it bills 5 days instead of 6.",
+  "prompt": "This bills a stay from the check-in day through the check-out day, both inclusive. Step through the loop and predict how many days get billed.",
+  "language": "python",
+  "snippet": "def ticket_days(checked_in, checked_out):\n    days = 0\n    day = checked_in\n    while day < checked_out:\n        days += 1\n        day += 1\n    return days\n\nprint(\"days billed:\", ticket_days(3, 8))",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "ticket_days": "<function>"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "0"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "0",
+        "day": "3"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "0",
+        "day": "3"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "1",
+        "day": "3"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "1",
+        "day": "4"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "1",
+        "day": "4"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "2",
+        "day": "4"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "2",
+        "day": "5"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "2",
+        "day": "5"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "3",
+        "day": "5"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "3",
+        "day": "6"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "3",
+        "day": "6"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "4",
+        "day": "6"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "4",
+        "day": "7"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "4",
+        "day": "7"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "5",
+        "day": "7"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "5",
+        "day": "8"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "5",
+        "day": "8"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "checked_in": "3",
+        "checked_out": "8",
+        "days": "5",
+        "day": "8"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "ticket_days": "<function>"
+      },
+      "output": "days billed: 5"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 4,
+      "question": "var-value",
+      "target": "days",
+      "choices": ["5", "3", "1", "2"],
+      "correct": 2
+    },
+    {
+      "afterStep": 17,
+      "question": "var-value",
+      "target": "day",
+      "choices": ["8", "3", "6", "4"],
+      "correct": 0
+    },
+    {
+      "afterStep": 18,
+      "question": "next-line",
+      "choices": ["6", "8", "4", "5"],
+      "correct": 0
+    },
+    {
+      "afterStep": 20,
+      "question": "output",
+      "choices": ["6", "8", "days billed: 5", "<function>"],
+      "correct": 2
+    }
+  ]
+}

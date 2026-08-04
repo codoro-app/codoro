@@ -1,0 +1,100 @@
+{
+  "id": "tc-015",
+  "pattern": "type-coercion",
+  "difficulty_rating": 875,
+  "explanation": "The + operator concatenates when either operand is a string. The middle item amount is the string '40', so after that item the running subtotal flips from the number 25 to the string '2540', and every later + keeps concatenating — printing '254010' instead of the intended 75.",
+  "prompt": "This sums an invoice's line-item amounts. Step through and predict what subtotal gets printed.",
+  "language": "javascript",
+  "snippet": "function invoiceTotal(lineItems) {\n  let subtotal = 0;\n  for (const item of lineItems) {\n    subtotal = subtotal + item.amount;\n  }\n  console.log(subtotal);\n  console.log(\"typeof:\", typeof subtotal);\n}\ninvoiceTotal([{ amount: 25 }, { amount: \"40\" }, { amount: 10 }]);",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 1,
+      "vars": {
+        "lineItems": "[{\"amount\":25},{\"amount\":\"40\"},{\"amount\":10}]",
+        "subtotal": "0",
+        "invoiceTotal": "[Function]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "lineItems": "[{\"amount\":25},{\"amount\":\"40\"},{\"amount\":10}]",
+        "subtotal": "25",
+        "invoiceTotal": "[Function]",
+        "item": "{\"amount\":25}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "lineItems": "[{\"amount\":25},{\"amount\":\"40\"},{\"amount\":10}]",
+        "subtotal": "\"2540\"",
+        "invoiceTotal": "[Function]",
+        "item": "{\"amount\":\"40\"}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "lineItems": "[{\"amount\":25},{\"amount\":\"40\"},{\"amount\":10}]",
+        "subtotal": "\"254010\"",
+        "invoiceTotal": "[Function]",
+        "item": "{\"amount\":10}"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "lineItems": "[{\"amount\":25},{\"amount\":\"40\"},{\"amount\":10}]",
+        "subtotal": "\"254010\"",
+        "invoiceTotal": "[Function]"
+      },
+      "output": "\"254010\""
+    },
+    {
+      "line": 6,
+      "vars": {
+        "lineItems": "[{\"amount\":25},{\"amount\":\"40\"},{\"amount\":10}]",
+        "subtotal": "\"254010\"",
+        "invoiceTotal": "[Function]"
+      },
+      "output": "\"typeof:\" \"string\""
+    },
+    {
+      "line": 8,
+      "vars": {
+        "invoiceTotal": "[Function]"
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 1,
+      "question": "var-value",
+      "target": "subtotal",
+      "choices": ["25", "\"2540\"", "0", "\"254010\""],
+      "correct": 0
+    },
+    {
+      "afterStep": 2,
+      "question": "var-value",
+      "target": "subtotal",
+      "choices": ["25", "\"254010\"", "0", "\"2540\""],
+      "correct": 3
+    },
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "subtotal",
+      "choices": ["\"2540\"", "25", "0", "\"254010\""],
+      "correct": 3
+    },
+    {
+      "afterStep": 4,
+      "question": "output",
+      "choices": ["{\"amount\":10}", "\"typeof:\" \"string\"", "{\"amount\":\"40\"}", "\"254010\""],
+      "correct": 3
+    }
+  ]
+}

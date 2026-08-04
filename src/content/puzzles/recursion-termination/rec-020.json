@@ -1,0 +1,111 @@
+{
+  "id": "rec-020",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 1675,
+  "explanation": "Each leaf returns the shared ledger.balance — the cumulative running total — instead of that leaf's own cost, and the parent then re-sums these inflated values. The recursion terminates, but the root prints 45 instead of the real total 20.",
+  "prompt": "This rolls up a cost from child units while a ledger accumulates. Step through and predict the total it prints.",
+  "language": "javascript",
+  "snippet": "function costRun(unit, ledger) {\n  ledger.balance += unit.cost;\n  if (unit.children.length === 0) {\n    return ledger.balance;\n  }\n  let subtotal = unit.cost;\n  for (const child of unit.children) subtotal += costRun(child, ledger);\n  return subtotal;\n}\nconst rootNode = {\n  cost: 10,\n  children: [{ cost: 5, children: [] }, { cost: 5, children: [] }],\n};\nconsole.log(costRun(rootNode, { balance: 0 }));",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 9,
+      "vars": {
+        "costRun": "[Function]",
+        "rootNode": "{\"cost\":10,\"children\":[{\"cost\":5,\"children\":[]},{\"cost\":5,\"children\":[]}]}"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "costRun": "[Function]",
+        "rootNode": "{\"cost\":10,\"children\":[{\"cost\":5,\"children\":[]},{\"cost\":5,\"children\":[]}]}",
+        "unit": "{\"cost\":10,\"children\":[{\"cost\":5,\"children\":[]},{\"cost\":5,\"children\":[]}]}",
+        "ledger": "{\"balance\":10}"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "costRun": "[Function]",
+        "rootNode": "{\"cost\":10,\"children\":[{\"cost\":5,\"children\":[]},{\"cost\":5,\"children\":[]}]}",
+        "unit": "{\"cost\":10,\"children\":[{\"cost\":5,\"children\":[]},{\"cost\":5,\"children\":[]}]}",
+        "ledger": "{\"balance\":10}",
+        "subtotal": "10"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "costRun": "[Function]",
+        "rootNode": "{\"cost\":10,\"children\":[{\"cost\":5,\"children\":[]},{\"cost\":5,\"children\":[]}]}",
+        "unit": "{\"cost\":5,\"children\":[]}",
+        "ledger": "{\"balance\":15}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "costRun": "[Function]",
+        "rootNode": "{\"cost\":10,\"children\":[{\"cost\":5,\"children\":[]},{\"cost\":5,\"children\":[]}]}",
+        "unit": "{\"cost\":5,\"children\":[]}",
+        "ledger": "{\"balance\":15}"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "costRun": "[Function]",
+        "rootNode": "{\"cost\":10,\"children\":[{\"cost\":5,\"children\":[]},{\"cost\":5,\"children\":[]}]}",
+        "unit": "{\"cost\":5,\"children\":[]}",
+        "ledger": "{\"balance\":20}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "costRun": "[Function]",
+        "rootNode": "{\"cost\":10,\"children\":[{\"cost\":5,\"children\":[]},{\"cost\":5,\"children\":[]}]}",
+        "unit": "{\"cost\":5,\"children\":[]}",
+        "ledger": "{\"balance\":20}"
+      }
+    },
+    {
+      "line": 13,
+      "vars": {
+        "costRun": "[Function]",
+        "rootNode": "{\"cost\":10,\"children\":[{\"cost\":5,\"children\":[]},{\"cost\":5,\"children\":[]}]}"
+      },
+      "output": "45"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 1,
+      "question": "var-value",
+      "target": "ledger",
+      "choices": ["{\"balance\":15}", "{\"balance\":20}", "{\"balance\":10}"],
+      "correct": 2
+    },
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "ledger",
+      "choices": ["{\"balance\":10}", "{\"balance\":20}", "{\"balance\":15}"],
+      "correct": 2
+    },
+    {
+      "afterStep": 5,
+      "question": "var-value",
+      "target": "ledger",
+      "choices": ["{\"balance\":20}", "{\"balance\":10}", "{\"balance\":15}"],
+      "correct": 0
+    },
+    {
+      "afterStep": 7,
+      "question": "output",
+      "choices": ["10", "{\"balance\":10}", "45", "[Function]"],
+      "correct": 2
+    }
+  ]
+}
