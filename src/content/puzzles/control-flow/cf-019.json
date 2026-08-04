@@ -1,0 +1,93 @@
+{
+  "id": "cf-019",
+  "pattern": "control-flow",
+  "difficulty_rating": 1475,
+  "explanation": "The gold branch sets the tier variable but forgets to return, so control falls through into the next if, where 120 >= 50 is also true and returns 'silver'. rank(120) prints silver even though the gold assignment ran.",
+  "prompt": "This assigns a rank tier: gold at 100+, silver at 50+, else bronze. Step through the calls and predict what rank(120) actually prints.",
+  "language": "javascript",
+  "snippet": "function rank(points) {\n  let tier = \"bronze\";\n  if (points >= 100) {\n    tier = \"gold\";\n  }\n  if (points >= 50) {\n    return \"silver\";\n  }\n  return tier;\n}\nconsole.log(\"rank:\", rank(120));\nconsole.log(\"rank:\", rank(40));",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 1,
+      "vars": {
+        "points": "120",
+        "tier": "\"bronze\"",
+        "rank": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "points": "120",
+        "tier": "\"bronze\"",
+        "rank": "[Function]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "points": "120",
+        "tier": "\"gold\"",
+        "rank": "[Function]"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "points": "120",
+        "tier": "\"gold\"",
+        "rank": "[Function]"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "rank": "[Function]"
+      },
+      "output": "\"rank:\" \"silver\""
+    },
+    {
+      "line": 1,
+      "vars": {
+        "points": "40",
+        "tier": "\"bronze\"",
+        "rank": "[Function]"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "rank": "[Function]"
+      },
+      "output": "\"rank:\" \"bronze\""
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 2,
+      "question": "var-value",
+      "target": "tier",
+      "choices": ["\"bronze\"", "\"gold\""],
+      "correct": 1
+    },
+    {
+      "afterStep": 3,
+      "question": "next-line",
+      "choices": ["10", "1", "2", "5"],
+      "correct": 0
+    },
+    {
+      "afterStep": 4,
+      "question": "output",
+      "choices": ["\"gold\"", "\"rank:\" \"bronze\"", "40", "\"rank:\" \"silver\""],
+      "correct": 3
+    },
+    {
+      "afterStep": 6,
+      "question": "output",
+      "choices": ["\"rank:\" \"bronze\"", "120", "[Function]", "\"rank:\" \"silver\""],
+      "correct": 0
+    }
+  ]
+}

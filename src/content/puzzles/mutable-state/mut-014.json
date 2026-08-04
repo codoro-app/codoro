@@ -1,0 +1,158 @@
+{
+  "id": "mut-014",
+  "pattern": "mutable-state",
+  "difficulty_rating": 850,
+  "explanation": "The default next_ids=[] is evaluated once at definition time, so the second call reuses the list the first call already wrote into. run2 has no pending orders, but it returns the id the first run appended, so it prints the first run's pending id instead of an empty list.",
+  "prompt": "This lists the ids of pending orders in a batch. Step through both runs and predict what the second run prints.",
+  "language": "python",
+  "snippet": "def count_pending(orders, next_ids=[]):\n    for order in orders:\n        if order[\"status\"] == \"pending\":\n            next_ids.append(order[\"id\"])\n    return sorted(next_ids)\n\nrun1 = count_pending([{\"id\": 101, \"status\": \"pending\"}, {\"id\": 202, \"status\": \"done\"}])\nrun2 = count_pending([{\"id\": 303, \"status\": \"done\"}])\nprint(\"pending run2:\", run2)",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "count_pending": "<function>"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "orders": "[{'id': 101, 'status': 'pending'}, {'id': 202, 'status': 'done'}]",
+        "next_ids": "[]",
+        "order": "{'id': 101, 'status': 'pending'}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "orders": "[{'id': 101, 'status': 'pending'}, {'id': 202, 'status': 'done'}]",
+        "next_ids": "[]",
+        "order": "{'id': 101, 'status': 'pending'}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "orders": "[{'id': 101, 'status': 'pending'}, {'id': 202, 'status': 'done'}]",
+        "next_ids": "[101]",
+        "order": "{'id': 101, 'status': 'pending'}"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "orders": "[{'id': 101, 'status': 'pending'}, {'id': 202, 'status': 'done'}]",
+        "next_ids": "[101]",
+        "order": "{'id': 202, 'status': 'done'}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "orders": "[{'id': 101, 'status': 'pending'}, {'id': 202, 'status': 'done'}]",
+        "next_ids": "[101]",
+        "order": "{'id': 202, 'status': 'done'}"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "orders": "[{'id': 101, 'status': 'pending'}, {'id': 202, 'status': 'done'}]",
+        "next_ids": "[101]",
+        "order": "{'id': 202, 'status': 'done'}"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "orders": "[{'id': 101, 'status': 'pending'}, {'id': 202, 'status': 'done'}]",
+        "next_ids": "[101]",
+        "order": "{'id': 202, 'status': 'done'}"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "count_pending": "<function>",
+        "run1": "[101]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "orders": "[{'id': 303, 'status': 'done'}]",
+        "next_ids": "[101]",
+        "order": "{'id': 303, 'status': 'done'}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "orders": "[{'id': 303, 'status': 'done'}]",
+        "next_ids": "[101]",
+        "order": "{'id': 303, 'status': 'done'}"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "orders": "[{'id': 303, 'status': 'done'}]",
+        "next_ids": "[101]",
+        "order": "{'id': 303, 'status': 'done'}"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "orders": "[{'id': 303, 'status': 'done'}]",
+        "next_ids": "[101]",
+        "order": "{'id': 303, 'status': 'done'}"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "count_pending": "<function>",
+        "run1": "[101]",
+        "run2": "[101]"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "count_pending": "<function>",
+        "run1": "[101]",
+        "run2": "[101]"
+      },
+      "output": "pending run2: [101]"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "next_ids",
+      "choices": ["[]", "[101]"],
+      "correct": 1
+    },
+    {
+      "afterStep": 5,
+      "question": "next-line",
+      "choices": ["1", "7", "0", "3"],
+      "correct": 0
+    },
+    {
+      "afterStep": 9,
+      "question": "var-value",
+      "target": "next_ids",
+      "choices": ["[]", "[101]"],
+      "correct": 1
+    },
+    {
+      "afterStep": 14,
+      "question": "output",
+      "choices": ["{'id': 202, 'status': 'done'}", "[]", "pending run2: [101]", "<function>"],
+      "correct": 2
+    }
+  ]
+}

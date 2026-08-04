@@ -1,0 +1,146 @@
+{
+  "id": "rec-021",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 1875,
+  "explanation": "zip pairs the even and odd slices, and the code recurses only on the summed pairs, dropping any odd leftover element at every level. The recursion terminates, but an odd-length input loses its trailing element each pass, so this list — which sums to 30 — prints 20 because the 10 is discarded.",
+  "prompt": "This reduces a list by summing pairwise neighbors. Step through and predict what the fold prints.",
+  "language": "python",
+  "snippet": "def fold_pairs(items):\n    if len(items) <= 1:\n        return items[0]\n    summed = [a + b for a, b in zip(items[0::2], items[1::2])]\n    return fold_pairs(summed)\n\nprint(fold_pairs([2, 4, 6, 8, 10]))",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "fold_pairs": "<function>"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "items": "[2, 4, 6, 8, 10]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        ".0": "<zip>",
+        "a": "2",
+        "b": "4"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        ".0": "<zip>",
+        "a": "6",
+        "b": "8"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        ".0": "<zip>",
+        "a": "6",
+        "b": "8"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "items": "[2, 4, 6, 8, 10]",
+        "summed": "[6, 14]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "items": "[6, 14]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        ".0": "<zip>",
+        "a": "6",
+        "b": "14"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        ".0": "<zip>",
+        "a": "6",
+        "b": "14"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "items": "[6, 14]",
+        "summed": "[20]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "items": "[20]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "items": "[20]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "items": "[6, 14]",
+        "summed": "[20]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "items": "[2, 4, 6, 8, 10]",
+        "summed": "[6, 14]"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "fold_pairs": "<function>"
+      },
+      "output": "20"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 5,
+      "question": "var-value",
+      "target": "summed",
+      "choices": ["[20]", "[6, 14]"],
+      "correct": 1
+    },
+    {
+      "afterStep": 6,
+      "question": "var-value",
+      "target": "items",
+      "choices": ["[20]", "[6, 14]", "[2, 4, 6, 8, 10]"],
+      "correct": 1
+    },
+    {
+      "afterStep": 9,
+      "question": "var-value",
+      "target": "summed",
+      "choices": ["[20]", "[6, 14]"],
+      "correct": 0
+    },
+    {
+      "afterStep": 14,
+      "question": "output",
+      "choices": ["6", "[2, 4, 6, 8, 10]", "20", "[6, 14]"],
+      "correct": 2
+    }
+  ]
+}

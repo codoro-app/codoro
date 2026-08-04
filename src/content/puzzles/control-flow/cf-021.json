@@ -1,0 +1,210 @@
+{
+  "id": "cf-021",
+  "pattern": "control-flow",
+  "difficulty_rating": 1875,
+  "explanation": "break inside the inner loop only exits that inner loop, so the outer loop keeps advancing and can overwrite found with a later node's broken link. The reported link is b1, the last one found, not the first broken link a2.",
+  "prompt": "This finds the first broken link in a network of nodes. Step through the nested loops and predict which link it reports.",
+  "language": "python",
+  "snippet": "def first_broken(network):\n    found = \"none\"\n    for node in network:\n        for link in node[\"links\"]:\n            if not link[\"ok\"]:\n                found = link[\"name\"]\n                break\n    return found\n\nnet = [\n    {\"name\": \"a\", \"links\": [{\"name\": \"a1\", \"ok\": True}, {\"name\": \"a2\", \"ok\": False}]},\n    {\"name\": \"b\", \"links\": [{\"name\": \"b1\", \"ok\": False}]},\n]\nprint(\"first broken:\", first_broken(net))",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "first_broken": "<function>"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "first_broken": "<function>"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "first_broken": "<function>"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "first_broken": "<function>",
+        "net": "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "network": "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]",
+        "found": "'none'"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "network": "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]",
+        "found": "'none'",
+        "node": "{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "network": "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]",
+        "found": "'none'",
+        "node": "{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}",
+        "link": "{'name': 'a1', 'ok': True}"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "network": "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]",
+        "found": "'none'",
+        "node": "{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}",
+        "link": "{'name': 'a1', 'ok': True}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "network": "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]",
+        "found": "'none'",
+        "node": "{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}",
+        "link": "{'name': 'a2', 'ok': False}"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "network": "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]",
+        "found": "'none'",
+        "node": "{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}",
+        "link": "{'name': 'a2', 'ok': False}"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "network": "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]",
+        "found": "'a2'",
+        "node": "{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}",
+        "link": "{'name': 'a2', 'ok': False}"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "network": "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]",
+        "found": "'a2'",
+        "node": "{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}",
+        "link": "{'name': 'a2', 'ok': False}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "network": "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]",
+        "found": "'a2'",
+        "node": "{'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}",
+        "link": "{'name': 'a2', 'ok': False}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "network": "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]",
+        "found": "'a2'",
+        "node": "{'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}",
+        "link": "{'name': 'b1', 'ok': False}"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "network": "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]",
+        "found": "'a2'",
+        "node": "{'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}",
+        "link": "{'name': 'b1', 'ok': False}"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "network": "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]",
+        "found": "'b1'",
+        "node": "{'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}",
+        "link": "{'name': 'b1', 'ok': False}"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "network": "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]",
+        "found": "'b1'",
+        "node": "{'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}",
+        "link": "{'name': 'b1', 'ok': False}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "network": "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]",
+        "found": "'b1'",
+        "node": "{'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}",
+        "link": "{'name': 'b1', 'ok': False}"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "network": "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]",
+        "found": "'b1'",
+        "node": "{'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}",
+        "link": "{'name': 'b1', 'ok': False}"
+      }
+    },
+    {
+      "line": 13,
+      "vars": {
+        "first_broken": "<function>",
+        "net": "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]"
+      },
+      "output": "first broken: b1"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 10,
+      "question": "var-value",
+      "target": "found",
+      "choices": ["'a2'", "'none'", "'b1'"],
+      "correct": 0
+    },
+    {
+      "afterStep": 11,
+      "question": "next-line",
+      "choices": ["9", "4", "2", "13"],
+      "correct": 2
+    },
+    {
+      "afterStep": 15,
+      "question": "var-value",
+      "target": "found",
+      "choices": ["'a2'", "'none'", "'b1'"],
+      "correct": 2
+    },
+    {
+      "afterStep": 19,
+      "question": "output",
+      "choices": [
+        "{'name': 'a2', 'ok': False}",
+        "[{'name': 'a', 'links': [{'name': 'a1', 'ok': True}, {'name': 'a2', 'ok': False}]}, {'name': 'b', 'links': [{'name': 'b1', 'ok': False}]}]",
+        "<function>",
+        "first broken: b1"
+      ],
+      "correct": 3
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "id": "mut-017",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1425,
+  "explanation": "The memo cache is never invalidated or updated for an order id that has already been billed. When order 101 is billed again with a different amount (8), the totals.has(101) guard returns the stale cached 10 instead of recomputing 16, so both calls and the stored value print 10.",
+  "prompt": "This memoizes a billed amount per order id, once. Step through both calls for the same order and predict what the second call prints.",
+  "language": "javascript",
+  "snippet": "const totals = new Map();\nfunction billed(orderId, amount) {\n  if (totals.has(orderId)) return totals.get(orderId);\n  const newTotal = amount * 2;\n  totals.set(orderId, newTotal);\n  return newTotal;\n}\nconsole.log(\"billed:\", billed(101, 5));\nconsole.log(\"billed:\", billed(101, 8));\nconsole.log(\"stored:\", totals.get(101));",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "totals": "{}",
+        "billed": "[Function]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "totals": "{}",
+        "billed": "[Function]",
+        "orderId": "101",
+        "amount": "5",
+        "newTotal": "10"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "totals": "{}",
+        "billed": "[Function]",
+        "orderId": "101",
+        "amount": "5",
+        "newTotal": "10"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "totals": "{}",
+        "billed": "[Function]"
+      },
+      "output": "\"billed:\" 10"
+    },
+    {
+      "line": 2,
+      "vars": {
+        "totals": "{}",
+        "billed": "[Function]",
+        "orderId": "101",
+        "amount": "8"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "totals": "{}",
+        "billed": "[Function]"
+      },
+      "output": "\"billed:\" 10"
+    },
+    {
+      "line": 9,
+      "vars": {
+        "totals": "{}",
+        "billed": "[Function]"
+      },
+      "output": "\"stored:\" 10"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 1,
+      "question": "var-value",
+      "target": "amount",
+      "choices": ["5", "8"],
+      "correct": 0
+    },
+    {
+      "afterStep": 3,
+      "question": "next-line",
+      "choices": ["2", "8", "3", "0"],
+      "correct": 0
+    },
+    {
+      "afterStep": 4,
+      "question": "var-value",
+      "target": "amount",
+      "choices": ["8", "5"],
+      "correct": 0
+    },
+    {
+      "afterStep": 5,
+      "question": "output",
+      "choices": ["\"stored:\" 10", "{}", "[Function]", "\"billed:\" 10"],
+      "correct": 3
+    }
+  ]
+}

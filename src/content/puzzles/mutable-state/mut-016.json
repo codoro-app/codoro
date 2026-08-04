@@ -1,0 +1,103 @@
+{
+  "id": "mut-016",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1250,
+  "explanation": "Array.prototype.sort() sorts in place, so scores.sort(...) mutates the caller's original array rather than a copy. After topScores returns, the caller's original holds the same sorted order as the returned ranked list, so 'after' prints 30,20,10 when the intent was to leave the original untouched.",
+  "prompt": "This returns the top scores, newest first. Step through and predict what the caller's original array prints as.",
+  "language": "javascript",
+  "snippet": "function topScores(scores) {\n  scores.sort((a, b) => b - a);\n  return scores;\n}\nconst original = [30, 10, 20];\nconsole.log(\"before:\", original.join(\",\"));\nconst ranked = topScores(original);\nconsole.log(\"after:\", original.join(\",\"));\nconsole.log(\"ranked:\", ranked.join(\",\"));",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 4,
+      "vars": {
+        "topScores": "[Function]",
+        "original": "[30,10,20]"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "topScores": "[Function]",
+        "original": "[30,10,20]"
+      },
+      "output": "\"before:\" \"30,10,20\""
+    },
+    {
+      "line": 1,
+      "vars": {
+        "topScores": "[Function]",
+        "original": "[30,20,10]",
+        "scores": "[30,20,10]"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "topScores": "[Function]",
+        "original": "[30,20,10]",
+        "ranked": "[30,20,10]"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "topScores": "[Function]",
+        "original": "[30,20,10]",
+        "ranked": "[30,20,10]"
+      },
+      "output": "\"after:\" \"30,20,10\""
+    },
+    {
+      "line": 8,
+      "vars": {
+        "topScores": "[Function]",
+        "original": "[30,20,10]",
+        "ranked": "[30,20,10]"
+      },
+      "output": "\"ranked:\" \"30,20,10\""
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 1,
+      "question": "output",
+      "choices": [
+        "\"after:\" \"30,20,10\"",
+        "[30,20,10]",
+        "\"before:\" \"30,10,20\"",
+        "\"ranked:\" \"30,20,10\""
+      ],
+      "correct": 2
+    },
+    {
+      "afterStep": 2,
+      "question": "var-value",
+      "target": "original",
+      "choices": ["[30,10,20]", "[30,20,10]"],
+      "correct": 1
+    },
+    {
+      "afterStep": 4,
+      "question": "output",
+      "choices": [
+        "[30,20,10]",
+        "\"ranked:\" \"30,20,10\"",
+        "\"before:\" \"30,10,20\"",
+        "\"after:\" \"30,20,10\""
+      ],
+      "correct": 3
+    },
+    {
+      "afterStep": 5,
+      "question": "output",
+      "choices": [
+        "\"after:\" \"30,20,10\"",
+        "\"before:\" \"30,10,20\"",
+        "[Function]",
+        "\"ranked:\" \"30,20,10\""
+      ],
+      "correct": 3
+    }
+  ]
+}

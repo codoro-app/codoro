@@ -1,0 +1,111 @@
+{
+  "id": "dsm-017",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 1325,
+  "explanation": "Mutating a list with remove() while iterating it shifts every later element one slot left, so whatever slides into the next inspected index is silently skipped. One 'resize' survives the pass, so len(jobs) prints 2 instead of 1.",
+  "prompt": "This pipeline removes every 'resize' job from the list. Step through the loop and predict how many jobs remain when it finally prints.",
+  "language": "python",
+  "snippet": "jobs = [\"resize\", \"render\", \"resize\", \"resize\"]\nfor job in jobs:\n    if job == \"resize\":\n        jobs.remove(job)\nprint(len(jobs))",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "jobs": "['resize', 'render', 'resize', 'resize']"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "jobs": "['resize', 'render', 'resize', 'resize']",
+        "job": "'resize'"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "jobs": "['resize', 'render', 'resize', 'resize']",
+        "job": "'resize'"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "jobs": "['render', 'resize', 'resize']",
+        "job": "'resize'"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "jobs": "['render', 'resize', 'resize']",
+        "job": "'resize'"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "jobs": "['render', 'resize', 'resize']",
+        "job": "'resize'"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "jobs": "['render', 'resize']",
+        "job": "'resize'"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "jobs": "['render', 'resize']",
+        "job": "'resize'"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "jobs": "['render', 'resize']",
+        "job": "'resize'"
+      },
+      "output": "2"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "jobs",
+      "choices": [
+        "['render', 'resize', 'resize']",
+        "['render', 'resize']",
+        "['resize', 'render', 'resize', 'resize']"
+      ],
+      "correct": 0
+    },
+    {
+      "afterStep": 6,
+      "question": "var-value",
+      "target": "jobs",
+      "choices": [
+        "['render', 'resize']",
+        "['resize', 'render', 'resize', 'resize']",
+        "['render', 'resize', 'resize']"
+      ],
+      "correct": 0
+    },
+    {
+      "afterStep": 7,
+      "question": "next-line",
+      "choices": ["4", "0", "2", "1"],
+      "correct": 0
+    },
+    {
+      "afterStep": 8,
+      "question": "output",
+      "choices": ["['render', 'resize']", "'resize'", "['render', 'resize', 'resize']", "2"],
+      "correct": 3
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "id": "scl-015",
+  "pattern": "scope-closures",
+  "difficulty_rating": 900,
+  "explanation": "var cfg is hoisted to the top of render, but the assignment stays on its line. So the first console.log reads the hoisted-but-not-yet-assigned binding, printing 'before: undefined' instead of a value.",
+  "prompt": "This renders a config value, printing it before it's assigned. Step through and predict what the first logged line shows.",
+  "language": "javascript",
+  "snippet": "function render() {\n  console.log(\"before:\", cfg);\n  var cfg = \"dark\";\n  console.log(\"after:\", cfg);\n}\nrender();",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 1,
+      "vars": {
+        "cfg": "undefined",
+        "render": "[Function]"
+      },
+      "output": "\"before:\" undefined"
+    },
+    {
+      "line": 2,
+      "vars": {
+        "cfg": "\"dark\"",
+        "render": "[Function]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "cfg": "\"dark\"",
+        "render": "[Function]"
+      },
+      "output": "\"after:\" \"dark\""
+    },
+    {
+      "line": 5,
+      "vars": {
+        "render": "[Function]"
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 0,
+      "question": "output",
+      "choices": ["\"before:\" undefined", "\"dark\"", "\"after:\" \"dark\"", "undefined"],
+      "correct": 0
+    },
+    {
+      "afterStep": 1,
+      "question": "var-value",
+      "target": "cfg",
+      "choices": ["undefined", "\"dark\""],
+      "correct": 1
+    },
+    {
+      "afterStep": 2,
+      "question": "output",
+      "choices": ["\"after:\" \"dark\"", "[Function]", "\"before:\" undefined", "undefined"],
+      "correct": 0
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+{
+  "id": "scl-017",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1325,
+  "explanation": "inner closes over the variable total, resolved at call time, not the value total had when inner was defined. total is later doubled to 10 before fn is ever called, so fn(3) returns 13 instead of the 8 a reader might expect from the original 5.",
+  "prompt": "This builds a function that adds a delta to an outer starting total. Step through and predict what fn(3) prints.",
+  "language": "python",
+  "snippet": "def outer(x):\n    total = x\n    def inner(y):\n        return total + y\n    total = total * 2\n    return inner\n\nfn = outer(5)\nprint(\"fn(3):\", fn(3))\nprint(\"fn(1):\", fn(1))",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "outer": "<function>"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "x": "5",
+        "total": "5"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "x": "5",
+        "total": "5",
+        "inner": "<function>"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "x": "5",
+        "total": "10",
+        "inner": "<function>"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "x": "5",
+        "total": "10",
+        "inner": "<function>"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "outer": "<function>",
+        "fn": "<function>"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "y": "3",
+        "total": "10"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "outer": "<function>",
+        "fn": "<function>"
+      },
+      "output": "fn(3): 13"
+    },
+    {
+      "line": 3,
+      "vars": {
+        "y": "1",
+        "total": "10"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "outer": "<function>",
+        "fn": "<function>"
+      },
+      "output": "fn(1): 11"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 1,
+      "question": "var-value",
+      "target": "total",
+      "choices": ["5", "10"],
+      "correct": 0
+    },
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "total",
+      "choices": ["5", "10"],
+      "correct": 1
+    },
+    {
+      "afterStep": 5,
+      "question": "next-line",
+      "choices": ["3", "4", "2", "0"],
+      "correct": 0
+    },
+    {
+      "afterStep": 7,
+      "question": "output",
+      "choices": ["10", "5", "fn(3): 13", "fn(1): 11"],
+      "correct": 2
+    }
+  ]
+}

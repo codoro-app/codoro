@@ -1,0 +1,196 @@
+{
+  "id": "tc-016",
+  "pattern": "type-coercion",
+  "difficulty_rating": 1275,
+  "explanation": "Python's == never coerces across types: the numeric string '8' compares unequal to the integer 8, even though a human reads them as the same version. The string '8' survives the dedupe, so the printed result is [7, '8', 9] instead of the intended [7, 9].",
+  "prompt": "This keeps every version newer than the latest one. Step through and predict which versions survive the filter.",
+  "language": "python",
+  "snippet": "def pick_newest(versions, latest):\n    unique = []\n    for v in versions:\n        if v == latest:\n            continue\n        unique.append(v)\n    return unique\n\ncatalog = [7, \"8\", 9, 8]\nprint(pick_newest(catalog, 8))",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "pick_newest": "<function>"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "pick_newest": "<function>",
+        "catalog": "[7, '8', 9, 8]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "versions": "[7, '8', 9, 8]",
+        "latest": "8",
+        "unique": "[]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "versions": "[7, '8', 9, 8]",
+        "latest": "8",
+        "unique": "[]",
+        "v": "7"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "versions": "[7, '8', 9, 8]",
+        "latest": "8",
+        "unique": "[]",
+        "v": "7"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "versions": "[7, '8', 9, 8]",
+        "latest": "8",
+        "unique": "[7]",
+        "v": "7"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "versions": "[7, '8', 9, 8]",
+        "latest": "8",
+        "unique": "[7]",
+        "v": "'8'"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "versions": "[7, '8', 9, 8]",
+        "latest": "8",
+        "unique": "[7]",
+        "v": "'8'"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "versions": "[7, '8', 9, 8]",
+        "latest": "8",
+        "unique": "[7, '8']",
+        "v": "'8'"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "versions": "[7, '8', 9, 8]",
+        "latest": "8",
+        "unique": "[7, '8']",
+        "v": "9"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "versions": "[7, '8', 9, 8]",
+        "latest": "8",
+        "unique": "[7, '8']",
+        "v": "9"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "versions": "[7, '8', 9, 8]",
+        "latest": "8",
+        "unique": "[7, '8', 9]",
+        "v": "9"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "versions": "[7, '8', 9, 8]",
+        "latest": "8",
+        "unique": "[7, '8', 9]",
+        "v": "8"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "versions": "[7, '8', 9, 8]",
+        "latest": "8",
+        "unique": "[7, '8', 9]",
+        "v": "8"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "versions": "[7, '8', 9, 8]",
+        "latest": "8",
+        "unique": "[7, '8', 9]",
+        "v": "8"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "versions": "[7, '8', 9, 8]",
+        "latest": "8",
+        "unique": "[7, '8', 9]",
+        "v": "8"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "versions": "[7, '8', 9, 8]",
+        "latest": "8",
+        "unique": "[7, '8', 9]",
+        "v": "8"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "pick_newest": "<function>",
+        "catalog": "[7, '8', 9, 8]"
+      },
+      "output": "[7, '8', 9]"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 5,
+      "question": "var-value",
+      "target": "unique",
+      "choices": ["[7, '8']", "[7]", "[7, '8', 9]", "[]"],
+      "correct": 1
+    },
+    {
+      "afterStep": 8,
+      "question": "var-value",
+      "target": "unique",
+      "choices": ["[]", "[7, '8', 9]", "[7, '8']", "[7]"],
+      "correct": 2
+    },
+    {
+      "afterStep": 12,
+      "question": "var-value",
+      "target": "v",
+      "choices": ["8", "9", "'8'", "7"],
+      "correct": 0
+    },
+    {
+      "afterStep": 17,
+      "question": "output",
+      "choices": ["7", "[7, '8', 9, 8]", "[7, '8', 9]", "[7]"],
+      "correct": 2
+    }
+  ]
+}

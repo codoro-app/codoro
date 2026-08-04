@@ -1,0 +1,124 @@
+{
+  "id": "rec-017",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 1075,
+  "explanation": "For a nested bin the function recurses on that sublist twice (totalStock(first) + totalStock(first)), so the nested [2,3] group contributes 5 twice. The recursion still terminates, but the doubled group makes it print 14 instead of the correct 9.",
+  "prompt": "This totals the stock in bins, recursing into any nested bin. Step through and predict the total it prints.",
+  "language": "javascript",
+  "snippet": "function totalStock(bins) {\n  if (bins.length === 0) return 0;\n  const first = bins[0];\n  if (Array.isArray(first)) {\n    return totalStock(first) + totalStock(first) + totalStock(bins.slice(1));\n  }\n  return first + totalStock(bins.slice(1));\n}\nconsole.log(totalStock([[2, 3], 4]));",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 2,
+      "vars": {
+        "bins": "[[2,3],4]",
+        "first": "[2,3]",
+        "totalStock": "[Function]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "bins": "[[2,3],4]",
+        "first": "[2,3]",
+        "totalStock": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "bins": "[2,3]",
+        "first": "2",
+        "totalStock": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "bins": "[3]",
+        "first": "3",
+        "totalStock": "[Function]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "bins": "[]",
+        "totalStock": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "bins": "[2,3]",
+        "first": "2",
+        "totalStock": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "bins": "[3]",
+        "first": "3",
+        "totalStock": "[Function]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "bins": "[]",
+        "totalStock": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "bins": "[4]",
+        "first": "4",
+        "totalStock": "[Function]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "bins": "[]",
+        "totalStock": "[Function]"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "totalStock": "[Function]"
+      },
+      "output": "14"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 2,
+      "question": "var-value",
+      "target": "bins",
+      "choices": ["[3]", "[[2,3],4]", "[]", "[2,3]"],
+      "correct": 3
+    },
+    {
+      "afterStep": 4,
+      "question": "var-value",
+      "target": "bins",
+      "choices": ["[4]", "[2,3]", "[3]", "[]"],
+      "correct": 3
+    },
+    {
+      "afterStep": 9,
+      "question": "next-line",
+      "choices": ["2", "1", "3", "8"],
+      "correct": 3
+    },
+    {
+      "afterStep": 10,
+      "question": "output",
+      "choices": ["[4]", "[]", "[Function]", "14"],
+      "correct": 3
+    }
+  ]
+}

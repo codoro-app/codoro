@@ -1,0 +1,172 @@
+{
+  "id": "oob-018",
+  "pattern": "off-by-one",
+  "difficulty_rating": 2125,
+  "explanation": "The right half is taken from mid + 1 instead of mid, so the element sitting at the midpoint is dropped at every split level. The recursion still terminates, but rebuilding [1,2,3,4,5] keeps only [1,4] — the midpoints 2, 3 and 5 are silently lost.",
+  "prompt": "This recursively splits a list in half and re-joins the halves. Step through the recursion and predict what the rebuilt list contains.",
+  "language": "javascript",
+  "snippet": "function splitHalves(items) {\n  if (items.length <= 1) {\n    return items.slice(0, 1);\n  }\n  const mid = Math.floor(items.length / 2);\n  const left = splitHalves(items.slice(0, mid));\n  const right = splitHalves(items.slice(mid + 1));\n  return left.concat(right);\n}\nconst rebuilt = splitHalves([1, 2, 3, 4, 5]);\nconsole.log(\"rebuilt:\", rebuilt.join(\",\"));\nconsole.log(\"count:\", rebuilt.length);",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 4,
+      "vars": {
+        "items": "[1,2,3,4,5]",
+        "mid": "2",
+        "splitHalves": "[Function]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "items": "[1,2]",
+        "mid": "1",
+        "splitHalves": "[Function]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "items": "[1]",
+        "splitHalves": "[Function]"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "items": "[1,2]",
+        "mid": "1",
+        "splitHalves": "[Function]",
+        "left": "[1]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "items": "[]",
+        "splitHalves": "[Function]"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "items": "[1,2]",
+        "mid": "1",
+        "splitHalves": "[Function]",
+        "left": "[1]",
+        "right": "[]"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "items": "[1,2,3,4,5]",
+        "mid": "2",
+        "splitHalves": "[Function]",
+        "left": "[1]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "items": "[4,5]",
+        "mid": "1",
+        "splitHalves": "[Function]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "items": "[4]",
+        "splitHalves": "[Function]"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "items": "[4,5]",
+        "mid": "1",
+        "splitHalves": "[Function]",
+        "left": "[4]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "items": "[]",
+        "splitHalves": "[Function]"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "items": "[4,5]",
+        "mid": "1",
+        "splitHalves": "[Function]",
+        "left": "[4]",
+        "right": "[]"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "items": "[1,2,3,4,5]",
+        "mid": "2",
+        "splitHalves": "[Function]",
+        "left": "[1]",
+        "right": "[4]"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "splitHalves": "[Function]",
+        "rebuilt": "[1,4]"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "splitHalves": "[Function]",
+        "rebuilt": "[1,4]"
+      },
+      "output": "\"rebuilt:\" \"1,4\""
+    },
+    {
+      "line": 11,
+      "vars": {
+        "splitHalves": "[Function]",
+        "rebuilt": "[1,4]"
+      },
+      "output": "\"count:\" 2"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 0,
+      "question": "var-value",
+      "target": "mid",
+      "choices": ["1", "2"],
+      "correct": 1
+    },
+    {
+      "afterStep": 7,
+      "question": "var-value",
+      "target": "items",
+      "choices": ["[1]", "[4]", "[4,5]", "[]"],
+      "correct": 2
+    },
+    {
+      "afterStep": 14,
+      "question": "output",
+      "choices": ["2", "\"count:\" 2", "\"rebuilt:\" \"1,4\"", "[1]"],
+      "correct": 2
+    },
+    {
+      "afterStep": 15,
+      "question": "output",
+      "choices": ["\"rebuilt:\" \"1,4\"", "[1,2,3,4,5]", "\"count:\" 2", "[4,5]"],
+      "correct": 2
+    }
+  ]
+}

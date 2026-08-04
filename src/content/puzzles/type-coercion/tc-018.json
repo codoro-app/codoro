@@ -1,0 +1,158 @@
+{
+  "id": "tc-018",
+  "pattern": "type-coercion",
+  "difficulty_rating": 1675,
+  "explanation": "The if (r.value) guard coerces the value to a boolean, and numeric 0 is falsy. The zero reading is a legitimate measurement but is skipped by the present counter, so the count prints as 2 even though the summed total is 11 — a mismatch that only tracing each value exposes.",
+  "prompt": "This tallies readings, counting how many are present and their total. Step through and predict the printed count and total.",
+  "language": "javascript",
+  "snippet": "function slotTotals(readings) {\n  let sum = 0;\n  let present = 0;\n  for (const r of readings) {\n    if (r.value) present += 1;\n    sum += r.value;\n  }\n  console.log(`${present} readings, total ${sum}`);\n  console.log(\"sum:\", sum);\n}\nslotTotals([{ value: 4 }, { value: 0 }, { value: 7 }]);",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 1,
+      "vars": {
+        "readings": "[{\"value\":4},{\"value\":0},{\"value\":7}]",
+        "sum": "0",
+        "slotTotals": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "readings": "[{\"value\":4},{\"value\":0},{\"value\":7}]",
+        "sum": "0",
+        "slotTotals": "[Function]",
+        "present": "0"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "readings": "[{\"value\":4},{\"value\":0},{\"value\":7}]",
+        "sum": "0",
+        "slotTotals": "[Function]",
+        "present": "0",
+        "r": "{\"value\":4}"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "readings": "[{\"value\":4},{\"value\":0},{\"value\":7}]",
+        "sum": "0",
+        "slotTotals": "[Function]",
+        "present": "1",
+        "r": "{\"value\":4}"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "readings": "[{\"value\":4},{\"value\":0},{\"value\":7}]",
+        "sum": "4",
+        "slotTotals": "[Function]",
+        "present": "1",
+        "r": "{\"value\":4}"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "readings": "[{\"value\":4},{\"value\":0},{\"value\":7}]",
+        "sum": "4",
+        "slotTotals": "[Function]",
+        "present": "1",
+        "r": "{\"value\":0}"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "readings": "[{\"value\":4},{\"value\":0},{\"value\":7}]",
+        "sum": "4",
+        "slotTotals": "[Function]",
+        "present": "1",
+        "r": "{\"value\":7}"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "readings": "[{\"value\":4},{\"value\":0},{\"value\":7}]",
+        "sum": "4",
+        "slotTotals": "[Function]",
+        "present": "2",
+        "r": "{\"value\":7}"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "readings": "[{\"value\":4},{\"value\":0},{\"value\":7}]",
+        "sum": "11",
+        "slotTotals": "[Function]",
+        "present": "2",
+        "r": "{\"value\":7}"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "readings": "[{\"value\":4},{\"value\":0},{\"value\":7}]",
+        "sum": "11",
+        "slotTotals": "[Function]",
+        "present": "2"
+      },
+      "output": "\"2 readings, total 11\""
+    },
+    {
+      "line": 8,
+      "vars": {
+        "readings": "[{\"value\":4},{\"value\":0},{\"value\":7}]",
+        "sum": "11",
+        "slotTotals": "[Function]",
+        "present": "2"
+      },
+      "output": "\"sum:\" 11"
+    },
+    {
+      "line": 10,
+      "vars": {
+        "slotTotals": "[Function]"
+      }
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "present",
+      "choices": ["2", "1", "0"],
+      "correct": 1
+    },
+    {
+      "afterStep": 7,
+      "question": "var-value",
+      "target": "present",
+      "choices": ["2", "1", "0"],
+      "correct": 0
+    },
+    {
+      "afterStep": 9,
+      "question": "output",
+      "choices": [
+        "1",
+        "\"sum:\" 11",
+        "[{\"value\":4},{\"value\":0},{\"value\":7}]",
+        "\"2 readings, total 11\""
+      ],
+      "correct": 3
+    },
+    {
+      "afterStep": 10,
+      "question": "output",
+      "choices": ["[Function]", "{\"value\":4}", "\"2 readings, total 11\"", "\"sum:\" 11"],
+      "correct": 3
+    }
+  ]
+}

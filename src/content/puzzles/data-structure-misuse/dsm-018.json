@@ -1,0 +1,115 @@
+{
+  "id": "dsm-018",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 1525,
+  "explanation": "A plain object inherits a truthy constructor property from its prototype. votes['constructor'] || 0 resolves to the inherited function (not 0), and adding 1 to it coerces the function to a string, producing a garbage-but-printable value instead of the count 1.",
+  "prompt": "This tagger counts how often each design tag appears. Step through the tally and predict what it prints for the 'constructor' tag.",
+  "language": "javascript",
+  "snippet": "const votes = {};\nconst tags = [\"launch\", \"constructor\", \"launch\", \"retry\"];\nfor (const tag of tags) {\n  votes[tag] = (votes[tag] || 0) + 1;\n}\nconsole.log(\"launch:\", votes[\"launch\"]);\nconsole.log(\"constructor:\", votes[\"constructor\"]);",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "votes": "{}"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "votes": "{}",
+        "tags": "[\"launch\",\"constructor\",\"launch\",\"retry\"]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "votes": "{\"launch\":1}",
+        "tags": "[\"launch\",\"constructor\",\"launch\",\"retry\"]",
+        "tag": "\"launch\""
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "votes": "{\"launch\":1,\"constructor\":\"function Object() { [native code] }1\"}",
+        "tags": "[\"launch\",\"constructor\",\"launch\",\"retry\"]",
+        "tag": "\"constructor\""
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "votes": "{\"launch\":2,\"constructor\":\"function Object() { [native code] }1\"}",
+        "tags": "[\"launch\",\"constructor\",\"launch\",\"retry\"]",
+        "tag": "\"launch\""
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "votes": "{\"launch\":2,\"constructor\":\"function Object() { [native code] }1\",\"retry\":1}",
+        "tags": "[\"launch\",\"constructor\",\"launch\",\"retry\"]",
+        "tag": "\"retry\""
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "votes": "{\"launch\":2,\"constructor\":\"function Object() { [native code] }1\",\"retry\":1}",
+        "tags": "[\"launch\",\"constructor\",\"launch\",\"retry\"]"
+      },
+      "output": "\"launch:\" 2"
+    },
+    {
+      "line": 6,
+      "vars": {
+        "votes": "{\"launch\":2,\"constructor\":\"function Object() { [native code] }1\",\"retry\":1}",
+        "tags": "[\"launch\",\"constructor\",\"launch\",\"retry\"]"
+      },
+      "output": "\"constructor:\" \"function Object() { [native code] }1\""
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "votes",
+      "choices": [
+        "{\"launch\":2,\"constructor\":\"function Object() { [native code] }1\"}",
+        "{\"launch\":1,\"constructor\":\"function Object() { [native code] }1\"}",
+        "{\"launch\":1}",
+        "{}"
+      ],
+      "correct": 1
+    },
+    {
+      "afterStep": 5,
+      "question": "next-line",
+      "choices": ["5", "0", "3", "1"],
+      "correct": 0
+    },
+    {
+      "afterStep": 6,
+      "question": "output",
+      "choices": [
+        "\"launch:\" 2",
+        "\"constructor\"",
+        "{}",
+        "\"constructor:\" \"function Object() { [native code] }1\""
+      ],
+      "correct": 0
+    },
+    {
+      "afterStep": 7,
+      "question": "output",
+      "choices": [
+        "{\"launch\":1,\"constructor\":\"function Object() { [native code] }1\"}",
+        "{}",
+        "\"constructor:\" \"function Object() { [native code] }1\"",
+        "\"launch:\" 2"
+      ],
+      "correct": 2
+    }
+  ]
+}

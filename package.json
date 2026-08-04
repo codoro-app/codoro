@@ -23,6 +23,7 @@
     "content:stats": "tsx src/content/tools/contentStats.ts",
     "generate:puzzles": "tsx --env-file=.env src/content/tools/generatePuzzles.ts",
     "generate:scrubber-puzzles": "tsx --env-file=.env src/content/tools/generateScrubberPuzzles.ts",
+    "author:scrubber-puzzles": "tsx src/content/tools/authorScrubberPuzzles.ts",
     "generate:pwa-icons": "tsx src/app/pwa/generatePwaIcons.ts",
     "generate:og-image": "tsx src/app/og/generateOgImage.ts",
     "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm validate:content && pnpm build",

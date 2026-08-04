@@ -1,0 +1,79 @@
+{
+  "id": "scl-018",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1525,
+  "explanation": "Inside report, a local let balance = 0 shadows the outer balance of 100 for the duration of the function, so report returns the shadowed 0. The outer balance is untouched and still prints 100, but the report reads 0 — a shadowing collision, not a mutation of the global.",
+  "prompt": "report() is supposed to return the current global balance. Step through and predict what report() and the outer balance print.",
+  "language": "javascript",
+  "snippet": "let balance = 100;\nfunction report() {\n  let balance = 0;\n  return balance;\n}\nconst shown = report();\nconsole.log(\"report:\", shown);\nconsole.log(\"balance:\", balance);",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "balance": "100",
+        "report": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "balance": "0",
+        "report": "[Function]"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "balance": "100",
+        "report": "[Function]",
+        "shown": "0"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "balance": "100",
+        "report": "[Function]",
+        "shown": "0"
+      },
+      "output": "\"report:\" 0"
+    },
+    {
+      "line": 7,
+      "vars": {
+        "balance": "100",
+        "report": "[Function]",
+        "shown": "0"
+      },
+      "output": "\"balance:\" 100"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 1,
+      "question": "var-value",
+      "target": "balance",
+      "choices": ["0", "100"],
+      "correct": 0
+    },
+    {
+      "afterStep": 2,
+      "question": "next-line",
+      "choices": ["0", "2", "5", "6"],
+      "correct": 3
+    },
+    {
+      "afterStep": 3,
+      "question": "output",
+      "choices": ["[Function]", "\"report:\" 0", "100", "\"balance:\" 100"],
+      "correct": 1
+    },
+    {
+      "afterStep": 4,
+      "question": "output",
+      "choices": ["100", "\"report:\" 0", "0", "\"balance:\" 100"],
+      "correct": 3
+    }
+  ]
+}

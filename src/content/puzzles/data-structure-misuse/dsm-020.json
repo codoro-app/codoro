@@ -1,0 +1,97 @@
+{
+  "id": "dsm-020",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 1925,
+  "explanation": "Set.add on an existing key is a no-op — it does not reorder the Set, so Set insertion order never reflects usage recency. refresh('pay') leaves 'pay' at the head of the Set, so evict() deletes 'pay' instead of the true least-recently-used 'ship'. The remaining set prints 'ship,refund'.",
+  "prompt": "This cache is meant to refresh recently used keys and then evict the least-recently-used entry. Step through refresh('pay') followed by evict() and predict what the cache prints.",
+  "language": "javascript",
+  "snippet": "const cache = new Set([\"pay\", \"ship\", \"refund\"]);\nfunction refresh(key) {\n  cache.add(key);\n}\nfunction evict() {\n  cache.delete([...cache][0]);\n}\nrefresh(\"pay\");\nevict();\nconsole.log([...cache].join(\",\"));\nconsole.log(\"size:\", cache.size);",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "cache": "{}",
+        "refresh": "[Function]",
+        "evict": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "cache": "{}",
+        "refresh": "[Function]",
+        "evict": "[Function]",
+        "key": "\"pay\""
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "cache": "{}",
+        "refresh": "[Function]",
+        "evict": "[Function]"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "cache": "{}",
+        "refresh": "[Function]",
+        "evict": "[Function]"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "cache": "{}",
+        "refresh": "[Function]",
+        "evict": "[Function]"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "cache": "{}",
+        "refresh": "[Function]",
+        "evict": "[Function]"
+      },
+      "output": "\"ship,refund\""
+    },
+    {
+      "line": 10,
+      "vars": {
+        "cache": "{}",
+        "refresh": "[Function]",
+        "evict": "[Function]"
+      },
+      "output": "\"size:\" 2"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 1,
+      "question": "next-line",
+      "choices": ["0", "10", "7", "2"],
+      "correct": 2
+    },
+    {
+      "afterStep": 3,
+      "question": "next-line",
+      "choices": ["8", "9", "2", "0"],
+      "correct": 0
+    },
+    {
+      "afterStep": 5,
+      "question": "output",
+      "choices": ["\"size:\" 2", "{}", "[Function]", "\"ship,refund\""],
+      "correct": 3
+    },
+    {
+      "afterStep": 6,
+      "question": "output",
+      "choices": ["\"size:\" 2", "\"pay\"", "[Function]", "\"ship,refund\""],
+      "correct": 0
+    }
+  ]
+}
