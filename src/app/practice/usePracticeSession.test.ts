@@ -44,6 +44,7 @@ const {
     left_label: 'Buggy',
     right_label: 'Safe',
     correct_direction: 'left',
+    correct_verdict: 'bug',
   } as unknown as Puzzle
   const tapLineFixture = {
     id: tapId,

@@ -9,5 +9,6 @@
   "interaction": "swipe-binary",
   "left_label": "Injectable",
   "right_label": "Safe",
-  "correct_direction": "left"
+  "correct_direction": "left",
+  "correct_verdict": "bug"
 }

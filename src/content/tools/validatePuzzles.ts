@@ -117,6 +117,82 @@ export function validateDailyCalendar(
   return errors
 }
 
+/**
+ * The floor on how much of the swipe-binary library must be the "code is
+ * fine" negative class (docs/v2-build-plan.md, Phase 6 item 5). A swipe
+ * puzzle carries a 50% guess floor; if the library is ~all "find the bug",
+ * a player who reasons "everything here has a bug" wins on prior alone,
+ * without tracing. Requiring ≥1/3 to answer "safe" means that strategy stops
+ * working and real discrimination is restored. Like the direction-skew rule,
+ * this is a hard `validate:content` failure, not a warning — a future
+ * authoring batch must not be able to quietly re-concentrate the library on
+ * bug-seeking.
+ */
+const SWIPE_SAFE_MIN_SHARE = 1 / 3
+
+/**
+ * Tokens asserting the code is fine (the correct side of a `'safe'` puzzle)
+ * vs. tokens naming a defect. Used only to verify the *correct-side label* of
+ * `correct_verdict: 'safe'` puzzles actually claims the code is fine — a
+ * puzzle marketed as "the code is safe" whose correct label names a bug is
+ * incoherent. Deliberately NOT applied to `'bug'` puzzles, whose correct-side
+ * labels legitimately vary between naming the defect and describing the wrong
+ * (buggy) behavior; checking them would false-positive on the existing,
+ * already-authored library.
+ */
+const SAFE_VERDICT_CORRECT_LABEL_RE =
+  /\b(safe|no ?bug|correct|works?|fine|valid|properly|ok|right|normal)\b/i
+const DEFECT_LABEL_RE =
+  /\b(bug|buggy|broken|race|leak|crash|throw|blow|corrupt|crashes|fails?|wrong|undefined behaviour|undefined behavior)\b/i
+
+function correctDirectionLabel(puzzle: SwipeBinaryPuzzle): string {
+  return puzzle.correct_direction === 'right' ? puzzle.right_label : puzzle.left_label
+}
+
+/**
+ * Second half of the Phase 6 item 5 swipe-binary check: correct-label
+ * SEMANTICS, not just side. Two rules, both hard:
+ *  1. Pool: ≥ `SWIPE_SAFE_MIN_SHARE` of swipe-binary puzzles are
+ *     `correct_verdict: 'safe'` (the negative class), so bug-seeking-by-prior
+ *     can't climb Elo for free.
+ *  2. Per-puzzle: a `'safe'` puzzle's correct-side label must actually claim
+ *     the code is fine (contain a safe token and no defect token).
+ */
+function validateSwipeSemantics(valid: readonly ValidatedPuzzle[]): string[] {
+  const swipeBinaryPuzzles = valid.filter(isSwipeBinaryEntry)
+  if (swipeBinaryPuzzles.length === 0) return []
+
+  const errors: string[] = []
+  const safeCount = swipeBinaryPuzzles.filter((e) => e.puzzle.correct_verdict === 'safe').length
+  const safeShare = safeCount / swipeBinaryPuzzles.length
+
+  if (safeShare < SWIPE_SAFE_MIN_SHARE) {
+    errors.push(
+      `swipe-binary correct_verdict is ${String(safeCount)}/${String(swipeBinaryPuzzles.length)} "safe" (${(
+        safeShare * 100
+      ).toFixed(
+        1,
+      )}%) — below the ≥${String(Math.round(SWIPE_SAFE_MIN_SHARE * 100))}% floor for the "code is fine" negative class. ` +
+        `Without it, a player who assumes "everything here has a bug" wins without reading the code.`,
+    )
+  }
+
+  for (const entry of swipeBinaryPuzzles) {
+    if (entry.puzzle.correct_verdict !== 'safe') continue
+    const label = correctDirectionLabel(entry.puzzle)
+    const isSafeClaim = SAFE_VERDICT_CORRECT_LABEL_RE.test(label) && !DEFECT_LABEL_RE.test(label)
+    if (!isSafeClaim) {
+      errors.push(
+        `${entry.puzzle.id}: correct_verdict is "safe" but the correct-side label ("${label}") does not claim the ` +
+          `code is fine — a "code is safe" puzzle's correct answer must be the label asserting safety, or the negative ` +
+          `class reads as a guess.`,
+      )
+    }
+  }
+
+  return errors
+}
+
 export function validatePuzzleFiles(files: readonly RawPuzzleFile[]): ValidationResult {
   const valid: ValidatedPuzzle[] = []
   const errors: string[] = []
@@ -143,6 +219,7 @@ export function validatePuzzleFiles(files: readonly RawPuzzleFile[]): Validation
   }
 
   errors.push(...validateSwipeDirectionBalance(valid))
+  errors.push(...validateSwipeSemantics(valid))
 
   return { valid, errors }
 }

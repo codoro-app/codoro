@@ -9,5 +9,6 @@
   "interaction": "swipe-binary",
   "left_label": "Logs 3, 3, 3",
   "right_label": "Logs 0, 1, 2",
-  "correct_direction": "left"
+  "correct_direction": "left",
+  "correct_verdict": "bug"
 }

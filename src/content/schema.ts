@@ -51,11 +51,23 @@ export const McqSchema = BaseSchema.extend({
   correct_choice: z.number().int().nonnegative(),
 })
 
+/**
+ * Machine-readable verdict on whether the snippet actually contains a bug —
+ * the "code is fine" negative class (docs/v2-build-plan.md, Phase 6 item 5).
+ * Without it the validator cannot tell whether a swipe-binary puzzle is
+ * testing "find the bug" or "confirm this is fine" (and, at pool level,
+ * whether at least a third of the library is the latter — the anti-guess-floor
+ * target). `correct_direction`'s correct-side label must be semantically
+ * consistent with this field: `'bug'` points at the label naming the defect,
+ * `'safe'` at the label asserting the code is fine. Authoring-only signal,
+ * never read by the renderer (SwipeBinary.tsx reads `correct_direction`).
+ */
 export const SwipeBinarySchema = BaseSchema.extend({
   interaction: z.literal('swipe-binary'),
   left_label: z.string().min(1),
   right_label: z.string().min(1),
   correct_direction: z.enum(['left', 'right']),
+  correct_verdict: z.enum(['bug', 'safe']),
 })
 
 export const TapLineSchema = BaseSchema.extend({

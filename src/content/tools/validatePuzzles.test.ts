@@ -23,8 +23,16 @@ function rawMcq(id: string, overrides: Record<string, unknown> = {}): unknown {
 function rawSwipeBinary(
   id: string,
   correctDirection: 'left' | 'right',
+  verdict: 'bug' | 'safe' = 'bug',
   overrides: Record<string, unknown> = {},
 ): unknown {
+  // For a "safe" verdict the correct-side label must be the "Safe" pole, or it
+  // fails the label-semantics check. "bug" verdicts keep the plain labels — the
+  // semantics check deliberately does not police bug-verdict labels.
+  const safeLabels =
+    correctDirection === 'left'
+      ? { left_label: 'Safe', right_label: 'Buggy' }
+      : { left_label: 'Buggy', right_label: 'Safe' }
   return {
     id,
     pattern: 'type-coercion',
@@ -34,18 +42,28 @@ function rawSwipeBinary(
     language: 'javascript',
     snippet: 'if (value == "0") {\n  return false\n}',
     interaction: 'swipe-binary',
-    left_label: 'Safe',
-    right_label: 'Buggy',
+    ...(verdict === 'safe' ? safeLabels : { left_label: 'Safe', right_label: 'Buggy' }),
     correct_direction: correctDirection,
+    correct_verdict: verdict,
     ...overrides,
   }
 }
 
-/** Builds `count` swipe-binary files, `rightCount` of them "right", the rest "left". */
+/**
+ * Builds `count` swipe-binary files, `rightCount` of them "right", the rest
+ * "left", with at least 1/3 "safe" verdicts (correct side labeled "Safe") so
+ * the pool clears the negative-class floor while the direction split stays
+ * whatever the caller asked for.
+ */
 function swipeBinaryFixture(count: number, rightCount: number): RawPuzzleFile[] {
+  const safeCount = Math.max(1, Math.ceil(count / 3))
   return Array.from({ length: count }, (_, i) => ({
     filePath: `swipe-${String(i)}.json`,
-    raw: rawSwipeBinary(`tc-${String(i).padStart(3, '0')}`, i < rightCount ? 'right' : 'left'),
+    raw: rawSwipeBinary(
+      `tc-${String(i).padStart(3, '0')}`,
+      i < rightCount ? 'right' : 'left',
+      i < safeCount ? 'safe' : 'bug',
+    ),
   }))
 }
 
@@ -139,6 +157,63 @@ describe('validatePuzzleFiles', () => {
 
       const { errors } = validatePuzzleFiles(files)
       expect(errors).toEqual([])
+    })
+  })
+
+  describe('swipe-binary correct_verdict semantics', () => {
+    it('fails when the pool is below the ≥1/3 "safe" floor (all buggy)', () => {
+      // Mirrors the shipped state before this feature: every real swipe puzzle
+      // has correct_verdict:'bug'. A bug-seeking-by-prior player wins for free
+      // on that library, so this gate must be a hard failure, not a warning.
+      const files: RawPuzzleFile[] = Array.from({ length: 10 }, (_, i) => ({
+        filePath: `swipe-${String(i)}.json`,
+        raw: rawSwipeBinary(
+          `tc-${String(i).padStart(3, '0')}`,
+          i % 2 === 0 ? 'left' : 'right',
+          'bug',
+        ),
+      }))
+
+      const gate = validatePuzzleFiles(files).errors.filter((e) => e.includes('negative class'))
+      expect(gate).toHaveLength(1)
+      expect(gate[0]).toContain('0/10')
+    })
+
+    it('passes a pool at exactly the ≥1/3 "safe" floor', () => {
+      const files: RawPuzzleFile[] = Array.from({ length: 12 }, (_, i) => ({
+        filePath: `swipe-${String(i)}.json`,
+        raw: rawSwipeBinary(
+          `tc-${String(i).padStart(3, '0')}`,
+          i % 2 === 0 ? 'left' : 'right',
+          i < 4 ? 'safe' : 'bug',
+        ),
+      }))
+
+      const gate = validatePuzzleFiles(files).errors.filter((e) => e.includes('negative class'))
+      expect(gate).toHaveLength(0)
+    })
+
+    it('flags a "safe" puzzle whose correct-side label names a bug', () => {
+      // 2 safe (one bad label, one good) + 4 bug = 6 files → safe share is
+      // exactly 1/3 (clears the pool gate), direction is 3/3 (clears the skew
+      // gate), so the ONLY error is the incoherent safe label.
+      const files: RawPuzzleFile[] = [
+        {
+          filePath: 'bad-safe.json',
+          raw: rawSwipeBinary('sb-001', 'right', 'safe', { right_label: 'Race condition' }),
+        },
+        { filePath: 'good-safe.json', raw: rawSwipeBinary('sb-002', 'left', 'safe') },
+        { filePath: 'b0.json', raw: rawSwipeBinary('b-000', 'right', 'bug') },
+        { filePath: 'b1.json', raw: rawSwipeBinary('b-001', 'left', 'bug') },
+        { filePath: 'b2.json', raw: rawSwipeBinary('b-002', 'right', 'bug') },
+        { filePath: 'b3.json', raw: rawSwipeBinary('b-003', 'left', 'bug') },
+      ]
+
+      const flagged = validatePuzzleFiles(files).errors.filter((e) =>
+        e.includes('does not claim the code is fine'),
+      )
+      expect(flagged).toHaveLength(1)
+      expect(flagged[0]).toContain('sb-001')
     })
   })
 })

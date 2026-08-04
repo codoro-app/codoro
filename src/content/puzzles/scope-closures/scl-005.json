@@ -9,5 +9,6 @@
   "interaction": "swipe-binary",
   "left_label": "Logs the same value every time",
   "right_label": "Logs its own index (0, 1, 2)",
-  "correct_direction": "left"
+  "correct_direction": "left",
+  "correct_verdict": "bug"
 }

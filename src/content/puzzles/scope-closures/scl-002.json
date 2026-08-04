@@ -9,5 +9,6 @@
   "interaction": "swipe-binary",
   "left_label": "All return the same value",
   "right_label": "Works as intended",
-  "correct_direction": "left"
+  "correct_direction": "left",
+  "correct_verdict": "bug"
 }

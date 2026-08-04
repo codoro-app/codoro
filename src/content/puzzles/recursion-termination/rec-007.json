@@ -9,5 +9,6 @@
   "interaction": "swipe-binary",
   "left_label": "Terminates correctly",
   "right_label": "Infinite recursion risk",
-  "correct_direction": "right"
+  "correct_direction": "right",
+  "correct_verdict": "bug"
 }

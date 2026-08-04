@@ -161,6 +161,7 @@ const FEW_SHOT_EXAMPLES: Puzzle[] = [
     left_label: 'Safe',
     right_label: 'Race condition',
     correct_direction: 'right',
+    correct_verdict: 'bug',
   },
   {
     id: 'nul-000',
@@ -175,6 +176,7 @@ const FEW_SHOT_EXAMPLES: Puzzle[] = [
     left_label: 'Throws on a missing address',
     right_label: 'Safe',
     correct_direction: 'left',
+    correct_verdict: 'bug',
   },
 ]
 
@@ -218,6 +220,12 @@ Requirements for every puzzle you generate:
   swipe-binary into a free guess for anyone who swipes that side without
   reading, which defeats the puzzle. Flip a mental coin per puzzle rather
   than defaulting to whichever side felt natural to write first.
+- For "swipe-binary": set "correct_verdict" to "bug" when the snippet
+  genuinely contains a bug (the normal case), or "safe" when the code is
+  actually fine and the "no bug"/"Safe" label is the correct side. The label
+  on the correct_direction side must be semantically consistent with this
+  field: a "safe" verdict means the correct-side label asserts the code is
+  fine, never names a defect.
 - For "tap-line": correct_line is a 0-based index into the snippet's lines.
 - For "drag-order" (not targeted by this pipeline yet, but the shape must
   still be right if it ever is): "blocks" is the SHUFFLED display order the
