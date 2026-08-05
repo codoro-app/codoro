@@ -106,6 +106,32 @@ about "shared state across calls" vs generic mutability need real
 discrimination) · C=3 (only manifests when the caller omits the argument
 repeatedly) → sum=13 → **rating ≈ 1700**
 
+### C — mid band (~1300-1500)
+
+```c
+#include <string.h>
+
+/* returns nonzero when the two strings are equal, 0 otherwise */
+int strings_equal(const char *a, const char *b) {
+  return strcmp(a, b);
+}
+```
+
+Bug: `strcmp` returns **0** when the strings are equal and nonzero when they
+differ — the opposite of a boolean. `return strcmp(a, b)` therefore returns a
+truthy value for different strings and 0 (falsy) for equal ones, so every
+caller that does `if (strings_equal(a, b))` runs the "equal" branch on
+mismatch and skips it on match. C's convention that 0 is "equal, not an
+error" is exactly the kind of contract that reads backwards from every other
+language.
+
+S=3 (requires knowing `strcmp`'s return contract — genuinely C-specific and
+easy to get backwards, but not as deep as undefined behavior) · T=1 (visible
+by inspection once the contract is known, no state to trace) · D=3 (an
+"inverted comparison" explanation is the obvious wrong answer, but a "missing
+free" distractor is also tempting in C) · C=2 (fires on every call — wrong
+for all inputs, not just an edge case) → sum=9 → **rating ≈ 1300**
+
 ### High band (~2050-2150)
 
 ```js
@@ -131,8 +157,9 @@ access — a sequential trace looks fine) → sum=17 → **rating ≈ 2100**
 - Are S/T/D/C weighted right, or should one dimension count more (e.g.
   semantic subtlety mattering more than context dependence for this
   audience)?
-- Worked examples above are all JS/Python — want one in Java or C anchored
-  too, given the stack you're targeting?
+- Worked examples now cover JS, Python, and C (see the C mid-band example).
+  Java remains the gap — want one anchored too, given the stack you're
+  targeting?
 - The swipe-binary modifier is a flat add — fine as a first pass, but you may
   want to revisit after the first real batch of swipe-binary puzzles gets
   played, once there's actual pass-rate data to check it against.

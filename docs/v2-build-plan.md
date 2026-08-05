@@ -575,6 +575,32 @@ todo.md item 2, pulled forward by direct user decision: challenge links are v5.0
 - [ ] Item 0's format-tell rule (Phase 5) confirmed clean across every newly generated scrubber puzzle, not just the two `oob-011` checkpoints it was written against — this phase's batch is the first real volume test of that rule as a generation-time gate, not just a validate:content backstop
 - [ ] Interaction-mix target set, recorded here as an amendment, and met within ±10 points across this phase's new content
 
+### Phase 6 v2 authoring amendment (committed 2026-08, branch `phase6/v2-content-finish`)
+
+Authoring-only completion of items 2, 3, 4, 5, and 7, plus the tooling they require. Item 6 (scrubber volume) was already closed at **43 live** by the offline authoring batch on `phase6/scrubber-volume` (≥40 target met; scrubber untouched here). All content was authored **through chat with zero API usage** — no `generatePuzzles.ts` / `generateScrubberPuzzles.ts` runs — mirroring the offline `authorScrubberPuzzles.ts` harness.
+
+**Item 1 is explicitly deferred to a separate follow-up PR.** The existing 111 quiz puzzles keep their current ratings; only new content is rubric-scored here. The rescoring PR must run after this branch merges so it can re-score the new + old library in one pass. Deferring it does not relax authoring quality: every new puzzle was rubric-scored at authoring time (real S/T/D/C sum → non-round rating, swipe modifier applied).
+
+**Schema addition — `correct_verdict` (item 5).** `SwipeBinarySchema` gained `correct_verdict: 'bug' | 'safe'` (`src/content/schema.ts`). The 39 existing swipe puzzles were backfilled to `'bug'`; 22 new `'safe'` swipe puzzles were authored. `validateSwipeSemantics` (in `validatePuzzles.ts`) enforces two hard rules:
+
+1. ≥⅓ of the swipe-binary pool is `'safe'` (the "code is fine" negative class) — a player who assumes "everything here has a bug" can no longer win on prior alone;
+2. a `'safe'` puzzle's correct-side label must actually claim the code is fine (safe-token present, defect-token absent — the `(?<!no )bug` negation guard blesses labels like "No bug").
+
+`'safe'` puzzles still carry the +150–200 swipe modifier — they are rated on how convincingly correct-looking code could be mistaken for buggy, not discounted for being "easy."
+
+**Drag-order two formats (item 3).** Locked at two formats, per the user: (a) reorder code blocks so the code produces a stated output; (b) order output lines into the correct sequence. `blocks` is the shuffled display order; `correct_order` is a full non-identity permutation over all block indices. Both formats were authored — 10 each among the 20 new drag-order puzzles.
+
+**Locked targets (items 2, 7).** Language 40/25/25/10 JS/Python/Java/C for quiz content; ≤⅓ of new quiz puzzles plain `mcq`; scrubber + drag-order ≥⅓ of new content; ≥⅓ of swipe-binary answer "the code is fine." All are hard `validate:content` gates now — the interaction-mix and language-mix gates judge new-content deltas against the fixed Phase 5 baseline (154 total, 111 quiz, 42 mcq, 3 drag + 43 scrubber), and the anti-anchoring rating-cluster ≤15% check was promoted from advisory to hard gate.
+
+**Volume budget and final stats.** 60 new quiz puzzles (22 safe-swipe, 20 drag-order, 18 mcq; tap-line unchanged at 27) → **214 total**:
+
+- By interaction: mcq 60, swipe-binary 61, tap-line 27, drag-order 23, scrubber 43.
+- By language (quiz only): JS 73 (42.7%), Python 41 (24.0%), Java 43 (25.1%), C 14 (8.2%) — within ±10 of target.
+- New-content mix: 18/60 new quiz are plain mcq (30% ≤⅓); 20/60 new content interactive (33.3% ≥⅓).
+- Safe-swipe share: 22/61 (36.1%) ≥ ⅓.
+
+**New-content steering.** Language was tilted Python/Java/C-heavy and JS-light to pull the quiz library from 62% JS (baseline) into the 40/25/25/10 band; C rose from 2 to 14. A C worked example was added to `src/content/CALIBRATION.md` (the rubric's own open question) to anchor C scoring for future authoring.
+
 ---
 
 ## Phase 6b — Boss challenges (2 sessions, added 2026-08, gated on Phase 6 volume)

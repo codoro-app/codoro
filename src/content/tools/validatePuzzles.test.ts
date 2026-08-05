@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { validateDailyCalendar, validatePuzzleFiles } from './validatePuzzles'
+import {
+  validateDailyCalendar,
+  validateInteractionMix,
+  validateLanguageMix,
+  validatePuzzleFiles,
+  validateRatingCluster,
+} from './validatePuzzles'
 import type { RawPuzzleFile } from './loadPuzzles'
 import type { ValidatedPuzzle } from './validatePuzzles'
 import type { Puzzle } from '../schema'
@@ -234,6 +240,128 @@ describe('validatePuzzleFiles', () => {
       )
       expect(flagged).toHaveLength(1)
       expect(flagged[0]).toContain('sb-001')
+    })
+  })
+})
+
+describe('Phase 6 DoD library gates', () => {
+  function rated(id: string, rating: number): ValidatedPuzzle {
+    return {
+      filePath: `${id}.json`,
+      puzzle: { id, difficulty_rating: rating } as unknown as Puzzle,
+    }
+  }
+
+  function quizPuzzle(id: string, language: string, interaction = 'mcq'): ValidatedPuzzle {
+    return { filePath: `${id}.json`, puzzle: { id, language, interaction } as unknown as Puzzle }
+  }
+
+  function manyQuizPuzzles(
+    idPrefix: string,
+    count: number,
+    interaction: string,
+    language = 'python',
+  ): ValidatedPuzzle[] {
+    return Array.from({ length: count }, (_, i) =>
+      quizPuzzle(`${idPrefix}-${String(i).padStart(3, '0')}`, language, interaction),
+    )
+  }
+
+  describe('validateRatingCluster', () => {
+    it('passes when no exact rating exceeds 15% of the pool', () => {
+      const files = [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700].map((rating, i) =>
+        rated(`r-${String(i)}`, rating),
+      )
+      expect(validateRatingCluster(files)).toEqual([])
+    })
+
+    it('fails when a single rating anchors more than 15% of the pool', () => {
+      const files = Array.from({ length: 10 }, (_, i) => rated(`r-${String(i)}`, 1000))
+      const errors = validateRatingCluster(files)
+      expect(errors).toHaveLength(1)
+      expect(errors[0]).toContain('anti-anchoring')
+      expect(errors[0]).toContain('1000')
+    })
+  })
+
+  describe('validateLanguageMix', () => {
+    it('passes a quiz pool inside the ±10pt band of 40/25/25/10', () => {
+      const files = [
+        ...manyQuizPuzzles('js', 4, 'mcq', 'javascript'),
+        ...manyQuizPuzzles('py', 3, 'mcq', 'python'),
+        ...manyQuizPuzzles('jv', 2, 'mcq', 'java'),
+        ...manyQuizPuzzles('c', 1, 'mcq', 'c'),
+      ]
+      expect(validateLanguageMix(files)).toEqual([])
+    })
+
+    it('fails an all-JavaScript quiz pool, naming the language', () => {
+      const files = manyQuizPuzzles('js', 10, 'mcq', 'javascript')
+      const errors = validateLanguageMix(files)
+      expect(errors).toHaveLength(1)
+      expect(errors[0]).toContain('language mix')
+      expect(errors[0]).toContain('javascript')
+    })
+
+    it('ignores scrubber puzzles when computing the quiz mix', () => {
+      const files = manyQuizPuzzles('c', 10, 'scrubber', 'c')
+      expect(validateLanguageMix(files)).toEqual([])
+    })
+  })
+
+  describe('validateInteractionMix (new-content delta vs the Phase 5 baseline)', () => {
+    // Baseline is the Phase 5 library: 154 total, 111 quiz (42 mcq), 3 drag + 43 scrubber.
+
+    it('passes a realistic addition that respects both new-content rules', () => {
+      // 45 mcq + 75 swipe quiz (120 quiz), plus 50 scrubber + 10 drag = 180 total.
+      // new quiz = 9, new mcq = 3 (≤⅓); new content = 26, new interactive = 14 (≥⅓).
+      const files: ValidatedPuzzle[] = [
+        ...Array.from({ length: 45 }, (_, i) =>
+          validated(`m-${String(i).padStart(3, '0')}`, 'mcq'),
+        ),
+        ...Array.from({ length: 75 }, (_, i) =>
+          validated(`s-${String(i).padStart(3, '0')}`, 'swipe-binary'),
+        ),
+        ...Array.from({ length: 50 }, (_, i) =>
+          validated(`sb-${String(i).padStart(3, '0')}`, 'scrubber'),
+        ),
+        ...Array.from({ length: 10 }, (_, i) =>
+          validated(`d-${String(i).padStart(3, '0')}`, 'drag-order'),
+        ),
+      ]
+      expect(validateInteractionMix(files)).toEqual([])
+    })
+
+    it('fails when new quiz is dominated by plain mcq', () => {
+      // 130 mcq + 46 scrubber = 176 total. new quiz = 19, new mcq = 88 → way over ⅓.
+      const files: ValidatedPuzzle[] = [
+        ...Array.from({ length: 130 }, (_, i) =>
+          validated(`m-${String(i).padStart(3, '0')}`, 'mcq'),
+        ),
+        ...Array.from({ length: 46 }, (_, i) =>
+          validated(`sb-${String(i).padStart(3, '0')}`, 'scrubber'),
+        ),
+      ]
+      const errors = validateInteractionMix(files)
+      expect(errors.some((e) => e.includes('plain mcq'))).toBe(true)
+    })
+
+    it('fails when new content is short of the ≥⅓ interactive floor', () => {
+      // 45 mcq + 75 swipe quiz (120 quiz) + 46 scrubber = 166 total.
+      // new quiz = 9, new mcq = 3 (ok); new content = 12, new interactive = 0 → below ⅓.
+      const files: ValidatedPuzzle[] = [
+        ...Array.from({ length: 45 }, (_, i) =>
+          validated(`m-${String(i).padStart(3, '0')}`, 'mcq'),
+        ),
+        ...Array.from({ length: 75 }, (_, i) =>
+          validated(`s-${String(i).padStart(3, '0')}`, 'swipe-binary'),
+        ),
+        ...Array.from({ length: 46 }, (_, i) =>
+          validated(`sb-${String(i).padStart(3, '0')}`, 'scrubber'),
+        ),
+      ]
+      const errors = validateInteractionMix(files)
+      expect(errors.some((e) => e.includes('interactive'))).toBe(true)
     })
   })
 })

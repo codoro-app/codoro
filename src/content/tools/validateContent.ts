@@ -1,15 +1,22 @@
 /**
  * `pnpm validate:content` — schema-validates every puzzle file under
- * src/content/puzzles/, enforces pool-wide id uniqueness, and checks the
- * curated daily calendar (src/content/dailyCalendar.ts) against that pool.
- * Wired into CI (.github/workflows/ci.yml): a bad puzzle or calendar entry
- * fails the build.
+ * src/content/puzzles/, enforces pool-wide id uniqueness, checks the curated
+ * daily calendar (src/content/dailyCalendar.ts) against that pool, and applies
+ * the Phase 6 v2 DoD library gates (anti-anchoring cluster, quiz language mix,
+ * new-content interaction mix). Wired into CI (.github/workflows/ci.yml): a bad
+ * puzzle, calendar entry, or out-of-band library state fails the build.
  */
 import process from 'node:process'
 import { getDailyNumber } from '../../engine/daily'
 import { DAILY_CALENDAR } from '../dailyCalendar'
 import { loadRawPuzzleFiles } from './loadPuzzles'
-import { validateDailyCalendar, validatePuzzleFiles } from './validatePuzzles'
+import {
+  validateDailyCalendar,
+  validateInteractionMix,
+  validateLanguageMix,
+  validatePuzzleFiles,
+  validateRatingCluster,
+} from './validatePuzzles'
 
 const RUNWAY_WARNING_DAYS = 30
 
@@ -46,7 +53,13 @@ function checkDailyCalendarRunway(): void {
 function main(): void {
   const files = loadRawPuzzleFiles()
   const { valid, errors } = validatePuzzleFiles(files)
-  const allErrors = [...errors, ...validateDailyCalendar(DAILY_CALENDAR, valid)]
+  const allErrors = [
+    ...errors,
+    ...validateDailyCalendar(DAILY_CALENDAR, valid),
+    ...validateRatingCluster(valid),
+    ...validateLanguageMix(valid),
+    ...validateInteractionMix(valid),
+  ]
 
   if (allErrors.length > 0) {
     console.error(`validate:content: ${String(allErrors.length)} problem(s) found:\n`)
