@@ -1,7 +1,7 @@
 {
   "id": "inp-002",
   "pattern": "input-validation",
-  "difficulty_rating": 1500,
+  "difficulty_rating": 1300,
   "explanation": "parseInt parses only the leading numeric characters of a string and silently ignores any trailing non-numeric text, rather than rejecting the whole string as invalid. So isValidQuantity(\"5abc\") returns 5, which passes both the !isNaN and n > 0 checks, incorrectly validating malformed input as a valid quantity.",
   "prompt": "This function is supposed to reject any input that isn't a clean positive integer. What's the bug?",
   "language": "javascript",

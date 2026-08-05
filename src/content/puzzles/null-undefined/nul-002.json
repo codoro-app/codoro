@@ -1,7 +1,7 @@
 {
   "id": "nul-002",
   "pattern": "null-undefined",
-  "difficulty_rating": 1100,
+  "difficulty_rating": 1000,
   "explanation": "The condition `if (str = null)` uses assignment `=` instead of a comparison operator, so it always overwrites `str` with `null` and the expression evaluates to `null` (falsy), meaning the early-return branch never runs. Execution falls through to `str.length`, but `str` is now `null`, so this throws a TypeError on every call regardless of what was originally passed in.",
   "prompt": "What's wrong with this null check?",
   "language": "javascript",

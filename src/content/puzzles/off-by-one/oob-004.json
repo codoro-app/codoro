@@ -1,7 +1,7 @@
 {
   "id": "oob-004",
   "pattern": "off-by-one",
-  "difficulty_rating": 1000,
+  "difficulty_rating": 900,
   "explanation": "Array indices run from 0 to length-1, so `arr[arr.length]` reads one past the last valid element, returning `undefined` instead of the last item. It should be `arr[arr.length - 1]`.",
   "prompt": "What's wrong with this function?",
   "language": "javascript",

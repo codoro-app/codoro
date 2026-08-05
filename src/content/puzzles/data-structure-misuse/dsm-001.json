@@ -1,7 +1,7 @@
 {
   "id": "dsm-001",
   "pattern": "data-structure-misuse",
-  "difficulty_rating": 1675,
+  "difficulty_rating": 1575,
   "explanation": "Point never overrides equals() or hashCode(), so HashMap falls back to Object's identity-based defaults. The Point stored in the map and the Point passed to get() are different heap objects, even though they hold the same x/y values, so their default hashCodes (and identity-based equals) differ. The lookup misses its bucket entirely and get() returns null instead of \"A\".",
   "prompt": "Two Point objects, same x/y values, used as HashMap key and lookup. What does this print?",
   "language": "java",

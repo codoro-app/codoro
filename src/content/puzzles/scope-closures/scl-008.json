@@ -1,7 +1,7 @@
 {
   "id": "scl-008",
   "pattern": "scope-closures",
-  "difficulty_rating": 1000,
+  "difficulty_rating": 900,
   "explanation": "`discount` is declared with `const` inside the `if` block, so it is block-scoped and does not exist outside that block. The `return` statement references `discount` unconditionally, so on every call — regardless of whether `price > 100` — this throws a ReferenceError instead of computing a discounted price.",
   "prompt": "What's wrong with this function?",
   "language": "javascript",

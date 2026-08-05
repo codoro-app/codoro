@@ -567,19 +567,21 @@ todo.md item 2, pulled forward by direct user decision: challenge links are v5.0
 
 **DoD:**
 
-- [ ] Calibration spot-check passes; round-number clustering warning clean across the full library
-- [ ] Language mix within ±10 points of target
-- [ ] ≥200 total puzzles passing `validate:content`
-- [ ] ≥⅓ of swipe-binary puzzles have non-buggy code as the correct answer; label-semantics check enforced in validation
-- [ ] ≥40 scrubber puzzles live (Phase 4's unmet target, carried forward — was 3), spanning ≥800 rating points per major pattern represented, no empty 200-point bucket in the 800–2199 range; each batch's real usage consumption checked against the running total before starting the next
-- [ ] Item 0's format-tell rule (Phase 5) confirmed clean across every newly generated scrubber puzzle, not just the two `oob-011` checkpoints it was written against — this phase's batch is the first real volume test of that rule as a generation-time gate, not just a validate:content backstop
-- [ ] Interaction-mix target set, recorded here as an amendment, and met within ±10 points across this phase's new content
+- [x] Calibration spot-check passes; round-number clustering warning clean across the full library (closed by the Phase 6 recalibration amendment below — all 111 legacy puzzles rescored, anti-anchoring cluster gate green)
+- [x] Language mix within ±10 points of target
+- [x] ≥200 total puzzles passing `validate:content` (214)
+- [x] ≥⅓ of swipe-binary puzzles have non-buggy code as the correct answer; label-semantics check enforced in validation (36.1%)
+- [x] ≥40 scrubber puzzles live (Phase 4's unmet target, carried forward — was 3), spanning ≥800 rating points per major pattern represented, no empty 200-point bucket in the 800–2199 range; each batch's real usage consumption checked against the running total before starting the next (43 live, closed by `phase6/scrubber-volume`/#44)
+- [x] Item 0's format-tell rule (Phase 5) confirmed clean across every newly generated scrubber puzzle, not just the two `oob-011` checkpoints it was written against — this phase's batch is the first real volume test of that rule as a generation-time gate, not just a validate:content backstop
+- [x] Interaction-mix target set, recorded here as an amendment, and met within ±10 points across this phase's new content
+
+**Phase 6 is closed.** All seven DoD items above are satisfied as of the recalibration amendment below.
 
 ### Phase 6 v2 authoring amendment (committed 2026-08, branch `phase6/v2-content-finish`)
 
 Authoring-only completion of items 2, 3, 4, 5, and 7, plus the tooling they require. Item 6 (scrubber volume) was already closed at **43 live** by the offline authoring batch on `phase6/scrubber-volume` (≥40 target met; scrubber untouched here). All content was authored **through chat with zero API usage** — no `generatePuzzles.ts` / `generateScrubberPuzzles.ts` runs — mirroring the offline `authorScrubberPuzzles.ts` harness.
 
-**Item 1 is explicitly deferred to a separate follow-up PR.** The existing 111 quiz puzzles keep their current ratings; only new content is rubric-scored here. The rescoring PR must run after this branch merges so it can re-score the new + old library in one pass. Deferring it does not relax authoring quality: every new puzzle was rubric-scored at authoring time (real S/T/D/C sum → non-round rating, swipe modifier applied).
+**Item 1 was explicitly deferred to a separate follow-up PR** (closed below by the Phase 6 recalibration amendment). The existing 111 quiz puzzles kept their authoring-time ratings in this PR; only new content was rubric-scored here. Deferring it did not relax authoring quality: every new puzzle was rubric-scored at authoring time (real S/T/D/C sum → non-round rating, swipe modifier applied).
 
 **Schema addition — `correct_verdict` (item 5).** `SwipeBinarySchema` gained `correct_verdict: 'bug' | 'safe'` (`src/content/schema.ts`). The 39 existing swipe puzzles were backfilled to `'bug'`; 22 new `'safe'` swipe puzzles were authored. `validateSwipeSemantics` (in `validatePuzzles.ts`) enforces two hard rules:
 
@@ -600,6 +602,23 @@ Authoring-only completion of items 2, 3, 4, 5, and 7, plus the tooling they requ
 - Safe-swipe share: 22/61 (36.1%) ≥ ⅓.
 
 **New-content steering.** Language was tilted Python/Java/C-heavy and JS-light to pull the quiz library from 62% JS (baseline) into the 40/25/25/10 band; C rose from 2 to 14. A C worked example was added to `src/content/CALIBRATION.md` (the rubric's own open question) to anchor C scoring for future authoring.
+
+### Phase 6 recalibration amendment (branch `phase6/recalibration-and-audit`)
+
+Closes build-plan item 1, deferred by the authoring amendment above. All 111 legacy quiz puzzles (42 mcq, 39 swipe-binary, 27 tap-line, 3 drag-order — identified by diffing `src/content/puzzles/` against the pinned Phase 5 baseline commit `020ed7b`) were re-scored against `CALIBRATION.md`'s S/T/D/C rubric directly in-conversation (no `generatePuzzles.ts`/API usage, matching the authoring amendment's zero-API-cost approach). 86 of 111 ratings changed; 25 were already correctly calibrated (their `explanation` text showed the rubric math already applied). Full old-vs-proposed table was reviewed and approved before any file was written.
+
+**Headline finding:** the correction wasn't random noise — legacy swipe-binary puzzles and puzzles testing famous, well-documented bugs (the `var`-loop-closure gotcha, `sort()` without a comparator, switch fallthrough) were rated well above what the rubric supports, evidently scored before this rubric existed. Largest corrections ran up to -500 points (e.g. `res-004`, `res-003`, `tc-008`, `dsm-003`).
+
+**Side effect on the Phase 8 per-pattern spread target:** rescoring compressed three patterns' min/max range below the 800-point target: `null-undefined` (700), `concurrency` (750), `error-handling` (775). `validate:content` (the hard CI gate) is unaffected — this spread check is advisory-only in `contentStats.ts` and belongs to Phase 8, not Phase 6 — but whoever picks up Phase 8 should widen these patterns' difficulty range first.
+
+**Library-quality audit (full read of all 214 puzzles, requested alongside recalibration).** Findings, flagged only — no fixes applied here:
+
+- Four puzzles (`err-005`, `nul-005`, `nul-008`, `mut-006`) have internal S/T/D/C scoring notes leaked into the player-facing `explanation` field — a real copy-edit bug, independent of rating.
+- `tc-020` (new content): its "wrong answer" framing references a `True == 1` coercion bug that doesn't appear anywhere in the shown snippet — a manufactured-feeling contrast.
+- Several bugs are tested 3–7 times across near-identical puzzles (the `var`-loop-closure bug 7×, `sort()`-without-comparator 4×, the Counter race condition 3×) — not wrong, but worth a deliberate call on intentional format variety vs. redundancy.
+- `mut-009` (scrubber) is notably thinner than its siblings (3 steps/2 checkpoints vs. the typical 7–20+/4) for a bug already covered by legacy `mut-002`/`mut-008`.
+
+**Phase 6b's gate is now confirmed open.** Phase 6b (`Boss challenges`) was gated on Phase 6's content volume (§"Gate: Phase 6's content volume" below) — that gate required ~200+ puzzles, which this phase's authoring work already met (214). Nothing about the recalibration changes that; recorded here for a single source of truth on the gate's status.
 
 ---
 

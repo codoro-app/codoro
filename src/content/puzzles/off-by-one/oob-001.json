@@ -1,7 +1,7 @@
 {
   "id": "oob-001",
   "pattern": "off-by-one",
-  "difficulty_rating": 1000,
+  "difficulty_rating": 900,
   "explanation": "`items[len(items)]` indexes one position past the last valid index — for a list of length n, valid indices run from 0 to n-1, so `len(items)` is out of range and raises an IndexError. It should be `items[len(items) - 1]` (or simply `items[-1]`).",
   "prompt": "This function is supposed to return the last element of a list. What's actually wrong with it?",
   "language": "python",

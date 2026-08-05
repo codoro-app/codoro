@@ -1,7 +1,7 @@
 {
   "id": "con-002",
   "pattern": "concurrency",
-  "difficulty_rating": 1600,
+  "difficulty_rating": 1500,
   "explanation": "The cache field is a plain HashMap, which is not thread-safe. When multiple threads call get() concurrently, the check-then-act sequence (containsKey followed by put) is not atomic, and simultaneous put() calls can corrupt HashMap's internal bucket structure — causing lost entries or, on resize, incorrect behavior. Declaring the field as a ConcurrentHashMap (or synchronizing access) is required for safe concurrent use.",
   "prompt": "This cache's get() method is called by many threads concurrently. Tap the line that makes it unsafe.",
   "language": "java",

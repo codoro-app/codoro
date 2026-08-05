@@ -1,7 +1,7 @@
 {
   "id": "cf-009",
   "pattern": "control-flow",
-  "difficulty_rating": 1600,
+  "difficulty_rating": 1500,
   "explanation": "Synchronous code always runs first, so 'A' and 'D' print immediately, before anything queued. Once the synchronous run finishes, the event loop drains the microtask queue (Promise callbacks) before the macrotask queue (setTimeout callbacks) — even a setTimeout with a 0ms delay is a macrotask. So 'C' (a microtask) prints before 'B' (a macrotask), giving the order A, D, C, B — not the top-to-bottom source order.",
   "prompt": "Drag these console.log outputs into the order they actually print.",
   "language": "javascript",

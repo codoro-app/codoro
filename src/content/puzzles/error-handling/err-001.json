@@ -1,7 +1,7 @@
 {
   "id": "err-001",
   "pattern": "error-handling",
-  "difficulty_rating": 1650,
+  "difficulty_rating": 1475,
   "explanation": "A `return` statement inside a `finally` block always executes last and unconditionally overrides any return value from the `try` or `catch` blocks. Here, no matter what `input` is — valid, invalid, or throwing — the function always returns 0, silently discarding both the successfully parsed value and the -1 error sentinel.",
   "prompt": "Does this parsing function correctly return the parsed value or -1 on failure?",
   "language": "java",

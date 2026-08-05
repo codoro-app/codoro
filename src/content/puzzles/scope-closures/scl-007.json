@@ -1,7 +1,7 @@
 {
   "id": "scl-007",
   "pattern": "scope-closures",
-  "difficulty_rating": 1900,
+  "difficulty_rating": 1750,
   "explanation": "Inside `withTimestamp`, `const label = currentPrefix;` copies the *current value* of `currentPrefix` into a new binding at the moment `withTimestamp(log)` runs (during the `return {...}` on line 18, before `setPrefix` is ever called by the caller). The returned inner function then closes over `label`, not over the mutable `currentPrefix` variable itself, so it's frozen at 'APP' forever. Meanwhile `log` still reads `currentPrefix` directly each call and correctly reflects updates from `setPrefix`. The result: `logger.setPrefix('SERVICE')` updates `log`'s output but `timestampedLog` keeps printing the stale original prefix — a classic case of accidentally snapshotting a value instead of preserving the live closure binding.",
   "prompt": "Tap the line responsible for a stale-value bug that only shows up after `setPrefix` is called.",
   "language": "javascript",

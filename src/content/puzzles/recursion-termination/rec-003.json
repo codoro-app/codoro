@@ -1,7 +1,7 @@
 {
   "id": "rec-003",
   "pattern": "recursion-termination",
-  "difficulty_rating": 1700,
+  "difficulty_rating": 1600,
   "explanation": "The base case only fires when n is exactly 0, but the function decrements by 2 each call. For odd starting values (like 7), the sequence goes 7, 5, 3, 1, -1, -3, ... and never lands exactly on 0, so the base case is never reached — the recursion runs unbounded (until stack overflow) instead of terminating. The check should be `n <= 0` to catch any value that has crossed below zero.",
   "prompt": "Tap the line responsible for the termination bug.",
   "language": "python",

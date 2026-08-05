@@ -1,7 +1,7 @@
 {
   "id": "mut-005",
   "pattern": "mutable-state",
-  "difficulty_rating": 1500,
+  "difficulty_rating": 1400,
   "explanation": "The same `summary` object is created once outside the loop and pushed into `results` on every iteration. Since objects are stored by reference, all entries in `results` alias the exact same object — by the time the loop finishes, every element in `results` reflects the final accumulated totals and items list, not a per-order snapshot. Each iteration needs a fresh object (e.g. a shallow copy) pushed instead.",
   "prompt": "Why does every entry in `results` end up showing the same final totals instead of per-order snapshots?",
   "language": "javascript",

@@ -1,7 +1,7 @@
 {
   "id": "oob-006",
   "pattern": "off-by-one",
-  "difficulty_rating": 1700,
+  "difficulty_rating": 1500,
   "explanation": "The loop condition is `while (low < high)`, so once the search narrows to a single remaining candidate (`low == high`), the loop exits without ever comparing `arr[mid]` to `target` at that index. This means a target value that happens to be the last surviving candidate gets missed and the function incorrectly returns -1. The condition should be `low <= high` so the final candidate is always checked before the loop terminates.",
   "prompt": "This binary search sometimes fails to find a value that's actually present in the sorted array. What's the bug?",
   "language": "java",

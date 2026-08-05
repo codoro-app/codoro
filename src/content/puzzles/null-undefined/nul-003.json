@@ -1,7 +1,7 @@
 {
   "id": "nul-003",
   "pattern": "null-undefined",
-  "difficulty_rating": 2050,
+  "difficulty_rating": 1675,
   "explanation": "`Map.get(key)` returns `undefined` only when the key is absent, but the guard `!cache.get(key)` can't tell that apart from a key that legitimately maps to a falsy value like `0`, `''`, `false`, or even `null`. If `fetchConfig` ever resolves to one of those, this code caches it, then on every subsequent call treats it as a cache miss and re-fetches — the check should be `!cache.has(key)` to distinguish 'missing' from 'present but falsy'.",
   "prompt": "Does this caching function behave correctly for all config values?",
   "language": "javascript",

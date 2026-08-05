@@ -1,7 +1,7 @@
 {
   "id": "rec-006",
   "pattern": "recursion-termination",
-  "difficulty_rating": 1700,
+  "difficulty_rating": 1400,
   "explanation": "The base case only fires when `n === 1`. For `n === 0` (or any negative starting value), the sequence of calls goes `0, -1, -2, -3, ...` and never equals `1`, so the recursion never hits its base case and blows the call stack. The base case should be `n <= 1` (or explicitly handle `n === 0`).",
   "prompt": "This factorial function crashes for one specific input. What's the bug?",
   "language": "javascript",

@@ -1,7 +1,7 @@
 {
   "id": "rec-007",
   "pattern": "recursion-termination",
-  "difficulty_rating": 2075,
+  "difficulty_rating": 1975,
   "explanation": "When `arr[mid] < target`, the recursive call passes `low=mid` instead of `low=mid+1`. Once the search window shrinks to a single index (`low == high`), `mid` equals that same index, so the recursive call receives identical bounds and takes the identical branch again — the base case `low > high` is never reached and the function recurses forever (a stack overflow in practice) whenever the target is greater than the value at the final surviving index.",
   "prompt": "Trace this binary search through a narrowing range where the target is larger than the last remaining element. Does it terminate?",
   "language": "python",

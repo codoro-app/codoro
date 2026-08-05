@@ -1,7 +1,7 @@
 {
   "id": "dsm-005",
   "pattern": "data-structure-misuse",
-  "difficulty_rating": 2000,
+  "difficulty_rating": 1575,
   "explanation": "JavaScript's Map compares object keys by reference identity, not by structural equality. Because `key` is a freshly created object literal on every loop iteration, `visits.get(key)` never finds a match even when a previous entry had the same `userId`/`day` values — each lookup returns `undefined`, so every entry is inserted as count 1 instead of being incremented. The map silently fails to aggregate duplicate visits; it ends up with one entry per log line rather than one per unique user/day.",
   "prompt": "Does this visit-counting function correctly aggregate duplicate userId/day entries?",
   "language": "javascript",
