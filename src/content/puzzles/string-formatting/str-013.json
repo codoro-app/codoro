@@ -1,0 +1,17 @@
+{
+  "id": "str-013",
+  "pattern": "string-formatting",
+  "difficulty_rating": 1050,
+  "explanation": "times is an int, and the expression concatenates it directly onto a string literal. Python refuses to mix str and int with +, so this raises TypeError: can only concatenate str (not \"int\") to str. The fix is str(times), an f-string, or .format().",
+  "prompt": "greeting() is called with an int for times. What's the bug?",
+  "language": "python",
+  "snippet": "def greeting(name, times):\n    return \"Hi \" + name + \", count: \" + times",
+  "interaction": "mcq",
+  "choices": [
+    "Concatenating an int to a str raises TypeError — it needs str(times) or an f-string",
+    "The comma inside the string literal is a syntax error",
+    "name must be surrounded by quotes inside the function",
+    "greeting() never returns a value"
+  ],
+  "correct_choice": 0
+}

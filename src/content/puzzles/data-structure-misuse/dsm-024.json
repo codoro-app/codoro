@@ -1,0 +1,17 @@
+{
+  "id": "dsm-024",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 1475,
+  "explanation": "For Integer, == compares object references, not values. Autoboxing caches Integers from -128 to 127, so small values compare equal by luck, but 1000 is outside the cache — each boxing creates a distinct object, so a == b is false despite equal values. The comparison must use .equals() (or .intValue()).",
+  "prompt": "Both a and b are 1000. What does this comparison do?",
+  "language": "java",
+  "snippet": "Integer a = 1000;\nInteger b = 1000;\nboolean eq = (a == b);",
+  "interaction": "mcq",
+  "choices": [
+    "== compares references, and 1000 is outside the Integer cache, so eq is false despite equal values — use .equals()",
+    "== always compares Integer values correctly",
+    "Integer cannot hold the value 1000",
+    "eq is always true for autoboxed Integers"
+  ],
+  "correct_choice": 0
+}

@@ -30,6 +30,7 @@ function validSwipeBinary(overrides: Record<string, unknown> = {}): unknown {
     left_label: 'Safe',
     right_label: 'Buggy',
     correct_direction: 'right',
+    correct_verdict: 'bug',
     ...overrides,
   }
 }

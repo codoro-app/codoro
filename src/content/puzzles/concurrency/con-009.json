@@ -9,5 +9,6 @@
   "interaction": "swipe-binary",
   "left_label": "Fetches one at a time",
   "right_label": "Fetches concurrently",
-  "correct_direction": "left"
+  "correct_direction": "left",
+  "correct_verdict": "bug"
 }

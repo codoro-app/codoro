@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { validateDailyCalendar, validatePuzzleFiles } from './validatePuzzles'
+import {
+  validateDailyCalendar,
+  validateInteractionMix,
+  validateLanguageMix,
+  validatePuzzleFiles,
+  validateRatingCluster,
+} from './validatePuzzles'
 import type { RawPuzzleFile } from './loadPuzzles'
 import type { ValidatedPuzzle } from './validatePuzzles'
 import type { Puzzle } from '../schema'
@@ -23,8 +29,16 @@ function rawMcq(id: string, overrides: Record<string, unknown> = {}): unknown {
 function rawSwipeBinary(
   id: string,
   correctDirection: 'left' | 'right',
+  verdict: 'bug' | 'safe' = 'bug',
   overrides: Record<string, unknown> = {},
 ): unknown {
+  // For a "safe" verdict the correct-side label must be the "Safe" pole, or it
+  // fails the label-semantics check. "bug" verdicts keep the plain labels — the
+  // semantics check deliberately does not police bug-verdict labels.
+  const safeLabels =
+    correctDirection === 'left'
+      ? { left_label: 'Safe', right_label: 'Buggy' }
+      : { left_label: 'Buggy', right_label: 'Safe' }
   return {
     id,
     pattern: 'type-coercion',
@@ -34,18 +48,28 @@ function rawSwipeBinary(
     language: 'javascript',
     snippet: 'if (value == "0") {\n  return false\n}',
     interaction: 'swipe-binary',
-    left_label: 'Safe',
-    right_label: 'Buggy',
+    ...(verdict === 'safe' ? safeLabels : { left_label: 'Safe', right_label: 'Buggy' }),
     correct_direction: correctDirection,
+    correct_verdict: verdict,
     ...overrides,
   }
 }
 
-/** Builds `count` swipe-binary files, `rightCount` of them "right", the rest "left". */
+/**
+ * Builds `count` swipe-binary files, `rightCount` of them "right", the rest
+ * "left", with at least 1/3 "safe" verdicts (correct side labeled "Safe") so
+ * the pool clears the negative-class floor while the direction split stays
+ * whatever the caller asked for.
+ */
 function swipeBinaryFixture(count: number, rightCount: number): RawPuzzleFile[] {
+  const safeCount = Math.max(1, Math.ceil(count / 3))
   return Array.from({ length: count }, (_, i) => ({
     filePath: `swipe-${String(i)}.json`,
-    raw: rawSwipeBinary(`tc-${String(i).padStart(3, '0')}`, i < rightCount ? 'right' : 'left'),
+    raw: rawSwipeBinary(
+      `tc-${String(i).padStart(3, '0')}`,
+      i < rightCount ? 'right' : 'left',
+      i < safeCount ? 'safe' : 'bug',
+    ),
   }))
 }
 
@@ -139,6 +163,205 @@ describe('validatePuzzleFiles', () => {
 
       const { errors } = validatePuzzleFiles(files)
       expect(errors).toEqual([])
+    })
+  })
+
+  describe('swipe-binary correct_verdict semantics', () => {
+    it('fails when the pool is below the ≥1/3 "safe" floor (all buggy)', () => {
+      // Mirrors the shipped state before this feature: every real swipe puzzle
+      // has correct_verdict:'bug'. A bug-seeking-by-prior player wins for free
+      // on that library, so this gate must be a hard failure, not a warning.
+      const files: RawPuzzleFile[] = Array.from({ length: 10 }, (_, i) => ({
+        filePath: `swipe-${String(i)}.json`,
+        raw: rawSwipeBinary(
+          `tc-${String(i).padStart(3, '0')}`,
+          i % 2 === 0 ? 'left' : 'right',
+          'bug',
+        ),
+      }))
+
+      const gate = validatePuzzleFiles(files).errors.filter((e) => e.includes('negative class'))
+      expect(gate).toHaveLength(1)
+      expect(gate[0]).toContain('0/10')
+    })
+
+    it('passes a pool at exactly the ≥1/3 "safe" floor', () => {
+      const files: RawPuzzleFile[] = Array.from({ length: 12 }, (_, i) => ({
+        filePath: `swipe-${String(i)}.json`,
+        raw: rawSwipeBinary(
+          `tc-${String(i).padStart(3, '0')}`,
+          i % 2 === 0 ? 'left' : 'right',
+          i < 4 ? 'safe' : 'bug',
+        ),
+      }))
+
+      const gate = validatePuzzleFiles(files).errors.filter((e) => e.includes('negative class'))
+      expect(gate).toHaveLength(0)
+    })
+
+    it('accepts a "safe" puzzle expressed as "No bug" on the correct side (negation guard)', () => {
+      // A negated-defect label is the most natural way to claim "code is
+      // fine", but a naive defect-token dictionary would flag it (it
+      // contains "bug"). The SAFE regex's `no ?bug` is meant to bless it, so
+      // DEFECT must not fire on a bare "bug" preceded by "no ".
+      const files: RawPuzzleFile[] = [
+        {
+          filePath: 'a.json',
+          raw: rawSwipeBinary('sb-100', 'left', 'safe', { left_label: 'No bug — runs correctly' }),
+        },
+        { filePath: 'b.json', raw: rawSwipeBinary('sb-101', 'right', 'bug') },
+        { filePath: 'c.json', raw: rawSwipeBinary('sb-102', 'left', 'bug') },
+      ]
+
+      const flagged = validatePuzzleFiles(files).errors.filter((e) =>
+        e.includes('does not claim the code is fine'),
+      )
+      expect(flagged).toHaveLength(0)
+    })
+
+    it('flags a "safe" puzzle whose correct-side label names a bug', () => {
+      // 2 safe (one bad label, one good) + 4 bug = 6 files → safe share is
+      // exactly 1/3 (clears the pool gate), direction is 3/3 (clears the skew
+      // gate), so the ONLY error is the incoherent safe label.
+      const files: RawPuzzleFile[] = [
+        {
+          filePath: 'bad-safe.json',
+          raw: rawSwipeBinary('sb-001', 'right', 'safe', { right_label: 'Race condition' }),
+        },
+        { filePath: 'good-safe.json', raw: rawSwipeBinary('sb-002', 'left', 'safe') },
+        { filePath: 'b0.json', raw: rawSwipeBinary('b-000', 'right', 'bug') },
+        { filePath: 'b1.json', raw: rawSwipeBinary('b-001', 'left', 'bug') },
+        { filePath: 'b2.json', raw: rawSwipeBinary('b-002', 'right', 'bug') },
+        { filePath: 'b3.json', raw: rawSwipeBinary('b-003', 'left', 'bug') },
+      ]
+
+      const flagged = validatePuzzleFiles(files).errors.filter((e) =>
+        e.includes('does not claim the code is fine'),
+      )
+      expect(flagged).toHaveLength(1)
+      expect(flagged[0]).toContain('sb-001')
+    })
+  })
+})
+
+describe('Phase 6 DoD library gates', () => {
+  function rated(id: string, rating: number): ValidatedPuzzle {
+    return {
+      filePath: `${id}.json`,
+      puzzle: { id, difficulty_rating: rating } as unknown as Puzzle,
+    }
+  }
+
+  function quizPuzzle(id: string, language: string, interaction = 'mcq'): ValidatedPuzzle {
+    return { filePath: `${id}.json`, puzzle: { id, language, interaction } as unknown as Puzzle }
+  }
+
+  function manyQuizPuzzles(
+    idPrefix: string,
+    count: number,
+    interaction: string,
+    language = 'python',
+  ): ValidatedPuzzle[] {
+    return Array.from({ length: count }, (_, i) =>
+      quizPuzzle(`${idPrefix}-${String(i).padStart(3, '0')}`, language, interaction),
+    )
+  }
+
+  describe('validateRatingCluster', () => {
+    it('passes when no exact rating exceeds 15% of the pool', () => {
+      const files = [1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700].map((rating, i) =>
+        rated(`r-${String(i)}`, rating),
+      )
+      expect(validateRatingCluster(files)).toEqual([])
+    })
+
+    it('fails when a single rating anchors more than 15% of the pool', () => {
+      const files = Array.from({ length: 10 }, (_, i) => rated(`r-${String(i)}`, 1000))
+      const errors = validateRatingCluster(files)
+      expect(errors).toHaveLength(1)
+      expect(errors[0]).toContain('anti-anchoring')
+      expect(errors[0]).toContain('1000')
+    })
+  })
+
+  describe('validateLanguageMix', () => {
+    it('passes a quiz pool inside the ±10pt band of 40/25/25/10', () => {
+      const files = [
+        ...manyQuizPuzzles('js', 4, 'mcq', 'javascript'),
+        ...manyQuizPuzzles('py', 3, 'mcq', 'python'),
+        ...manyQuizPuzzles('jv', 2, 'mcq', 'java'),
+        ...manyQuizPuzzles('c', 1, 'mcq', 'c'),
+      ]
+      expect(validateLanguageMix(files)).toEqual([])
+    })
+
+    it('fails an all-JavaScript quiz pool, naming the language', () => {
+      const files = manyQuizPuzzles('js', 10, 'mcq', 'javascript')
+      const errors = validateLanguageMix(files)
+      expect(errors).toHaveLength(1)
+      expect(errors[0]).toContain('language mix')
+      expect(errors[0]).toContain('javascript')
+    })
+
+    it('ignores scrubber puzzles when computing the quiz mix', () => {
+      const files = manyQuizPuzzles('c', 10, 'scrubber', 'c')
+      expect(validateLanguageMix(files)).toEqual([])
+    })
+  })
+
+  describe('validateInteractionMix (new-content delta vs the Phase 5 baseline)', () => {
+    // Baseline is the Phase 5 library: 154 total, 111 quiz (42 mcq), 3 drag + 43 scrubber.
+
+    it('passes a realistic addition that respects both new-content rules', () => {
+      // 45 mcq + 75 swipe quiz (120 quiz), plus 50 scrubber + 10 drag = 180 total.
+      // new quiz = 9, new mcq = 3 (≤⅓); new content = 26, new interactive = 14 (≥⅓).
+      const files: ValidatedPuzzle[] = [
+        ...Array.from({ length: 45 }, (_, i) =>
+          validated(`m-${String(i).padStart(3, '0')}`, 'mcq'),
+        ),
+        ...Array.from({ length: 75 }, (_, i) =>
+          validated(`s-${String(i).padStart(3, '0')}`, 'swipe-binary'),
+        ),
+        ...Array.from({ length: 50 }, (_, i) =>
+          validated(`sb-${String(i).padStart(3, '0')}`, 'scrubber'),
+        ),
+        ...Array.from({ length: 10 }, (_, i) =>
+          validated(`d-${String(i).padStart(3, '0')}`, 'drag-order'),
+        ),
+      ]
+      expect(validateInteractionMix(files)).toEqual([])
+    })
+
+    it('fails when new quiz is dominated by plain mcq', () => {
+      // 130 mcq + 46 scrubber = 176 total. new quiz = 19, new mcq = 88 → way over ⅓.
+      const files: ValidatedPuzzle[] = [
+        ...Array.from({ length: 130 }, (_, i) =>
+          validated(`m-${String(i).padStart(3, '0')}`, 'mcq'),
+        ),
+        ...Array.from({ length: 46 }, (_, i) =>
+          validated(`sb-${String(i).padStart(3, '0')}`, 'scrubber'),
+        ),
+      ]
+      const errors = validateInteractionMix(files)
+      expect(errors.some((e) => e.includes('plain mcq'))).toBe(true)
+    })
+
+    it('fails when new content is short of the ≥⅓ interactive floor', () => {
+      // 45 mcq + 75 swipe quiz (120 quiz) + 46 scrubber = 166 total.
+      // new quiz = 9, new mcq = 3 (ok); new content = 12, new interactive = 0 → below ⅓.
+      const files: ValidatedPuzzle[] = [
+        ...Array.from({ length: 45 }, (_, i) =>
+          validated(`m-${String(i).padStart(3, '0')}`, 'mcq'),
+        ),
+        ...Array.from({ length: 75 }, (_, i) =>
+          validated(`s-${String(i).padStart(3, '0')}`, 'swipe-binary'),
+        ),
+        ...Array.from({ length: 46 }, (_, i) =>
+          validated(`sb-${String(i).padStart(3, '0')}`, 'scrubber'),
+        ),
+      ]
+      const errors = validateInteractionMix(files)
+      expect(errors.some((e) => e.includes('interactive'))).toBe(true)
     })
   })
 })

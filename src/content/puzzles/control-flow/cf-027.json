@@ -1,0 +1,17 @@
+{
+  "id": "cf-027",
+  "pattern": "control-flow",
+  "difficulty_rating": 1150,
+  "explanation": "best is only assigned inside the `if n > 0` branch. If nums is empty or contains no positive number, the loop body never assigns best, and the function reaches `return best` with best unbound — raising UnboundLocalError. The fix is to initialize best before the loop (e.g. to float('-inf')).",
+  "prompt": "What's the bug in this function that returns the largest positive value?",
+  "language": "python",
+  "snippet": "def max_positive(nums):\n    for n in nums:\n        if n > 0:\n            best = n\n    return best",
+  "interaction": "mcq",
+  "choices": [
+    "If nums has no positive element, best is never assigned and the return raises UnboundLocalError",
+    "The comparison should be >= instead of >",
+    "Looping over nums is O(n) and should use sorted()",
+    "best is reassigned on every positive, so the result is always the first positive number"
+  ],
+  "correct_choice": 0
+}

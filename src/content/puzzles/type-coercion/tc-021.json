@@ -1,0 +1,14 @@
+{
+  "id": "tc-021",
+  "pattern": "type-coercion",
+  "difficulty_rating": 1175,
+  "explanation": "This is safe. Dividing an int by the double literal 2.0 promotes the int operand to double before division, so ratio is exactly 3.5. The integer-truncation trap only bites when both operands are integers — the explicit `2.0` prevents it. A tempting wrong answer applies the int/int rule to a mixed-type expression.",
+  "prompt": "a is 7. Is ratio computed as 3.5 or truncated to 3?",
+  "language": "c",
+  "snippet": "int a = 7;\ndouble ratio = a / 2.0;",
+  "interaction": "swipe-binary",
+  "left_label": "Correct — 3.5, floating division",
+  "right_label": "Integer division — truncates to 3",
+  "correct_direction": "left",
+  "correct_verdict": "safe"
+}

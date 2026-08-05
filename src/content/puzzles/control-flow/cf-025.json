@@ -1,0 +1,17 @@
+{
+  "id": "cf-025",
+  "pattern": "control-flow",
+  "difficulty_rating": 1225,
+  "explanation": "sum() must initialize total to 0 before the loop, otherwise the += adds to an uninitialized variable. The for-each loop then accumulates every element, and only after the loop finishes does the return execute. Putting the return inside the loop would exit after the first element instead of the whole array.",
+  "prompt": "Drag these statements into the order that makes sum() return the total of all elements in nums.",
+  "language": "java",
+  "snippet": "public int sum(int[] nums) {\n    int total = 0;\n    for (int n : nums) total += n;\n    return total;\n}",
+  "interaction": "drag-order",
+  "blocks": [
+    "return total;",
+    "for (int n : nums) total += n;",
+    "public int sum(int[] nums) {",
+    "int total = 0;"
+  ],
+  "correct_order": [2, 3, 1, 0]
+}

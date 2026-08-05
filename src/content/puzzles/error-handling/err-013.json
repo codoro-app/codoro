@@ -1,0 +1,14 @@
+{
+  "id": "err-013",
+  "pattern": "error-handling",
+  "difficulty_rating": 1175,
+  "explanation": "This is safe. The null and empty cases are both guarded before arr[0] is ever indexed, so ArrayIndexOutOfBoundsException is impossible. A tempting wrong answer reads `arr[0]` and concludes it crashes on an empty array, missing the empty-check on the line above it — the guard short-circuits before the index runs.",
+  "prompt": "first() may receive null or an empty array. Does indexing arr[0] ever throw?",
+  "language": "java",
+  "snippet": "public String first(String[] arr) {\n    if (arr == null || arr.length == 0) {\n        return \"\";\n    }\n    return arr[0];\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Correct — guards all cases",
+  "right_label": "IndexOutOfBounds on empty input",
+  "correct_direction": "left",
+  "correct_verdict": "safe"
+}

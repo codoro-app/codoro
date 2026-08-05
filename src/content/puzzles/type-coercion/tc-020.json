@@ -1,0 +1,14 @@
+{
+  "id": "tc-020",
+  "pattern": "type-coercion",
+  "difficulty_rating": 1250,
+  "explanation": "This is safe. `x == x` with `==` on two integers is exact integer comparison — no cross-type coercion is involved, so there is no `1 == True` style surprise. The classic gotcha would be `False == 0` being True, but that requires comparing a bool to an int, which the caller never does here. A tempting wrong answer reads this as an instance of the eq-vs-identity trap, but identity (`is`) is never used.",
+  "prompt": "x is guaranteed to be a plain integer. Does this comparison behave correctly?",
+  "language": "python",
+  "snippet": "def is_same(a, b):\n    return a == b",
+  "interaction": "swipe-binary",
+  "left_label": "Correct",
+  "right_label": "True == 1 coercion bug",
+  "correct_direction": "left",
+  "correct_verdict": "safe"
+}

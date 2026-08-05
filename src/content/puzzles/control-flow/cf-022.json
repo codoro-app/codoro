@@ -1,0 +1,14 @@
+{
+  "id": "cf-022",
+  "pattern": "control-flow",
+  "difficulty_rating": 1175,
+  "explanation": "This is safe. The empty cases 1-4 intentionally fall through to case 5, which is the standard grouped-case idiom for sharing one weekday branch — control reaches the return in case 5 and every path yields a value. A tempting wrong answer reads the empty cases as missing returns, but empty labels are valid fallthrough, not dead code.",
+  "prompt": "weekdayOf() maps day numbers to labels. Does a weekday like 3 return a value?",
+  "language": "java",
+  "snippet": "String weekdayOf(int day) {\n    switch (day) {\n        case 1:\n        case 2:\n        case 3:\n        case 4:\n        case 5:\n            return \"weekday\";\n        case 6:\n        case 7:\n            return \"weekend\";\n        default:\n            return \"invalid\";\n    }\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Correct — intentional fallthrough",
+  "right_label": "Fallthrough bug — weekdays return nothing",
+  "correct_direction": "left",
+  "correct_verdict": "safe"
+}

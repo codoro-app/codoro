@@ -1,0 +1,14 @@
+{
+  "id": "con-011",
+  "pattern": "concurrency",
+  "difficulty_rating": 1650,
+  "explanation": "This is safe. Both inc() and get() are synchronized on the same monitor, so a reader can never observe a torn or intermediate value, and the synchronized-acquire releases establish happens-before — no stale-read race exists. A tempting wrong answer assumes reads need to be volatile, but synchronized reads that lock the same monitor the writer uses are sufficient here.",
+  "prompt": "Two threads call inc() while a third reads get(). Is the value ever stale or torn?",
+  "language": "java",
+  "snippet": "class Counter {\n    private int value;\n\n    public synchronized void inc() { value++; }\n\n    public synchronized int get() { return value; }\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Race — get() reads a stale value",
+  "right_label": "Thread-safe — both methods synchronized",
+  "correct_direction": "right",
+  "correct_verdict": "safe"
+}

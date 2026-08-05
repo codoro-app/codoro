@@ -1,0 +1,12 @@
+{
+  "id": "err-014",
+  "pattern": "error-handling",
+  "difficulty_rating": 1250,
+  "explanation": "The parse of \"bad\" throws inside try, so the block aborts before any further try statements. Control jumps to catch, which prints 'caught', then finally always runs and prints 'done', and since the exception was handled, execution continues past the block to print 'after'. The full sequence is open, caught, done, after.",
+  "prompt": "Drag these outputs into the order they actually print when run() executes.",
+  "language": "java",
+  "snippet": "void run() {\n    try {\n        System.out.println(\"open\");\n        int x = Integer.parseInt(\"bad\");\n    } catch (NumberFormatException e) {\n        System.out.println(\"caught\");\n    } finally {\n        System.out.println(\"done\");\n    }\n    System.out.println(\"after\");\n}",
+  "interaction": "drag-order",
+  "blocks": ["Prints 'caught'", "Prints 'done'", "Prints 'after'", "Prints 'open'"],
+  "correct_order": [3, 0, 1, 2]
+}

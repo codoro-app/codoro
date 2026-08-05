@@ -51,6 +51,7 @@ const swipePuzzle: SwipeBinaryPuzzle = {
   left_label: 'Thread-safe',
   right_label: 'Race condition',
   correct_direction: 'right',
+  correct_verdict: 'bug',
 }
 
 const tapLinePuzzle: TapLinePuzzle = {

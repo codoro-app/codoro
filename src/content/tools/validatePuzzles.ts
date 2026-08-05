@@ -117,6 +117,215 @@ export function validateDailyCalendar(
   return errors
 }
 
+/**
+ * The floor on how much of the swipe-binary library must be the "code is
+ * fine" negative class (docs/v2-build-plan.md, Phase 6 item 5). A swipe
+ * puzzle carries a 50% guess floor; if the library is ~all "find the bug",
+ * a player who reasons "everything here has a bug" wins on prior alone,
+ * without tracing. Requiring ≥1/3 to answer "safe" means that strategy stops
+ * working and real discrimination is restored. Like the direction-skew rule,
+ * this is a hard `validate:content` failure, not a warning — a future
+ * authoring batch must not be able to quietly re-concentrate the library on
+ * bug-seeking.
+ */
+const SWIPE_SAFE_MIN_SHARE = 1 / 3
+
+/**
+ * Tokens asserting the code is fine (the correct side of a `'safe'` puzzle)
+ * vs. tokens naming a defect. Used only to verify the *correct-side label* of
+ * `correct_verdict: 'safe'` puzzles actually claims the code is fine — a
+ * puzzle marketed as "the code is safe" whose correct label names a bug is
+ * incoherent. Deliberately NOT applied to `'bug'` puzzles, whose correct-side
+ * labels legitimately vary between naming the defect and describing the wrong
+ * (buggy) behavior; checking them would false-positive on the existing,
+ * already-authored library.
+ */
+const SAFE_VERDICT_CORRECT_LABEL_RE =
+  /\b(no ?bug|safe(?:ly)?|correct(?:ly)?|works?|fine|valid(?:ly)?|proper(?:ly)?|ok|right|normal)\b/i
+const DEFECT_LABEL_RE =
+  /\b((?<!no )bug|buggy|broken|race|leak|crash|throw|blow|corrupt|crashes|fails?|wrong|undefined behaviour|undefined behavior)\b/i
+
+function correctDirectionLabel(puzzle: SwipeBinaryPuzzle): string {
+  return puzzle.correct_direction === 'right' ? puzzle.right_label : puzzle.left_label
+}
+
+/**
+ * Second half of the Phase 6 item 5 swipe-binary check: correct-label
+ * SEMANTICS, not just side. Two rules, both hard:
+ *  1. Pool: ≥ `SWIPE_SAFE_MIN_SHARE` of swipe-binary puzzles are
+ *     `correct_verdict: 'safe'` (the negative class), so bug-seeking-by-prior
+ *     can't climb Elo for free.
+ *  2. Per-puzzle: a `'safe'` puzzle's correct-side label must actually claim
+ *     the code is fine (contain a safe token and no defect token).
+ */
+function validateSwipeSemantics(valid: readonly ValidatedPuzzle[]): string[] {
+  const swipeBinaryPuzzles = valid.filter(isSwipeBinaryEntry)
+  if (swipeBinaryPuzzles.length === 0) return []
+
+  const errors: string[] = []
+  const safeCount = swipeBinaryPuzzles.filter((e) => e.puzzle.correct_verdict === 'safe').length
+  const safeShare = safeCount / swipeBinaryPuzzles.length
+
+  if (safeShare < SWIPE_SAFE_MIN_SHARE) {
+    errors.push(
+      `swipe-binary correct_verdict is ${String(safeCount)}/${String(swipeBinaryPuzzles.length)} "safe" (${(
+        safeShare * 100
+      ).toFixed(
+        1,
+      )}%) — below the ≥${String(Math.round(SWIPE_SAFE_MIN_SHARE * 100))}% floor for the "code is fine" negative class. ` +
+        `Without it, a player who assumes "everything here has a bug" wins without reading the code.`,
+    )
+  }
+
+  for (const entry of swipeBinaryPuzzles) {
+    if (entry.puzzle.correct_verdict !== 'safe') continue
+    const label = correctDirectionLabel(entry.puzzle)
+    const isSafeClaim = SAFE_VERDICT_CORRECT_LABEL_RE.test(label) && !DEFECT_LABEL_RE.test(label)
+    if (!isSafeClaim) {
+      errors.push(
+        `${entry.puzzle.id}: correct_verdict is "safe" but the correct-side label ("${label}") does not claim the ` +
+          `code is fine — a "code is safe" puzzle's correct answer must be the label asserting safety, or the negative ` +
+          `class reads as a guess.`,
+      )
+    }
+  }
+
+  return errors
+}
+
+/**
+ * Phase 6 v2 DoD targets (docs/v2-build-plan.md §Phase 6 items 4/5 + the v2
+ * authoring amendment). Shared with contentStats.ts so the report and the hard
+ * gate can never disagree on the target numbers.
+ */
+export const LANGUAGE_ORDER = ['javascript', 'python', 'java', 'c'] as const
+export const LANGUAGE_TARGETS: Record<(typeof LANGUAGE_ORDER)[number], number> = {
+  javascript: 40,
+  python: 25,
+  java: 25,
+  c: 10,
+}
+export const LANGUAGE_TOLERANCE_POINTS = 10
+
+/** Anti-anchoring hard bound: no single exact difficulty_rating may exceed this share of the pool. */
+export const CLUSTER_MAX_SHARE = 0.15
+
+/**
+ * Phase 6 DoD hard gate — anti-anchoring. v1 clustered most of its library at a
+ * handful of exact ratings (1000/1600/1700/1900); the difficulty rubric is the
+ * real fix, this gate keeps a future batch from quietly re-concentrating
+ * ratings. Same threshold contentStats reports on, but a hard
+ * `validate:content` failure here (docs/v2-build-plan.md, Phase 6 item 5).
+ */
+export function validateRatingCluster(valid: readonly ValidatedPuzzle[]): string[] {
+  if (valid.length === 0) return []
+
+  const counts = new Map<number, number>()
+  for (const entry of valid) {
+    counts.set(
+      entry.puzzle.difficulty_rating,
+      (counts.get(entry.puzzle.difficulty_rating) ?? 0) + 1,
+    )
+  }
+
+  const clustered = [...counts.entries()]
+    .map(([rating, count]) => ({ rating, count, share: count / valid.length }))
+    .filter((entry) => entry.share > CLUSTER_MAX_SHARE)
+    .sort((a, b) => b.share - a.share)
+
+  if (clustered.length === 0) return []
+
+  return [
+    `difficulty_rating anti-anchoring cluster: ${clustered
+      .map(
+        (entry) =>
+          `${String(entry.rating)} (${String(entry.count)} puzzle(s), ${(entry.share * 100).toFixed(1)}%)`,
+      )
+      .join(
+        ', ',
+      )} — no single rating may be used by more than ${String(CLUSTER_MAX_SHARE * 100)}% of the pool.`,
+  ]
+}
+
+/**
+ * Phase 6 DoD hard gate — quiz language mix (scrubber excluded) within
+ * LANGUAGE_TOLERANCE_POINTS of the 40/25/25/10 JS/Py/Java/C target. A library
+ * that is ~all one language under-serves the learners that language is not.
+ * Hard `validate:content` failure so an authoring batch can't silently tilt it.
+ */
+export function validateLanguageMix(valid: readonly ValidatedPuzzle[]): string[] {
+  const quiz = valid.filter((entry) => entry.puzzle.interaction !== 'scrubber')
+  if (quiz.length === 0) return []
+
+  const counts = new Map<string, number>()
+  for (const entry of quiz) {
+    counts.set(entry.puzzle.language, (counts.get(entry.puzzle.language) ?? 0) + 1)
+  }
+
+  const outOfBand: string[] = []
+  for (const lang of LANGUAGE_ORDER) {
+    const share = ((counts.get(lang) ?? 0) / quiz.length) * 100
+    if (Math.abs(share - LANGUAGE_TARGETS[lang]) > LANGUAGE_TOLERANCE_POINTS) {
+      outOfBand.push(
+        `${lang} at ${share.toFixed(1)}% (target ${String(LANGUAGE_TARGETS[lang])}% ±${String(LANGUAGE_TOLERANCE_POINTS)}pt)`,
+      )
+    }
+  }
+
+  if (outOfBand.length === 0) return []
+
+  return [
+    `quiz language mix is out of the 40/25/25/10 JS/Py/Java/C target band (±${String(LANGUAGE_TOLERANCE_POINTS)}pt): ${outOfBand.join('; ')}.`,
+  ]
+}
+
+/**
+ * Phase 6 v2 interaction-mix hard gate. Both DoD thresholds are NEW-content
+ * deltas (≤⅓ of new quiz puzzles plain mcq; scrubber+drag-order ≥⅓ of new
+ * content), which can't be judged from the full library state alone — so this
+ * checks them against a FIXED baseline: the Phase 5 library as committed at
+ * `020ed7b` (the parent of the Phase 6 v2 authoring branch). "New" is defined
+ * deterministically as current − baseline, so any content authored after
+ * Phase 5 is held to the same mix rules and the gate keeps working for future
+ * authoring batches.
+ */
+const BASELINE_QUIZ = 111
+const BASELINE_MCQ = 42
+const BASELINE_DRAG_ORDER = 3
+const BASELINE_SCRUBBER = 43
+const BASELINE_TOTAL = 154
+const NEW_QUIZ_MCQ_MAX_SHARE = 1 / 3
+const NEW_CONTENT_INTERACTIVE_MIN_SHARE = 1 / 3
+
+export function validateInteractionMix(valid: readonly ValidatedPuzzle[]): string[] {
+  const puzzles = valid.map((entry) => entry.puzzle)
+  const quiz = puzzles.filter((p) => p.interaction !== 'scrubber')
+  const mcq = puzzles.filter((p) => p.interaction === 'mcq').length
+  const dragOrder = puzzles.filter((p) => p.interaction === 'drag-order').length
+  const scrubber = puzzles.filter((p) => p.interaction === 'scrubber').length
+
+  const newQuiz = quiz.length - BASELINE_QUIZ
+  const newContent = puzzles.length - BASELINE_TOTAL
+  const newMcq = mcq - BASELINE_MCQ
+  const newInteractive = dragOrder + scrubber - (BASELINE_DRAG_ORDER + BASELINE_SCRUBBER)
+
+  const errors: string[] = []
+
+  if (newQuiz > 0 && newMcq / newQuiz > NEW_QUIZ_MCQ_MAX_SHARE) {
+    errors.push(
+      `interaction mix: ${String(newMcq)} of ${String(newQuiz)} new quiz puzzles are plain mcq (${((newMcq / newQuiz) * 100).toFixed(1)}%) — above the ≤⅓ cap on new mcq content.`,
+    )
+  }
+
+  if (newContent > 0 && newInteractive / newContent < NEW_CONTENT_INTERACTIVE_MIN_SHARE) {
+    errors.push(
+      `interaction mix: ${String(newInteractive)} of ${String(newContent)} new content pieces are interactive (scrubber or drag-order, ${((newInteractive / newContent) * 100).toFixed(1)}%) — below the ≥⅓ floor.`,
+    )
+  }
+
+  return errors
+}
+
 export function validatePuzzleFiles(files: readonly RawPuzzleFile[]): ValidationResult {
   const valid: ValidatedPuzzle[] = []
   const errors: string[] = []
@@ -143,6 +352,7 @@ export function validatePuzzleFiles(files: readonly RawPuzzleFile[]): Validation
   }
 
   errors.push(...validateSwipeDirectionBalance(valid))
+  errors.push(...validateSwipeSemantics(valid))
 
   return { valid, errors }
 }

@@ -1,0 +1,14 @@
+{
+  "id": "mut-019",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1600,
+  "explanation": "This is safe. The mutable-default-argument trap is real, but it only fires when the special sentinel is absent and the caller omits the argument across multiple calls. Here `basket` defaults to a fresh list via `None` — the classic workaround — so every call that omits it gets its own list and `append` can never leak between calls. A tempting-but-wrong reading is that `None` itself is mutated; mutated is the inner list, which is recreated per call.",
+  "prompt": "Several callers each call add_item() repeatedly, some omitting the second argument. Is this safe?",
+  "language": "python",
+  "snippet": "def add_item(item, basket=None):\n    if basket is None:\n        basket = []\n    basket.append(item)\n    return basket",
+  "interaction": "swipe-binary",
+  "left_label": "No bug — state stays per-call",
+  "right_label": "Shared-list mutation leak",
+  "correct_direction": "left",
+  "correct_verdict": "safe"
+}

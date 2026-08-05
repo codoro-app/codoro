@@ -58,6 +58,7 @@ export const DEV_STUB_PUZZLES: Puzzle[] = BANDS.flatMap((rating, i) => {
       left_label: swipeCorrectDirection === 'left' ? 'Correct' : 'Incorrect',
       right_label: swipeCorrectDirection === 'right' ? 'Correct' : 'Incorrect',
       correct_direction: swipeCorrectDirection,
+      correct_verdict: 'bug',
     },
     {
       id: `dev-tap-${String(rating)}`,

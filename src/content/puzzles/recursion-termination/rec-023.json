@@ -1,0 +1,17 @@
+{
+  "id": "rec-023",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 1225,
+  "explanation": "Recursive calls resolve bottom-up: fact(4) waits on fact(3), which waits on fact(2), which waits on fact(1). So fact(1) hits the base case and returns 1 first, then fact(2) returns 2 * 1 = 2, then fact(3) returns 3 * 2 = 6, and finally fact(4) returns 4 * 6 = 24. The returns happen in the reverse order of the calls.",
+  "prompt": "Drag these steps into the order they actually happen when fact(4) runs.",
+  "language": "python",
+  "snippet": "def fact(n):\n    if n <= 1:\n        return 1\n    return n * fact(n - 1)\n\nprint(fact(4))",
+  "interaction": "drag-order",
+  "blocks": [
+    "fact(3) returns 3 * 2 = 6",
+    "fact(4) returns 4 * 6 = 24",
+    "fact(1) returns 1 (base case)",
+    "fact(2) returns 2 * 1 = 2"
+  ],
+  "correct_order": [2, 3, 0, 1]
+}

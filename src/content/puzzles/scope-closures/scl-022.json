@@ -1,0 +1,12 @@
+{
+  "id": "scl-022",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1525,
+  "explanation": "Because the loop declares i with let, each iteration creates a fresh binding, so fns[0] closes over i=0, fns[1] over i=1, and fns[2] over i=2. The console calls then print those captured values in the order fns are invoked: fns[0]() logs 0, fns[2]() logs 2, fns[1]() logs 1. The trap is applying var-style hoisting, which would make every closure return the final value 2.",
+  "prompt": "Drag these console outputs into the order they actually print.",
+  "language": "javascript",
+  "snippet": "function build() {\n  const fns = [];\n  for (let i = 0; i < 3; i++) {\n    fns.push(() => i);\n  }\n  return fns;\n}\nconst fns = build();\nconsole.log(fns[0]());\nconsole.log(fns[2]());\nconsole.log(fns[1]());",
+  "interaction": "drag-order",
+  "blocks": ["Logs 2", "Logs 0", "Logs 1"],
+  "correct_order": [1, 0, 2]
+}

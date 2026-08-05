@@ -1,0 +1,18 @@
+{
+  "id": "mut-021",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1375,
+  "explanation": "collect() creates its own result list first, then each loop pass appends the doubled value in list order: 2 for x=1, 4 for x=2, 6 for x=3. Only after all three appends does the function return the accumulated [2, 4, 6]. Because result is a fresh local list per call, no earlier or later call can observe it mid-build.",
+  "prompt": "Drag these steps into the order they happen inside collect([1, 2, 3]).",
+  "language": "python",
+  "snippet": "def collect(items):\n    result = []\n    for x in items:\n        result.append(x * 2)\n    return result\n\nprint(collect([1, 2, 3]))",
+  "interaction": "drag-order",
+  "blocks": [
+    "collect() appends 4 (x=2)",
+    "collect() returns [2, 4, 6]",
+    "collect() creates result = []",
+    "collect() appends 2 (x=1)",
+    "collect() appends 6 (x=3)"
+  ],
+  "correct_order": [2, 3, 0, 4, 1]
+}

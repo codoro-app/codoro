@@ -1,0 +1,14 @@
+{
+  "id": "mut-020",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1550,
+  "explanation": "This is safe. A fresh ArrayList is constructed on every call, so there is no shared mutable instance — each caller, sequential or concurrent, gets an independent list and can add or remove without corrupting anyone else's data. A tempting wrong answer assumes the method returns a shared static collection, but the local allocation prevents any cross-call aliasing.",
+  "prompt": "Many callers invoke labels(). Can one caller's mutation corrupt another caller's result?",
+  "language": "java",
+  "snippet": "public List<String> labels() {\n    List<String> out = new ArrayList<>();\n    for (int i = 0; i < 3; i++) {\n        out.add(\"L\" + i);\n    }\n    return out;\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Safe — fresh list per call",
+  "right_label": "Shared instance — callers corrupt each other",
+  "correct_direction": "left",
+  "correct_verdict": "safe"
+}

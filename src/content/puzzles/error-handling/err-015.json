@@ -1,0 +1,17 @@
+{
+  "id": "err-015",
+  "pattern": "error-handling",
+  "difficulty_rating": 1200,
+  "explanation": "The bare `except Exception: pass` catches and discards every exception — a permission error, a corrupt JSON file, and a genuine programming error all silently become an empty config. That masks real failures and makes debugging nearly impossible. The fix is to catch specific exceptions (FileNotFoundError, json.JSONDecodeError) or let them propagate.",
+  "prompt": "load_config() always returns a dict. What's the bug?",
+  "language": "python",
+  "snippet": "def load_config(path):\n    try:\n        with open(path) as f:\n            return json.load(f)\n    except Exception:\n        pass\n    return {}",
+  "interaction": "mcq",
+  "choices": [
+    "It swallows every exception, so genuine failures silently become an empty config",
+    "json.load() returns a string, not a dict",
+    "The with block never closes the file",
+    "The try should come before the open() call"
+  ],
+  "correct_choice": 0
+}

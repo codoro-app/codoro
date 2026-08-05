@@ -1,0 +1,17 @@
+{
+  "id": "oob-021",
+  "pattern": "off-by-one",
+  "difficulty_rating": 1150,
+  "explanation": "For first_n('hello', 3), n is not greater than len(s), so no clamp happens: it slices s[:3] and returns 'hel'. For first_n('hi', 5), n exceeds len(s) so the guard clamps n down to 2 before the slice, and 'hi' is returned whole. The clamping step only runs for the second call, which is the key ordering distinction.",
+  "prompt": "Drag these steps into the order they happen when both print() calls run.",
+  "language": "python",
+  "snippet": "def first_n(s, n):\n    if n > len(s):\n        n = len(s)\n    return s[:n]\n\nprint(first_n(\"hello\", 3))\nprint(first_n(\"hi\", 5))",
+  "interaction": "drag-order",
+  "blocks": [
+    "first_n('hello', 3) returns 'hel'",
+    "first_n('hi', 5) clamps n to 2",
+    "first_n('hello', 3) slices s[:3]",
+    "first_n('hi', 5) returns 'hi'"
+  ],
+  "correct_order": [2, 0, 1, 3]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "rec-022",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 1050,
+  "explanation": "This is safe. Every recursive call passes `n - 1`, and the base case `n <= 0` returns, so recursion always terminates — there is no unbounded growth and no infinite recursion until a RecursionError. A tempting wrong answer reads the `>= 0` guard as off, but it exactly matches the base case, so n == 0 exits and never recurses again.",
+  "prompt": "Does countdown() always terminate for a non-negative n?",
+  "language": "python",
+  "snippet": "def countdown(n):\n    if n <= 0:\n        return\n    print(n)\n    countdown(n - 1)",
+  "interaction": "swipe-binary",
+  "left_label": "Infinite recursion below zero",
+  "right_label": "Correct — always terminates",
+  "correct_direction": "right",
+  "correct_verdict": "safe"
+}

@@ -9,5 +9,6 @@
   "interaction": "swipe-binary",
   "left_label": "Safe",
   "right_label": "Crashes at runtime",
-  "correct_direction": "right"
+  "correct_direction": "right",
+  "correct_verdict": "bug"
 }

@@ -1,0 +1,12 @@
+{
+  "id": "oob-022",
+  "pattern": "off-by-one",
+  "difficulty_rating": 1025,
+  "explanation": "The three fragments of the for header must be assembled in the order `for (int i = 0;` + `i < n;` + `i++) {`, and the loop body must sit inside the braces. The strict `< n` condition is what makes the loop visit exactly indices 0 through n-1 — swapping in `<= n` or `i < n+1` would read one element past the array.",
+  "prompt": "Drag these fragments into the order that makes the loop visit indices 0 through n-1 exactly once.",
+  "language": "c",
+  "snippet": "for (int i = 0; i < n; i++) {\n    printf(\"%d\\n\", a[i]);\n}",
+  "interaction": "drag-order",
+  "blocks": ["i < n;", "i++) {", "for (int i = 0;", "printf(\"%d\\n\", a[i]);"],
+  "correct_order": [2, 0, 1, 3]
+}

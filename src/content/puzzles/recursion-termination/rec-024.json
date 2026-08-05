@@ -1,0 +1,17 @@
+{
+  "id": "rec-024",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 1100,
+  "explanation": "There is no base case: every call makes a new recursive call with n - 1, and nothing ever returns a value directly. The recursion never bottoms out, so the call stack grows without bound until Python raises RecursionError. The fix is to return 0 (or n) when n reaches a floor value.",
+  "prompt": "What's the bug in this function that sums 1 through n?",
+  "language": "python",
+  "snippet": "def sum_to(n):\n    return n + sum_to(n - 1)",
+  "interaction": "mcq",
+  "choices": [
+    "There is no base case, so it recurses forever and raises RecursionError",
+    "sum_to() is O(n^2) because each call re-scans the range",
+    "n - 1 overflows for large values of n",
+    "It should return n * sum_to(n - 1) instead"
+  ],
+  "correct_choice": 0
+}

@@ -1,0 +1,14 @@
+{
+  "id": "str-009",
+  "pattern": "string-formatting",
+  "difficulty_rating": 1150,
+  "explanation": "This is safe. f-string interpolation calls str() on the value, so an integer renders as its decimal digits with no concatenation bug (no `can only concatenate str` TypeError, because the f-string handles the conversion). A tempting wrong answer reads this as a `str + int` TypeError, but there is no manual `+` between a string and an int here. The output is exactly the number's digits.",
+  "prompt": "count is an int. Does this correctly render it as text?",
+  "language": "python",
+  "snippet": "def describe(count):\n    return f\"Total: {count}\"",
+  "interaction": "swipe-binary",
+  "left_label": "Works correctly",
+  "right_label": "TypeError: cannot concatenate str and int",
+  "correct_direction": "left",
+  "correct_verdict": "safe"
+}

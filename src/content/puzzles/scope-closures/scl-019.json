@@ -1,0 +1,14 @@
+{
+  "id": "scl-019",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1375,
+  "explanation": "This is safe. The `i=i` default argument snapshots the loop variable at definition time, so each lambda closes over its own value; `ms[0](2)` is `2 * 0` = 0. The classic late-binding gotcha only bites when the default is omitted, so every lambda reads the loop variable's final value from the enclosing scope. A tempting wrong answer reads this as that bug, but the default-arg binding makes each closure independent.",
+  "prompt": "multipliers() builds three lambdas. Does ms[0](2) print 0 as intended?",
+  "language": "python",
+  "snippet": "def multipliers():\n    return [lambda x, i=i: x * i for i in range(3)]\n\nms = multipliers()\nprint(ms[0](2))",
+  "interaction": "swipe-binary",
+  "left_label": "Late-binding bug — all capture i=2, prints 4",
+  "right_label": "Correct — each closure keeps its own i",
+  "correct_direction": "right",
+  "correct_verdict": "safe"
+}

@@ -9,5 +9,6 @@
   "interaction": "swipe-binary",
   "left_label": "Refetches on falsy cached values",
   "right_label": "Safe",
-  "correct_direction": "left"
+  "correct_direction": "left",
+  "correct_verdict": "bug"
 }

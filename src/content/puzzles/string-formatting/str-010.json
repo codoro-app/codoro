@@ -1,0 +1,14 @@
+{
+  "id": "str-010",
+  "pattern": "string-formatting",
+  "difficulty_rating": 1250,
+  "explanation": "This is safe. strncpy writes at most 7 bytes and the following line explicitly NUL-terminates dst, so even when src is longer than the buffer the string stays terminated and no byte is written past dst[7]. A tempting wrong answer reads this as strcpy-style overflow, but the cap and the explicit terminator make it correct.",
+  "prompt": "src may be much longer than 7 characters. Can copying it overrun dst or leave it unterminated?",
+  "language": "c",
+  "snippet": "char dst[8];\nstrncpy(dst, src, sizeof dst - 1);\ndst[sizeof dst - 1] = '\\0';",
+  "interaction": "swipe-binary",
+  "left_label": "Safe — capped and terminated",
+  "right_label": "Buffer overflow — dst overrun",
+  "correct_direction": "left",
+  "correct_verdict": "safe"
+}

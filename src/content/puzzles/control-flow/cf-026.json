@@ -1,0 +1,12 @@
+{
+  "id": "cf-026",
+  "pattern": "control-flow",
+  "difficulty_rating": 1675,
+  "explanation": "Synchronous code runs first, so 'start' and 'end' print immediately in source order. Then the event loop drains the microtask queue before the macrotask queue, so the Promise callback ('promise') runs before the setTimeout callback ('timeout') — even though the timeout is 0ms. The final order is start, end, promise, timeout.",
+  "prompt": "Drag these console outputs into the order they actually print.",
+  "language": "javascript",
+  "snippet": "console.log('start');\nsetTimeout(() => console.log('timeout'), 0);\nPromise.resolve().then(() => console.log('promise'));\nconsole.log('end');",
+  "interaction": "drag-order",
+  "blocks": ["Logs 'promise'", "Logs 'end'", "Logs 'timeout'", "Logs 'start'"],
+  "correct_order": [3, 1, 0, 2]
+}

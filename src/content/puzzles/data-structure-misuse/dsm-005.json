@@ -9,5 +9,6 @@
   "interaction": "swipe-binary",
   "left_label": "Counts correctly",
   "right_label": "Miscounts duplicates",
-  "correct_direction": "right"
+  "correct_direction": "right",
+  "correct_verdict": "bug"
 }
