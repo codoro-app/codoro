@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { updateRating, roundForDisplay } from '../../engine'
+import { updateRating, roundForDisplay, TRACE_K_MULTIPLIER } from '../../engine'
 import type { Puzzle } from '../../content'
 import { useTraceSession } from './useTraceSession'
 
@@ -145,8 +145,9 @@ describe('useTraceSession', () => {
     const expectedNewRating = updateRating(
       before.rating,
       puzzle.difficulty_rating,
-      true,
+      1, // fractional actual-score: both checkpoints correct = 1.0
       before.ratedAttemptCount,
+      TRACE_K_MULTIPLIER,
     )
     const expectedDelta = roundForDisplay(expectedNewRating) - roundForDisplay(before.rating)
 
@@ -223,6 +224,46 @@ describe('useTraceSession', () => {
       { puzzleId: puzzle.id, stage: 0, served: 0 },
     ])
     expect(appendAttempt).toHaveBeenCalledWith(expect.objectContaining({ correct: false }))
+  })
+
+  it('a partially-correct attempt (1 of 2 checkpoints) still fails scoreScrubberAttempt but rates on fractional credit, not a flat miss', async () => {
+    const { result } = renderHook(() => useTraceSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    const puzzle = result.current.puzzle
+    if (!puzzle) throw new Error('expected a puzzle to be served')
+    const before = result.current.profile
+    if (!before) throw new Error('expected a profile to be loaded')
+
+    const expectedNewRating = updateRating(
+      before.rating,
+      puzzle.difficulty_rating,
+      0.5, // 1 of 2 checkpoints correct
+      before.ratedAttemptCount,
+      TRACE_K_MULTIPLIER,
+    )
+    // What the old all-or-nothing semantics would have produced — asserted
+    // distinct below to prove this attempt is no longer scored like a flat
+    // miss now that rating credit is fractional.
+    const flatMissRating = updateRating(
+      before.rating,
+      puzzle.difficulty_rating,
+      false,
+      before.ratedAttemptCount,
+    )
+
+    act(() => {
+      result.current.handleCheckpointAnswered({ correct: true, choiceIndex: 0 })
+    })
+    act(() => {
+      result.current.handleCheckpointAnswered({ correct: false, choiceIndex: 1 })
+    })
+
+    expect(result.current.solved).toBe(false)
+    expect(result.current.profile?.rating).toBe(expectedNewRating)
+    expect(result.current.profile?.rating).not.toBe(flatMissRating)
   })
 
   it('a missed puzzle resurfaces via requeue after 3 continues (stage-0 ladder interval)', async () => {

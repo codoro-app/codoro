@@ -3,11 +3,15 @@
  * via engine's rating-matched `selectNext` (same selector Practice uses),
  * accumulates per-checkpoint results as the player scrubs through a single
  * puzzle's trace, and — once every checkpoint on the current puzzle has been
- * answered — scores/rates/persists the attempt exactly like Practice does
- * for its own single-commit puzzles. Mirrors usePracticeSession's rated-
- * attempt lifecycle (`shouldRateAttempt`, rating update, requeue-on-miss,
- * `recentIds`) and useRushSession's structural shape (status/mount-effect/
- * `resolvePool` dev override).
+ * answered — scores/rates/persists the attempt, persistence-wise mirroring
+ * Practice's own single-commit puzzles but with two trace-specific scoring
+ * differences: "solved" (streak/requeue) stays all-or-nothing
+ * (scoreScrubberAttempt), while the rating update itself takes fractional
+ * per-checkpoint credit (scrubberActualScore) at a boosted K
+ * (TRACE_K_MULTIPLIER) — see those two exports' doc comments for why.
+ * Mirrors usePracticeSession's rated-attempt lifecycle (`shouldRateAttempt`,
+ * rating update, requeue-on-miss, `recentIds`) and useRushSession's
+ * structural shape (status/mount-effect/`resolvePool` dev override).
  *
  * handleCheckpointAnswered/handleContinue are split exactly like Practice's
  * handleAnswered/handleContinue: handleCheckpointAnswered accumulates one
@@ -24,8 +28,10 @@ import {
   recordMiss,
   roundForDisplay,
   scoreScrubberAttempt,
+  scrubberActualScore,
   selectNext,
   shouldRateAttempt,
+  TRACE_K_MULTIPLIER,
   updateRating,
 } from '../../engine'
 import type { CheckpointResult, SelectionSource } from '../../engine'
@@ -275,13 +281,25 @@ export function useTraceSession(): TraceSession {
       const timeMs = Math.max(0, Date.now() - servedAtRef.current)
       const today = todayDateString()
       const isSolved = scoreScrubberAttempt(nextResults)
+      // Rating credit is fractional (per-checkpoint), not the same
+      // all-or-nothing boolean `isSolved` uses — see scrubberActualScore's
+      // doc comment for why the two are deliberately allowed to diverge.
+      const actualScore = scrubberActualScore(nextResults)
 
       // Trace shares Practice's rating pool (mode: 'practice') — see the
-      // build plan's "own mode with shared rating" decision.
+      // build plan's "own mode with shared rating" decision. The rating
+      // swing itself is boosted (TRACE_K_MULTIPLIER) since one trace
+      // attempt carries more signal than one single-commit quiz answer.
       const rates = shouldRateAttempt('practice', false)
       const oldRating = profile.rating
       const newRating = rates
-        ? updateRating(oldRating, puzzle.difficulty_rating, isSolved, profile.ratedAttemptCount)
+        ? updateRating(
+            oldRating,
+            puzzle.difficulty_rating,
+            actualScore,
+            profile.ratedAttemptCount,
+            TRACE_K_MULTIPLIER,
+          )
         : oldRating
       const delta = roundForDisplay(newRating) - roundForDisplay(oldRating)
 
