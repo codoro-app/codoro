@@ -1,7 +1,7 @@
 {
   "id": "con-008",
   "pattern": "concurrency",
-  "difficulty_rating": 1700,
+  "difficulty_rating": 1500,
   "explanation": "count++ is not a single atomic operation — it compiles to a read of count, an increment, and a write back. When multiple threads call increment() concurrently without synchronization, two threads can both read the same value before either writes back, so one increment is silently lost. The fix requires synchronization (e.g. synchronized, AtomicInteger) around the read-modify-write.",
   "prompt": "This Counter class is used by multiple threads calling increment() concurrently. What's the bug?",
   "language": "java",

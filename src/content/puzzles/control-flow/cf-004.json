@@ -1,7 +1,7 @@
 {
   "id": "cf-004",
   "pattern": "control-flow",
-  "difficulty_rating": 1575,
+  "difficulty_rating": 1175,
   "explanation": "The `case 'gold':` branch is missing a `break`, so execution falls through into `case 'silver':` and overwrites `discount` with 0.1 before hitting the first `break`. A gold-tier customer ends up with the silver discount instead of the gold one, even though every other case behaves as expected.",
   "prompt": "Does this discount switch behave correctly for every tier?",
   "language": "javascript",

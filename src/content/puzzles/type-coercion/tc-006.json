@@ -1,7 +1,7 @@
 {
   "id": "tc-006",
   "pattern": "type-coercion",
-  "difficulty_rating": 1600,
+  "difficulty_rating": 1200,
   "explanation": "Array.prototype.sort() with no comparator function converts every element to a string and compares them lexicographically (by UTF-16 code unit), not numerically. So for [10, 9, 2, 21], the elements become the strings \"10\", \"9\", \"2\", \"21\", and since '1' < '2' < '9' character-wise, the result is [10, 2, 21, 9] instead of the numerically sorted [2, 9, 10, 21]. Fixing it requires an explicit comparator like `(a, b) => a - b`.",
   "prompt": "Why does this function fail to produce a numerically sorted list of scores?",
   "language": "javascript",

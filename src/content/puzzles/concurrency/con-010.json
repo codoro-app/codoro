@@ -1,7 +1,7 @@
 {
   "id": "con-010",
   "pattern": "concurrency",
-  "difficulty_rating": 1225,
+  "difficulty_rating": 1100,
   "explanation": "`Thread.run()` is just an ordinary method call — invoking it directly executes the `Runnable`'s code synchronously on whatever thread called `runInBackground`, and doesn't return until that work finishes. No new thread is ever created or started; the `Thread` object exists but is never actually launched. `Thread.start()` is what asks the JVM to begin executing `run()` on a new OS thread, letting the caller continue immediately. Confusingly, this compiles fine and even produces the correct result for `task` — it's simply not concurrent at all, which defeats the entire purpose of using a `Thread` here.",
   "prompt": "runInBackground is supposed to let the caller continue immediately while task runs on a separate thread. What's actually wrong with it?",
   "language": "java",

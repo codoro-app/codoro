@@ -1,7 +1,7 @@
 {
   "id": "scl-005",
   "pattern": "scope-closures",
-  "difficulty_rating": 1675,
+  "difficulty_rating": 1475,
   "explanation": "`var i` is function-scoped, not block-scoped, so all three closures pushed into `handlers` share the same single `i` binding. By the time any of them runs, the loop has already finished and `i` is 3, so every handler logs 3 instead of the expected 0, 1, 2. Using `let i` instead would give each iteration its own binding.",
   "prompt": "Swipe: when you call each function returned in `handlers`, does it log its own loop index (0, 1, 2) or the same value every time?",
   "language": "javascript",

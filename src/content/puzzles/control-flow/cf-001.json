@@ -1,7 +1,7 @@
 {
   "id": "cf-001",
   "pattern": "control-flow",
-  "difficulty_rating": 1100,
+  "difficulty_rating": 1000,
   "explanation": "The `case 'gold':` branch is missing a `break` statement, so execution falls through into `case 'silver':` and overwrites `discount` with 10 instead of stopping at 20. Gold-tier customers end up receiving the silver discount rate.",
   "prompt": "What's the bug in this discount calculator?",
   "language": "javascript",

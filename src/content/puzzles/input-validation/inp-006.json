@@ -1,7 +1,7 @@
 {
   "id": "inp-006",
   "pattern": "input-validation",
-  "difficulty_rating": 1000,
+  "difficulty_rating": 1100,
   "explanation": "The function only rejects `percent` values above 100, but never checks for negative values. A negative percent (e.g. -50) passes validation and gets used in the calculation, actually increasing the price instead of discounting it — the input validation is incomplete, not just the upper bound.",
   "prompt": "What's the input-validation bug in this discount function?",
   "language": "javascript",

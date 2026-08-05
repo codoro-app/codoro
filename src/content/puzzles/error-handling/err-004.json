@@ -1,7 +1,7 @@
 {
   "id": "err-004",
   "pattern": "error-handling",
-  "difficulty_rating": 1050,
+  "difficulty_rating": 1000,
   "explanation": "The catch block catches the exception thrown by `fs.readFileSync` but does nothing with it — no logging, no rethrow, no fallback. The function then falls through to an implicit `return undefined`, so callers can't distinguish a successful read from a failed one; the error is silently swallowed.",
   "prompt": "What's the bug in this file-reading function?",
   "language": "javascript",

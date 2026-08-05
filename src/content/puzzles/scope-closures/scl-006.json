@@ -1,7 +1,7 @@
 {
   "id": "scl-006",
   "pattern": "scope-closures",
-  "difficulty_rating": 1900,
+  "difficulty_rating": 1700,
   "explanation": "Inside the loop, `field` is correctly captured per-iteration via `const field = fields[i]`, which looks like it solves the classic loop-closure problem. But the `validate` function body doesn't use `field` at all — it reads `fields[i]` again. Because `i` is declared with `var`, it's function-scoped, not block-scoped, so by the time any stored validator is actually called (after the loop has finished), `i` has already advanced to `fields.length`. Every validator therefore reads `fields[fields.length]`, which is `undefined`, and `value.length <= undefined.maxLength` throws a TypeError regardless of which field's validator you invoke.",
   "prompt": "This factory is supposed to build one independent validator per field. What's the bug?",
   "language": "javascript",

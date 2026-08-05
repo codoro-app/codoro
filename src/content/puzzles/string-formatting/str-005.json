@@ -1,7 +1,7 @@
 {
   "id": "str-005",
   "pattern": "string-formatting",
-  "difficulty_rating": 1900,
+  "difficulty_rating": 1800,
   "explanation": "`toFixed(2)` doesn't do pure decimal rounding — it operates on the number's underlying binary floating-point representation. Values like 1.005 can't be represented exactly in binary (it's actually stored as something like 1.00499999999999989...), so `(1.005).toFixed(2)` yields \"1.00\" instead of the expected \"1.01\". The bug only surfaces for specific values whose binary representation rounds the 'wrong' way, not for prices in general.",
   "prompt": "This function formats a price for display. What's the subtle bug?",
   "language": "javascript",

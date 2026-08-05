@@ -1,7 +1,7 @@
 {
   "id": "cf-008",
   "pattern": "control-flow",
-  "difficulty_rating": 1900,
+  "difficulty_rating": 1600,
   "explanation": "The `break` inside the `'urgent'` case only exits the `switch` statement — it does not break the enclosing `for` loop, since `break` binds to the nearest enclosing switch or loop. With no loop-level break after a match is found, the loop keeps scanning the rest of the array, and every later urgent ticket overwrites `result`. So despite the function's name and evident intent, it returns the *last* urgent ticket in the array, not the first.",
   "prompt": "This function is supposed to return the first ticket marked 'urgent'. What's actually wrong with it?",
   "language": "javascript",

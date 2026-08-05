@@ -1,7 +1,7 @@
 {
   "id": "tc-004",
   "pattern": "type-coercion",
-  "difficulty_rating": 1500,
+  "difficulty_rating": 1100,
   "explanation": "`users[i].id` is a number (from the object literals) while `id` here is `userId`, a string (as all URL/query parameters are strings). Using strict equality `===` never coerces types, so a numeric `1` or `2` will never equal the string `'1'` or `'2'`, and the lookup silently fails, returning `null` even though a matching user exists.",
   "prompt": "Tap the line responsible for the lookup always failing.",
   "language": "javascript",

@@ -1,7 +1,7 @@
 {
   "id": "str-007",
   "pattern": "string-formatting",
-  "difficulty_rating": 1975,
+  "difficulty_rating": 1800,
   "explanation": "String.format(\"%.2f\", price) uses the JVM's default Locale when none is specified. On systems whose default locale uses a comma as the decimal separator (e.g. German, Turkish locales), this produces \"12,50\" instead of \"12.50\". Any downstream code expecting a period-separated decimal — parsing, JSON serialization, external APIs — breaks silently in those locales even though the same code works fine when tested under an English locale. The fix is to pass an explicit locale, e.g. String.format(Locale.US, \"%.2f\", price).",
   "prompt": "Is this price formatter safe to run on servers in any locale?",
   "language": "java",

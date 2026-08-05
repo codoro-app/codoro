@@ -1,7 +1,7 @@
 {
   "id": "tc-008",
   "pattern": "type-coercion",
-  "difficulty_rating": 1700,
+  "difficulty_rating": 1200,
   "explanation": "Array.prototype.sort() with no comparator function coerces every element to a string and sorts lexicographically, not numerically. For an array like [10, 2, 1], the string comparison yields ['1','10','2'], so the result is [1, 10, 2] instead of the intended [1, 2, 10]. The fix is to pass an explicit comparator like (a, b) => a - b.",
   "prompt": "This function is supposed to sort numbers ascending. What's the bug?",
   "language": "javascript",

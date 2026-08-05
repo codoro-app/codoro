@@ -1,7 +1,7 @@
 {
   "id": "mut-006",
   "pattern": "mutable-state",
-  "difficulty_rating": 1975,
+  "difficulty_rating": 1700,
   "explanation": "`settings = {}` is a class attribute, not an instance attribute, so every `Config` object shares the exact same dictionary object. Because `__init__` and `enable_debug` both mutate it in place via `self.settings[key] = value` (rather than rebinding `self.settings = {...}`), no per-instance dict is ever created — toggling debug on one Config instance silently flips it for every other instance too. Rated above the base S/T/D/C formula because swipe-binary carries a 50% guess floor; the +150-200 modifier keeps the Elo signal meaningful.",
   "prompt": "Does each Config instance get its own independent settings, or do they share state?",
   "language": "python",

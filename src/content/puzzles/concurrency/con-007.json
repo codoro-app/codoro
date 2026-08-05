@@ -1,7 +1,7 @@
 {
   "id": "con-007",
   "pattern": "concurrency",
-  "difficulty_rating": 2100,
+  "difficulty_rating": 1800,
   "explanation": "`instance` is not declared `volatile`. Under the Java Memory Model, `instance = new Singleton()` can be split into (1) allocate memory, (2) assign the reference, (3) run the constructor — and without a `volatile` field or other memory barrier, steps 2 and 3 can be reordered from another thread's point of view. A second thread executing the outer `if (instance == null)` check outside the lock can see a non-null reference whose constructor hasn't finished running yet, and start using a partially-initialized object. Adding `volatile` (or using a holder class / atomic reference) prevents that reordering.",
   "prompt": "This double-checked-locking singleton has a subtle threading bug. What is it?",
   "language": "java",

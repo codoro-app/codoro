@@ -1,7 +1,7 @@
 {
   "id": "mut-001",
   "pattern": "mutable-state",
-  "difficulty_rating": 1600,
+  "difficulty_rating": 1500,
   "explanation": "The `Team` constructor assigns `this.members = members;`, storing a direct reference to the caller's list rather than copying it. Since `getMembers()` defensively returns `new ArrayList<>(members)`, that method is safe — but the internal state itself is already aliased. Any later mutation of the original `names` list (like `names.add(\"Bob\")` after construction) silently changes what `team` considers its members, even though the caller never touched `team` directly.",
   "prompt": "Tap the line that introduces a hidden aliasing bug.",
   "language": "java",

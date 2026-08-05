@@ -1,7 +1,7 @@
 {
   "id": "scl-003",
   "pattern": "scope-closures",
-  "difficulty_rating": 1100,
+  "difficulty_rating": 1300,
   "explanation": "`var` is function-scoped, not block-scoped, so all three closures pushed inside the loop capture the exact same binding of `i`. By the time the returned functions are actually called, the loop has already finished and `i` equals 3, so every call returns 3 instead of the expected 0, 1, 2. Using `let` instead of `var` would give each iteration its own binding.",
   "prompt": "Why do all three calls below return 3 instead of 0, 1, 2?",
   "language": "javascript",

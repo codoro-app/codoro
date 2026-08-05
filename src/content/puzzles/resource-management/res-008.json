@@ -1,7 +1,7 @@
 {
   "id": "res-008",
   "pattern": "resource-management",
-  "difficulty_rating": 2050,
+  "difficulty_rating": 1875,
   "explanation": "Both streams are opened before the try block, and `in.close()` is followed by `out.close()` inside the same finally clause with no independent protection. If the `FileOutputStream` constructor throws (e.g. permission denied, disk full), `in` is never closed since we never entered the try block. Separately, if `in.close()` itself throws, `out.close()` is skipped entirely, leaking the output handle. A correct version needs each resource opened and closed independently (or via try-with-resources) so one failure can't suppress the cleanup of another.",
   "prompt": "Is this file-copy method safe with respect to resource cleanup?",
   "language": "java",

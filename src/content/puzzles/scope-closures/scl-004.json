@@ -1,7 +1,7 @@
 {
   "id": "scl-004",
   "pattern": "scope-closures",
-  "difficulty_rating": 1675,
+  "difficulty_rating": 1475,
   "explanation": "`var i` is function-scoped, not block-scoped, so all three closures created inside the loop share the exact same variable binding. The loop finishes (setting `i` to 3) before any `setTimeout` callback actually runs, so every callback reads the same final value. The output is `3` three times, not `0, 1, 2` as the loop body might suggest. Swapping `var` for `let` would give each iteration its own binding and fix it.",
   "prompt": "What does this function actually log to the console?",
   "language": "javascript",

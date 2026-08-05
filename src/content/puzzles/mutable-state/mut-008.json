@@ -1,7 +1,7 @@
 {
   "id": "mut-008",
   "pattern": "mutable-state",
-  "difficulty_rating": 1575,
+  "difficulty_rating": 1375,
   "explanation": "`let taxed = prices` doesn't create a new array — it just copies the reference, so `taxed` and `prices` point to the same underlying array in memory. The loop then mutates that shared array in place, silently modifying the caller's original `prices` array even though the function looks like it's just building and returning a new taxed list. To avoid this, `taxed` would need to be a real copy, e.g. `prices.map(p => p * 1.08)` or `[...prices]` before mutating.",
   "prompt": "Is this function safe, or does it leak a mutation back to the caller?",
   "language": "javascript",

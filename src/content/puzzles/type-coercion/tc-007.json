@@ -1,7 +1,7 @@
 {
   "id": "tc-007",
   "pattern": "type-coercion",
-  "difficulty_rating": 1100,
+  "difficulty_rating": 1000,
   "explanation": "`NaN == NaN` (and `NaN === NaN`) is always `false` in JavaScript — NaN is defined by IEEE 754 to never equal anything, including itself. So `num == NaN` never evaluates to true even when `num` genuinely is NaN, making this check silently useless. The correct approach is `Number.isNaN(num)` (or `num !== num`).",
   "prompt": "Tap the line with the bug.",
   "language": "javascript",

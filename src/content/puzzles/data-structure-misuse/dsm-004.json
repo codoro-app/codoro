@@ -1,7 +1,7 @@
 {
   "id": "dsm-004",
   "pattern": "data-structure-misuse",
-  "difficulty_rating": 1675,
+  "difficulty_rating": 1575,
   "explanation": "HashSet relies on equals() and hashCode() to determine membership, but Point never overrides either — it inherits Object's default implementations, which compare by reference identity. So `new Point(1, 2)` added to the set and a second, separate `new Point(1, 2)` passed to contains() are never considered equal, even though their fields match. contains() returns false, silently missing the 'duplicate'.",
   "prompt": "Does this membership check correctly detect that Point(1,2) was already added?",
   "language": "java",

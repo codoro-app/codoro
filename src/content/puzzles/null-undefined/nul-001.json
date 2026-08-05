@@ -1,7 +1,7 @@
 {
   "id": "nul-001",
   "pattern": "null-undefined",
-  "difficulty_rating": 1600,
+  "difficulty_rating": 1300,
   "explanation": "`config.timeout || 5000` falls back to `5000` whenever `config.timeout` is falsy — not just when it's `null` or `undefined`. If a caller explicitly sets `timeout: 0` (a valid, intentional value meaning 'no timeout'), the `||` operator treats that `0` the same as a missing value and silently overrides it with `5000`. The fix is a nullish check (`config.timeout ?? 5000` or `config.timeout != null ? config.timeout : 5000`) so only actual `null`/`undefined` triggers the default.",
   "prompt": "This function is meant to default the timeout only when it's missing. What's the bug?",
   "language": "javascript",
