@@ -1,9 +1,9 @@
 # Cloudflare Pages serves 404.html for any path that isn't a real static
 # file — Vite's build only emits index.html at the root, so /practice,
-# /daily, /rush, /browse, /legal all 404 on a cold/direct load without
-# this. Each real route is rewritten (200, not a redirect — the URL stays
-# as typed) to the app shell so the SPA can boot and its own router takes
-# it from there.
+# /daily, /rush, /browse, /legal, /challenge all 404 on a cold/direct load
+# without this. Each real route is rewritten (200, not a redirect — the URL
+# stays as typed) to the app shell so the SPA can boot and its own router
+# takes it from there.
 #
 # The rewrite target is '/', not '/index.html': Cloudflare Pages
 # canonicalizes '.html' URLs and 308-redirects '/index.html' to '/', which
@@ -20,6 +20,11 @@
 /trace / 200
 /browse / 200
 /legal / 200
+# /challenge (v2 Phase 5c) is a *static* route — the whole challenge lives in
+# the URL fragment (/challenge#<base64url>), which never reaches Cloudflare,
+# so a plain literal line covers every possible challenge link. The fragment
+# rides along through the rewrite untouched; App.tsx's own router reads it.
+/challenge / 200
 # /puzzle/:id (v2 Phase 1b) is the first *dynamic* route — Cloudflare's
 # _redirects doesn't understand wouter's ':id' param syntax, only a glob
 # ('*'), so this is scoped to /puzzle/* rather than a literal per-id line

@@ -14,13 +14,16 @@ export const ROUTES = {
 
 export type RouteKey = keyof typeof ROUTES
 
-// '/' and '/browse' aren't in ROUTES above (they're not NavRail/ModeSwitcher
-// entries — see NavRail.tsx and Home.tsx's own doc comments), but they're
-// still real pages that need a label for the <main> landmark's aria-label
-// (route-change focus management) and, later, a <title>.
+// '/', '/browse', and '/challenge' aren't in ROUTES above (they're not
+// NavRail/ModeSwitcher entries — see NavRail.tsx and Home.tsx's own doc
+// comments; /challenge is a link-only route with no in-app navigation into
+// it, per Phase 5c), but they're still real pages that need a label for the
+// <main> landmark's aria-label (route-change focus management) and, later,
+// a <title>.
 export function labelForPath(path: string): string {
   if (path === '/') return 'Home'
   if (path === '/browse') return 'Browse'
+  if (path === '/challenge') return 'Challenge'
   const entry = Object.values(ROUTES).find((route) => route.path === path)
   if (entry) return entry.label
   const dynamicRoute = DYNAMIC_ROUTES.find((route) => route.test(path))
@@ -102,5 +105,9 @@ export const ROUTE_META: Record<string, RouteMetaEntry> = {
   '/legal': {
     title: 'Terms & privacy — Codoro',
     description: "Codoro's terms of use and privacy notice.",
+  },
+  '/challenge': {
+    title: 'Challenge — Codoro',
+    description: 'Beat a friend’s time on a shared Codoro challenge.',
   },
 }
