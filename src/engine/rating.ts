@@ -18,15 +18,31 @@ export function getK(priorRatedAttemptCount: number): number {
   return priorRatedAttemptCount < 20 ? 32 : 24
 }
 
+/**
+ * `correct` accepts a plain boolean (every non-trace caller: Practice,
+ * Daily, Rush's own convergence sim) or a fractional actual-score in [0, 1]
+ * (Trace — see scrubber.ts's `scrubberActualScore`, used so a 3-of-4-
+ * checkpoints attempt earns partial rating credit instead of being scored
+ * identically to a full miss). Elo's own formula never required an integer
+ * outcome — `actual` is just the observed score — so this is the standard
+ * fractional-score variant, not a new mechanic bolted on top.
+ *
+ * `kMultiplier` (default 1, every existing caller omits it and is
+ * unaffected) scales the rating swing per attempt independent of the
+ * standard attempt-count K tiers — Trace passes `TRACE_K_MULTIPLIER` since
+ * a multi-checkpoint trace attempt carries more signal than one single-
+ * commit quiz answer.
+ */
 export function updateRating(
   userRating: number,
   puzzleRating: number,
-  correct: boolean,
+  correct: boolean | number,
   priorRatedAttemptCount: number,
+  kMultiplier = 1,
 ): number {
   const expected = expectedScore(userRating, puzzleRating)
-  const actual = correct ? 1 : 0
-  const k = getK(priorRatedAttemptCount)
+  const actual = typeof correct === 'number' ? correct : correct ? 1 : 0
+  const k = getK(priorRatedAttemptCount) * kMultiplier
   const next = userRating + k * (actual - expected)
   return Math.max(next, RATING_FLOOR)
 }

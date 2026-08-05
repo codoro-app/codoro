@@ -53,3 +53,35 @@ export interface CheckpointResult {
 export function scoreScrubberAttempt(results: readonly CheckpointResult[]): boolean {
   return results.length > 0 && results.every((result) => result.correct)
 }
+
+/**
+ * Per-checkpoint fractional credit for the Elo update (rating.ts's
+ * `updateRating` accepts this directly as its `correct` argument) —
+ * deliberately separate from `scoreScrubberAttempt` above, which stays
+ * all-or-nothing and keeps driving "solved" status, the streak counter, and
+ * requeue-on-miss unchanged. A 3-of-4 attempt still doesn't feel like a
+ * clean solve and still gets requeued for review, but it no longer rates
+ * identically to a 0-of-4 attempt — the two outcomes are clearly different
+ * skill signals and deserve different rating deltas.
+ *
+ * 0 for an empty result set, matching `scoreScrubberAttempt`'s own
+ * defensive floor (shouldn't happen from real content — ScrubberSchema
+ * requires 2-4 checkpoints — but a `0/0` division would otherwise produce
+ * `NaN` and silently corrupt the caller's rating math).
+ */
+export function scrubberActualScore(results: readonly CheckpointResult[]): number {
+  if (results.length === 0) return 0
+  const correctCount = results.filter((result) => result.correct).length
+  return correctCount / results.length
+}
+
+/**
+ * How much more a trace attempt swings the rating than a single-commit quiz
+ * answer, on top of the standard attempt-count K tiers (rating.ts's
+ * `getK`) — passed as `updateRating`'s `kMultiplier`. A trace attempt
+ * demonstrates correctness across 2-4 sequential checkpoints rather than
+ * one tap, so it carries more signal per attempt; this is a named, tunable
+ * constant (not inlined) for the same reason rush.ts's RUSH_DIFFICULTY_STEP
+ * is — expect it to move after real play-test data comes in.
+ */
+export const TRACE_K_MULTIPLIER = 1.5

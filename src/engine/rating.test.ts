@@ -59,6 +59,34 @@ describe('updateRating', () => {
     expect(updateRating(1200, 1200, false, 20)).toBe(1188)
   })
 
+  describe('fractional actual score (Trace per-checkpoint partial credit)', () => {
+    it('treats a fractional actual identically to a boolean at the same value (1 === true, 0 === false)', () => {
+      expect(updateRating(1200, 1200, 1, 0)).toBe(updateRating(1200, 1200, true, 0))
+      expect(updateRating(1200, 1200, 0, 0)).toBe(updateRating(1200, 1200, false, 0))
+    })
+
+    it('a 0.5 actual at equal ratings (expected 0.5) produces no change', () => {
+      expect(updateRating(1200, 1200, 0.5, 0)).toBe(1200)
+    })
+
+    it('a 0.75 actual earns a smaller positive delta than a full correct at equal ratings', () => {
+      const partial = updateRating(1200, 1200, 0.75, 0)
+      const full = updateRating(1200, 1200, true, 0)
+      expect(partial).toBeGreaterThan(1200)
+      expect(partial).toBeLessThan(full)
+    })
+  })
+
+  describe('kMultiplier', () => {
+    it('defaults to 1 — omitting it matches passing 1 explicitly', () => {
+      expect(updateRating(1200, 1200, true, 0)).toBe(updateRating(1200, 1200, true, 0, 1))
+    })
+
+    it('scales the delta proportionally (1.5x multiplier over the K=32 tier: +16 -> +24)', () => {
+      expect(updateRating(1200, 1200, true, 0, 1.5)).toBe(1224)
+    })
+  })
+
   describe('floor', () => {
     // Spec note (interpretation flagged in report): a rating near the floor
     // "facing a much higher puzzle" and answering wrong does NOT actually clamp
