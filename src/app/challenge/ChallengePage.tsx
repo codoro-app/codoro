@@ -31,6 +31,7 @@
  */
 import { useLocation, Link } from 'wouter'
 import { useChallengeSession } from './useChallengeSession'
+import { ChallengeComparison } from './ChallengeComparison'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { TraceRunnerPuzzle } from '../trace/TraceRunner'
 import '../tokens.css'
@@ -59,10 +60,10 @@ export function ChallengePageForHash({ hash }: ChallengePageForHashProps) {
     )
   }
 
-  if (session.status === 'done') {
+  if (session.status === 'done' && session.payload) {
     return (
       <div className="challenge-page app-shell__main">
-        <p className="challenge-page__status">Challenge complete!</p>
+        <ChallengeComparison theirs={session.payload} yours={session.results} />
       </div>
     )
   }

@@ -146,12 +146,14 @@ export function trackStreakPause(payload: StreakPausePayload): void {
 /**
  * Fired whenever a "Challenge a friend" affordance produces a shareable
  * challenge link — the start of every challenge flow (Phase 5c). `surface`
- * names the calling mode; `puzzle_count` is the number of puzzles the
+ * names the calling mode: the three own-modes' post-solve cards, or
+ * `'challenge'` for a counter-challenge (the comparison screen re-encoding
+ * the recipient's own run). `puzzle_count` is the number of puzzles the
  * encoded challenge carries (≤ the payload cap — long runs truncate to their
  * last 5). Not part of the locked `attempt` schema — a new, additive event.
  */
 export interface ChallengeCreatePayload {
-  surface: 'daily' | 'rush' | 'practice'
+  surface: 'daily' | 'rush' | 'practice' | 'challenge'
   puzzle_count: number
 }
 

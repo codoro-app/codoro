@@ -60,8 +60,10 @@ convention as `src/engine/` and `src/storage/`.
 - `trackChallengeCreate(payload)` — fires the `challenge_create` event
   (`{ surface, puzzle_count }`) whenever a "Challenge a friend" affordance
   produces a shareable challenge link (Phase 5c). `surface` is
-  `'daily' | 'rush' | 'practice'`; `puzzle_count` is how many puzzles the
-  encoded challenge carries (≤ the cap — long runs truncate to their last 5).
+  `'daily' | 'rush' | 'practice'`, plus `'challenge'` for a counter-challenge
+  (the comparison screen re-encoding the recipient's own run); `puzzle_count`
+  is how many puzzles the encoded challenge carries (≤ the cap — long runs
+  truncate to their last 5).
 - `trackChallengeLinkView(payload)` — fires the `challenge_link_view` event
   (`{ found }`) once per `/challenge` page view. `found: false` signals a
   challenge link that doesn't decode (malformed/truncated/unknown-version

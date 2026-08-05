@@ -49,3 +49,61 @@
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/*
+ * Comparison screen (end of a completed challenge run) — flat-border
+ * convention matching the v2 Arena design system (see PuzzleCardShell.tsx's
+ * doc comment on elevation being retired).
+ */
+.challenge-comparison {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  text-align: center;
+  padding: var(--space-4) 0;
+}
+
+.challenge-comparison__verdict {
+  color: var(--text-1);
+  font-weight: 700;
+  font-size: 1.125rem;
+  margin: 0;
+}
+
+.challenge-comparison__line {
+  color: var(--text-2);
+  margin: 0;
+}
+
+.challenge-comparison__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: center;
+  margin-top: var(--space-2);
+}
+
+.challenge-comparison__button,
+.challenge-comparison__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-target-min);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 0.9375rem;
+}
+
+.challenge-comparison__button:active {
+  transform: scale(0.98);
+}
+
+.challenge-comparison__button:focus-visible,
+.challenge-comparison__link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

@@ -34,7 +34,8 @@ import { scoreScrubberAttempt } from '../../engine'
 import type { CheckpointResult } from '../../engine'
 import { decodeChallengePayload } from '../../challenge'
 import type { ChallengeAttemptInput, ChallengePayload } from '../../challenge'
-import { trackChallengeLinkView } from '../../telemetry'
+import { trackChallengeLinkComplete, trackChallengeLinkView } from '../../telemetry'
+import { resolveChallengeOutcome } from './challengeOutcome'
 import type { CommitPayload } from '../practice/interactionTypes'
 
 export type ChallengeSessionStatus = 'broken' | 'playing' | 'done'
@@ -77,7 +78,11 @@ export function useChallengeSession(hash: string): ChallengeSession {
     return resolved
   }, [payload])
 
-  const broken = puzzles === null
+  // Defined as the disjunction of both null-cases (not just `puzzles ===
+  // null`) so TS's const-alias narrowing carries `payload` through to
+  // handleContinue's done branch too, where the complete-event telemetry
+  // reads `payload.totalMs`/`payload.results`.
+  const broken = payload === null || puzzles === null
 
   useEffect(() => {
     trackChallengeLinkView({ found: !broken })
@@ -178,12 +183,26 @@ export function useChallengeSession(hash: string): ChallengeSession {
   const handleContinue = useCallback(() => {
     if (broken || !isComplete) return
     const nextIndex = puzzleIndex + 1
-    // `puzzles` is narrowed to non-null here by the `broken` guard above
-    // (const-alias narrowing — `broken` is `puzzles === null`).
+    // `puzzles`/`payload` are narrowed to non-null here by the `broken`
+    // guard above (const-alias narrowing — `broken` is `payload === null ||
+    // puzzles === null`).
     if (nextIndex >= puzzles.length) {
-      // Run complete — the comparison screen owns everything from here. (The
-      // challenge_link_complete telemetry fires on this transition; see the
-      // comparison step.)
+      // Run complete. The comparison screen owns everything from here; the
+      // complete-event fires on this exact transition — once, in the same
+      // event handler that ends the run (the convention every other session
+      // hook uses for its end-of-run telemetry, e.g. useRushSession's
+      // trackRushRunEnd), not from a done-state effect that StrictMode could
+      // double-invoke. A tie counts as not beating the challenger.
+      trackChallengeLinkComplete({
+        beat_challenger:
+          resolveChallengeOutcome(
+            {
+              correct: results.filter((r) => r.correct).length,
+              totalMs: results.reduce((sum, r) => sum + r.time_ms, 0),
+            },
+            { correct: payload.results.filter((r) => r.correct).length, totalMs: payload.totalMs },
+          ) === 'won',
+      })
       setPuzzleIndex(nextIndex)
       return
     }
@@ -191,7 +210,7 @@ export function useChallengeSession(hash: string): ChallengeSession {
     setCheckpointResults([])
     checkpointResultsRef.current = []
     servedAtRef.current = Date.now()
-  }, [broken, isComplete, puzzleIndex, puzzles])
+  }, [broken, isComplete, puzzleIndex, puzzles, payload, results])
 
   const status: ChallengeSessionStatus = broken
     ? 'broken'
