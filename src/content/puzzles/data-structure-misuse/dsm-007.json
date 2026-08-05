@@ -1,7 +1,7 @@
 {
   "id": "dsm-007",
   "pattern": "data-structure-misuse",
-  "difficulty_rating": 1900,
+  "difficulty_rating": 1700,
   "explanation": "Point is used as a HashMap key, and its hashCode/equals are correctly derived from its mutable fields (x, y). map.put(p, \"origin\") places the entry in the bucket determined by hash(1,2). Mutating p.x afterward changes the object's hash to hash(5,2), so the subsequent map.get(p) computes a different bucket and finds nothing — HashMap has no mechanism to relocate an entry when a key mutates in place. Mutable objects should never be used as hash-based keys once inserted.",
   "prompt": "This lookup silently returns null. Tap the line that breaks the map.",
   "language": "java",

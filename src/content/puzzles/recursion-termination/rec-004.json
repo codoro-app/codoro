@@ -1,7 +1,7 @@
 {
   "id": "rec-004",
   "pattern": "recursion-termination",
-  "difficulty_rating": 2000,
+  "difficulty_rating": 1800,
   "explanation": "When `arr[mid] < target`, the recursive call passes `mid` as the new `low` instead of `mid + 1`. If the search narrows to a point where `low == high == mid` and `arr[mid] < target`, the recursive call `binary_search(arr, target, mid, high)` receives the exact same `low`, `high`, and therefore the exact same `mid` as the current call — the arguments never change, so the base case `low > high` is never reached and the recursion never terminates (it will run until it blows the call stack).",
   "prompt": "This recursive binary search has a bug. What's wrong?",
   "language": "python",

@@ -1,7 +1,7 @@
 {
   "id": "oob-008",
   "pattern": "off-by-one",
-  "difficulty_rating": 1000,
+  "difficulty_rating": 900,
   "explanation": "The loop starts at i = 1 instead of 0, so it skips arr[0] entirely, and the condition i <= arr.length lets it run one iteration too far, reading arr[arr.length] which is out of bounds and undefined. The loop should start at i = 0 and use i < arr.length.",
   "prompt": "Tap the line responsible for the bug in this loop.",
   "language": "javascript",

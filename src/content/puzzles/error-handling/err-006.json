@@ -1,7 +1,7 @@
 {
   "id": "err-006",
   "pattern": "error-handling",
-  "difficulty_rating": 1500,
+  "difficulty_rating": 1350,
   "explanation": "The catch block only logs the error and then falls through, so the function implicitly returns `undefined` after a failure. Callers have no way to distinguish 'fetch failed' from 'fetch succeeded with no data' — the error is swallowed instead of being rethrown or surfaced via a rejected promise, so failures propagate silently and can cause downstream code to misbehave on `undefined`.",
   "prompt": "What's the error-handling bug in this function?",
   "language": "javascript",

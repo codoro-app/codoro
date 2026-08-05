@@ -1,7 +1,7 @@
 {
   "id": "err-003",
   "pattern": "error-handling",
-  "difficulty_rating": 1575,
+  "difficulty_rating": 1475,
   "explanation": "The `finally` block contains its own `return 0;`. In Java, a `return` inside `finally` unconditionally overrides any return value or exception that was about to propagate from the `try` or `catch` blocks — so this method always returns 0, no matter what `s` is or whether parsing succeeded, failed, or threw. The `return -1;` for invalid input and the parsed value for valid input are both silently discarded.",
   "prompt": "Does this parsing method correctly return -1 on invalid input and the parsed value otherwise?",
   "language": "java",

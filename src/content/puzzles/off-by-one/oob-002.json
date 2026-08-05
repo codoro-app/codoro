@@ -1,7 +1,7 @@
 {
   "id": "oob-002",
   "pattern": "off-by-one",
-  "difficulty_rating": 1600,
+  "difficulty_rating": 1375,
   "explanation": "For a zero-indexed array of length n, the mirror position of index i should be n - 1 - i, not n - i. Using `arr[n - i]` reads one slot past the last valid index when i = 0 (arr[n] is undefined), so the first element gets overwritten with undefined instead of the true last element, and the real last element is never correctly swapped into place. The function silently corrupts the array on every call with two or more elements — it's not an edge-case-only failure, but it's easy to miss because the swap logic looks symmetric at a glance.",
   "prompt": "Does this in-place array reversal work correctly?",
   "language": "javascript",

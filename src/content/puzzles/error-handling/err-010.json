@@ -1,7 +1,7 @@
 {
   "id": "err-010",
   "pattern": "error-handling",
-  "difficulty_rating": 1875,
+  "difficulty_rating": 1775,
   "explanation": "`.catch()` doesn't stop a promise chain — it handles the rejection, and since this handler neither rethrows nor returns a rejected promise, it produces a new *resolved* promise whose value is whatever the handler returns (here, nothing, so `undefined`). The `.then()` that follows is chained onto that resolved promise rather than skipped, so `sendWelcomeEmail` still runs — just with `user` as `undefined` instead of a real user object. Moving the `.catch()` after the `.then()` it's meant to guard (or checking for a missing user inside the `.then()`) would actually stop it from running on failure.",
   "prompt": "If fetchUser(id) rejects, does this chain skip sending the welcome email?",
   "language": "javascript",

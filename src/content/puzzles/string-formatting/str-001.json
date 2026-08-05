@@ -1,7 +1,7 @@
 {
   "id": "str-001",
   "pattern": "string-formatting",
-  "difficulty_rating": 1550,
+  "difficulty_rating": 1375,
   "explanation": "Java's `%d` conversion in `String.format` only accepts integral types (int, long, Integer, Long, BigInteger, short, byte). Passing a `double` — even one that holds a whole number — compiles fine but throws `java.util.IllegalFormatConversionException` at runtime for every call. It should use `%.2f` (or round/cast explicitly) to format a price.",
   "prompt": "Is this price formatter safe to call, or does it break?",
   "language": "java",

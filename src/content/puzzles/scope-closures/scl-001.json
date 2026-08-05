@@ -1,7 +1,7 @@
 {
   "id": "scl-001",
   "pattern": "scope-closures",
-  "difficulty_rating": 1700,
+  "difficulty_rating": 1300,
   "explanation": "`var` is function-scoped, not block-scoped, so there is only one `i` shared by every iteration of the loop. By the time any click handler actually runs, the loop has already finished and `i` holds its final value (`buttons.length`). All handlers close over that same variable, so every one logs the same number instead of the index it was attached to. Using `let i` would create a fresh binding per iteration and fix it.",
   "prompt": "Users report every button logs the same number when clicked, no matter which one they press. What's the bug?",
   "language": "javascript",

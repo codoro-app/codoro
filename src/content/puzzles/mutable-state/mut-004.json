@@ -1,7 +1,7 @@
 {
   "id": "mut-004",
   "pattern": "mutable-state",
-  "difficulty_rating": 1975,
+  "difficulty_rating": 1675,
   "explanation": "Array.clone() on a 2D array performs a shallow copy: it allocates a new outer int[][] array, but each inner int[] row is copied by reference, not duplicated. So `this.data = data.clone()` does NOT protect the Matrix from later mutation — if the caller keeps a reference to the original `data` array and changes one of its rows after construction, that change is visible inside the Matrix too, because both the caller and the Matrix are pointing at the same row arrays. A true defensive copy would need to clone each row individually.",
   "prompt": "The constructor calls .clone() on the incoming array to protect against outside mutation. Does this actually make the Matrix safe from later changes to the caller's array?",
   "language": "java",

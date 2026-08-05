@@ -1,7 +1,7 @@
 {
   "id": "mut-003",
   "pattern": "mutable-state",
-  "difficulty_rating": 1500,
+  "difficulty_rating": 1200,
   "explanation": "`Object.assign({}, team)` performs a shallow copy — it copies the top-level `name` and `scores` properties, but `scores` is a reference to the same array object as the original `team.scores`. So `teamB.scores` and `teamA.scores` point to the identical array, and mutating one (via `addScore`) mutates both, even though the two teams look independently cloned.",
   "prompt": "Tap the line responsible for the unexpected shared state.",
   "language": "javascript",

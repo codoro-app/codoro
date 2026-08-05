@@ -1,7 +1,7 @@
 {
   "id": "tc-002",
   "pattern": "type-coercion",
-  "difficulty_rating": 1600,
+  "difficulty_rating": 1200,
   "explanation": "Array.prototype.sort() with no comparator function converts each element to a string and compares them lexicographically (UTF-16 code unit order), not numerically. For [10, 2, 33, 4], the string comparison sees \"10\" < \"2\" < \"33\" < \"4\" because '1' < '2' < '3' < '4' as characters, so the result is [10, 2, 33, 4] rather than the numerically sorted [2, 4, 10, 33]. A numeric comparator like (a, b) => a - b is required.",
   "prompt": "This function is supposed to sort an array of numbers in ascending order. What's actually wrong with it?",
   "language": "javascript",

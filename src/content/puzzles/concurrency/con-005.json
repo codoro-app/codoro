@@ -1,7 +1,7 @@
 {
   "id": "con-005",
   "pattern": "concurrency",
-  "difficulty_rating": 2100,
+  "difficulty_rating": 1800,
   "explanation": "The `instance` field is not declared `volatile`. In the double-checked locking pattern, the write `instance = new Singleton()` is not guaranteed to be atomic with respect to visibility — the JVM/CPU can reorder the write of the reference to `instance` ahead of the constructor finishing initializing the object's fields. Without `volatile`, a second thread that reads `instance` in the outer `if` check (outside the synchronized block) can see a non-null reference to an object whose fields haven't finished being set, and start using a partially-constructed Singleton. Declaring `instance` as `volatile` establishes a happens-before edge that prevents this reordering.",
   "prompt": "This lazy-initialized singleton uses the classic double-checked locking pattern. What's the bug?",
   "language": "java",

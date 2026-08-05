@@ -1,7 +1,7 @@
 {
   "id": "err-009",
   "pattern": "error-handling",
-  "difficulty_rating": 1925,
+  "difficulty_rating": 1700,
   "explanation": "`Array.prototype.forEach` ignores whatever its callback returns — it never awaits the promise produced by the `async` arrow function, and has no way to observe or propagate a rejection from it. By the time any individual `await process(item)` actually settles, `forEach` (and the surrounding `try` block) has already returned synchronously. So when `process(item)` rejects, that rejection lands on a promise nobody is watching — it becomes an unhandled rejection instead of reaching the `catch` block below, which looks like it's guarding every item but in fact never fires for a per-item failure. Replacing `forEach` with a `for...of` loop (which does suspend on each `await`) or `Promise.all(items.map(item => process(item)))` inside the `try` would let the `catch` actually do its job.",
   "prompt": "This function is supposed to catch any failure while processing items. Tap the line that breaks that guarantee.",
   "language": "javascript",

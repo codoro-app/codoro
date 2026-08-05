@@ -132,6 +132,42 @@ by inspection once the contract is known, no state to trace) · D=3 (an
 free" distractor is also tempting in C) · C=2 (fires on every call — wrong
 for all inputs, not just an edge case) → sum=9 → **rating ≈ 1300**
 
+### Java — mid-high band (~1750-1850)
+
+```java
+public class Singleton {
+  private static Singleton instance;
+
+  public static Singleton getInstance() {
+    if (instance == null) {
+      synchronized (Singleton.class) {
+        if (instance == null) {
+          instance = new Singleton();
+        }
+      }
+    }
+    return instance;
+  }
+}
+```
+
+Bug: classic double-checked locking without a `volatile` field. Under the
+Java Memory Model, `instance = new Singleton()` can have its steps (allocate,
+assign the reference, run the constructor) reordered from another thread's
+point of view. A second thread can read a non-null `instance` in the outer
+check — outside the lock — and start using an object whose constructor
+hasn't finished running.
+
+S=4 (requires Java Memory Model / instruction-reordering knowledge — a
+well-known gotcha in this specific ecosystem, but not everyday knowledge) ·
+T=3 (requires reasoning about two threads interleaved around the outer,
+unlocked check — real but bounded mental simulation, not a multi-variable
+trace) · D=4 (plausible wrong answers: "redundant outer check," "should
+synchronize on `this`," "will deadlock" — all tempting without JMM knowledge)
+· C=3 (only manifests during the narrow lazy-init window under concurrent
+access; a single-threaded read looks completely correct) → sum=14 →
+**rating ≈ 1800**
+
 ### High band (~2050-2150)
 
 ```js
@@ -157,9 +193,9 @@ access — a sequential trace looks fine) → sum=17 → **rating ≈ 2100**
 - Are S/T/D/C weighted right, or should one dimension count more (e.g.
   semantic subtlety mattering more than context dependence for this
   audience)?
-- Worked examples now cover JS, Python, and C (see the C mid-band example).
-  Java remains the gap — want one anchored too, given the stack you're
-  targeting?
+- Worked examples now cover JS, Python, C, and Java (see the C mid-band and
+  Java mid-high-band examples) — every language in the current mix has an
+  anchor.
 - The swipe-binary modifier is a flat add — fine as a first pass, but you may
   want to revisit after the first real batch of swipe-binary puzzles gets
   played, once there's actual pass-rate data to check it against.

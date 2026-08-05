@@ -44,9 +44,12 @@ fields:
   `blocks`' indices: `correct_order[i]` is the index into `blocks` that
   belongs at position `i` of the correct sequence)
 
-`cf-009`, `err-011`, and `rec-009` (the initial `drag-order` puzzles) are
-hand-authored fixtures, not output from `generatePuzzles.ts` — no generation
-run has targeted `drag-order` yet (see `GENERATING_PUZZLES.md` /
+`cf-009`, `err-011`, and `rec-009` (the initial `drag-order` puzzles) were
+hand-authored fixtures. Phase 6 added 20 more `drag-order` puzzles (also
+hand-authored through chat, in two locked formats — reorder code blocks, or
+order output lines — see `docs/v2-build-plan.md`'s Phase 6 authoring
+amendment), bringing the total to 23. No generation run has targeted
+`drag-order` yet (see `GENERATING_PUZZLES.md` /
 `tools/generatePuzzles.ts`'s `Interaction` type, which can target it but
 isn't wired into any manifest logic this phase).
 

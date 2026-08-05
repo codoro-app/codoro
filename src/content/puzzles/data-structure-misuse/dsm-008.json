@@ -1,7 +1,7 @@
 {
   "id": "dsm-008",
   "pattern": "data-structure-misuse",
-  "difficulty_rating": 2050,
+  "difficulty_rating": 1800,
   "explanation": "The function mutates `nums` in place with `.remove()` while iterating over it with a `for` loop. Python's list iteration tracks a position index into the live list, so once an element is removed the list shifts left and the next index skips over the following element. For `nums = [-1, -2, 3]`: removing `-1` at index 0 shifts `-2` into index 0 and `3` into index 1, but the loop's internal cursor advances to index 1 next, so `-2` is never visited and never removed. The function silently leaves negative numbers in the result depending on their arrangement — it only 'happens to work' when negatives aren't adjacent.",
   "prompt": "Does this function correctly remove all negative numbers from the list?",
   "language": "python",

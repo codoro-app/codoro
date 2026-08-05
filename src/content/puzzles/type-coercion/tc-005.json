@@ -1,7 +1,7 @@
 {
   "id": "tc-005",
   "pattern": "type-coercion",
-  "difficulty_rating": 900,
+  "difficulty_rating": 1000,
   "explanation": "NaN is the only JavaScript value that is never equal to anything, including itself, so `value == NaN` is always false — no type coercion or loose-equality trick will ever make it true. The function should use `Number.isNaN(value)` to correctly detect NaN.",
   "prompt": "Tap the line with the comparison that will never work as intended.",
   "language": "javascript",

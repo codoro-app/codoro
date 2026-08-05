@@ -1,7 +1,7 @@
 {
   "id": "cf-002",
   "pattern": "control-flow",
-  "difficulty_rating": 1600,
+  "difficulty_rating": 1300,
   "explanation": "The `break` on this line only exits the inner `for` loop over columns — it does not stop the outer loop over rows. So after finding a match in row i, the outer loop keeps running and, if target appears again in a later row, `result` gets silently overwritten. The function is meant to return the first occurrence, but it actually returns the occurrence from the last row that contains a match. Fixing it requires a labeled break (`break outer`) or an early `return [i, j]` instead of a bare `break`.",
   "prompt": "Tap the line responsible for this function returning the wrong match.",
   "language": "javascript",

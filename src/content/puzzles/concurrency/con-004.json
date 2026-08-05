@@ -1,7 +1,7 @@
 {
   "id": "con-004",
   "pattern": "concurrency",
-  "difficulty_rating": 1600,
+  "difficulty_rating": 1500,
   "explanation": "`count++` looks like a single operation but is actually three steps: read `count`, add 1, write it back. When multiple threads call `increment()` concurrently, two threads can both read the same value before either writes its incremented result back, so one of the increments is silently lost. Without synchronization (a `synchronized` method, a lock, or an `AtomicInteger`), `count` will end up lower than the number of increment calls under concurrent access.",
   "prompt": "Tap the line that will cause bugs when accessed from multiple threads.",
   "language": "java",

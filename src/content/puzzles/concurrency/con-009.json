@@ -1,7 +1,7 @@
 {
   "id": "con-009",
   "pattern": "concurrency",
-  "difficulty_rating": 1275,
+  "difficulty_rating": 1350,
   "explanation": "`await` inside a `for...of` loop pauses the entire loop at each iteration until that call settles, so `fetchUser` is invoked for one id, awaited to completion, and only then does the loop move on to the next id. Despite living inside an `async` function, nothing here runs concurrently — total time is the sum of every individual fetch's latency, not the latency of the single slowest one. Running them in parallel requires starting every promise first (e.g. `ids.map(id => fetchUser(id))`) and awaiting the whole batch at once with `Promise.all(...)`.",
   "prompt": "This function is meant to fetch every user concurrently so the total wait is one round trip, not one per id. Does it?",
   "language": "javascript",

@@ -1,7 +1,7 @@
 {
   "id": "oob-003",
   "pattern": "off-by-one",
-  "difficulty_rating": 1000,
+  "difficulty_rating": 900,
   "explanation": "The loop starts at `i = 1` instead of `i = 0`, so the first element (`arr[0]`) is never copied, and the condition `i <= arr.length` lets the loop run one iteration too far, pushing `arr[arr.length]` (which is `undefined`) onto the result. It should be `for (let i = 0; i < arr.length; i++)`.",
   "prompt": "Tap the line with the off-by-one bug.",
   "language": "javascript",
