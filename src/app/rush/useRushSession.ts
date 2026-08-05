@@ -43,6 +43,7 @@ import { quizPool } from '../../content'
 import { resolvePool } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle } from '../../content'
 import { trackError, trackRushAttempt, trackRushRunEnd } from '../../telemetry'
+import type { ChallengeAttemptInput } from '../../challenge'
 import type { CommitPayload } from '../practice/interactionTypes'
 
 /**
@@ -119,6 +120,8 @@ export interface RushSession {
   remainingMs: number
   /** Set once the current puzzle's clock reaches 0 before the player answers — pass straight through to PuzzleCardShell's own `forcedCommit` prop. Cleared on every new puzzle. */
   forcedCommit: CommitPayload | undefined
+  /** Every attempt of the current run, in play order (correct and incorrect alike) — feeds the end-of-run challenge link. Reset by startRun. */
+  runAttempts: readonly ChallengeAttemptInput[]
   handleAnswered: (payload: CommitPayload) => void
   handleContinue: () => void
   handleRunItBack: () => void
@@ -138,6 +141,7 @@ export function useRushSession(): RushSession {
   const [runSummary, setRunSummary] = useState<RushRunSummary | null>(null)
   const [remainingMs, setRemainingMs] = useState(RUSH_PUZZLE_TIME_LIMIT_MS)
   const [forcedCommit, setForcedCommit] = useState<CommitPayload | undefined>(undefined)
+  const [runAttempts, setRunAttempts] = useState<ChallengeAttemptInput[]>([])
 
   const runIdRef = useRef(crypto.randomUUID())
   const positionRef = useRef(0)
@@ -204,6 +208,7 @@ export function useRushSession(): RushSession {
       setCurrentStreak(0)
       setBestStreakThisRun(0)
       setRunSummary(null)
+      setRunAttempts([])
       serveNext(startingRushDifficulty(currentProfile.rating))
     },
     [serveNext],
@@ -371,6 +376,12 @@ export function useRushSession(): RushSession {
       setCurrentStreak(newStreak)
       setBestStreakThisRun(newBestStreak)
       setStrikes(newStrikes)
+      // Every answer lands in the run's challenge-link sequence, correct and
+      // incorrect alike — the link replays the whole run as it happened.
+      setRunAttempts((prev) => [
+        ...prev,
+        { puzzleId: puzzle.id, correct: payload.correct, time_ms: timeMs },
+      ])
 
       pendingEndRef.current = newStrikes >= RUSH_STRIKE_LIMIT
       pendingDifficultyRef.current = payload.correct ? stepDifficulty(difficulty) : difficulty
@@ -439,6 +450,7 @@ export function useRushSession(): RushSession {
     runSummary,
     remainingMs,
     forcedCommit,
+    runAttempts,
     handleAnswered,
     handleContinue,
     handleRunItBack,

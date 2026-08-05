@@ -16,6 +16,7 @@ import { MasteryView } from '../practice/MasteryView'
 import { useDailySession } from './useDailySession'
 import { useMediaQuery } from '../useMediaQuery'
 import { ShareCard } from './ShareCard'
+import { ChallengeCard } from './ChallengeCard'
 import './dailyPage.css'
 
 export function DailyPage() {
@@ -199,6 +200,10 @@ export function DailyPage() {
               streak={session.profile.streak.currentStreak}
               puzzleId={session.puzzle.id}
             />
+
+            {session.challengeAttempt && (
+              <ChallengeCard dayNumber={session.dayNumber} attempt={session.challengeAttempt} />
+            )}
           </>
         )}
 

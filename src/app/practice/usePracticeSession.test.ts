@@ -230,6 +230,43 @@ describe('usePracticeSession', () => {
     expect(result.current.profile?.streak).toEqual(streakBefore)
   })
 
+  it('accumulates correct answers into streakAttempts and clears them on a miss', async () => {
+    const { result } = renderHook(() => usePracticeSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+    const firstPuzzleId = result.current.puzzle?.id
+    if (!firstPuzzleId) throw new Error('expected a puzzle to be served')
+
+    act(() => {
+      result.current.handleAnswered({ correct: true, choiceIndex: 0 })
+    })
+    expect(result.current.streakAttempts).toHaveLength(1)
+    expect(result.current.streakAttempts[0]).toEqual({
+      puzzleId: firstPuzzleId,
+      correct: true,
+      time_ms: expect.any(Number) as number,
+    })
+
+    act(() => {
+      result.current.handleContinue()
+    })
+    act(() => {
+      result.current.handleAnswered({ correct: true, choiceIndex: 0 })
+    })
+    expect(result.current.streakAttempts).toHaveLength(2)
+
+    // A miss clears the live streak's attempts — the challenge link always
+    // encodes the current streak, never a broken one.
+    act(() => {
+      result.current.handleContinue()
+    })
+    act(() => {
+      result.current.handleAnswered({ correct: false, choiceIndex: 1 })
+    })
+    expect(result.current.streakAttempts).toHaveLength(0)
+  })
+
   it('a wrong answer resets combo to 0, records a miss, and the puzzle resurfaces via requeue after 3 continues', async () => {
     const { result } = renderHook(() => usePracticeSession())
     await waitFor(() => {

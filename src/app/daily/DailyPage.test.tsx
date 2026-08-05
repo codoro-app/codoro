@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { decodeChallengePayload } from '../../challenge'
 import type { Puzzle } from '../../content'
 
 const { FIXTURE_POOL, FIXTURE_CALENDAR } = vi.hoisted(() => {
@@ -44,12 +45,13 @@ vi.mock('../../storage', async (importOriginal) => {
 vi.mock('../../telemetry', () => ({
   trackAttempt: vi.fn(),
   trackShareClick: vi.fn(),
+  trackChallengeCreate: vi.fn(),
   trackError: vi.fn(),
 }))
 
 const { loadProfile, saveProfile, appendAttempt, listAttempts, createDefaultProfile } =
   await import('../../storage')
-const { trackShareClick } = await import('../../telemetry')
+const { trackShareClick, trackChallengeCreate } = await import('../../telemetry')
 const { DailyPage } = await import('./DailyPage')
 
 describe('DailyPage', () => {
@@ -146,6 +148,49 @@ describe('DailyPage', () => {
     expect(trackShareClick).toHaveBeenCalledWith(expect.objectContaining({ surface: 'daily' }))
     await waitFor(() => {
       expect(screen.getByText(/Copied!/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows the challenge card after the first attempt, with a working copy button that re-encodes the served puzzle', async () => {
+    const user = userEvent.setup()
+    render(<DailyPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Codoro Daily #/)).toBeInTheDocument()
+    })
+
+    const choiceButtons = screen.getAllByRole('button', { name: /^[ab]$/i })
+    const firstChoice = choiceButtons[0]
+    if (!firstChoice) throw new Error('expected at least one choice button')
+    await user.click(firstChoice)
+
+    // The served puzzle is identifiable by its rendered prompt text — the
+    // same convention the rating-reveal test uses.
+    const servedPuzzle = FIXTURE_POOL.find((p) => screen.queryByText(p.prompt) !== null)
+    if (!servedPuzzle) throw new Error('could not identify which fixture puzzle was served')
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Challenge a friend' })).toBeInTheDocument()
+    })
+
+    const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
+    await user.click(screen.getByRole('button', { name: 'Challenge a friend' }))
+
+    expect(trackChallengeCreate).toHaveBeenCalledTimes(1)
+    expect(trackChallengeCreate).toHaveBeenCalledWith({ surface: 'daily', puzzle_count: 1 })
+
+    const url = writeTextSpy.mock.calls[0]?.[0]
+    if (typeof url !== 'string')
+      throw new Error('expected writeText to have been called with a URL')
+    expect(url).toMatch(/^Beat my Codoro Daily #\d+ — getcodoro\.com\/challenge#/)
+    // The pitch itself contains a "#" (the day number), so split on the
+    // URL's own "challenge#" marker — not on the first "#" in the text.
+    const decoded = decodeChallengePayload(url.split('challenge#')[1] ?? '')
+    expect(decoded).not.toBeNull()
+    expect(decoded?.ids).toEqual([servedPuzzle.id])
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Link copied!' })).toBeInTheDocument()
     })
   })
 

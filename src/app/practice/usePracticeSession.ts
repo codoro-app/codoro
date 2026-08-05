@@ -21,6 +21,7 @@ import { quizPool } from '../../content'
 import { resolvePool } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle, PatternSlug, QuizPuzzle } from '../../content'
 import { trackAttempt, trackError, trackStreakPause } from '../../telemetry'
+import type { ChallengeAttemptInput } from '../../challenge'
 import type { CommitPayload } from './interactionTypes'
 import { hapticTick } from './haptics'
 import { resolveStreakPause } from '../streakPauseLogic'
@@ -73,6 +74,8 @@ export interface PracticeSession {
   combo: number
   /** Count of correct answers this session (page load). Session-only, not persisted — see PracticePage's progress-indicator doc comment for why this replaces a fixed-length "out of N" progress bar. */
   solvedThisSession: number
+  /** The current streak's correct answers, in order — feeds the streak challenge link. Cleared on a miss so the link always encodes the live streak. */
+  streakAttempts: readonly ChallengeAttemptInput[]
   /** Bumped on every recorded attempt (correct or not) — MasteryView takes this as a prop so it can refetch attempts instead of only reading them once on mount. */
   attemptVersion: number
   patternFilter: PatternSlug | null
@@ -102,6 +105,7 @@ export function usePracticeSession(): PracticeSession {
   const [combo, setCombo] = useState(0)
   const [streakPause, setStreakPause] = useState<StreakPauseState | null>(null)
   const [solvedThisSession, setSolvedThisSession] = useState(0)
+  const [streakAttempts, setStreakAttempts] = useState<ChallengeAttemptInput[]>([])
   const [attemptVersion, setAttemptVersion] = useState(0)
   const [patternFilter, setPatternFilterState] = useState<PatternSlug | null>(null)
   const [interactionFilter, setInteractionFilterState] = useState<InteractionFilter>(null)
@@ -272,8 +276,17 @@ export function usePracticeSession(): PracticeSession {
       setProfile(updatedProfile)
       setRatingDelta(delta)
       setCombo(newCombo)
+      // The live streak's correct answers, in order — feeds the streak
+      // challenge link. A miss (combo → 0) clears it, so the link always
+      // encodes the current streak.
       if (payload.correct) {
         setSolvedThisSession((s) => s + 1)
+        setStreakAttempts((prev) => [
+          ...prev,
+          { puzzleId: puzzle.id, correct: true, time_ms: timeMs },
+        ])
+      } else {
+        setStreakAttempts([])
       }
       setAttemptVersion((v) => v + 1)
       if (pause) {
@@ -388,6 +401,7 @@ export function usePracticeSession(): PracticeSession {
     ratingDelta,
     combo,
     solvedThisSession,
+    streakAttempts,
     attemptVersion,
     patternFilter,
     setPatternFilter,
