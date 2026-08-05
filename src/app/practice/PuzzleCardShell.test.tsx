@@ -73,7 +73,8 @@ const dragOrderPuzzle: DragOrderPuzzle = {
   explanation: 'The base case has to be checked before the function recurses further.',
   prompt: 'Drag the steps into the order they execute.',
   language: 'javascript',
-  snippet: '// unused for drag-order',
+  snippet:
+    'function countdown(n) {\n  if (n <= 0) return;\n  console.log(n);\n  countdown(n - 1);\n}',
   interaction: 'drag-order',
   blocks: ['Step 1', 'Step 2', 'Step 3'],
   correct_order: [2, 0, 1],
@@ -225,10 +226,10 @@ describe('PuzzleCardShell', () => {
     expect(screen.getByText('Nice — correct')).toBeInTheDocument()
   })
 
-  it('drag-order: renders the DragOrder body (no separate static snippet) and commits through the Check order button', async () => {
+  it('drag-order: renders a static code snippet plus the DragOrder body, and commits through the Check order button', async () => {
     const onAnswered = vi.fn()
     const user = userEvent.setup()
-    render(
+    const { container } = render(
       <PuzzleCardShell
         puzzle={dragOrderPuzzle}
         ratingDelta={4}
@@ -238,7 +239,14 @@ describe('PuzzleCardShell', () => {
     )
 
     expect(screen.getByText('Step 1')).toBeInTheDocument()
-    expect(document.querySelector('.code-snippet')).toBeNull()
+    // The static snippet must render (read-only, no onLineClick) so blocks
+    // like "clamps n to 2" or "Logs 'C'" are legible against real source —
+    // this is the bug fixed here (oob-021 and 22 other drag-order puzzles
+    // were unsolvable without it). textContent, not getByText: line content
+    // is split across highlight token spans (see the mcq test above). Not
+    // interactive: no tap-target buttons.
+    expect(container.querySelector('.code-snippet')?.textContent).toContain('countdown')
+    expect(screen.queryAllByRole('button', { name: /^Line \d/ })).toHaveLength(0)
 
     // Submitted without reordering — blocks stay in their authored display
     // order ([0, 1, 2]), which correct_order ([2, 0, 1], a 3-cycle with no
