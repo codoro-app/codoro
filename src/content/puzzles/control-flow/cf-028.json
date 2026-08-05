@@ -1,0 +1,17 @@
+{
+  "id": "cf-028",
+  "pattern": "control-flow",
+  "difficulty_rating": 1225,
+  "explanation": "There are no break statements, so case 5 falls through into case 6 and 7: a weekday sets count to 1, then immediately overwrites it to 2. Every input ends with count == 2. The grouped-case idiom requires that the final case in the group does the work and then breaks.",
+  "prompt": "dayCount() maps weekdays to 1 and weekends to 2. What's the bug?",
+  "language": "java",
+  "snippet": "int dayCount(int day) {\n    int count = 0;\n    switch (day) {\n        case 1:\n        case 2:\n        case 3:\n        case 4:\n        case 5:\n            count = 1;\n        case 6:\n        case 7:\n            count = 2;\n    }\n    return count;\n}",
+  "interaction": "mcq",
+  "choices": [
+    "case 5 falls through to case 6 and overwrites count with 2, so weekdays are counted as weekends",
+    "The switch has no default case",
+    "count should be a double to hold both values",
+    "case labels must be strings in Java"
+  ],
+  "correct_choice": 0
+}

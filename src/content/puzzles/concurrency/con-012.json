@@ -1,0 +1,16 @@
+{
+  "id": "con-012",
+  "pattern": "concurrency",
+  "difficulty_rating": 1775,
+  "explanation": "The worker thread prints 'worker' and then calls countDown(), dropping the latch to zero. The main thread blocks inside await() until that happens, so it cannot print 'main' before the worker has finished — the order is deterministic: worker prints, then await() unblocks, then main prints. The latch is what makes the ordering a guarantee rather than a race.",
+  "prompt": "Drag these steps into the order they are guaranteed to happen.",
+  "language": "java",
+  "snippet": "CountDownLatch latch = new CountDownLatch(1);\nnew Thread(() -> {\n    System.out.println(\"worker\");\n    latch.countDown();\n}).start();\nlatch.await();\nSystem.out.println(\"main\");",
+  "interaction": "drag-order",
+  "blocks": [
+    "Main thread prints 'main'",
+    "Worker thread prints 'worker'",
+    "Main thread's await() unblocks"
+  ],
+  "correct_order": [1, 2, 0]
+}

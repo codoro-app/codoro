@@ -1,0 +1,17 @@
+{
+  "id": "inp-012",
+  "pattern": "input-validation",
+  "difficulty_rating": 1150,
+  "explanation": "The function assumes amount is numeric, but a caller can pass the string '10' (for example from input()). Dividing a str by an int raises TypeError: unsupported operand type(s) for /. There is no conversion or type check, so the function crashes on unvalidated input.",
+  "prompt": "amount may come straight from user input as a string. What's the bug?",
+  "language": "python",
+  "snippet": "def half(amount):\n    return amount / 2",
+  "interaction": "mcq",
+  "choices": [
+    "Passing a string like '10' raises TypeError instead of converting to a number first",
+    "Dividing by 2 always loses precision",
+    "amount should be declared final",
+    "half() returns a float but the caller expects an int"
+  ],
+  "correct_choice": 0
+}

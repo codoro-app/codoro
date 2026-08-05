@@ -1,0 +1,14 @@
+{
+  "id": "dsm-021",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 1375,
+  "explanation": "This is safe. The enhanced for loop iterates `new ArrayList<>(nums)`, a snapshot copy, while the removal mutates the original `nums` — the iterator belongs to the copy, so no ConcurrentModificationException can be thrown. A tempting wrong answer reads this as the classic remove-while-iterate bug, which only crashes when the loop and the mutation share the same list.",
+  "prompt": "The loop removes even numbers from nums while iterating. Does it throw ConcurrentModificationException?",
+  "language": "java",
+  "snippet": "List<Integer> nums = new ArrayList<>(List.of(1, 2, 3));\nfor (Integer n : new ArrayList<>(nums)) {\n    if (n % 2 == 0) {\n        nums.remove(n);\n    }\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Safe — iterates a copy, no CME",
+  "right_label": "ConcurrentModificationException",
+  "correct_direction": "left",
+  "correct_verdict": "safe"
+}

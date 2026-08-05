@@ -1,0 +1,14 @@
+{
+  "id": "cf-023",
+  "pattern": "control-flow",
+  "difficulty_rating": 1275,
+  "explanation": "This is safe. Optional chaining short-circuits the whole access when user or user.address is null/undefined, so street(user) returns undefined instead of throwing. A tempting wrong answer reads the chain as a plain `user.address.street` access, but each `?.` level guards the next dereference.",
+  "prompt": "user or user.address may be null. Does street() ever throw a TypeError?",
+  "language": "javascript",
+  "snippet": "function street(user) {\n  return user?.address?.street;\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Safe — optional chaining guards each level",
+  "right_label": "TypeError reading address of undefined",
+  "correct_direction": "left",
+  "correct_verdict": "safe"
+}

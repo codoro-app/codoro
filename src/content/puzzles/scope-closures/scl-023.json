@@ -1,0 +1,17 @@
+{
+  "id": "scl-023",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1325,
+  "explanation": "All three lambdas capture the loop variable i by reference, not by value. By the time build_actions() returns, the loop has finished with i == 2, so every lambda prints 2. The fix is to bind i as a default argument (`lambda i=i: print(i)`) or capture it in a helper function.",
+  "prompt": "build_actions() returns three lambdas that are then invoked. What's the bug?",
+  "language": "python",
+  "snippet": "def build_actions():\n    actions = []\n    for i in range(3):\n        actions.append(lambda: print(i))\n    return actions\n\nfor act in build_actions():\n    act()",
+  "interaction": "mcq",
+  "choices": [
+    "All three lambdas close over the same i and print 2, the loop's final value",
+    "The lambdas print 0, 1, and 2 correctly",
+    "build_actions() returns before the loop finishes",
+    "print(i) raises UnboundLocalError because i is out of scope"
+  ],
+  "correct_choice": 0
+}

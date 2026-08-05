@@ -1,0 +1,12 @@
+{
+  "id": "str-012",
+  "pattern": "string-formatting",
+  "difficulty_rating": 1000,
+  "explanation": "The destination must be declared before any copy, then strncpy writes at most 7 bytes, and the explicit termination line guarantees dst is NUL-terminated even when src is longer. Reordering the termination before the copy would leave it overwritten; omitting it would leave an unterminated buffer. The three lines form a single safe copy sequence.",
+  "prompt": "Drag these lines into the order that safely copies src into the 8-byte dst without overflow or an unterminated string.",
+  "language": "c",
+  "snippet": "char dst[8];\nstrncpy(dst, src, sizeof dst - 1);\ndst[sizeof dst - 1] = '\\0';",
+  "interaction": "drag-order",
+  "blocks": ["dst[sizeof dst - 1] = '\\0';", "strncpy(dst, src, sizeof dst - 1);", "char dst[8];"],
+  "correct_order": [2, 1, 0]
+}

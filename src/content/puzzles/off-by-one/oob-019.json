@@ -1,0 +1,14 @@
+{
+  "id": "oob-019",
+  "pattern": "off-by-one",
+  "difficulty_rating": 1475,
+  "explanation": "This is safe. `items[-1:]` is a slice, not an index, so it never raises IndexError: on an empty list it yields an empty list, and otherwise a one-element list holding the last item. A tempting wrong answer mistakes the slice for the index form `items[-1]`, which would raise on an empty list. The slice's end is exclusive and its start clamps to a valid position, so the bounds are handled.",
+  "prompt": "tail() must return the last element inside a list, or an empty list when items is empty. Does it ever raise?",
+  "language": "python",
+  "snippet": "def tail(items):\n    return items[-1:]",
+  "interaction": "swipe-binary",
+  "left_label": "Safe — slice never raises, even empty",
+  "right_label": "IndexError when items is empty",
+  "correct_direction": "left",
+  "correct_verdict": "safe"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "scl-021",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1575,
+  "explanation": "make_counter() must create its local count before defining inc(), and inc() must declare nonlocal count before incrementing so the assignment targets the outer cell rather than creating a shadow local. inc() returns count, and make_counter() returns the inc function itself. Reordering the nonlocal line is what silently turns a working counter into one that raises UnboundLocalError on first call.",
+  "prompt": "Drag these lines into the order that makes make_counter() return a counter that increments on each call.",
+  "language": "python",
+  "snippet": "def make_counter():\n    count = 0\n    def inc():\n        nonlocal count\n        count += 1\n        return count\n    return inc",
+  "interaction": "drag-order",
+  "blocks": [
+    "nonlocal count",
+    "def make_counter():",
+    "return inc",
+    "count += 1",
+    "count = 0",
+    "def inc():",
+    "return count"
+  ],
+  "correct_order": [1, 4, 5, 0, 3, 6, 2]
+}

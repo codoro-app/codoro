@@ -1,0 +1,17 @@
+{
+  "id": "oob-023",
+  "pattern": "off-by-one",
+  "difficulty_rating": 1125,
+  "explanation": "range(len(items) + 1) lets the loop counter reach len(items), so on the final pass items[len(items)] is accessed — one past the last valid index, raising IndexError. The correct bound is range(len(items)), which visits exactly 0..len(items)-1.",
+  "prompt": "What's the bug in this function that prints every element?",
+  "language": "python",
+  "snippet": "def print_all(items):\n    for i in range(len(items) + 1):\n        print(items[i])",
+  "interaction": "mcq",
+  "choices": [
+    "The loop runs up to len(items), so items[len(items)] raises IndexError on the final pass",
+    "range() should start at 1 to skip the first element",
+    "items[i] should be items[i - 1]",
+    "The loop never prints the first element"
+  ],
+  "correct_choice": 0
+}

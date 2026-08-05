@@ -1,0 +1,17 @@
+{
+  "id": "con-013",
+  "pattern": "concurrency",
+  "difficulty_rating": 1850,
+  "explanation": "transfer() acquires this's lock then other's lock. Two threads transferring in opposite directions can each hold one lock and block waiting for the other — a classic lock-ordering deadlock (thread A holds acctA, wants acctB; thread B holds acctB, wants acctA). The fix is to acquire locks in a consistent global order (e.g. by account id).",
+  "prompt": "Two threads call transfer() in opposite directions at the same time. What's the bug?",
+  "language": "java",
+  "snippet": "class Bank {\n    private int balance;\n    void transfer(Bank other, int amount) {\n        synchronized (this) {\n            synchronized (other) {\n                balance -= amount;\n                other.balance += amount;\n            }\n        }\n    }\n}",
+  "interaction": "mcq",
+  "choices": [
+    "Two threads transferring opposite ways can each hold one lock and wait on the other — a lock-ordering deadlock",
+    "The synchronized blocks are redundant and slow the code down",
+    "balance should be declared volatile",
+    "transfer() overflows for large amounts"
+  ],
+  "correct_choice": 0
+}

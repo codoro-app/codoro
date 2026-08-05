@@ -1,0 +1,17 @@
+{
+  "id": "mut-022",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1250,
+  "explanation": "The default argument [] is evaluated exactly once, at function definition time, and that same list is shared by every call that omits items. So add_item('a') then add_item('b') leaves ['a', 'b'] in the default — state leaks between calls. The fix is `items=None` and `items = [] if items is None else items`.",
+  "prompt": "add_item() is called several times without passing items. What's the bug?",
+  "language": "python",
+  "snippet": "def add_item(item, items=[]):\n    items.append(item)\n    return items",
+  "interaction": "mcq",
+  "choices": [
+    "The default [] is created once and shared, so items added in earlier calls persist into later ones",
+    "append() returns None, so the function returns None instead of the list",
+    "items must be a tuple to be hashable",
+    "add_item() drops the first item because of an off-by-one"
+  ],
+  "correct_choice": 0
+}

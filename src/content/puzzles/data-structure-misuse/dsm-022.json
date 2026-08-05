@@ -1,0 +1,17 @@
+{
+  "id": "dsm-022",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 1375,
+  "explanation": "getDefault() must look the value up first, then test it for null, and return either the fallback on the null branch or the looked-up value on the other. Reordering the lookup after the return would read a variable that has not been assigned yet. The Map.get call itself is safe for absent keys — it yields null rather than throwing.",
+  "prompt": "Drag these statements into the order that makes getDefault() return 'default' when k is absent from m.",
+  "language": "java",
+  "snippet": "public String getDefault(Map<String, String> m, String k) {\n    String v = m.get(k);\n    if (v == null) return \"default\";\n    return v;\n}",
+  "interaction": "drag-order",
+  "blocks": [
+    "if (v == null) return \"default\";",
+    "String v = m.get(k);",
+    "return v;",
+    "public String getDefault(Map<String, String> m, String k) {"
+  ],
+  "correct_order": [3, 1, 0, 2]
+}

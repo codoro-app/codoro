@@ -1,0 +1,17 @@
+{
+  "id": "res-012",
+  "pattern": "resource-management",
+  "difficulty_rating": 1125,
+  "explanation": "fopen() acquires the handle first, then the NULL check verifies it succeeded before any read proceeds. fgets() reads a line through that handle, and finally fclose() releases it. The handle is always closed after the read — no path reads after the close, which is the ordering trap.",
+  "prompt": "Drag these steps into the order they happen for a successful open.",
+  "language": "c",
+  "snippet": "FILE *f = fopen(\"data.txt\", \"r\");\nif (f == NULL) return -1;\nchar line[16];\nfgets(line, sizeof line, f);\nfclose(f);",
+  "interaction": "drag-order",
+  "blocks": [
+    "fclose() releases the handle",
+    "fopen() opens data.txt",
+    "The NULL check guards against failure",
+    "fgets() reads one line into line"
+  ],
+  "correct_order": [1, 2, 3, 0]
+}

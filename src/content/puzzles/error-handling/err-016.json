@@ -1,0 +1,17 @@
+{
+  "id": "err-016",
+  "pattern": "error-handling",
+  "difficulty_rating": 1300,
+  "explanation": "Catching the broad Exception type swallows more than just a malformed number: if s is null, Integer.parseInt throws NullPointerException, and this code silently converts it to 0 as well. That masks genuine programming errors. The catch should be scoped to NumberFormatException.",
+  "prompt": "parse() is called with a malformed string, or sometimes null. What's the bug?",
+  "language": "java",
+  "snippet": "int parse(String s) {\n    try {\n        return Integer.parseInt(s);\n    } catch (Exception e) {\n        return 0;\n    }\n}",
+  "interaction": "mcq",
+  "choices": [
+    "Catching generic Exception also swallows unrelated failures like NullPointerException, hiding real bugs",
+    "parse() returns the wrong primitive type",
+    "Integer.parseInt must be called twice to work",
+    "The try block is missing a finally clause"
+  ],
+  "correct_choice": 0
+}

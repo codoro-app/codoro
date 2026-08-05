@@ -1,0 +1,14 @@
+{
+  "id": "err-012",
+  "pattern": "error-handling",
+  "difficulty_rating": 1500,
+  "explanation": "This is safe. The `finally` computes a clean return value and the `except` path also supplies one, so every code path returns an int — there is no UnboundLocalError. A tempting wrong reading is that `result` might be referenced before assignment, but that only reflects misreading the ordering: `finally` runs after either `try` or `except` set `result`, and both set it. No exception can escape unhandled here.",
+  "prompt": "parse() may raise. Does every path complete cleanly with a usable value?",
+  "language": "python",
+  "snippet": "def safe_parse(text):\n    try:\n        result = int(text)\n    except ValueError:\n        result = None\n    finally:\n        if result is None:\n            return 0\n    return result",
+  "interaction": "swipe-binary",
+  "left_label": "Runs correctly on all paths",
+  "right_label": "UnboundLocalError on failure",
+  "correct_direction": "left",
+  "correct_verdict": "safe"
+}

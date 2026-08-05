@@ -1,0 +1,19 @@
+{
+  "id": "dsm-023",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 1625,
+  "explanation": "unique() must create both the seen set and the out list before the loop, then for each element the set's add() result gates whether it is appended — a duplicate returns false, so it is skipped. Only after every element is processed does the return run. Reordering the loop before the set's creation would null-deref on the first check.",
+  "prompt": "Drag these statements into the order that makes unique() return each element of in only once, preserving first-seen order.",
+  "language": "java",
+  "snippet": "public List<String> unique(List<String> in) {\n    Set<String> seen = new HashSet<>();\n    List<String> out = new ArrayList<>();\n    for (String s : in) {\n        if (seen.add(s)) out.add(s);\n    }\n    return out;\n}",
+  "interaction": "drag-order",
+  "blocks": [
+    "if (seen.add(s)) out.add(s);",
+    "Set<String> seen = new HashSet<>();",
+    "return out;",
+    "for (String s : in) {",
+    "List<String> out = new ArrayList<>();",
+    "public List<String> unique(List<String> in) {"
+  ],
+  "correct_order": [5, 1, 4, 3, 0, 2]
+}

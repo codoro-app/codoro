@@ -1,0 +1,14 @@
+{
+  "id": "scl-020",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1450,
+  "explanation": "This is safe. `let` in a for loop creates a fresh binding per iteration, so each pushed closure captures its own i: results[0]() is 0, results[2]() is 2. A tempting wrong answer applies the classic var-hoisting rule where every closure sees the loop's final value (2), but block-scoped let eliminates that aliasing.",
+  "prompt": "build() returns three closures. Does results[0]() return 0 or 2?",
+  "language": "javascript",
+  "snippet": "function build() {\n  const results = [];\n  for (let i = 0; i < 3; i++) {\n    results.push(() => i);\n  }\n  return results;\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Correct — each closure returns its own i",
+  "right_label": "Hoisting bug — all closures return 2",
+  "correct_direction": "left",
+  "correct_verdict": "safe"
+}

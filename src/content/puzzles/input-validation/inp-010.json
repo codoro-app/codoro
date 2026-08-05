@@ -1,0 +1,12 @@
+{
+  "id": "inp-010",
+  "pattern": "input-validation",
+  "difficulty_rating": 1325,
+  "explanation": "parse() must open with the def line, then try, then the conversion inside try, and only after the conversion can the except clause follow — the handler must reference the exception type before its own body. Putting the `return 0` fallback before the except line would attach it to the wrong clause. When the conversion raises, control jumps into the except body and returns 0.",
+  "prompt": "Drag these lines into the order that makes parse('abc') return 0 instead of raising.",
+  "language": "python",
+  "snippet": "def parse(text):\n    try:\n        return int(text)\n    except ValueError:\n        return 0",
+  "interaction": "drag-order",
+  "blocks": ["return int(text)", "def parse(text):", "try:", "return 0", "except ValueError:"],
+  "correct_order": [1, 2, 0, 4, 3]
+}

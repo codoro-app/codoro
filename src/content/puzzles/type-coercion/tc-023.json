@@ -1,0 +1,17 @@
+{
+  "id": "tc-023",
+  "pattern": "type-coercion",
+  "difficulty_rating": 1275,
+  "explanation": "bool is a subclass of int, so multiplying base by is_member silently coerces the flag to 0 or 1: a member (True) pays the full base price, and a non-member (False) gets it for 0. If is_member was meant to apply a discount, the arithmetic does the opposite — a silent, type-driven logic error with no crash.",
+  "prompt": "ticket_price() is meant to give members a discounted price. What's the bug?",
+  "language": "python",
+  "snippet": "def ticket_price(is_member, base):\n    return base * is_member",
+  "interaction": "mcq",
+  "choices": [
+    "Multiplying by a bool coerces it to 0 or 1, so the price is either 0 or base — a silent logic error",
+    "base is a string, so * repeats it instead of scaling it",
+    "is_member should be converted to a string first",
+    "Multiplying by a bool raises TypeError"
+  ],
+  "correct_choice": 0
+}

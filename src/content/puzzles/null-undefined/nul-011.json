@@ -1,0 +1,17 @@
+{
+  "id": "nul-011",
+  "pattern": "null-undefined",
+  "difficulty_rating": 1175,
+  "explanation": "len() rejects None: passing None raises TypeError: object of type 'NoneType' has no len(). If items can be None, the function must guard it (e.g. `if items is None: return 0`) before calling len(). The bug is that the None case is entirely unhandled.",
+  "prompt": "items may be None when called. What's the bug?",
+  "language": "python",
+  "snippet": "def safe_length(items):\n    return len(items)",
+  "interaction": "mcq",
+  "choices": [
+    "Passing None raises TypeError because None has no len()",
+    "len(None) returns 0",
+    "items should be a string, not a list",
+    "The function always returns None"
+  ],
+  "correct_choice": 0
+}

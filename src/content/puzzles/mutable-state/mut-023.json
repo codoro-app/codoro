@@ -1,0 +1,17 @@
+{
+  "id": "mut-023",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1525,
+  "explanation": "The static list is shared process-wide and mutated without synchronization. When multiple threads call add() concurrently, ArrayList's internals can be corrupted — elements lost, or even a crash. The list also grows without bound. The fix is synchronization, a concurrent collection, or making the logger instance-scoped.",
+  "prompt": "Many threads call Logger.add() concurrently. What's the bug?",
+  "language": "java",
+  "snippet": "class Logger {\n    private static List<String> log = new ArrayList<>();\n    static void add(String line) {\n        log.add(line);\n    }\n}",
+  "interaction": "mcq",
+  "choices": [
+    "The static list is shared and mutated without synchronization, so concurrent adds race and can corrupt state",
+    "add() should return the list it just appended to",
+    "The log should be an array instead of a List",
+    "log is declared twice in the class"
+  ],
+  "correct_choice": 0
+}

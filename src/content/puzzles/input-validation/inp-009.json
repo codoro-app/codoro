@@ -1,0 +1,14 @@
+{
+  "id": "inp-009",
+  "pattern": "input-validation",
+  "difficulty_rating": 1275,
+  "explanation": "This is safe. fgets reads at most sizeof(buf) - 1 characters and NUL-terminates the buffer, so even an arbitrarily long input line cannot overflow the 64-byte array. A tempting wrong answer assumes gets()-style unbounded reading, which is exactly the vulnerability fgets exists to prevent.",
+  "prompt": "A user pastes a 200-character line at the prompt. Can it overflow buf?",
+  "language": "c",
+  "snippet": "char buf[64];\nfgets(buf, sizeof buf, stdin);",
+  "interaction": "swipe-binary",
+  "left_label": "Safe — fgets bounds the read",
+  "right_label": "Buffer overflow from unbounded input",
+  "correct_direction": "left",
+  "correct_verdict": "safe"
+}

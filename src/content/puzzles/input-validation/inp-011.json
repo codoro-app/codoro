@@ -1,0 +1,12 @@
+{
+  "id": "inp-011",
+  "pattern": "input-validation",
+  "difficulty_rating": 1275,
+  "explanation": "x must be declared (and defaulted to 0) before any scanf, then the return-value check guards the parse: a non-matching input makes scanf return 0, so the body resets x to 0. The printf then always runs with a defined value. Reordering the declaration below the guard would use x before it exists.",
+  "prompt": "Drag these lines into the order that makes the program print 0 when the user types non-numeric text.",
+  "language": "c",
+  "snippet": "int x = 0;\nif (scanf(\"%d\", &x) != 1) {\n    x = 0;\n}\nprintf(\"%d\\n\", x);",
+  "interaction": "drag-order",
+  "blocks": ["x = 0;", "if (scanf(\"%d\", &x) != 1) {", "printf(\"%d\\n\", x);", "int x = 0;"],
+  "correct_order": [3, 1, 0, 2]
+}

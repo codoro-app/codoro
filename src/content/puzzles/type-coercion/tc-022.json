@@ -1,0 +1,12 @@
+{
+  "id": "tc-022",
+  "pattern": "type-coercion",
+  "difficulty_rating": 1125,
+  "explanation": "ratio() must be declared, then guard the zero divisor before any division: if b is 0, return the float 0.0 and skip the division entirely. Only for a non-zero b does control reach `return a / b`. The ordering trap is placing the division before the guard, which would divide by zero before the check could run.",
+  "prompt": "Drag these lines into the order that makes ratio(6, 4) return 1.5 and ratio(1, 0) return 0.0 without dividing by zero.",
+  "language": "python",
+  "snippet": "def ratio(a, b):\n    if b == 0:\n        return 0.0\n    return a / b",
+  "interaction": "drag-order",
+  "blocks": ["return a / b", "if b == 0:", "return 0.0", "def ratio(a, b):"],
+  "correct_order": [3, 1, 2, 0]
+}

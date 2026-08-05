@@ -1,0 +1,14 @@
+{
+  "id": "nul-010",
+  "pattern": "null-undefined",
+  "difficulty_rating": 1475,
+  "explanation": "This is safe. The `if (!p) return;` guard means the dereference on the following line only executes when p is non-null, so a NULL pointer can never be written through and no null-pointer crash is possible. A tempting wrong answer reads the dereference and concludes it crashes when p is null, missing the guard directly above it.",
+  "prompt": "set() may be called with a null pointer. Does *p = v ever crash?",
+  "language": "c",
+  "snippet": "void set(int *p, int v) {\n    if (!p) return;\n    *p = v;\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Safe — null checked before deref",
+  "right_label": "Null-pointer dereference",
+  "correct_direction": "left",
+  "correct_verdict": "safe"
+}

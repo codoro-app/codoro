@@ -1,0 +1,14 @@
+{
+  "id": "nul-009",
+  "pattern": "null-undefined",
+  "difficulty_rating": 1350,
+  "explanation": "This is safe. `data.get('key', [])` returns a fresh default list each time the key is missing, and the caller never mutates that returned list — it only iterates it. The classic crash would be `data['key']` raising KeyError, or appending to the default (which is safe here too since get() gives a new list per call, not a shared one). Reading an empty list and collecting a single element behaves correctly.",
+  "prompt": "config reachable in this dict is sometimes absent. Does lookup ever crash or corrupt state?",
+  "language": "python",
+  "snippet": "def collect(config, key):\n    items = config.get(key, [])\n    result = []\n    for item in items:\n        result.append(item * 2)\n    return result",
+  "interaction": "swipe-binary",
+  "left_label": "Safe",
+  "right_label": "Raises KeyError on missing key",
+  "correct_direction": "left",
+  "correct_verdict": "safe"
+}

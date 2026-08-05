@@ -1,0 +1,14 @@
+{
+  "id": "oob-020",
+  "pattern": "off-by-one",
+  "difficulty_rating": 975,
+  "explanation": "This is safe. With a 5-element array, the guard `i < 5` visits indices 0 through 4 and stops, covering exactly the array — no index is skipped and none is visited twice. A tempting wrong answer reads this as the classic `<=` overrun, but the strict `<` bound is precisely what prevents reading past the end.",
+  "prompt": "values has exactly 5 elements. Does this loop read past the end?",
+  "language": "c",
+  "snippet": "for (int i = 0; i < 5; i++) {\n    printf(\"%d\\n\", values[i]);\n}",
+  "interaction": "swipe-binary",
+  "left_label": "Correct — visits exactly indices 0–4",
+  "right_label": "Off-by-one — overruns the array",
+  "correct_direction": "left",
+  "correct_verdict": "safe"
+}

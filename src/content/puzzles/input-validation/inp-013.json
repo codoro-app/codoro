@@ -1,0 +1,17 @@
+{
+  "id": "inp-013",
+  "pattern": "input-validation",
+  "difficulty_rating": 1350,
+  "explanation": "%s reads characters until whitespace with no width limit, so a 30-character word writes past the end of the 16-byte buffer — a classic stack buffer overflow. The fix is a width-bounded conversion (%15s) or fgets with an explicit size.",
+  "prompt": "A user types a 30-character word. What's the bug?",
+  "language": "c",
+  "snippet": "char name[16];\nscanf(\"%s\", name);",
+  "interaction": "mcq",
+  "choices": [
+    "%s reads unbounded input, so a long word overflows the 16-byte buffer — use %15s or fgets",
+    "scanf() is too slow for interactive input",
+    "name must be zero-initialized before use",
+    "The format string should use %d for a name"
+  ],
+  "correct_choice": 0
+}
