@@ -544,12 +544,22 @@ todo.md item 2, pulled forward by direct user decision: challenge links are v5.0
 
 **DoD:**
 
-- [ ] Payload round-trips encode→decode with a versioned schema and tests; tampered/truncated/unknown-version payloads produce the legible broken-link state
-- [ ] Cold load of a real challenge link on production renders the challenge (verified incognito, per Finding 4)
-- [ ] Challenge attempts never touch the attempt log or profile — asserted at the storage layer, same standard as `/puzzle/:id`'s test
-- [ ] Comparison screen renders both results and both CTAs; counter-challenge produces a valid link
-- [ ] All three telemetry events land in PostHog from production (depends on the Phase 0 PostHog verification actually being done)
-- [ ] `pnpm validate` green; zero new dependencies
+- [x] Payload round-trips encode→decode with a versioned schema and tests; tampered/truncated/unknown-version payloads produce the legible broken-link state
+- [ ] Cold load of a real challenge link on production renders the challenge (verified incognito, per Finding 4) — not yet verified live; the fragment-read bug below means it _would_ have failed this check pre-fix
+- [x] Challenge attempts never touch the attempt log or profile — asserted at the storage layer, same standard as `/puzzle/:id`'s test
+- [x] Comparison screen renders both results and both CTAs; counter-challenge produces a valid link
+- [ ] All three telemetry events land in PostHog from production (depends on the Phase 0 PostHog verification actually being done) — code-verified only, not yet confirmed live
+- [x] `pnpm validate` green; zero new dependencies
+
+### Phase 5c amendment — pre-merge review fixes (2026-08-06)
+
+Decision the build item above left open ("payload in query or fragment — decide and record"): **fragment**. Recorded here since it never made it into this doc the first time — a full audit was the first thing to notice. A fragment never reaches Cloudflare or the SW (`_redirects`/`navigateFallbackDenylist` stay untouched by this route), which is the whole reason `/challenge` can be a plain static route.
+
+A pre-merge review (subagent-audited against this section's own DoD, `docs/roadmap.md`, and a fresh read of the diff) found and fixed two real defects before merge, plus one already-shipped commit's own fix confirmed correct:
+
+1. **`window.location.hash` fix (already shipped, `f85437c`) — confirmed correct.** wouter's `useLocation()` is pathname-only; the first version's `location.split('#')[1]` was always `''`, so every real cold load of a challenge link rendered the broken-link state despite the full test suite being green (the suite only ever drove the inner component with a raw hash prop). This is exactly the "green suite, broken cold load" class the DoD's second item exists to catch — it hadn't been checked live yet, which is why the box above stays unchecked pending an actual incognito verification.
+2. **Duplicate-puzzle-id softlock (found and fixed this session).** A challenge whose payload repeats the same puzzle id back-to-back — reachable from a real Practice/Daily/Rush session re-serving a puzzle within its soft no-repeat window, not just a hand-tampered link — permanently stranded the recipient. `PuzzleCardShell`'s self-reset guard compares `commit.puzzleId === puzzle.id`, which can't distinguish two occurrences of the same id; keying the puzzle shell by `puzzle.id` (the original approach) reused the same component instance across both occurrences, so the second occurrence rendered stuck on the first occurrence's stale feedback with a Continue button that never re-armed. Fixed by keying the shell by _position_ (`useChallengeSession`'s new `puzzleIndex`) instead of id — every advance is a real remount regardless of duplicates. Covered by a repro test in `ChallengePage.test.tsx`.
+3. **Run-end telemetry re-entrancy (found and fixed this session).** `handleContinue`'s final-transition branch fired `challenge_link_complete` before `setPuzzleIndex` committed, so a rapid double-dispatch (double-click, or two calls in the same tick) could double-fire the run's only completion telemetry — the checkpoint-accumulation path already guarded this exact race with a ref; the run-end path hadn't. Fixed with the same ref-guard pattern. Covered by `useChallengeSession.test.ts`.
 
 ## Phase 6 — Content calibration + quiz volume + scrubber volume (1–2 sessions + generation runs)
 
@@ -619,6 +629,15 @@ Closes build-plan item 1, deferred by the authoring amendment above. All 111 leg
 - `mut-009` (scrubber) is notably thinner than its siblings (3 steps/2 checkpoints vs. the typical 7–20+/4) for a bug already covered by legacy `mut-002`/`mut-008`.
 
 **Phase 6b's gate is now confirmed open.** Phase 6b (`Boss challenges`) was gated on Phase 6's content volume (§"Gate: Phase 6's content volume" below) — that gate required ~200+ puzzles, which this phase's authoring work already met (214). Nothing about the recalibration changes that; recorded here for a single source of truth on the gate's status.
+
+### Post-Phase-6 review amendment — two rated-content blockers found and fixed (2026-08-06)
+
+A full re-review of everything through Phase 6 (this doc's DoD, `docs/roadmap.md`, and the two PRs that merged immediately after Phase 6 closed: `#47` Trace partial credit, `#48` the drag-order snippet fix) found two blockers already live on `main` — both fixed in this session, alongside the library-quality audit's flagged items above:
+
+1. **Trace rating inflation (`#47`, `trace/partial-credit-scoring`).** Per-checkpoint partial credit was added to Trace's rating update, but nothing corrected for the guess floor the way `CALIBRATION.md`'s swipe-binary modifier already does for a single 50/50 interaction. A player scoring 70% per-checkpoint netted roughly +350 Elo versus identical skill under the old all-or-nothing scoring — and Trace writes into the _same_ rating pool that drives Practice/Daily puzzle selection, so this wasn't cosmetic. Fixed by rescaling `scrubberActualScore` against each answered checkpoint's own guess floor (`1/choices.length`, averaged) before it reaches `updateRating`: a raw score at or below the floor now reads as 0 (no skill signal), the same semantic swipe-binary's static rating bump protects, generalized to per-checkpoint choice counts instead of a flat content-rating modifier (checkpoints vary 2-4 choices, so a single flat bump can't cover it). `updateRating` also gained a fail-loud guard against non-finite/out-of-range inputs, since a `NaN` slipping through would have permanently corrupted a profile with no recovery.
+2. **Drag-order answer leak (`#48`, `fix/drag-order-missing-code-snippet`).** That PR correctly restored the code snippet for the 14 puzzles authored in the "order the output/execution steps" format (closing the reported `oob-21` bug), but the same fix was wrongly applied to the 9 puzzles authored in the _other_ locked format ("reorder code blocks," per the Phase 6 authoring amendment's "20 drag-order both formats, 10 each"): `blocks` are literal fragments of `snippet` for those, so showing the snippet handed the player the fully-assembled correct answer directly above the pieces they were supposed to order. A tenth leaking puzzle (`oob-022`) was found in this pass that the earlier manual audit missed. Root cause: `DragOrderSchema` had no field distinguishing the two formats, so one render rule couldn't serve both correctly. Fixed by adding a required `format: 'code' | 'output'` discriminator (all 23 existing drag-order puzzles reclassified), gating the snippet render on it, and adding a schema-level check that hard-fails any `'output'`-format puzzle whose blocks are, in fact, all literal snippet substrings — so this exact defect class can't silently recur.
+
+Both fixes are covered by new tests (`scrubber.test.ts`, `rating.test.ts`, `PuzzleCardShell.test.tsx`, `schema.test.ts`) and `pnpm validate` is green with them in place. The library-quality audit's four flagged rubric-leak puzzles (`err-005`, `nul-005`, `nul-008`, `mut-006`) and `tc-020`'s snippet/prompt mismatch — flagged above, never fixed — are fixed in this same pass.
 
 ---
 
