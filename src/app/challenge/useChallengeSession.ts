@@ -46,6 +46,19 @@ export interface ChallengeSession {
   payload: ChallengePayload | null
   /** The puzzle currently on screen — null unless status === 'playing'. */
   puzzle: Puzzle | null
+  /**
+   * Position of `puzzle` in the challenge's puzzle order. Exposed so the page
+   * can key the puzzle shell by *position* rather than `puzzle.id` — a
+   * challenge payload can legally repeat an id back-to-back (a real Practice
+   * session can re-serve the same puzzle within its soft no-repeat window,
+   * and a hand-edited link can do it on purpose), and PuzzleCardShell's
+   * self-reset guard compares `commit.puzzleId === puzzle.id`
+   * (src/app/practice/PuzzleCardShell.tsx), which can't distinguish two
+   * occurrences of the same id — keying by `puzzle.id` alone would reuse the
+   * shell instance across them, leaving it permanently "committed" to the
+   * first occurrence's feedback with a Continue button that never re-arms.
+   */
+  puzzleIndex: number
   /** Per-checkpoint results for the current scrubber puzzle — empty for quiz puzzles. */
   checkpointResults: readonly CheckpointResult[]
   /** True once the current puzzle has been fully answered (quiz commit, or every scrubber checkpoint). */
@@ -108,6 +121,14 @@ export function useChallengeSession(hash: string): ChallengeSession {
   // renders under StrictMode, which does so deliberately in development);
   // the guard is the ref's job, telemetry/side-effects the handler's.
   const checkpointResultsRef = useRef<CheckpointResult[]>([])
+  // Guards the run-end transition in handleContinue below against firing
+  // trackChallengeLinkComplete twice: `isComplete` stays true for every
+  // render between the click that ends the run and the setPuzzleIndex
+  // update actually committing, so a rapid double-dispatch of onContinue
+  // (a fast double-click, or two calls queued before React flushes) would
+  // otherwise double-fire the run's only completion telemetry. Same
+  // ref-guards-a-callback pattern as checkpointResultsRef above.
+  const runCompleteRef = useRef(false)
 
   useEffect(() => {
     servedAtRef.current = Date.now()
@@ -193,6 +214,11 @@ export function useChallengeSession(hash: string): ChallengeSession {
       // hook uses for its end-of-run telemetry, e.g. useRushSession's
       // trackRushRunEnd), not from a done-state effect that StrictMode could
       // double-invoke. A tie counts as not beating the challenger.
+      // runCompleteRef guards against a second dispatch of this same
+      // transition landing before setPuzzleIndex below has committed (see
+      // the ref's own doc comment).
+      if (runCompleteRef.current) return
+      runCompleteRef.current = true
       trackChallengeLinkComplete({
         beat_challenger:
           resolveChallengeOutcome(
@@ -224,6 +250,7 @@ export function useChallengeSession(hash: string): ChallengeSession {
     status,
     payload,
     puzzle: status === 'playing' ? currentPuzzle : null,
+    puzzleIndex,
     checkpointResults,
     isComplete,
     solved,

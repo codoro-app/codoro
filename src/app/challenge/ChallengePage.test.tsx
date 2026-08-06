@@ -202,6 +202,48 @@ describe('ChallengePageForHash — unrated (asserted at the storage boundary)', 
   })
 })
 
+describe('ChallengePageForHash — duplicate puzzle id regression', () => {
+  // A challenge payload can legally repeat the same puzzle id back-to-back
+  // (a real Practice/Daily/Rush session can re-serve the same puzzle within
+  // its soft no-repeat window, and a hand-edited link can do it on purpose).
+  // Before the puzzleIndex-keyed fix, PuzzleCardShell's self-reset guard
+  // (commit.puzzleId === puzzle.id) couldn't tell the two occurrences apart,
+  // so the shell stayed permanently "committed" to the first occurrence's
+  // feedback, the second occurrence's answer never registered, and the
+  // player was stranded with a Continue button that never re-armed.
+  it('does not softlock when a challenge repeats the same puzzle id back-to-back', async () => {
+    const user = userEvent.setup()
+    render(
+      <ChallengePageForHash
+        hash={fragmentFor([
+          { puzzleId: 'con-005', correct: false, time_ms: 1000 },
+          { puzzleId: 'con-005', correct: false, time_ms: 1000 },
+        ])}
+      />,
+    )
+
+    const [firstChoice] = await screen.findAllByRole('button')
+    if (!firstChoice) throw new Error('expected at least one choice button')
+    await user.click(firstChoice)
+    await user.click(await screen.findByRole('button', { name: 'Continue' }))
+
+    // The second occurrence must render fresh — no feedback panel until it
+    // is actually answered. Under the bug this was already present, stale,
+    // the instant the second occurrence mounted.
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+
+    const [secondChoice] = await screen.findAllByRole('button')
+    if (!secondChoice)
+      throw new Error('expected at least one choice button on the second occurrence')
+    await user.click(secondChoice)
+    await user.click(await screen.findByRole('button', { name: 'Continue' }))
+
+    // Reaches the done state with both results recorded — the concrete
+    // symptom of the softlock was never getting here.
+    expect(await screen.findByText(/you got/i)).toBeInTheDocument()
+  })
+})
+
 describe('ChallengePageForHash — comparison screen + counter-challenge', () => {
   it('shows the verdict, the recipient-vs-challenger line, and both CTAs after a full run', async () => {
     const user = userEvent.setup()

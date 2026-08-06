@@ -76,11 +76,14 @@ export function ChallengePageForHash({ hash }: ChallengePageForHashProps) {
   return (
     <div className="challenge-page app-shell__main">
       {puzzle.interaction === 'scrubber' ? (
-        // keyed by puzzle.id so TraceRunnerPuzzle's internal stepIndex
-        // resets when the session advances to the next challenge puzzle —
-        // same keyed-remount convention TraceRunner itself uses.
+        // Keyed by puzzleIndex (position), not puzzle.id: a challenge
+        // payload can legally repeat the same id back-to-back (see
+        // useChallengeSession's puzzleIndex doc), and keying by id would
+        // reuse the same instance across both occurrences instead of
+        // resetting TraceRunnerPuzzle's internal stepIndex for the second
+        // one.
         <TraceRunnerPuzzle
-          key={puzzle.id}
+          key={session.puzzleIndex}
           puzzle={puzzle}
           checkpointResults={session.checkpointResults}
           isComplete={session.isComplete}
@@ -91,8 +94,13 @@ export function ChallengePageForHash({ hash }: ChallengePageForHashProps) {
           timed={false}
         />
       ) : (
+        // Keyed by position for the same reason: PuzzleCardShell's
+        // self-reset guard compares commit.puzzleId === puzzle.id, which
+        // can't tell two occurrences of the same id apart. Keying by
+        // puzzleIndex forces a real remount on every advance, duplicate id
+        // or not.
         <PuzzleCardShell
-          key={puzzle.id}
+          key={session.puzzleIndex}
           puzzle={puzzle}
           ratingDelta={null}
           onAnswered={session.handleAnswered}
