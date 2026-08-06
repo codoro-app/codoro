@@ -16,6 +16,7 @@ const puzzle: DragOrderPuzzle = {
   language: 'javascript',
   snippet: '// unused for drag-order',
   interaction: 'drag-order',
+  format: 'output',
   blocks: ['Block A', 'Block B', 'Block C'],
   // A 3-cycle, not a transposition: applying it twice does NOT return the
   // identity ([1, 0, 2] would — swapping two elements is its own inverse,

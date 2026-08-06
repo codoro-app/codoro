@@ -235,6 +235,14 @@ Requirements for every puzzle you generate:
   the correct sequence). "blocks" must NOT already be in correct_order's
   order; correct_order must not be the identity permutation
   ([0, 1, 2, ...]) — a puzzle that's already solved on load isn't a puzzle.
+  "format" is required and must match which of the two locked shapes this
+  is: "code" when "blocks" are literal fragments of "snippet" being
+  reassembled into it (the player never sees "snippet" — it already IS the
+  answer), or "output" when "blocks" describe execution/output that
+  happened when "snippet" ran (the player DOES see "snippet", as necessary
+  context). Getting this wrong for a "code" puzzle hands the player the
+  answer outright — PuzzleSchema hard-rejects an "output" puzzle whose
+  blocks are all literal snippet substrings for exactly this reason.
 - "id" must be lowercase kebab-case matching the exact id you are given —
   do not invent your own id.
 - "language" is the snippet's real language (e.g. "javascript", "python",

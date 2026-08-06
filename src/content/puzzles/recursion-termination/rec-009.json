@@ -7,6 +7,7 @@
   "language": "javascript",
   "snippet": "function factorial(n) {\n  if (n <= 1) return 1;\n  return n * factorial(n - 1);\n}\nfactorial(3);",
   "interaction": "drag-order",
+  "format": "output",
   "blocks": [
     "factorial(2) returns 2 * 1 = 2",
     "factorial(1) hits the base case and returns 1",

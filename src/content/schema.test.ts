@@ -60,6 +60,7 @@ function validDragOrder(overrides: Record<string, unknown> = {}): unknown {
     language: 'javascript',
     snippet: '// unused for drag-order',
     interaction: 'drag-order',
+    format: 'output',
     blocks: ['Check the base case', 'Recurse with a smaller input', 'Combine the result'],
     // Non-identity — PuzzleSchema rejects an identity correct_order (see
     // the dedicated 'rejects an identity permutation' test below), so the
@@ -239,6 +240,42 @@ describe('PuzzleSchema — drag-order-specific', () => {
     if (!result.success) {
       expect(result.error.issues.some((issue) => issue.message.includes('identity'))).toBe(true)
     }
+  })
+
+  it('rejects a bare "drag-order" puzzle missing the format discriminator', () => {
+    const withoutFormat = { ...(validDragOrder() as Record<string, unknown>) }
+    delete withoutFormat.format
+    const result = PuzzleSchema.safeParse(withoutFormat)
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects format "output" whose blocks are all literal snippet substrings (the answer-leak regression)', () => {
+    const result = PuzzleSchema.safeParse(
+      validDragOrder({
+        format: 'output',
+        snippet: 'if (n <= 0) return;\nconsole.log(n);\ncountdown(n - 1);',
+        blocks: ['console.log(n);', 'countdown(n - 1);', 'if (n <= 0) return;'],
+        correct_order: [2, 0, 1],
+      }),
+    )
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.some((issue) => issue.message.includes('hands the player'))).toBe(
+        true,
+      )
+    }
+  })
+
+  it('accepts format "code" whose blocks are all literal snippet substrings (that IS the format)', () => {
+    const result = PuzzleSchema.safeParse(
+      validDragOrder({
+        format: 'code',
+        snippet: 'if (n <= 0) return;\nconsole.log(n);\ncountdown(n - 1);',
+        blocks: ['console.log(n);', 'countdown(n - 1);', 'if (n <= 0) return;'],
+        correct_order: [2, 0, 1],
+      }),
+    )
+    expect(result.success).toBe(true)
   })
 })
 

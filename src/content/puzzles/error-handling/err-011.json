@@ -7,6 +7,7 @@
   "language": "javascript",
   "snippet": "function process() {\n  try {\n    console.log('start');\n    throw new Error('fail');\n    console.log('unreachable');\n  } catch (e) {\n    console.log('caught: ' + e.message);\n  } finally {\n    console.log('cleanup');\n  }\n  console.log('after');\n}\nprocess();",
   "interaction": "drag-order",
+  "format": "output",
   "blocks": ["Logs 'cleanup'", "Logs 'after'", "Logs 'start'", "Logs 'caught: fail'"],
   "correct_order": [2, 3, 0, 1]
 }

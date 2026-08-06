@@ -86,11 +86,27 @@ export const TapLineSchema = BaseSchema.extend({
  * blocks is a coin flip, not a puzzle (see PuzzleSchema's superRefine for
  * the permutation check `correct_order` gets on top of this).
  *
+ * `format` is the two locked authoring shapes (docs/v2-build-plan.md, Phase
+ * 6 Item 3): `'code'` — `blocks` ARE literal fragments of `snippet` being
+ * reassembled into it, so `snippet` already IS the solved answer and must
+ * never be shown to the player; `'output'` — `blocks` describe execution
+ * steps/output that happened when `snippet` ran, so `snippet` is necessary
+ * *context* and is shown alongside the drag targets. PuzzleCardShell reads
+ * this to decide whether to render the static snippet (see its own doc
+ * comment) — getting it wrong for `'code'` puzzles hands the player the
+ * answer outright, which is exactly what happened before this field
+ * existed: the fix that made every drag-order puzzle show its snippet
+ * ("drag-order never rendered its code snippet") was correct for
+ * `'output'` puzzles and a live answer leak for `'code'` ones. PuzzleSchema's
+ * superRefine below hard-fails any `'output'` puzzle whose `blocks` are, in
+ * fact, all literal `snippet` substrings — the same defect class recurring.
+ *
  * Deliberately excluded from Rush's puzzle pool — see rush.ts's
  * `RushInteraction` doc comment for why.
  */
 export const DragOrderSchema = BaseSchema.extend({
   interaction: z.literal('drag-order'),
+  format: z.enum(['code', 'output']),
   blocks: z.array(z.string().min(1)).min(3),
   correct_order: z.array(z.number().int().nonnegative()),
 })
@@ -426,6 +442,24 @@ export const PuzzleSchema = z
             path: ['correct_order'],
           })
         }
+      }
+
+      // 'output' puzzles show `snippet` to the player as context (see
+      // DragOrderSchema's doc comment) — if every block is also a literal
+      // substring of that snippet, the player is being handed the answer
+      // outright, the exact defect this field exists to prevent. A 'code'
+      // puzzle's blocks SHOULD all be snippet substrings (that's the format);
+      // this only fires for 'output'.
+      if (
+        puzzle.format === 'output' &&
+        puzzle.blocks.every((block) => puzzle.snippet.includes(block))
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          message:
+            'format is "output" (snippet is shown to the player) but every block is a literal substring of snippet — this hands the player the solved answer. Either this is really a "code" puzzle (and snippet must not be shown), or blocks should describe execution/output, not repeat the source verbatim.',
+          path: ['blocks'],
+        })
       }
     }
 

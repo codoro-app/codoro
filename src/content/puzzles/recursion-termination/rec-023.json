@@ -7,6 +7,7 @@
   "language": "python",
   "snippet": "def fact(n):\n    if n <= 1:\n        return 1\n    return n * fact(n - 1)\n\nprint(fact(4))",
   "interaction": "drag-order",
+  "format": "output",
   "blocks": [
     "fact(3) returns 3 * 2 = 6",
     "fact(4) returns 4 * 6 = 24",

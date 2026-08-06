@@ -7,6 +7,7 @@
   "language": "python",
   "snippet": "def make_counter():\n    count = 0\n    def inc():\n        nonlocal count\n        count += 1\n        return count\n    return inc",
   "interaction": "drag-order",
+  "format": "code",
   "blocks": [
     "nonlocal count",
     "def make_counter():",

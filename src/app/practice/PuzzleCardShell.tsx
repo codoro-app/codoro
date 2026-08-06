@@ -117,13 +117,19 @@ export function PuzzleCardShell({
   // separate static copy from the shell would just be a confusing duplicate
   // for either, so the shell skips both. drag-order rearranges `blocks`, not
   // a fixed snippet with tap targets, so it doesn't need an *interactive*
-  // copy of its own (DragOrder.tsx owns only the block list) — but every
-  // authored drag-order puzzle's `blocks` describe fragments/output of a
-  // real snippet ("clamps n to 2", "Logs 'C'"), unreadable without seeing
-  // that code. So drag-order gets the same static, read-only CodeSnippet
-  // mcq/scrubber get, just not its own interactive one.
+  // copy of its own (DragOrder.tsx owns only the block list) — but a
+  // format: 'output' puzzle's `blocks` describe execution/output of a real
+  // snippet ("clamps n to 2", "Logs 'C'"), unreadable without seeing that
+  // code, so it gets the same static, read-only CodeSnippet mcq/scrubber
+  // get, just not its own interactive one. A format: 'code' puzzle's
+  // `blocks` ARE fragments of `snippet` being reassembled into it — showing
+  // the snippet there hands the player the solved answer (see
+  // DragOrderSchema's doc comment), so it stays suppressed, same as
+  // tap-line/swipe-binary.
   const staticLines =
-    puzzle.interaction === 'tap-line' || puzzle.interaction === 'swipe-binary'
+    puzzle.interaction === 'tap-line' ||
+    puzzle.interaction === 'swipe-binary' ||
+    (puzzle.interaction === 'drag-order' && puzzle.format === 'code')
       ? null
       : highlightSnippet(puzzle.snippet, puzzle.language)
 

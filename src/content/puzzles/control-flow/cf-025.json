@@ -7,6 +7,7 @@
   "language": "java",
   "snippet": "public int sum(int[] nums) {\n    int total = 0;\n    for (int n : nums) total += n;\n    return total;\n}",
   "interaction": "drag-order",
+  "format": "code",
   "blocks": [
     "return total;",
     "for (int n : nums) total += n;",
