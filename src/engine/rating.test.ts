@@ -106,6 +106,28 @@ describe('updateRating', () => {
       expect(updateRating(400, 100, false, 0)).toBe(RATING_FLOOR)
     })
   })
+
+  describe('input validation (fail loud, never persist a corrupt rating)', () => {
+    it('throws on a non-finite userRating', () => {
+      expect(() => updateRating(NaN, 1200, true, 0)).toThrow(/finite/)
+      expect(() => updateRating(Infinity, 1200, true, 0)).toThrow(/finite/)
+    })
+
+    it('throws on a non-finite puzzleRating', () => {
+      expect(() => updateRating(1200, NaN, true, 0)).toThrow(/finite/)
+    })
+
+    it('throws on a fractional correct outside [0, 1]', () => {
+      expect(() => updateRating(1200, 1200, 1.5, 0)).toThrow(/\[0, 1\]/)
+      expect(() => updateRating(1200, 1200, -0.1, 0)).toThrow(/\[0, 1\]/)
+      expect(() => updateRating(1200, 1200, NaN, 0)).toThrow(/\[0, 1\]/)
+    })
+
+    it('accepts the boundary fractional values 0 and 1', () => {
+      expect(() => updateRating(1200, 1200, 0, 0)).not.toThrow()
+      expect(() => updateRating(1200, 1200, 1, 0)).not.toThrow()
+    })
+  })
 })
 
 describe('roundForDisplay', () => {

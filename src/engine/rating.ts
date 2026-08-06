@@ -40,6 +40,23 @@ export function updateRating(
   priorRatedAttemptCount: number,
   kMultiplier = 1,
 ): number {
+  // Fail loud, not silent: a NaN/Infinity slipping through here would
+  // persist into the player's profile via saveProfile and permanently
+  // corrupt every rating computation downstream (expectedScore, every
+  // future updateRating call) — there's no recovery once that's written.
+  // Nothing in the codebase currently produces one of these, but nothing
+  // guarded against it either; this is the same "invariant violation
+  // throws" convention schema.ts's requireStep uses.
+  if (!Number.isFinite(userRating) || !Number.isFinite(puzzleRating)) {
+    throw new Error(
+      `updateRating: userRating (${String(userRating)}) and puzzleRating (${String(puzzleRating)}) must be finite numbers`,
+    )
+  }
+  if (typeof correct === 'number' && (!Number.isFinite(correct) || correct < 0 || correct > 1)) {
+    throw new Error(
+      `updateRating: fractional correct must be a finite number in [0, 1], got ${String(correct)}`,
+    )
+  }
   const expected = expectedScore(userRating, puzzleRating)
   const actual = typeof correct === 'number' ? correct : correct ? 1 : 0
   const k = getK(priorRatedAttemptCount) * kMultiplier

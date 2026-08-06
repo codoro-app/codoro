@@ -64,15 +64,46 @@ export function scoreScrubberAttempt(results: readonly CheckpointResult[]): bool
  * identically to a 0-of-4 attempt — the two outcomes are clearly different
  * skill signals and deserve different rating deltas.
  *
+ * `choiceCounts[i]` is the number of choices `results[i]`'s checkpoint
+ * offered (`ScrubberCheckpointSchema.choices.length`, always 2-4) — the raw
+ * correct-fraction is guess-floor-corrected against it before being handed
+ * to Elo, the same reasoning CALIBRATION.md's swipe-binary modifier applies
+ * to a single 50/50 interaction (guessing inflates the empirical pass rate,
+ * which Elo reads as skill), generalized to a per-checkpoint choice count
+ * that varies puzzle to puzzle instead of a flat content-rating bump. Each
+ * checkpoint's chance-alone expectation is `1/choiceCounts[i]`; the mean of
+ * those is `floor`, and the score is rescaled so "exactly at the guess
+ * floor" reads as 0 (no skill signal, matching a plain miss) and "perfect"
+ * still reads as 1: `(raw - floor) / (1 - floor)`, clamped to `[0, 1]` (an
+ * unlucky sub-floor raw score must not go negative). Without this, a
+ * 70%-per-checkpoint player nets roughly +350 Elo versus the same skill
+ * under plain all-or-nothing scoring — measured against `scrubberPool` —
+ * because a chance-level raw score was being read as meaningful positive
+ * signal instead of noise.
+ *
  * 0 for an empty result set, matching `scoreScrubberAttempt`'s own
  * defensive floor (shouldn't happen from real content — ScrubberSchema
  * requires 2-4 checkpoints — but a `0/0` division would otherwise produce
- * `NaN` and silently corrupt the caller's rating math).
+ * `NaN` and silently corrupt the caller's rating math). `choiceCounts`
+ * entries are defensively floored at 2 (this module deliberately doesn't
+ * import ScrubberCheckpointSchema to enforce that bound itself) so a
+ * malformed 0/1 count can't produce a `floor >= 1`, which would divide by
+ * zero.
  */
-export function scrubberActualScore(results: readonly CheckpointResult[]): number {
+export function scrubberActualScore(
+  results: readonly CheckpointResult[],
+  choiceCounts: readonly number[],
+): number {
   if (results.length === 0) return 0
   const correctCount = results.filter((result) => result.correct).length
-  return correctCount / results.length
+  const raw = correctCount / results.length
+  const floorSum = results.reduce((sum: number, _result, i) => {
+    const count = Math.max(2, choiceCounts[i] ?? 2)
+    return sum + 1 / count
+  }, 0)
+  const floor = floorSum / results.length
+  const rescaled = (raw - floor) / (1 - floor)
+  return Math.min(1, Math.max(0, rescaled))
 }
 
 /**

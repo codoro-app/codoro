@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
-import { updateRating, roundForDisplay, TRACE_K_MULTIPLIER } from '../../engine'
+import {
+  scrubberActualScore,
+  updateRating,
+  roundForDisplay,
+  TRACE_K_MULTIPLIER,
+} from '../../engine'
 import type { Puzzle } from '../../content'
 import { useTraceSession } from './useTraceSession'
 
@@ -226,7 +231,7 @@ describe('useTraceSession', () => {
     expect(appendAttempt).toHaveBeenCalledWith(expect.objectContaining({ correct: false }))
   })
 
-  it('a partially-correct attempt (1 of 2 checkpoints) still fails scoreScrubberAttempt but rates on fractional credit, not a flat miss', async () => {
+  it('a partially-correct attempt exactly at the guess floor (1 of 2, both checkpoints binary) rates the same as a flat miss', async () => {
     const { result } = renderHook(() => useTraceSession())
     await waitFor(() => {
       expect(result.current.status).toBe('ready')
@@ -237,22 +242,40 @@ describe('useTraceSession', () => {
     const before = result.current.profile
     if (!before) throw new Error('expected a profile to be loaded')
 
+    // Both of this fixture's checkpoints offer 2 choices, so "1 of 2
+    // correct" is exactly what pure guessing would produce on average — the
+    // guess-floor correction (scrubberActualScore) rescales that down to 0,
+    // no different from a flat miss. Computed via the real engine function
+    // against this puzzle's actual checkpoints, not hardcoded, so this
+    // tracks useTraceSession's own choiceCounts wiring rather than
+    // restating the formula. This is the fix for the rating-inflation bug:
+    // before it, this same attempt rated as 0.5 actual — real, unearned
+    // credit for a coin-flip guess.
+    const choiceCounts = puzzle.checkpoints.map((checkpoint) => checkpoint.choices.length)
+    const actualScore = scrubberActualScore(
+      [
+        { correct: true, choiceIndex: 0 },
+        { correct: false, choiceIndex: 1 },
+      ],
+      choiceCounts,
+    )
+    expect(actualScore).toBe(0)
+
     const expectedNewRating = updateRating(
       before.rating,
       puzzle.difficulty_rating,
-      0.5, // 1 of 2 checkpoints correct
+      actualScore,
       before.ratedAttemptCount,
       TRACE_K_MULTIPLIER,
     )
-    // What the old all-or-nothing semantics would have produced — asserted
-    // distinct below to prove this attempt is no longer scored like a flat
-    // miss now that rating credit is fractional.
     const flatMissRating = updateRating(
       before.rating,
       puzzle.difficulty_rating,
       false,
       before.ratedAttemptCount,
+      TRACE_K_MULTIPLIER,
     )
+    expect(expectedNewRating).toBe(flatMissRating)
 
     act(() => {
       result.current.handleCheckpointAnswered({ correct: true, choiceIndex: 0 })
@@ -263,7 +286,7 @@ describe('useTraceSession', () => {
 
     expect(result.current.solved).toBe(false)
     expect(result.current.profile?.rating).toBe(expectedNewRating)
-    expect(result.current.profile?.rating).not.toBe(flatMissRating)
+    expect(result.current.profile?.rating).toBe(flatMissRating)
   })
 
   it('a missed puzzle resurfaces via requeue after 3 continues (stage-0 ladder interval)', async () => {
