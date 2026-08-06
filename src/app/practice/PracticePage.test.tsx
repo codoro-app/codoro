@@ -177,6 +177,26 @@ describe('PracticePage', () => {
     })
   })
 
+  it('clears the challenge card on Continue — it must not persist under the next, unanswered puzzle', async () => {
+    const user = userEvent.setup()
+    render(<PracticePage />)
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+
+    await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Challenge a friend' })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('button', { name: /Challenge a friend|Link copied!/ }),
+      ).not.toBeInTheDocument()
+    })
+  })
+
   it('browse-by-pattern: selecting a pattern filters subsequent puzzles and shows a way back to all patterns', async () => {
     const user = userEvent.setup()
     render(<PracticePage />)

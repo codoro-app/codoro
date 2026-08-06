@@ -361,9 +361,11 @@ export function PracticePage() {
           <PracticeShareCard puzzleId={lastAnswer.puzzleId} correct={lastAnswer.correct} />
         )}
 
-        {session.streakAttempts.length > 0 && (
-          <PracticeChallengeCard attempts={session.streakAttempts} />
-        )}
+        {session.streakAttempts.length > 0 &&
+          lastAnswer &&
+          lastAnswer.puzzleId === session.puzzle?.id && (
+            <PracticeChallengeCard attempts={session.streakAttempts} />
+          )}
       </div>
 
       {isDesktop && (
