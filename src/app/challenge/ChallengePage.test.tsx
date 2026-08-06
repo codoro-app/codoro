@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { puzzlePool } from '../../content'
 import {
@@ -45,7 +45,7 @@ vi.mock('../../telemetry', () => ({
 }))
 
 const { appendAttempt, saveProfile } = await import('../../storage')
-const { ChallengePageForHash } = await import('./ChallengePage')
+const { ChallengePageForHash, ChallengePage } = await import('./ChallengePage')
 
 /** Encodes raw attempts into a URL-fragment hash — the same encode path every surface ships. */
 function fragmentFor(attempts: ChallengeAttemptInput[]): string {
@@ -245,5 +245,44 @@ describe('ChallengePageForHash — comparison screen + counter-challenge', () =>
     }
     expect(decoded?.v).toBe(CHALLENGE_PAYLOAD_VERSION)
     expect(decoded?.totalMs).toBe(decoded?.results.reduce((sum, r) => sum + r.time_ms, 0))
+  })
+})
+
+describe('ChallengePage — the wrapper reads the real URL fragment', () => {
+  // Regression for the bug that shipped: the wrapper originally read
+  // `useLocation().split('#')`, but wouter's location is pathname-only
+  // (use-browser-location.js: currentPathname = () => location.pathname), so
+  // every real /challenge#<payload> cold load rendered the broken state.
+  // The suite missed it because every other test drives ChallengePageForHash
+  // with a raw hash prop — only these tests exercise the actual
+  // window.location.hash path a real browser load hits (Finding 4: what a
+  // green suite can't see, a cold browser load can).
+  it('renders the challenge puzzle from a real URL fragment, not the broken state', () => {
+    window.history.pushState({}, '', `/challenge#${twoPuzzleHash()}`)
+    const { container } = render(<ChallengePage />)
+
+    expect(container.querySelector('.puzzle-card')).toBeInTheDocument()
+    expect(screen.queryByText(/challenge link is broken/i)).not.toBeInTheDocument()
+    expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: true })
+  })
+
+  it('remounts a fresh session when the URL fragment is edited', async () => {
+    window.history.pushState({}, '', `/challenge#${twoPuzzleHash()}`)
+    const { container } = render(<ChallengePage />)
+    expect(container.querySelector('.puzzle-card')).toBeInTheDocument()
+
+    // Editing the hash mid-session navigates the URL without a page load —
+    // the same-document navigation a player does to "get a different
+    // challenge". The key={hash} remount must land on the broken state, not
+    // keep showing the previous challenge's puzzle.
+    window.history.pushState({}, '', '/challenge#!not-valid-base64url!')
+    window.dispatchEvent(new Event('hashchange'))
+
+    // The hashchange listener's setState lands outside React's act() — the
+    // re-render is async, so wait for the remounted broken state to appear.
+    await waitFor(() => {
+      expect(screen.getByText(/challenge link is broken/i)).toBeInTheDocument()
+    })
+    expect(container.querySelector('.puzzle-card')).not.toBeInTheDocument()
   })
 })

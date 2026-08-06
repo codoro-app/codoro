@@ -9,10 +9,11 @@
  * Split the same way PuzzlePage.tsx and TraceRunner.tsx are (outer owns
  * reading the location, inner is pure props) so the decode/broken-link/
  * sequencing logic is directly testable without a Router wrapper:
- * `ChallengePage` reads the fragment from wouter's location and hands the
- * fragment content off to the exported `ChallengePageForHash`, keyed by hash
- * so a hash change (editing the URL) remounts a fresh session rather than
- * needing a reset effect.
+ * `ChallengePage` reads the fragment straight from window.location.hash (NOT
+ * wouter's useLocation — that hook is pathname-only, see its own bug note
+ * below) and hands the fragment content off to the exported
+ * `ChallengePageForHash`, keyed by hash so a hash change (editing the URL)
+ * remounts a fresh session rather than needing a reset effect.
  *
  * Dispatch is identical to `/puzzle/:id`'s: quiz interactions
  * (mcq/swipe-binary/tap-line/drag-order) go through the same
@@ -29,7 +30,8 @@
  * counter-challenge, which re-encodes the recipient's own run as a fresh
  * challenge link.
  */
-import { useLocation, Link } from 'wouter'
+import { Link } from 'wouter'
+import { useEffect, useState } from 'react'
 import { useChallengeSession } from './useChallengeSession'
 import { ChallengeComparison } from './ChallengeComparison'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
@@ -39,7 +41,7 @@ import './challengePage.css'
 
 /** Pure, props-driven inner component — exported so tests can drive it directly against a raw fragment without a Router wrapper. */
 export interface ChallengePageForHashProps {
-  /** Fragment content with no leading '#', e.g. what `location.split('#')[1]` yields. */
+  /** Fragment content with no leading '#', e.g. what `window.location.hash` yields after stripping the '#'. */
   hash: string
 }
 
@@ -102,7 +104,25 @@ export function ChallengePageForHash({ hash }: ChallengePageForHashProps) {
 }
 
 export function ChallengePage() {
-  const [location] = useLocation()
-  const hash = location.split('#')[1] ?? ''
+  // wouter's useLocation is pathname-only (use-browser-location.js:
+  // `currentPathname = () => location.pathname`) — the fragment never appears
+  // in it, so the first shipped version's `location.split('#')[1]` was always
+  // '' and every real challenge link rendered the broken state. This bug was
+  // invisible to the suite because ChallengePage.test.tsx drove
+  // ChallengePageForHash with a raw hash prop, never this wrapper — the
+  // Finding 4 class of "only a real browser load shows it". Read the fragment
+  // directly from window.location.hash, and subscribe to hashchange so
+  // editing the URL (the one way this link-only route changes) remounts a
+  // fresh session via the key below.
+  const [hash, setHash] = useState(() => window.location.hash.replace(/^#/, ''))
+  useEffect(() => {
+    const onHashChange = () => {
+      setHash(window.location.hash.replace(/^#/, ''))
+    }
+    window.addEventListener('hashchange', onHashChange)
+    return () => {
+      window.removeEventListener('hashchange', onHashChange)
+    }
+  }, [])
   return <ChallengePageForHash key={hash} hash={hash} />
 }
