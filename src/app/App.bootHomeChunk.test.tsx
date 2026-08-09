@@ -44,6 +44,13 @@ describe('App boot: Home chunk import', () => {
     window.history.pushState({}, '', '/')
   })
 
+  // Same under-load flake and same fix as App.test.tsx's first-mount test
+  // (see that file's own comment): the default 5s Vitest test timeout is
+  // tight for a real cold App mount when the full suite (1500+ tests) is
+  // running concurrently — this test passed in isolation every time it
+  // was checked (well under 2s) but hit the default timeout under full-
+  // suite load. 15s gives the cold first mount real room while still
+  // failing on a genuine hang.
   it("a first-ever visit never imports the Home module — React.lazy's ctor fires on render, even for a route that unmounts before its first paint", async () => {
     render(<App />)
 
@@ -52,12 +59,5 @@ describe('App boot: Home chunk import', () => {
     })
 
     expect(homeModuleImportCount).toBe(0)
-  }, // Same under-load flake and same fix as App.test.tsx's first-mount test
-  // (see that file's own comment): the default 5s Vitest test timeout is
-  // tight for a real cold App mount when the full suite (1500+ tests) is
-  // running concurrently — this test passed in isolation every time it
-  // was checked (well under 2s) but hit the default timeout under full-
-  // suite load. 15s gives the cold first mount real room while still
-  // failing on a genuine hang.
-  15_000)
+  }, 15_000)
 })

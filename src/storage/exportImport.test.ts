@@ -166,6 +166,36 @@ describe('resolveImportCandidate', () => {
     })
   })
 
+  it('returns not-export-blob for well-formed JSON that parses to something other than an object (a bare number, a bare null)', () => {
+    expect(resolveImportCandidate('42')).toEqual({ status: 'not-export-blob' })
+    expect(resolveImportCandidate('null')).toEqual({ status: 'not-export-blob' })
+    expect(resolveImportCandidate('[1,2,3]')).toEqual({ status: 'not-export-blob' })
+  })
+
+  it('returns not-export-blob for an older-version envelope whose profile field is not an object', () => {
+    const bad = JSON.stringify({
+      schema_version: CURRENT_SCHEMA_VERSION - 1,
+      exportedAt: new Date().toISOString(),
+      profile: null,
+      attempts: [],
+    })
+    expect(resolveImportCandidate(bad)).toEqual({ status: 'not-export-blob' })
+  })
+
+  it('returns not-export-blob for a version older than any registered migration reaches', () => {
+    // MIGRATIONS is keyed 1-5 (schema.ts's CURRENT_SCHEMA_VERSION is 6) —
+    // version 0 predates any registered migration, so runMigrations is a
+    // documented no-op and the profile's own schema_version never actually
+    // advances to CURRENT_SCHEMA_VERSION, failing the final validation.
+    const ancient = JSON.stringify({
+      schema_version: 0,
+      exportedAt: new Date().toISOString(),
+      profile: { schema_version: 0, rating: 1200 },
+      attempts: [],
+    })
+    expect(resolveImportCandidate(ancient)).toEqual({ status: 'not-export-blob' })
+  })
+
   it('returns not-export-blob for well-formed JSON with the right envelope shape but an invalid profile', () => {
     const bad = JSON.stringify({
       schema_version: CURRENT_SCHEMA_VERSION,
