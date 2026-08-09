@@ -215,12 +215,26 @@
   gap: var(--space-3);
   /* The whole card (snippet + buttons) doubles as the @use-gesture drag
    * surface (see SwipeBinary.tsx) — Tinder-style, not just the buttons row.
-   * The practice card sits in a vertically-scrolling page while the drag
-   * gesture itself is horizontal, so pan-y keeps native vertical page
-   * scroll working via touch while the gesture handler owns horizontal
-   * drags — without this, mobile Safari/Chrome fight between interpreting
-   * a touch as a page-scroll vs. a card-drag. */
-  touch-action: pan-y;
+   * v2 Phase 7b, OD-1: 'none', not 'pan-y'. pan-y let the browser commit a
+   * touch to native vertical scroll on its own, before @use-gesture's JS
+   * ever ran — confirmed as the real-device root cause of a third swipe
+   * defect (a normal-speed or diagonal swipe lost that race and did
+   * nothing). Vertical-scroll passthrough is now handled by @use-gesture's
+   * own preventScroll option (see SwipeBinary.tsx's useDrag config) instead
+   * of the browser deciding first.
+   * Revert-check gap, found by review, accepted rather than papered over
+   * with a brittle test: this rule has NO test coverage. practice.css isn't
+   * imported into SwipeBinary.test.tsx's module graph (only
+   * PuzzleCardShell.tsx imports it, and the test renders SwipeBinary
+   * directly), and even if it were, jsdom's HTMLElement.style only reflects
+   * the inline style attribute, never external-stylesheet rules — no
+   * assertion shape here could catch a regression of this line. The value
+   * actually enforced by the test suite is SwipeBinary.tsx's own inline
+   * `style={{ touchAction: 'none' }}`, which duplicates this one. Keep the
+   * two in sync by hand; a real regression risk (e.g. someone "cleans up"
+   * this rule as apparently-redundant) exists and is knowingly unguarded,
+   * not fixed by adding e2e coverage this repo doesn't otherwise have. */
+  touch-action: none;
 }
 
 .swipe-fallback__buttons {

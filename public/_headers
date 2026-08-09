@@ -28,3 +28,38 @@
 # in HTTP cache for up to a year — cosmetic (stale glyphs), not functional.
 /fonts/*
   Cache-Control: public, max-age=31536000, immutable
+
+# v2 Phase 7b Item 1c: same justification as /fonts/* above — real
+# production Lighthouse run (2026-08-09) flagged ~5 KiB of static assets on
+# an inefficient cache-lifetime policy, falling through to Cloudflare
+# Pages' default because no rule here covered them. favicon.svg and
+# pwa-192.png are fetched on every real page load (index.html's own
+# <head>); og-image.png is fetched by OG/Twitter link-unfurl crawlers. The
+# remaining four are only fetched during PWA install/update (manifest
+# icons), never on a normal page load — covered anyway for consistency
+# with the pattern above, at zero added risk. All seven are unhashed by
+# filename but already inside vite.config.ts's workbox globPatterns
+# (svg/png match `**/*.{js,css,html,ico,png,svg,webp,woff2}`), so a real
+# asset swap is still correctly picked up by every SW-controlled visit via
+# the same content-hash revisioning /fonts/* already relies on — not
+# filename-hash immutability.
+/favicon.svg
+  Cache-Control: public, max-age=31536000, immutable
+
+/pwa-192.png
+  Cache-Control: public, max-age=31536000, immutable
+
+/og-image.png
+  Cache-Control: public, max-age=31536000, immutable
+
+/icons.svg
+  Cache-Control: public, max-age=31536000, immutable
+
+/pwa-512.png
+  Cache-Control: public, max-age=31536000, immutable
+
+/pwa-maskable-192.png
+  Cache-Control: public, max-age=31536000, immutable
+
+/pwa-maskable-512.png
+  Cache-Control: public, max-age=31536000, immutable

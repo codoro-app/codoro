@@ -282,4 +282,25 @@ describe('SwipeBinary', () => {
       expect(config?.axisThreshold?.touch).toBeGreaterThan(0)
     })
   })
+
+  // v2 Phase 7b, OD-1 (third gesture defect, real device — iPhone 15 Pro,
+  // iOS 26.5.2): a normal-speed or diagonal swipe lost the native-scroll
+  // race to `touch-action: pan-y`, which let the browser commit a touch to
+  // scroll before @use-gesture's JS ever ran. Both halves of the fix are
+  // asserted here — reverting either one fails this test mechanically, not
+  // just "looks reverted".
+  describe('scroll arbitration (OD-1 third defect)', () => {
+    it('hands vertical-scroll arbitration to @use-gesture via preventScroll, not touch-action', () => {
+      render(<Harness />)
+      const config = gestureMock.config as { preventScroll?: unknown } | null
+      expect(config?.preventScroll).toBeTruthy()
+    })
+
+    it("sets the drag surface's touch-action to 'none', not 'pan-y'", () => {
+      const { container } = render(<Harness />)
+      const card = container.querySelector('.swipe-fallback__card')
+      expect(card).not.toBeNull()
+      expect((card as HTMLElement).style.touchAction).toBe('none')
+    })
+  })
 })
