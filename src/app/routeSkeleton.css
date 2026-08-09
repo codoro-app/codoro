@@ -1,0 +1,60 @@
+/*
+ * Sized to the shared page-wrapper block every route already carries
+ * (practicePage.css/legalPage.css/tracePage.css/settingsPage.css) so
+ * swapping the real page in causes no layout shift. Shimmer, not a static
+ * gray block, so it reads as "loading" rather than "broken".
+ */
+
+.route-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--content-width-mobile);
+  margin: 0 auto;
+  padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--space-4) var(--space-4);
+  box-sizing: border-box;
+}
+
+.route-skeleton__block {
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    90deg,
+    var(--surface-1) 25%,
+    var(--surface-2) 37%,
+    var(--surface-1) 63%
+  );
+  background-size: 400% 100%;
+  animation: route-skeleton-shimmer 1.4s ease infinite;
+}
+
+.route-skeleton__block--title {
+  height: 2rem;
+  width: 40%;
+}
+
+.route-skeleton__block--line {
+  height: 1rem;
+  width: 90%;
+}
+
+.route-skeleton__block--card {
+  height: 8rem;
+  width: 100%;
+}
+
+@keyframes route-skeleton-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-skeleton__block {
+    animation: none;
+    background: var(--surface-1);
+  }
+}

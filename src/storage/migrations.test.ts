@@ -67,7 +67,7 @@ describe('runMigrations', () => {
 })
 
 describe('MIGRATIONS: full chain from v1 to the current version', () => {
-  it('v1 -> v5, stamping schema_version 5, adding null dailyCompletion + rushStats + bestRunStreak 0, and preserving every existing field untouched', () => {
+  it('v1 -> v6, stamping schema_version 6, adding null dailyCompletion + rushStats + bestRunStreak 0 + a generated anonId, and preserving every existing field untouched', () => {
     const v1Profile = {
       schema_version: 1,
       rating: 1342.75,
@@ -78,10 +78,13 @@ describe('MIGRATIONS: full chain from v1 to the current version', () => {
     }
 
     const migrated = runMigrations(v1Profile, 1, MIGRATIONS)
+    const { anonId, ...rest } = migrated
 
-    expect(migrated).toEqual({
+    expect(typeof anonId).toBe('string')
+    expect((anonId as string).length).toBeGreaterThan(0)
+    expect(rest).toEqual({
       ...v1Profile,
-      schema_version: 5,
+      schema_version: 6,
       dailyCompletion: null,
       rushStats: null,
       bestRunStreak: 0,
@@ -136,6 +139,39 @@ describe('MIGRATIONS[4]: v4 -> v5 (Phase 5b: resets rushStats, adds bestRunStrea
       rushStats: null,
       bestRunStreak: 0,
     })
+  })
+})
+
+describe('MIGRATIONS[5]: v5 -> v6 (Phase 7 Item 6: adds anonId)', () => {
+  it('stamps schema_version 6, adds a non-empty generated anonId, and preserves every other field untouched', () => {
+    const v5Profile = {
+      schema_version: 5,
+      rating: 1580.5,
+      ratedAttemptCount: 44,
+      streak: { currentStreak: 1, longestStreak: 22, lastActiveDate: '2026-08-05' },
+      requeueState: [{ puzzleId: 'p4', stage: 0, served: 3 }],
+      storagePersisted: true,
+      dailyCompletion: { date: '2026-08-05', attemptId: 'a11', correct: true },
+      rushStats: null,
+      bestRunStreak: 6,
+    }
+
+    const v5Migration = MIGRATIONS[5]
+    if (!v5Migration) throw new Error('MIGRATIONS[5] is not registered')
+    const migrated = v5Migration(v5Profile)
+    const { anonId, ...rest } = migrated
+
+    expect(typeof anonId).toBe('string')
+    expect((anonId as string).length).toBeGreaterThan(0)
+    expect(rest).toEqual({ ...v5Profile, schema_version: 6 })
+  })
+
+  it('generates a different anonId on each call (never a fixed/shared value)', () => {
+    const v5Migration = MIGRATIONS[5]
+    if (!v5Migration) throw new Error('MIGRATIONS[5] is not registered')
+    const a = v5Migration({ schema_version: 5 }) as { anonId: string }
+    const b = v5Migration({ schema_version: 5 }) as { anonId: string }
+    expect(a.anonId).not.toBe(b.anonId)
   })
 })
 

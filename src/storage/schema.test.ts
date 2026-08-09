@@ -16,6 +16,7 @@ const validProfile = {
   dailyCompletion: { date: '2026-07-19', attemptId: 'a1', correct: true },
   rushStats: null,
   bestRunStreak: 0,
+  anonId: 'test-anon-id-1',
 }
 
 const validAttempt = {

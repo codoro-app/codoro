@@ -12,6 +12,13 @@ convention as `src/engine/` and `src/storage/`.
   once on app startup (see `src/main.tsx`).
 - `trackSessionStart()` — fires the `session_start` event. Call once per app
   session, alongside `initTelemetry()`.
+- `registerAnonId(anonId: string)` (Phase 7 Item 6) — registers the stable,
+  app-generated anonymous ID (`src/storage`'s `UserProfile.anonId`) as a
+  PostHog super property (`posthog.register({ codoro_anon_id })`), so it's
+  attached to every event captured afterward. Called once per app session
+  from `src/main.tsx`, after the profile loads (not blocking
+  `initTelemetry()`/`trackSessionStart()` — see main.tsx's own comment).
+  This is **not** `posthog.identify()` — see the identity section below.
 - `trackAttempt(payload: AttemptEventPayload)` — fires the `attempt` event.
   Property names are a locked schema shared with Daily/Rush in later phases —
   do not rename or restructure them.
@@ -85,7 +92,31 @@ same holds if posthog-js itself throws inside `init()`/`capture()` — a
 blocked or misbehaving analytics provider must never break the app.
 
 We never call `posthog.identify()`. Every user stays on PostHog's default
-anonymous `distinct_id`.
+anonymous `distinct_id`, and `person_profiles: 'identified_only'` means no
+PostHog person profile is ever created for anyone.
+
+**Retention identity (Phase 7 Item 6).** That wiring alone left day-2 return
+— the metric `docs/roadmap.md`'s v3.0 gate names as "the honest signal" for
+the v3 → v4 decision — unmeasurable: PostHog's own device-scoped anonymous
+`distinct_id` doesn't reliably survive a site-data clear and doesn't
+necessarily bridge the installed-PWA vs. browser-tab boundary, the two
+places this app's users actually live. The fix attaches the app's own
+stable `anonId` (generated once per device, in the profile store — see
+`src/storage/schema.ts`'s `UserProfile.anonId`) as a **registered super
+property**, not via `identify()`. See `src/telemetry/client.ts`'s
+`registerAnonId` doc comment for the full mechanism decision (why a super
+property over `identify()`, the person-profile billing question it avoids
+by construction, and the "import collision" — a player importing a
+friend's export file must never merge the two of them into one identity in
+PostHog, handled in `src/storage/exportImport.ts`'s `commitImport`). This
+changes _identity_, not _what is collected_: every capture toggle below
+this point in the file stays exactly as locked. **Not yet verified live**
+— no PostHog dashboard access was available in this environment to confirm
+what retention PostHog actually computes from `identified_only` +
+anonymous-only events with a custom super property, or that this ID
+resolves to the same identity across a browser tab and the installed PWA
+on a real deploy. Both are outstanding production checks — see
+`docs/v2-build-plan.md`'s Phase 7 amendment.
 
 ## Sentry vs. PostHog-only for error tracking (V1 decision)
 

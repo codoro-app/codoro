@@ -9,6 +9,7 @@
 import { z } from 'zod'
 import type { AttemptMode, CheckpointResult, RequeueState, StreakState } from '../engine'
 import { INITIAL_RATING, emptyRequeueState } from '../engine'
+import { generateAnonId } from './anonId'
 
 /**
  * Version of the persisted profile shape. Bumped only when a stored-shape change
@@ -20,7 +21,7 @@ import { INITIAL_RATING, emptyRequeueState } from '../engine'
  * migrated through migrations.ts — see AttemptSchema's own doc comment for
  * why `checkpoint_results` (the v4 addition) doesn't go through this chain.
  */
-export const CURRENT_SCHEMA_VERSION = 5
+export const CURRENT_SCHEMA_VERSION = 6
 
 /** Mirrors engine's StreakState shape. */
 export const StreakStateSchema = z.object({
@@ -83,6 +84,14 @@ export const UserProfileSchema = z.object({
   dailyCompletion: DailyCompletionSchema.nullable(),
   rushStats: RushStatsSchema.nullable(),
   bestRunStreak: z.number().int().nonnegative(),
+  // Phase 7 Item 6: app-generated, contains no personal information — see
+  // migrations.ts's migrateV5ToV6 doc comment for the full context. Exists
+  // to let telemetry count returning visits (retention) without knowing
+  // who anyone is. Deliberately NOT applied from an imported file on
+  // import — see exportImport.ts's commitImport for why (the "import
+  // collision": two different people's data landing on one device must
+  // not silently merge their identities in PostHog).
+  anonId: z.string().min(1),
 })
 
 export interface UserProfile {
@@ -99,6 +108,8 @@ export interface UserProfile {
   rushStats: RushStats | null
   /** All-time best in-session correct-answer streak, Practice and Trace combined (Phase 5b Item 8) — the same two modes the streak-pause moment fires in (decision 8). 0 until the first streak-pause fires; unlike rushStats there's no "no data yet" state worth a null for a single counter. */
   bestRunStreak: number
+  /** Stable anonymous ID (Phase 7 Item 6) — see UserProfileSchema's own doc comment on this field. */
+  anonId: string
 }
 
 /**
@@ -190,5 +201,6 @@ export function createDefaultProfile(): UserProfile {
     dailyCompletion: null,
     rushStats: null,
     bestRunStreak: 0,
+    anonId: generateAnonId(),
   }
 }

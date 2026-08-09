@@ -3,6 +3,7 @@ import { Route, Switch, useLocation, Link } from 'wouter'
 import { ErrorBoundary } from './ErrorBoundary'
 import { PwaPrompts } from './pwa/PwaPrompts'
 import { AppShell } from './AppShell'
+import { RouteSkeleton } from './RouteSkeleton'
 import { useRouteMeta } from './useRouteMeta'
 // Static import, not lazy() — mirrors devPuzzleMode.ts's own proven pattern:
 // import.meta.env.DEV is a Vite build-time constant, inlined as literal
@@ -74,6 +75,7 @@ const homeImporter = () => import('./Home')
 const legalImporter = () => import('./legal/LegalPage')
 const puzzleImporter = () => import('./puzzle/PuzzlePage')
 const challengeImporter = () => import('./challenge/ChallengePage')
+const settingsImporter = () => import('./settings/SettingsPage')
 
 const PracticePage = lazy(async () => ({ default: (await practiceImporter()).PracticePage }))
 const DailyPage = lazy(async () => ({ default: (await dailyImporter()).DailyPage }))
@@ -83,6 +85,7 @@ const Home = lazy(async () => ({ default: (await homeImporter()).Home }))
 const LegalPage = lazy(async () => ({ default: (await legalImporter()).LegalPage }))
 const PuzzlePage = lazy(async () => ({ default: (await puzzleImporter()).PuzzlePage }))
 const ChallengePage = lazy(async () => ({ default: (await challengeImporter()).ChallengePage }))
+const SettingsPage = lazy(async () => ({ default: (await settingsImporter()).SettingsPage }))
 
 type BootMode = 'practice' | 'home'
 
@@ -185,7 +188,10 @@ export function App() {
   return (
     <ErrorBoundary>
       <AppShell>
-        <Suspense fallback={null}>
+        {/* v2 Phase 7, Item 3: a skeleton fallback here is the one genuine
+            loading boundary in this app worth one — see RouteSkeleton.tsx's
+            own doc comment for why nowhere else got one. */}
+        <Suspense fallback={<RouteSkeleton />}>
           <Switch>
             <Route path="/">
               {/* bootRedirectPending is true for exactly the one render
@@ -219,6 +225,12 @@ export function App() {
             </Route>
             <Route path="/legal">
               <LegalPage />
+            </Route>
+            {/* v2 Phase 7: export/import UI, same treatment as /legal —
+                a plain static route, footer link only (see AppShell.tsx),
+                no NavRail/ModeSwitcher tab. */}
+            <Route path="/settings">
+              <SettingsPage />
             </Route>
             {/* v2 Phase 5c: link-only static route — the whole challenge
                 lives in the URL fragment (/challenge#<base64url>), which

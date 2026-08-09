@@ -3,7 +3,7 @@ import { deleteDB } from 'idb'
 import type { IDBPDatabase } from 'idb'
 import { afterEach, describe, expect, it } from 'vitest'
 import { DB_NAME, PROFILE_KEY, PROFILE_STORE, getDb } from './db'
-import { createDefaultProfile } from './schema'
+import { CURRENT_SCHEMA_VERSION, createDefaultProfile } from './schema'
 import type { UserProfile } from './schema'
 import { loadProfile, saveProfile } from './profile'
 
@@ -22,19 +22,36 @@ async function withDb<T>(fn: (db: IDBPDatabase) => Promise<T>): Promise<T> {
   }
 }
 
+// anonId is freshly randomized per createDefaultProfile() call (Phase 7 Item
+// 6), so two independently-created defaults never deep-equal each other —
+// every "recovered profile matches a fresh default" assertion below needs to
+// compare everything else exactly and shape-check anonId separately.
+function withoutAnonId(profile: UserProfile): Omit<UserProfile, 'anonId'> {
+  const rest: Partial<UserProfile> = { ...profile }
+  delete rest.anonId
+  return rest as Omit<UserProfile, 'anonId'>
+}
+
 describe('loadProfile', () => {
   it('returns and persists a fresh default on first-ever load', async () => {
     const first = await loadProfile()
-    expect(first).toEqual(createDefaultProfile())
+    // anonId is freshly randomized per createDefaultProfile() call (Phase 7
+    // Item 6), so a second call here would never equal `first`'s — compare
+    // everything else exactly and just shape-check anonId.
+    expect(typeof first.anonId).toBe('string')
+    expect(first.anonId.length).toBeGreaterThan(0)
+    expect(withoutAnonId(first)).toEqual(withoutAnonId(createDefaultProfile()))
 
     // Persisted, not just returned in memory: read it straight back from disk.
-    const stored = await withDb<unknown>((db) => db.get(PROFILE_STORE, PROFILE_KEY))
-    expect(stored).toEqual(createDefaultProfile())
+    const stored = (await withDb<unknown>((db) =>
+      db.get(PROFILE_STORE, PROFILE_KEY),
+    )) as UserProfile
+    expect(stored).toEqual(first)
   })
 
   it('round-trips a saved profile exactly', async () => {
     const profile: UserProfile = {
-      schema_version: 5,
+      schema_version: CURRENT_SCHEMA_VERSION,
       rating: 1342.75,
       ratedAttemptCount: 7,
       streak: { currentStreak: 3, longestStreak: 9, lastActiveDate: '2026-07-14' },
@@ -43,6 +60,7 @@ describe('loadProfile', () => {
       dailyCompletion: { date: '2026-07-14', attemptId: 'a1', correct: true },
       rushStats: null,
       bestRunStreak: 0,
+      anonId: 'test-anon-id',
     }
     await saveProfile(profile)
     expect(await loadProfile()).toEqual(profile)
@@ -64,14 +82,19 @@ describe('corrupt-data recovery', () => {
     const garbage = { schema_version: 1, rating: 'not a number' }
     await withDb((db) => db.put(PROFILE_STORE, garbage, PROFILE_KEY))
 
-    // (a) does not throw, (b) returns a valid fresh default.
+    // (a) does not throw, (b) returns a valid fresh default. anonId is
+    // freshly randomized (Phase 7 Item 6), so compare shape, not the exact
+    // recovered.anonId against a second, independently-generated default.
     const recovered = await loadProfile()
-    expect(recovered).toEqual(createDefaultProfile())
+    expect(typeof recovered.anonId).toBe('string')
+    expect(recovered.anonId.length).toBeGreaterThan(0)
+    expect(withoutAnonId(recovered)).toEqual(withoutAnonId(createDefaultProfile()))
 
     await withDb(async (db) => {
-      // (c) the fresh default was actually persisted under PROFILE_KEY.
+      // (c) the fresh default was actually persisted under PROFILE_KEY —
+      // exactly what loadProfile returned, anonId included.
       const stored: unknown = await db.get(PROFILE_STORE, PROFILE_KEY)
-      expect(stored).toEqual(createDefaultProfile())
+      expect(stored).toEqual(recovered)
 
       // (d) the raw garbage is recoverable under a corrupt-* key, byte-exact.
       const keys = await db.getAllKeys(PROFILE_STORE)
@@ -86,7 +109,8 @@ describe('corrupt-data recovery', () => {
     await withDb((db) => db.put(PROFILE_STORE, 'not an object', PROFILE_KEY))
 
     const recovered = await loadProfile()
-    expect(recovered).toEqual(createDefaultProfile())
+    expect(typeof recovered.anonId).toBe('string')
+    expect(withoutAnonId(recovered)).toEqual(withoutAnonId(createDefaultProfile()))
 
     await withDb(async (db) => {
       const keys = await db.getAllKeys(PROFILE_STORE)
@@ -109,7 +133,8 @@ describe('corrupt-data recovery', () => {
     await withDb((db) => db.put(PROFILE_STORE, stale, PROFILE_KEY))
 
     const recovered = await loadProfile()
-    expect(recovered).toEqual(createDefaultProfile())
+    expect(typeof recovered.anonId).toBe('string')
+    expect(withoutAnonId(recovered)).toEqual(withoutAnonId(createDefaultProfile()))
 
     await withDb(async (db) => {
       const keys = await db.getAllKeys(PROFILE_STORE)
@@ -122,7 +147,7 @@ describe('corrupt-data recovery', () => {
 })
 
 describe('schema migration on load', () => {
-  it('migrates a v1 stored profile to the current version (v4) on load, preserving rating/streak/ratedAttemptCount and persisting the upgrade', async () => {
+  it('migrates a v1 stored profile to the current version on load, preserving rating/streak/ratedAttemptCount and persisting the upgrade', async () => {
     const v1Profile = {
       schema_version: 1,
       rating: 1389.25,
@@ -134,20 +159,35 @@ describe('schema migration on load', () => {
     await withDb((db) => db.put(PROFILE_STORE, v1Profile, PROFILE_KEY))
 
     const migrated = await loadProfile()
+    const { anonId, ...rest } = migrated
 
-    expect(migrated).toEqual({
+    expect(typeof anonId).toBe('string')
+    expect(anonId.length).toBeGreaterThan(0)
+    expect(rest).toEqual({
       ...v1Profile,
-      schema_version: 5,
+      schema_version: CURRENT_SCHEMA_VERSION,
       dailyCompletion: null,
       rushStats: null,
       bestRunStreak: 0,
     })
 
-    // loadProfile migrates in-memory only — it does not write the upgraded
-    // shape back to disk itself (the raw bytes stay v1 until the next
-    // saveProfile call). runMigrations is idempotent and cheap, so
-    // re-migrating from the same v1 raw bytes on every load is correct.
+    // loadProfile now writes the migrated shape back to disk immediately
+    // (Phase 7 pre-merge review finding): migrateV5ToV6 mints a fresh
+    // crypto.randomUUID() on every call, so re-migrating from the same raw
+    // v1 bytes on every load without persisting would silently regenerate
+    // anonId every session — every earlier migration was a pure function
+    // of its input and didn't need this, this one isn't.
     const stored = await withDb<unknown>((db) => db.get(PROFILE_STORE, PROFILE_KEY))
-    expect(stored).toEqual(v1Profile)
+    expect(stored).toEqual(migrated)
+  })
+
+  it('a second load reads back the same anonId a migrating load just persisted (the actual regression a pre-merge review caught)', async () => {
+    const v1Profile = { schema_version: 1, rating: 1200, ratedAttemptCount: 0 }
+    await withDb((db) => db.put(PROFILE_STORE, v1Profile, PROFILE_KEY))
+
+    const first = await loadProfile()
+    const second = await loadProfile()
+
+    expect(second.anonId).toBe(first.anonId)
   })
 })

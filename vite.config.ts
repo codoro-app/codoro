@@ -94,8 +94,11 @@ export default defineConfig({
         // in the URL fragment (`/challenge#<base64url>`) — a fragment never
         // reaches Cloudflare or the SW, so this stays a plain literal
         // alternative here (like /legal), not a DYNAMIC_ROUTES entry.
+        //
+        // v2 Phase 7 adds /settings, another plain static route (same
+        // treatment as /legal) — the export/import UI.
         navigateFallbackDenylist: [
-          /^\/(?!(?:practice|daily|rush|browse|legal|trace|challenge|puzzle\/[^/?]+)?(?:\?|$))/,
+          /^\/(?!(?:practice|daily|rush|browse|legal|trace|challenge|settings|puzzle\/[^/?]+)?(?:\?|$))/,
         ],
         cleanupOutdatedCaches: true,
       },

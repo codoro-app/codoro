@@ -24,6 +24,13 @@ import type { AttemptEventPayload } from './events'
 const posthogMock = {
   init: vi.fn(),
   capture: vi.fn(),
+  register: vi.fn(),
+  // Present (not omitted) specifically so registerAnonId's "never
+  // identify" guard below can assert a real not-called check instead of
+  // `'identify' in posthogMock` — a pre-merge review found that check was
+  // a tautology about this mock object's own shape, unable to fail no
+  // matter what the implementation did.
+  identify: vi.fn(),
 }
 
 vi.mock('posthog-js', () => ({ default: posthogMock }))
@@ -32,6 +39,8 @@ beforeEach(() => {
   vi.resetModules()
   posthogMock.init.mockReset()
   posthogMock.capture.mockReset()
+  posthogMock.register.mockReset()
+  posthogMock.identify.mockReset()
 })
 
 async function flushPromises(): Promise<void> {
@@ -108,6 +117,36 @@ describe('trackSessionStart', () => {
     const { trackSessionStart } = await loadTelemetry('phc_test_key')
     expect(() => {
       trackSessionStart()
+    }).not.toThrow()
+    await flushPromises()
+  })
+})
+
+describe('registerAnonId', () => {
+  it('calls posthog.register with the anon id as a super property, never identify', async () => {
+    const { registerAnonId } = await loadTelemetry('phc_test_key')
+    registerAnonId('anon-abc-123')
+    await flushPromises()
+    expect(posthogMock.register).toHaveBeenCalledWith({ codoro_anon_id: 'anon-abc-123' })
+    // Guard for the Phase 7 Item 6 decision: registerAnonId must never call
+    // identify, regardless of call order relative to register.
+    expect(posthogMock.identify).not.toHaveBeenCalled()
+  })
+
+  it('no-ops without calling posthog.register when the key is unset', async () => {
+    const { registerAnonId } = await loadTelemetry(undefined)
+    registerAnonId('anon-abc-123')
+    await flushPromises()
+    expect(posthogMock.register).not.toHaveBeenCalled()
+  })
+
+  it('does not throw when posthog.register itself throws', async () => {
+    posthogMock.register.mockImplementation(() => {
+      throw new Error('blocked by ad-blocker')
+    })
+    const { registerAnonId } = await loadTelemetry('phc_test_key')
+    expect(() => {
+      registerAnonId('anon-abc-123')
     }).not.toThrow()
     await flushPromises()
   })

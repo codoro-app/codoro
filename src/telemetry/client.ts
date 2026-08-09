@@ -16,7 +16,31 @@
  * stays on PostHog's own default anonymous `distinct_id`. `person_profiles:
  * 'identified_only'` tells PostHog not to create a person profile for
  * anonymous events either, since we'll never identify anyone to attach one
- * to.
+ * to. That decision is unchanged by `registerAnonId` below (Phase 7 Item
+ * 6): it calls `posthog.register()`, not `identify()` — a *super property*
+ * (an app-generated, PII-free ID from the profile store) automatically
+ * attached to every event captured after registration, not a change of
+ * `distinct_id` and not a merge of any two identities. Chosen deliberately
+ * over `identify()` for two reasons, in order: (1) `identify()` creates a
+ * PostHog person profile, which this app's `person_profiles:
+ * 'identified_only'` setting and pricing model treat differently from an
+ * anonymous event — registering a super property creates no person profile
+ * at all, so this stays free of that cost question entirely rather than
+ * requiring one to be answered; (2) `identify()`'s first call on a given
+ * `distinct_id` *merges* that browser's whole prior anonymous history into
+ * whatever person it's identified as — exactly the wrong shape for Item
+ * 6's import collision (a player importing a friend's export file must
+ * never cause PostHog to treat the two of them as one person). A
+ * registered super property has no merge semantics: re-registering it
+ * after an import just changes what value future events carry, with zero
+ * retroactive effect. See `src/storage/exportImport.ts`'s `commitImport`
+ * for the other half of that decision (the imported file's own `anonId` is
+ * never applied to this device). Retention analysis must key off this
+ * property directly (e.g. a custom insight grouping by
+ * `properties.codoro_anon_id`) rather than PostHog's stock person-based
+ * Retention insight, since no person is ever created — unverified against
+ * the live PostHog project in this environment; see
+ * docs/v2-build-plan.md's Phase 7 amendment.
  *
  * posthog-js's *default* init also turns on autocapture, pageview tracking,
  * session recording, surveys, dead-click detection, and web-vitals capture
@@ -90,6 +114,31 @@ export function safeCapture(event: string, properties?: object): void {
   posthog
     .then((ph) => {
       ph.capture(event, properties)
+    })
+    .catch(() => {
+      // A blocked/misconfigured analytics provider must never break the app.
+    })
+}
+
+/**
+ * Registers the stable anonymous ID (src/storage's UserProfile.anonId) as a
+ * super property — see this file's own top doc comment for the full
+ * mechanism decision. Called once per app session, from main.tsx, after the
+ * profile loads (a `loadProfile()` read, not blocking `initTelemetry`/
+ * `trackSessionStart` — see main.tsx's own comment on the resulting race:
+ * `session_start` itself may rarely fire before this resolves, but every
+ * event after profile load carries it). Idempotent and side-effect-free if
+ * called more than once with the same value, same as posthog-js's own
+ * `register()`.
+ */
+export function registerAnonId(anonId: string): void {
+  const posthog = loadPosthog()
+  if (!posthog) {
+    return
+  }
+  posthog
+    .then((ph) => {
+      ph.register({ codoro_anon_id: anonId })
     })
     .catch(() => {
       // A blocked/misconfigured analytics provider must never break the app.

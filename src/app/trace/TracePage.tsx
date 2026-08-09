@@ -18,6 +18,13 @@
  * independent session (its own profile load + puzzle serve) racing the one
  * inside `TraceRunner` — so this page is intentionally a thin shell around
  * it rather than a duplicate of RushPage's own status-branching.
+ *
+ * `timed={false}` (Phase 7): `/trace` is untimed by direct user preference,
+ * reversing 5b's decision that real Trace mode runs the per-checkpoint
+ * clock. `TRACE_CHECKPOINT_TIME_LIMIT_MS` and the timed path stay in
+ * `TraceRunner.tsx`, live and tested, for future timed consumers (6b's
+ * boss run, 6c's speed round) — see docs/v2-build-plan.md's Phase 7
+ * amendment for the full decision record.
  */
 import { TraceRunner } from './TraceRunner'
 import './tracePage.css'
@@ -25,7 +32,7 @@ import './tracePage.css'
 export function TracePage() {
   return (
     <div className="trace-page app-shell__main">
-      <TraceRunner />
+      <TraceRunner timed={false} />
     </div>
   )
 }

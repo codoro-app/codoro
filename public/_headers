@@ -3,3 +3,28 @@
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# v2 Phase 7: the build plan's "inefficient cache policy on the flagged
+# static resource" — the five webfonts (two of them preloaded in
+# index.html) live under public/fonts/, so Vite copies them verbatim with
+# no content hash, and without a rule here they fall through to Cloudflare
+# Pages' default static-asset cache policy (short-lived), unlike /assets/*
+# above. No real production Lighthouse run was available in this
+# environment to confirm this is the exact resource flagged; reconcile
+# against the real report after deploy (Phase 7 amendment).
+#
+# Safe despite the filename NOT being content-hashed or otherwise
+# version-pinned (an earlier draft of this comment claimed it was — wrong,
+# caught by a pre-merge review: replacing a font at the same path, e.g. a
+# library upgrade or re-subsetting, produces a different file at an
+# identical path, and nothing here forces a rename): vite.config.ts's SW
+# precache (globPatterns includes woff2) assigns each font entry its own
+# content-hash *revision* in the manifest, and workbox-precaching fetches a
+# revisioned entry with cache: 'reload' at SW-install time — bypassing the
+# HTTP cache this header governs entirely. So a real font swap is still
+# correctly picked up by every SW-controlled visit. The residual exposure
+# is narrower: a visitor not yet under SW control (first load before the SW
+# installs, or a browser with the SW unregistered) can keep the old bytes
+# in HTTP cache for up to a year — cosmetic (stale glyphs), not functional.
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable

@@ -7,9 +7,13 @@ import { DYNAMIC_ROUTES, labelForPath, ROUTE_META } from './routes'
 // Mirrors vite.config.ts's workbox.navigateFallbackDenylist[0] exactly —
 // not imported from there, since vite.config.ts lives in its own isolated
 // tsconfig.node.json project and doesn't export anything for src/ to
-// import. Kept in sync by hand; this test is what would catch drift.
+// import. Kept in sync by hand; the "matches vite.config.ts's own regex
+// source" test below (not just this test file's own copy) is what
+// actually catches drift — see that test's own comment (pre-merge review
+// finding: this constant alone caught nothing, since every test here only
+// ever asserted against itself).
 const SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN =
-  /^\/(?!(?:practice|daily|rush|browse|legal|trace|challenge|puzzle\/[^/?]+)?(?:\?|$))/
+  /^\/(?!(?:practice|daily|rush|browse|legal|trace|challenge|settings|puzzle\/[^/?]+)?(?:\?|$))/
 
 describe('labelForPath', () => {
   it('labels the known routes', () => {
@@ -17,6 +21,7 @@ describe('labelForPath', () => {
     expect(labelForPath('/browse')).toBe('Browse')
     expect(labelForPath('/practice')).toBe('Practice')
     expect(labelForPath('/legal')).toBe('Legal')
+    expect(labelForPath('/settings')).toBe('Settings')
   })
 
   it('labels a dynamic /puzzle/<id> route generically, without needing the real id', () => {
@@ -80,6 +85,27 @@ describe('SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN', () => {
 
   it('denies the fallback for a bare /puzzle/ with no id', () => {
     expect(SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN.test('/puzzle/')).toBe(true)
+  })
+
+  // Pre-merge review finding: every test above only ever asserts against
+  // this file's OWN copy of the regex, so they'd all stay green even if
+  // vite.config.ts's real navigateFallbackDenylist drifted out of sync
+  // entirely (e.g. a route added to ROUTES/ROUTE_META but forgotten in
+  // vite.config.ts's alternation) — `pnpm validate` would be fully green
+  // while an installed PWA, offline or on a flaky connection, gets denied
+  // the cached shell for a route that works fine online. Reading
+  // vite.config.ts's actual text and asserting this constant's source
+  // appears in it verbatim is what closes that gap — same readFileSync
+  // pattern the _redirects guard below already uses.
+  it("matches vite.config.ts's own navigateFallbackDenylist regex source verbatim, not just this file's copy of it", () => {
+    const viteConfigPath = join(
+      dirname(fileURLToPath(import.meta.url)),
+      '..',
+      '..',
+      'vite.config.ts',
+    )
+    const viteConfigSource = readFileSync(viteConfigPath, 'utf-8')
+    expect(viteConfigSource).toContain(SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN.source)
   })
 })
 
