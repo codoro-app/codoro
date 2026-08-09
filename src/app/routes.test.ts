@@ -161,3 +161,68 @@ describe('public/_redirects', () => {
     }
   })
 })
+
+// v2 Phase 7b Item 1a/1b revert-check: mechanical, text-level assertions
+// against vite.config.ts's real source, same readFileSync pattern as the
+// navigateFallbackDenylist guard above — reverting either change fails
+// these, not just "looks reverted."
+describe('vite.config.ts build config (v2 Phase 7b)', () => {
+  const viteConfigPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'vite.config.ts')
+  const viteConfigSource = readFileSync(viteConfigPath, 'utf-8')
+
+  it('sets an explicit build.target floor (Item 1a — the ~9 KiB legacy-JS fix)', () => {
+    expect(viteConfigSource).toContain("target: ['ios17', 'safari17', 'chrome120', 'edge120']")
+  })
+
+  it('disables the modulePreload polyfill (dead weight once the target floor is Safari 17+)', () => {
+    expect(viteConfigSource).toMatch(/modulePreload:\s*{\s*[\s\S]*?polyfill:\s*false/)
+  })
+
+  it('registers the inline-critical-css plugin in the actual plugins array (Item 1b — the ~170ms render-blocking fix)', () => {
+    // Not a bare toContain('inlineCriticalCss()') — that substring also
+    // matches the function's own zero-arg declaration
+    // ("function inlineCriticalCss(): Plugin {"), so it would stay green
+    // even if the call were removed from plugins: [...] and the function
+    // were merely left defined and unused (a real revert-check failure,
+    // found by review). Scoping the match to the plugins: [...] array body
+    // specifically is what actually proves it's wired up.
+    const pluginsArrayMatch = /plugins:\s*\[([\s\S]*?)\],/.exec(viteConfigSource)
+    expect(pluginsArrayMatch, 'plugins: [...] array not found in vite.config.ts').not.toBeNull()
+    expect(pluginsArrayMatch?.[1]).toContain('inlineCriticalCss()')
+  })
+})
+
+// v2 Phase 7b Item 1c: favicon.svg and pwa-192.png are fetched on every real
+// page load (index.html's own <head>); og-image.png by OG/Twitter crawlers;
+// the four PWA-install-only icons for consistency with the same
+// SW-precache-revisioning justification /fonts/* already documents above.
+describe('public/_headers (v2 Phase 7b Item 1c)', () => {
+  const headersPath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    '..',
+    '..',
+    'public',
+    '_headers',
+  )
+  const headersLines = readFileSync(headersPath, 'utf-8')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+
+  it('gives every root-level static icon/OG asset the same immutable cache policy as /fonts/*', () => {
+    for (const path of [
+      '/favicon.svg',
+      '/pwa-192.png',
+      '/og-image.png',
+      '/icons.svg',
+      '/pwa-512.png',
+      '/pwa-maskable-192.png',
+      '/pwa-maskable-512.png',
+    ]) {
+      const pathLineIndex = headersLines.indexOf(path)
+      expect(pathLineIndex, `${path} rule not found`).toBeGreaterThanOrEqual(0)
+      expect(headersLines[pathLineIndex + 1]).toBe(
+        'Cache-Control: public, max-age=31536000, immutable',
+      )
+    }
+  })
+})
