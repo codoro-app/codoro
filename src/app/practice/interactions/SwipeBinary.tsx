@@ -198,6 +198,34 @@ export function SwipeBinary({
       // is enough to absorb that natural jitter without weakening genuine
       // vertical-scroll detection.
       axisThreshold: { touch: 20 },
+      // v2 Phase 7b, OD-1 (third gesture defect, real device — iPhone 15
+      // Pro, iOS 26.5.2, both PWA and browser tab): the two fixes above
+      // (32ms kinematics staleness, this axisThreshold) close the JS-level
+      // axis-lock bugs but don't touch a separate, earlier-arbitrating
+      // layer — `touch-action: pan-y` below tells the WebKit compositor at
+      // parse time that it may commit a touch to native vertical scroll
+      // WITHOUT ever consulting JS, and it can make that commitment within
+      // the first few touchmove samples, before `axisThreshold` above gets
+      // a meaningful chance to run. Once committed, the touchmove's own
+      // `cancelable` flips to false — confirmed directly in
+      // @use-gesture/core's own DragEngine.preventScroll(), which no-ops
+      // under that guard. That's the actual symptom this device reproduced:
+      // a normal-speed or slightly-diagonal swipe loses this race to native
+      // scroll and does nothing; only a fast, purely-horizontal flick wins
+      // it. `preventScroll: true` activates @use-gesture's own
+      // already-shipped scroll-arbitration path instead of leaving it to
+      // touch-action: a dedicated non-passive listener defers the
+      // vertical/horizontal call to this same axisThreshold — if it
+      // resolves vertical, it cleanly yields (removes itself, never calls
+      // preventDefault, native scroll proceeds normally) before scroll
+      // visibly starts; if horizontal, the drag wins and scroll is
+      // prevented for the rest of the gesture. `preventScrollAxis` defaults
+      // to 'y', which is exactly the axis this card must still yield to, so
+      // no override is needed. This requires `touchAction: 'none'` below
+      // (not 'pan-y') — @use-gesture's own bundled docs are explicit that
+      // 'none' is what a draggable element needs; 'pan-y' is what caused
+      // this bug by pre-committing the browser before JS ever ran.
+      preventScroll: true,
     },
   )
 
@@ -218,7 +246,12 @@ export function SwipeBinary({
       <motion.div
         {...dragSurfaceProps}
         className="swipe-fallback__card"
-        style={{ x, rotate, touchAction: 'pan-y' }}
+        // v2 Phase 7b, OD-1: 'none', not 'pan-y' — see the useDrag config's
+        // own comment above (preventScroll) for why. @use-gesture's own
+        // scroll-arbitration path (preventScroll: true) now owns the
+        // vertical-scroll-passthrough decision this used to hand to the
+        // browser directly.
+        style={{ x, rotate, touchAction: 'none' }}
       >
         <CodeSnippet lines={lines} />
         <div className="swipe-fallback__buttons">
