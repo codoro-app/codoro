@@ -68,7 +68,15 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByText('1200')).toBeInTheDocument()
     })
-  })
+
+    // The first test in this file absorbs the whole-App module import plus
+    // the real content pool's glob transform, which under a concurrent
+    // full-suite run (82 files transforming at once) has repeatedly blown
+    // the default 5s test bound even though the file passes in isolation —
+    // same under-load flake class as traceGen's 2s child-process timeout.
+    // 15s gives the cold first mount real room while still failing on a
+    // genuine hang.
+  }, 15_000)
 
   it('defaults to Practice, and switches to the Daily UI via the mode switcher', async () => {
     const user = userEvent.setup()

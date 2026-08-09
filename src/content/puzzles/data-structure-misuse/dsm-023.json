@@ -7,6 +7,7 @@
   "language": "java",
   "snippet": "public List<String> unique(List<String> in) {\n    Set<String> seen = new HashSet<>();\n    List<String> out = new ArrayList<>();\n    for (String s : in) {\n        if (seen.add(s)) out.add(s);\n    }\n    return out;\n}",
   "interaction": "drag-order",
+  "format": "code",
   "blocks": [
     "if (seen.add(s)) out.add(s);",
     "Set<String> seen = new HashSet<>();",

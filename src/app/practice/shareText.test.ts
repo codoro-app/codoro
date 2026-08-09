@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { buildPracticeShareText } from './shareText'
+import { buildPracticeShareText, buildPracticeChallengeText } from './shareText'
+import { decodeChallengePayload, MAX_CHALLENGE_PUZZLES } from '../../challenge'
+import type { ChallengeAttemptInput } from '../../challenge'
 import { puzzlePool } from '../../content'
 
 // A real, bundled puzzle id (v2 Phase 1b) — asserted against the real pool
@@ -31,5 +33,37 @@ describe('buildPracticeShareText', () => {
     expect(match).not.toBeNull()
     const linkedId = match?.[1]
     expect(puzzlePool.some((puzzle) => puzzle.id === linkedId)).toBe(true)
+  })
+})
+
+describe('buildPracticeChallengeText', () => {
+  it("encodes the live streak's correct answers into a playable /challenge link", () => {
+    const attempts: ChallengeAttemptInput[] = [
+      { puzzleId: REAL_PUZZLE_ID, correct: true, time_ms: 900 },
+      { puzzleId: 'tc-009', correct: true, time_ms: 1100 },
+      { puzzleId: REAL_PUZZLE_ID, correct: true, time_ms: 700 },
+    ]
+    const text = buildPracticeChallengeText({ attempts })
+    expect(text).toMatch(
+      /^Beat my Codoro Practice streak — 3 in a row — getcodoro\.com\/challenge#/,
+    )
+    const decoded = decodeChallengePayload(text.split('#')[1] ?? '')
+    expect(decoded).not.toBeNull()
+    expect(decoded?.ids).toHaveLength(3)
+    expect(decoded?.results).toHaveLength(3)
+    expect(decoded?.results.every((result) => result.correct)).toBe(true)
+  })
+
+  it('headline counts what is encoded, not the raw streak (truncation)', () => {
+    const attempts: ChallengeAttemptInput[] = Array.from({ length: 8 }, (_, i) => ({
+      puzzleId: i % 2 === 0 ? REAL_PUZZLE_ID : 'tc-009',
+      correct: true,
+      time_ms: 500,
+    }))
+    const text = buildPracticeChallengeText({ attempts })
+    expect(text).toMatch(/^Beat my Codoro Practice streak — 5 in a row — /)
+    const decoded = decodeChallengePayload(text.split('#')[1] ?? '')
+    expect(decoded).not.toBeNull()
+    expect(decoded?.ids).toHaveLength(MAX_CHALLENGE_PUZZLES)
   })
 })

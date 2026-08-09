@@ -57,6 +57,24 @@ convention as `src/engine/` and `src/storage/`.
   streak-pause moment (Phase 5b Item 7/8) is shown. `is_new_best`
   distinguishes a pause that carried the "new best streak" framing from one
   that didn't.
+- `trackChallengeCreate(payload)` — fires the `challenge_create` event
+  (`{ surface, puzzle_count }`) whenever a "Challenge a friend" affordance
+  produces a shareable challenge link (Phase 5c). `surface` is
+  `'daily' | 'rush' | 'practice'`, plus `'challenge'` for a counter-challenge
+  (the comparison screen re-encoding the recipient's own run); `puzzle_count`
+  is how many puzzles the encoded challenge carries (≤ the cap — long runs
+  truncate to their last 5).
+- `trackChallengeLinkView(payload)` — fires the `challenge_link_view` event
+  (`{ found }`) once per `/challenge` page view. `found: false` signals a
+  challenge link that doesn't decode (malformed/truncated/unknown-version
+  payload) or whose ids don't resolve to real bundled puzzles — the
+  broken-link state.
+- `trackChallengeLinkComplete(payload)` — fires the `challenge_link_complete`
+  event (`{ beat_challenger }`) once a challenge recipient finishes their run
+  and the comparison screen resolves. `beat_challenger` compares the
+  recipient's total time against the challenger's `totalMs` (tie counts as
+  not-beating). Challenge attempts are structurally unrated, so this event is
+  the only record of a challenge's outcome.
 - `trackError(error, context?)` — fires an `app_error` event with a truncated
   message/stack. Used by `src/app/ErrorBoundary.tsx`; call it directly for any
   other caught error worth reporting.

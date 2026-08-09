@@ -28,6 +28,7 @@ import { DAILY_CALENDAR, quizPool } from '../../content'
 import { isDevPuzzleModeEnabled, resolveDailyStubPuzzle } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle } from '../../content'
 import { trackAttempt, trackError } from '../../telemetry'
+import type { ChallengeAttemptInput } from '../../challenge'
 import type { CommitPayload } from '../practice/interactionTypes'
 
 /** Local calendar-date string (YYYY-MM-DD) from wall-clock time — never a date library, matching usePracticeSession's convention. */
@@ -53,6 +54,8 @@ export interface DailySession {
   attemptNonce: number
   /** Bumped on every recorded attempt (first-of-day or retry) — MasteryView takes this as a prop so it can refetch attempts instead of only reading them once on mount. */
   attemptVersion: number
+  /** The day's first (rated) attempt, for a challenge link. Session-only (no schema migration, Phase 5c locked decision) and set exactly once — unrated retries never overwrite it, the same "no re-taking for a better share" rule as the ShareCard. Null until the first attempt of the day. */
+  challengeAttempt: ChallengeAttemptInput | null
   handleAnswered: (payload: CommitPayload) => void
   handleRetry: () => void
   retryLoad: () => void
@@ -64,6 +67,7 @@ export function useDailySession(): DailySession {
   const [ratingDelta, setRatingDelta] = useState<number | null>(null)
   const [attemptNonce, setAttemptNonce] = useState(0)
   const [attemptVersion, setAttemptVersion] = useState(0)
+  const [challengeAttempt, setChallengeAttempt] = useState<ChallengeAttemptInput | null>(null)
 
   const today = todayDateString()
   const dayNumber = getDailyNumber(today)
@@ -167,6 +171,14 @@ export function useDailySession(): DailySession {
       setRatingDelta(delta)
       setAttemptVersion((v) => v + 1)
 
+      // The day's first attempt seeds the challenge link. Session-only and set
+      // exactly once — an unrated retry (isFirstAttemptOfDay false) never
+      // overwrites it, the same "no re-taking for a better share" rule as the
+      // ShareCard.
+      if (isFirstAttemptOfDay) {
+        setChallengeAttempt({ puzzleId: puzzle.id, correct: payload.correct, time_ms: timeMs })
+      }
+
       appendAttempt(attempt).catch((error: unknown) => {
         trackError(error, 'useDailySession: appendAttempt failed')
       })
@@ -202,6 +214,7 @@ export function useDailySession(): DailySession {
     ratingDelta,
     attemptNonce,
     attemptVersion,
+    challengeAttempt,
     handleAnswered,
     handleRetry,
     retryLoad,

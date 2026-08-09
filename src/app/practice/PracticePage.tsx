@@ -58,6 +58,7 @@ import { StatusBar } from './StatusBar'
 import { PatternPicker } from './PatternPicker'
 import { MasteryView } from './MasteryView'
 import { PracticeShareCard } from './PracticeShareCard'
+import { PracticeChallengeCard } from './PracticeChallengeCard'
 import { usePracticeSession } from './usePracticeSession'
 import { useMediaQuery } from '../useMediaQuery'
 import { StreakPause } from '../StreakPause'
@@ -359,6 +360,12 @@ export function PracticePage() {
         {lastAnswer && lastAnswer.puzzleId === session.puzzle?.id && (
           <PracticeShareCard puzzleId={lastAnswer.puzzleId} correct={lastAnswer.correct} />
         )}
+
+        {session.streakAttempts.length > 0 &&
+          lastAnswer &&
+          lastAnswer.puzzleId === session.puzzle?.id && (
+            <PracticeChallengeCard attempts={session.streakAttempts} />
+          )}
       </div>
 
       {isDesktop && (

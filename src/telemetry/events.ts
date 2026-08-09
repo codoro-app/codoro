@@ -144,6 +144,57 @@ export function trackStreakPause(payload: StreakPausePayload): void {
 }
 
 /**
+ * Fired whenever a "Challenge a friend" affordance produces a shareable
+ * challenge link — the start of every challenge flow (Phase 5c). `surface`
+ * names the calling mode: the three own-modes' post-solve cards, or
+ * `'challenge'` for a counter-challenge (the comparison screen re-encoding
+ * the recipient's own run). `puzzle_count` is the number of puzzles the
+ * encoded challenge carries (≤ the payload cap — long runs truncate to their
+ * last 5). Not part of the locked `attempt` schema — a new, additive event.
+ */
+export interface ChallengeCreatePayload {
+  surface: 'daily' | 'rush' | 'practice' | 'challenge'
+  puzzle_count: number
+}
+
+export function trackChallengeCreate(payload: ChallengeCreatePayload): void {
+  safeCapture('challenge_create', payload)
+}
+
+/**
+ * Fired once per `/challenge` page view. `found: false` is the signal that
+ * someone opened a challenge link that doesn't decode (malformed, truncated,
+ * or unknown-version payload — the codec's every-failure-collapses-to-null
+ * standard) or whose ids don't resolve to real bundled puzzles. The payload
+ * is deliberately leaner than `puzzle_link_view`'s — there's no single puzzle
+ * identity to report, and per the Phase 5c build plan the broken-link event
+ * only needs to distinguish found from not.
+ */
+export interface ChallengeLinkViewPayload {
+  found: boolean
+}
+
+export function trackChallengeLinkView(payload: ChallengeLinkViewPayload): void {
+  safeCapture('challenge_link_view', payload)
+}
+
+/**
+ * Fired once a challenge recipient finishes their run and the comparison
+ * screen resolves. `beat_challenger` compares the recipient's total time
+ * against the challenger's `totalMs` (the tiebreaker — a tie counts as
+ * not-beating). The only telemetry record of a challenge's outcome:
+ * challenge attempts are structurally unrated and never touch storage, so
+ * this event is where the win/lose signal lives.
+ */
+export interface ChallengeLinkCompletePayload {
+  beat_challenger: boolean
+}
+
+export function trackChallengeLinkComplete(payload: ChallengeLinkCompletePayload): void {
+  safeCapture('challenge_link_complete', payload)
+}
+
+/**
  * Lightweight error-tracking event, not part of the locked schema above —
  * this is our call for V1: PostHog's own error capture is enough for now,
  * we're not pulling in Sentry (see the PR description for the reasoning).

@@ -76,7 +76,28 @@ const dragOrderPuzzle: DragOrderPuzzle = {
   snippet:
     'function countdown(n) {\n  if (n <= 0) return;\n  console.log(n);\n  countdown(n - 1);\n}',
   interaction: 'drag-order',
+  format: 'output',
   blocks: ['Step 1', 'Step 2', 'Step 3'],
+  correct_order: [2, 0, 1],
+}
+
+// format: 'code' — blocks are literal fragments of snippet being
+// reassembled into it, so snippet already IS the solved answer. Regression
+// fixture for the leak this format field exists to prevent (see
+// DragOrderSchema's doc comment): before the fix, PuzzleCardShell showed
+// the snippet for every drag-order puzzle regardless of format, handing the
+// player this puzzle's answer outright.
+const dragOrderCodePuzzle: DragOrderPuzzle = {
+  id: 'rec-901',
+  pattern: 'recursion-termination',
+  difficulty_rating: 1200,
+  explanation: 'The base case has to be checked before the function recurses further.',
+  prompt: 'Drag these lines into the order that makes countdown(n) print then recurse.',
+  language: 'javascript',
+  snippet: 'if (n <= 0) return;\nconsole.log(n);\ncountdown(n - 1);',
+  interaction: 'drag-order',
+  format: 'code',
+  blocks: ['console.log(n);', 'countdown(n - 1);', 'if (n <= 0) return;'],
   correct_order: [2, 0, 1],
 }
 
@@ -258,6 +279,22 @@ describe('PuzzleCardShell', () => {
 
     expect(onAnswered).toHaveBeenCalledWith({ correct: false, choiceIndex: null })
     expect(screen.getByText('Not quite')).toBeInTheDocument()
+  })
+
+  it('drag-order format "code": does NOT render the snippet — it already IS the solved answer', () => {
+    const { container } = render(
+      <PuzzleCardShell
+        puzzle={dragOrderCodePuzzle}
+        ratingDelta={null}
+        onAnswered={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText(dragOrderCodePuzzle.prompt)).toBeInTheDocument()
+    expect(container.querySelector('.code-snippet')).not.toBeInTheDocument()
+    // The blocks themselves still render — they're the puzzle.
+    expect(screen.getByText('console.log(n);')).toBeInTheDocument()
   })
 
   it('resets committed state when the puzzle prop changes', async () => {

@@ -271,6 +271,73 @@ describe('trackShareClick', () => {
   })
 })
 
+describe('trackChallengeCreate', () => {
+  it('captures challenge_create with the exact property shape', async () => {
+    const { trackChallengeCreate } = await loadTelemetry('phc_test_key')
+    const payload = { surface: 'rush' as const, puzzle_count: 5 }
+    trackChallengeCreate(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('challenge_create', payload)
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackChallengeCreate } = await loadTelemetry(undefined)
+    trackChallengeCreate({ surface: 'daily', puzzle_count: 3 })
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
+describe('trackChallengeLinkView', () => {
+  it('captures challenge_link_view with found: true for a resolvable link', async () => {
+    const { trackChallengeLinkView } = await loadTelemetry('phc_test_key')
+    const payload = { found: true }
+    trackChallengeLinkView(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('challenge_link_view', payload)
+  })
+
+  it('captures found: false for a broken link', async () => {
+    const { trackChallengeLinkView } = await loadTelemetry('phc_test_key')
+    const payload = { found: false }
+    trackChallengeLinkView(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('challenge_link_view', payload)
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackChallengeLinkView } = await loadTelemetry(undefined)
+    trackChallengeLinkView({ found: true })
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
+describe('trackChallengeLinkComplete', () => {
+  it('captures challenge_link_complete with beat_challenger: true when the recipient wins', async () => {
+    const { trackChallengeLinkComplete } = await loadTelemetry('phc_test_key')
+    const payload = { beat_challenger: true }
+    trackChallengeLinkComplete(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('challenge_link_complete', payload)
+  })
+
+  it('captures beat_challenger: false on a tie or loss', async () => {
+    const { trackChallengeLinkComplete } = await loadTelemetry('phc_test_key')
+    const payload = { beat_challenger: false }
+    trackChallengeLinkComplete(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('challenge_link_complete', payload)
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackChallengeLinkComplete } = await loadTelemetry(undefined)
+    trackChallengeLinkComplete({ beat_challenger: false })
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
 describe('trackError', () => {
   it('captures an error event with message, stack, and context', async () => {
     const { trackError } = await loadTelemetry('phc_test_key')

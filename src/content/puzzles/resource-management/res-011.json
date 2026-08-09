@@ -7,6 +7,7 @@
   "language": "java",
   "snippet": "try (BufferedReader r = Files.newBufferedReader(path)) {\n    System.out.println(r.readLine());\n    System.out.println(r.readLine());\n}\nSystem.out.println(\"closed\");",
   "interaction": "drag-order",
+  "format": "output",
   "blocks": ["Prints 'closed'", "Prints 'second'", "Auto-closes the reader", "Prints 'first'"],
   "correct_order": [3, 1, 2, 0]
 }

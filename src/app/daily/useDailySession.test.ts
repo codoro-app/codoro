@@ -118,6 +118,8 @@ describe('useDailySession', () => {
     expect(result.current.profile?.dailyCompletion?.date).toBe(today())
     expect(result.current.profile?.dailyCompletion?.correct).toBe(true)
     expect(result.current.completedToday).toBe(true)
+    expect(result.current.challengeAttempt?.puzzleId).toBe(puzzle.id)
+    expect(result.current.challengeAttempt?.correct).toBe(true)
 
     expect(saveProfile).toHaveBeenCalledTimes(1)
     expect(appendAttempt).toHaveBeenCalledWith(
@@ -150,6 +152,8 @@ describe('useDailySession', () => {
     expect(result.current.profile?.ratedAttemptCount).toBe(afterFirst.ratedAttemptCount)
     expect(result.current.profile?.streak).toEqual(afterFirst.streak)
     expect(result.current.profile?.dailyCompletion).toEqual(afterFirst.dailyCompletion)
+    // The challenge link stays the day's first attempt — a retry never re-seeds it.
+    expect(result.current.challengeAttempt?.correct).toBe(true)
 
     // Both attempts still get appended for telemetry/history purposes.
     expect(appendAttempt).toHaveBeenCalledTimes(2)

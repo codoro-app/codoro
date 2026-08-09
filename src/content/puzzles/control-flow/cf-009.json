@@ -7,6 +7,7 @@
   "language": "javascript",
   "snippet": "console.log('A');\nsetTimeout(() => console.log('B'), 0);\nPromise.resolve().then(() => console.log('C'));\nconsole.log('D');",
   "interaction": "drag-order",
+  "format": "output",
   "blocks": ["Logs 'B'", "Logs 'D'", "Logs 'C'", "Logs 'A'"],
   "correct_order": [3, 1, 2, 0]
 }

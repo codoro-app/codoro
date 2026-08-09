@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { decodeChallengePayload } from '../../challenge'
 import { PATTERN_LABELS } from '../../content'
 import { nth } from '../../test/nth'
 import type { Attempt, UserProfile } from '../../storage'
@@ -68,12 +69,13 @@ vi.mock('../../storage', async (importOriginal) => {
 vi.mock('../../telemetry', () => ({
   trackAttempt: vi.fn(),
   trackShareClick: vi.fn(),
+  trackChallengeCreate: vi.fn(),
   trackError: vi.fn(),
 }))
 
 const { loadProfile, saveProfile, appendAttempt, listAttempts, createDefaultProfile } =
   await import('../../storage')
-const { trackShareClick } = await import('../../telemetry')
+const { trackShareClick, trackChallengeCreate } = await import('../../telemetry')
 const { PracticePage } = await import('./PracticePage')
 
 describe('PracticePage', () => {
@@ -133,6 +135,65 @@ describe('PracticePage', () => {
     await user.click(screen.getByRole('button', { name: 'Continue' }))
     await waitFor(() => {
       expect(screen.queryByText(/Copy share text/i)).not.toBeInTheDocument()
+    })
+  })
+
+  it('shows the challenge card after a correct answer, with a working copy button that re-encodes the streak', async () => {
+    const user = userEvent.setup()
+    render(<PracticePage />)
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+
+    expect(screen.queryByRole('button', { name: 'Challenge a friend' })).not.toBeInTheDocument()
+
+    await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Challenge a friend' })).toBeInTheDocument()
+    })
+
+    const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
+    // This file's beforeEach has no vi.clearAllMocks(), so a spy placed in
+    // an earlier test (the share-card test's "Copy share text" click) may
+    // still be the same accumulated spy — clear it so calls[0] is this
+    // test's own write, not a leftover.
+    writeTextSpy.mockClear()
+    await user.click(screen.getByRole('button', { name: 'Challenge a friend' }))
+
+    expect(trackChallengeCreate).toHaveBeenCalledTimes(1)
+    expect(trackChallengeCreate).toHaveBeenCalledWith({ surface: 'practice', puzzle_count: 1 })
+
+    const url = writeTextSpy.mock.calls[0]?.[0]
+    if (typeof url !== 'string')
+      throw new Error('expected writeText to have been called with a URL')
+    expect(url).toMatch(/^Beat my Codoro Practice streak — 1 in a row — getcodoro\.com\/challenge#/)
+
+    const decoded = decodeChallengePayload(url.split('#')[1] ?? '')
+    expect(decoded).not.toBeNull()
+    expect(decoded?.ids).toHaveLength(1)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Link copied!' })).toBeInTheDocument()
+    })
+  })
+
+  it('clears the challenge card on Continue — it must not persist under the next, unanswered puzzle', async () => {
+    const user = userEvent.setup()
+    render(<PracticePage />)
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+
+    await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Challenge a friend' })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('button', { name: /Challenge a friend|Link copied!/ }),
+      ).not.toBeInTheDocument()
     })
   })
 

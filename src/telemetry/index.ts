@@ -17,6 +17,9 @@ export {
   trackPuzzleLinkAttempt,
   trackShareClick,
   trackStreakPause,
+  trackChallengeCreate,
+  trackChallengeLinkView,
+  trackChallengeLinkComplete,
   trackError,
 } from './events'
 export type {
@@ -28,4 +31,7 @@ export type {
   PuzzleLinkAttemptPayload,
   ShareClickPayload,
   StreakPausePayload,
+  ChallengeCreatePayload,
+  ChallengeLinkViewPayload,
+  ChallengeLinkCompletePayload,
 } from './events'

@@ -7,6 +7,7 @@
   "language": "java",
   "snippet": "public String getDefault(Map<String, String> m, String k) {\n    String v = m.get(k);\n    if (v == null) return \"default\";\n    return v;\n}",
   "interaction": "drag-order",
+  "format": "code",
   "blocks": [
     "if (v == null) return \"default\";",
     "String v = m.get(k);",

@@ -73,6 +73,7 @@ const traceImporter = () => import('./trace/TracePage')
 const homeImporter = () => import('./Home')
 const legalImporter = () => import('./legal/LegalPage')
 const puzzleImporter = () => import('./puzzle/PuzzlePage')
+const challengeImporter = () => import('./challenge/ChallengePage')
 
 const PracticePage = lazy(async () => ({ default: (await practiceImporter()).PracticePage }))
 const DailyPage = lazy(async () => ({ default: (await dailyImporter()).DailyPage }))
@@ -81,6 +82,7 @@ const TracePage = lazy(async () => ({ default: (await traceImporter()).TracePage
 const Home = lazy(async () => ({ default: (await homeImporter()).Home }))
 const LegalPage = lazy(async () => ({ default: (await legalImporter()).LegalPage }))
 const PuzzlePage = lazy(async () => ({ default: (await puzzleImporter()).PuzzlePage }))
+const ChallengePage = lazy(async () => ({ default: (await challengeImporter()).ChallengePage }))
 
 type BootMode = 'practice' | 'home'
 
@@ -217,6 +219,14 @@ export function App() {
             </Route>
             <Route path="/legal">
               <LegalPage />
+            </Route>
+            {/* v2 Phase 5c: link-only static route — the whole challenge
+                lives in the URL fragment (/challenge#<base64url>), which
+                never reaches Cloudflare or the SW, so this is a plain
+                literal <Route> (no ':id' param) and needs no DYNAMIC_ROUTES
+                entry. See routes.ts + public/_redirects. */}
+            <Route path="/challenge">
+              <ChallengePage />
             </Route>
             {/* v2 Phase 1b: the app's first dynamic route (wouter's ':id'
                 param syntax) — see routes.ts's DYNAMIC_ROUTES doc comment

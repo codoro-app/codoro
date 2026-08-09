@@ -7,6 +7,7 @@
   "language": "javascript",
   "snippet": "console.log('start');\nsetTimeout(() => console.log('timeout'), 0);\nPromise.resolve().then(() => console.log('promise'));\nconsole.log('end');",
   "interaction": "drag-order",
+  "format": "output",
   "blocks": ["Logs 'promise'", "Logs 'end'", "Logs 'timeout'", "Logs 'start'"],
   "correct_order": [3, 1, 0, 2]
 }

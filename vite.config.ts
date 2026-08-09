@@ -54,7 +54,7 @@ export default defineConfig({
         // Without a denylist, every navigation once the SW is installed —
         // including a deliberately bad path — gets index.html from cache,
         // so a 404 check behaves differently before vs. after the SW takes
-        // over. This regex allows the fallback only for the six real
+        // over. This regex allows the fallback only for the seven real
         // routes (and '/' itself); anything else falls through to the
         // network, matching _redirects/404.html's behavior for the same
         // path in a plain browser tab. Built as one negative-lookahead
@@ -73,7 +73,7 @@ export default defineConfig({
         // one with params.
         //
         // Not imported from src/app/routes.ts's ROUTE_META (which lists
-        // the same six paths): vite.config.ts is its own isolated
+        // the same seven paths): vite.config.ts is its own isolated
         // tsconfig.node.json project (module: nodenext, include:
         // ["vite.config.ts"] only) and reaching into src/ from here fights
         // module resolution for a marginal DRY win. Keep this list in sync
@@ -89,8 +89,13 @@ export default defineConfig({
         // branch just like an unknown top-level path, consistent with
         // _redirects treating a bare /puzzle/ as "rewrite to the app shell,
         // let the client router 404 it" rather than a real route of its own.
+        //
+        // v2 Phase 5c adds /challenge, a *static* route whose payload lives
+        // in the URL fragment (`/challenge#<base64url>`) — a fragment never
+        // reaches Cloudflare or the SW, so this stays a plain literal
+        // alternative here (like /legal), not a DYNAMIC_ROUTES entry.
         navigateFallbackDenylist: [
-          /^\/(?!(?:practice|daily|rush|browse|legal|trace|puzzle\/[^/?]+)?(?:\?|$))/,
+          /^\/(?!(?:practice|daily|rush|browse|legal|trace|challenge|puzzle\/[^/?]+)?(?:\?|$))/,
         ],
         cleanupOutdatedCaches: true,
       },

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { decodeChallengePayload } from '../../challenge'
 import type { Puzzle } from '../../content'
 
 const { FIXTURE_POOL } = vi.hoisted(() => ({
@@ -38,11 +39,12 @@ vi.mock('../../telemetry', () => ({
   trackRushAttempt: vi.fn(),
   trackRushRunEnd: vi.fn(),
   trackShareClick: vi.fn(),
+  trackChallengeCreate: vi.fn(),
 }))
 
 const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
   await import('../../storage')
-const { trackShareClick } = await import('../../telemetry')
+const { trackShareClick, trackChallengeCreate } = await import('../../telemetry')
 const { RushPage } = await import('./RushPage')
 
 /** correct_choice is always 0 -> choice text 'a'; 'b' is always wrong. */
@@ -142,6 +144,43 @@ describe('RushPage', () => {
     expect(trackShareClick).toHaveBeenCalledWith(expect.objectContaining({ surface: 'rush' }))
     await waitFor(() => {
       expect(screen.getByText(/Copied!/i)).toBeInTheDocument()
+    })
+  })
+
+  it('shows the challenge card after a run ends, with a working copy button that re-encodes the run', async () => {
+    const user = userEvent.setup()
+    render(<RushPage />)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'a' })).toBeInTheDocument()
+    })
+
+    await answerAndContinue(user, false)
+    await answerAndContinue(user, false)
+    await answerAndContinue(user, false)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Challenge a friend' })).toBeInTheDocument()
+    })
+
+    const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
+    await user.click(screen.getByRole('button', { name: 'Challenge a friend' }))
+
+    expect(trackChallengeCreate).toHaveBeenCalledTimes(1)
+    // All three run attempts (none correct here) are encoded — puzzle_count
+    // reflects what the link actually replays, truncated to MAX_CHALLENGE_PUZZLES.
+    expect(trackChallengeCreate).toHaveBeenCalledWith({ surface: 'rush', puzzle_count: 3 })
+
+    const url = writeTextSpy.mock.calls[0]?.[0]
+    if (typeof url !== 'string')
+      throw new Error('expected writeText to have been called with a URL')
+    expect(url).toMatch(/^Beat my Codoro Rush — 0 solved · 🔥 best 0 — getcodoro\.com\/challenge#/)
+
+    const decoded = decodeChallengePayload(url.split('#')[1] ?? '')
+    expect(decoded).not.toBeNull()
+    expect(decoded?.ids).toHaveLength(3)
+    expect(decoded?.results.every((result) => !result.correct)).toBe(true)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Link copied!' })).toBeInTheDocument()
     })
   })
 })

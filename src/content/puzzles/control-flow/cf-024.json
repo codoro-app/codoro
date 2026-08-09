@@ -7,6 +7,7 @@
   "language": "python",
   "snippet": "for i in range(1, 5):\n    if i % 2 == 0:\n        print(\"pair\")\n    else:\n        print(\"odd\")",
   "interaction": "drag-order",
+  "format": "output",
   "blocks": ["i=4 prints 'pair'", "i=1 prints 'odd'", "i=3 prints 'odd'", "i=2 prints 'pair'"],
   "correct_order": [1, 3, 2, 0]
 }

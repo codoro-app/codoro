@@ -80,12 +80,15 @@ export const DEV_STUB_PUZZLES: Puzzle[] = BANDS.flatMap((rating, i) => {
       language: 'javascript',
       snippet: `// dev stub drag-order #${String(i)}`,
       interaction: 'drag-order',
-      // Unambiguous by design (same convention as the other three stubs
-      // above, see this file's module doc) without being the identity
-      // permutation — PuzzleSchema now rejects identity correct_order (a
-      // puzzle that's already solved on load isn't a puzzle). Each block
-      // literally names its own correct position, so it stays trivial to
-      // solve by reading alone.
+      // 'output': these blocks are descriptive labels, not fragments of
+      // `snippet` (a throwaway comment) — the format that shows the static
+      // snippet alongside the drag targets. Unambiguous by design (same
+      // convention as the other three stubs above, see this file's module
+      // doc) without being the identity permutation — PuzzleSchema now
+      // rejects identity correct_order (a puzzle that's already solved on
+      // load isn't a puzzle). Each block literally names its own correct
+      // position, so it stays trivial to solve by reading alone.
+      format: 'output',
       blocks: ['Correct order: 2', 'Correct order: 3', 'Correct order: 1'],
       correct_order: [2, 0, 1],
     },

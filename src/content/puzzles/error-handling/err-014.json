@@ -7,6 +7,7 @@
   "language": "java",
   "snippet": "void run() {\n    try {\n        System.out.println(\"open\");\n        int x = Integer.parseInt(\"bad\");\n    } catch (NumberFormatException e) {\n        System.out.println(\"caught\");\n    } finally {\n        System.out.println(\"done\");\n    }\n    System.out.println(\"after\");\n}",
   "interaction": "drag-order",
+  "format": "output",
   "blocks": ["Prints 'caught'", "Prints 'done'", "Prints 'after'", "Prints 'open'"],
   "correct_order": [3, 0, 1, 2]
 }

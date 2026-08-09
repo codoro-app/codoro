@@ -377,4 +377,33 @@ describe('useRushSession', () => {
     expect(result.current.currentStreak).toBe(0)
     expect(result.current.runSummary).toBeNull()
   })
+
+  it('accumulates every attempt into runAttempts (correct and incorrect alike) and resets on a fresh run', async () => {
+    const { result } = renderHook(() => useRushSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    answerAndContinue(result, true) // solved 1
+    answerAndContinue(result, true) // solved 2
+    answerAndContinue(result, false) // strike 1
+    answerAndContinue(result, false) // strike 2
+    answerAndContinue(result, false) // strike 3 -> ends
+
+    expect(result.current.phase).toBe('ended')
+    expect(result.current.runAttempts).toHaveLength(5)
+    expect(result.current.runAttempts.filter((attempt) => attempt.correct)).toHaveLength(2)
+    // Every attempt records the puzzle actually served at that point, with a
+    // wall-clock time — the raw material the challenge link replays.
+    for (const attempt of result.current.runAttempts) {
+      expect(typeof attempt.puzzleId).toBe('string')
+      expect(attempt.puzzleId.length).toBeGreaterThan(0)
+      expect(typeof attempt.time_ms).toBe('number')
+    }
+
+    act(() => {
+      result.current.handleRunItBack()
+    })
+    expect(result.current.runAttempts).toHaveLength(0)
+  })
 })

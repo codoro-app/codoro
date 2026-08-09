@@ -31,6 +31,7 @@ import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { RushIcon } from '../Icons'
 import { RUSH_PUZZLE_TIME_LIMIT_MS, useRushSession } from './useRushSession'
 import { RushShareCard } from './RushShareCard'
+import { RushChallengeCard } from './RushChallengeCard'
 import './rushPage.css'
 
 export function RushPage() {
@@ -176,6 +177,12 @@ export function RushPage() {
               puzzleId={session.puzzle.id}
             />
           )}
+
+          <RushChallengeCard
+            solvedCount={session.runSummary.solvedCount}
+            bestStreakThisRun={session.runSummary.bestStreakThisRun}
+            attempts={session.runAttempts}
+          />
 
           <button type="button" className="share-card__button" onClick={session.handleRunItBack}>
             Run it back

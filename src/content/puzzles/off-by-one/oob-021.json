@@ -7,6 +7,7 @@
   "language": "python",
   "snippet": "def first_n(s, n):\n    if n > len(s):\n        n = len(s)\n    return s[:n]\n\nprint(first_n(\"hello\", 3))\nprint(first_n(\"hi\", 5))",
   "interaction": "drag-order",
+  "format": "output",
   "blocks": [
     "first_n('hello', 3) returns 'hel'",
     "first_n('hi', 5) clamps n to 2",

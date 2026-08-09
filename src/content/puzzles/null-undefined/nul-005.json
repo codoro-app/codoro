@@ -2,7 +2,7 @@
   "id": "nul-005",
   "pattern": "null-undefined",
   "difficulty_rating": 1575,
-  "explanation": "Destructuring defaults like `name = 'Guest'` only activate when the property is `undefined` — they do not treat `null` as missing. The call passes `name: null` explicitly, so the default never fires and the template literal renders `\"null#42\"` instead of the intended `\"Guest#42\"`. Base score: S=4 (requires knowing the specific undefined-vs-null default-parameter semantic), T=1 (the failing call is right there in the snippet, no tracing needed), D=3 (assuming defaults 'just work' for any missing-ish value is a genuinely tempting misconception), C=2 (only misfires when a caller explicitly passes null rather than omitting the property) → sum=10 → base rating 1400. Swipe-binary modifier +175 applied for the 50% guess floor → final 1575.",
+  "explanation": "Destructuring defaults like `name = 'Guest'` only activate when the property is `undefined` — they do not treat `null` as missing. The call passes `name: null` explicitly, so the default never fires and the template literal renders `\"null#42\"` instead of the intended `\"Guest#42\"`.",
   "prompt": "Does this function safely fall back to 'Guest' whenever no name is provided?",
   "language": "javascript",
   "snippet": "function formatUsername({ name = 'Guest', id } = {}) {\n  return `${name}#${id}`;\n}\n\nconsole.log(formatUsername({ name: null, id: 42 }));",

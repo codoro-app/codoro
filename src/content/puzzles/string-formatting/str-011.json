@@ -7,6 +7,7 @@
   "language": "python",
   "snippet": "def describe(items):\n    count = len(items)\n    label = \"items\"\n    return f\"Total: {count} {label}\"",
   "interaction": "drag-order",
+  "format": "code",
   "blocks": [
     "return f\"Total: {count} {label}\"",
     "label = \"items\"",

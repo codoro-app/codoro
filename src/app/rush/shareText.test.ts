@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { buildRushShareText } from './shareText'
+import { buildRushShareText, buildRushChallengeText } from './shareText'
+import { decodeChallengePayload, MAX_CHALLENGE_PUZZLES } from '../../challenge'
+import type { ChallengeAttemptInput } from '../../challenge'
 import { puzzlePool } from '../../content'
 
 // A real, bundled puzzle id (v2 Phase 1b) — asserted against the real pool
@@ -40,5 +42,35 @@ describe('buildRushShareText', () => {
     expect(match).not.toBeNull()
     const linkedId = match?.[1]
     expect(puzzlePool.some((puzzle) => puzzle.id === linkedId)).toBe(true)
+  })
+})
+
+describe('buildRushChallengeText', () => {
+  it("encodes the run's attempts into a playable /challenge link with the run headline", () => {
+    const attempts: ChallengeAttemptInput[] = [
+      { puzzleId: REAL_PUZZLE_ID, correct: true, time_ms: 1200 },
+      { puzzleId: 'tc-009', correct: false, time_ms: 800 },
+    ]
+    const text = buildRushChallengeText({ solvedCount: 1, bestStreakThisRun: 1, attempts })
+    expect(text).toMatch(/^Beat my Codoro Rush — 1 solved · 🔥 best 1 — getcodoro\.com\/challenge#/)
+    const decoded = decodeChallengePayload(text.split('#')[1] ?? '')
+    expect(decoded).not.toBeNull()
+    expect(decoded?.ids).toEqual([REAL_PUZZLE_ID, 'tc-009'])
+    expect(decoded?.results).toEqual([
+      { correct: true, time_ms: 1200 },
+      { correct: false, time_ms: 800 },
+    ])
+  })
+
+  it('truncates a longer run to the last MAX_CHALLENGE_PUZZLES', () => {
+    const attempts: ChallengeAttemptInput[] = Array.from({ length: 7 }, (_, i) => ({
+      puzzleId: i % 2 === 0 ? REAL_PUZZLE_ID : 'tc-009',
+      correct: true,
+      time_ms: 1000 + i,
+    }))
+    const text = buildRushChallengeText({ solvedCount: 7, bestStreakThisRun: 3, attempts })
+    const decoded = decodeChallengePayload(text.split('#')[1] ?? '')
+    expect(decoded).not.toBeNull()
+    expect(decoded?.ids).toHaveLength(MAX_CHALLENGE_PUZZLES)
   })
 })

@@ -281,10 +281,18 @@ export function useTraceSession(): TraceSession {
       const timeMs = Math.max(0, Date.now() - servedAtRef.current)
       const today = todayDateString()
       const isSolved = scoreScrubberAttempt(nextResults)
-      // Rating credit is fractional (per-checkpoint), not the same
-      // all-or-nothing boolean `isSolved` uses — see scrubberActualScore's
-      // doc comment for why the two are deliberately allowed to diverge.
-      const actualScore = scrubberActualScore(nextResults)
+      // Rating credit is fractional (per-checkpoint) and guess-floor
+      // corrected against each answered checkpoint's own choice count, not
+      // the same all-or-nothing boolean `isSolved` uses — see
+      // scrubberActualScore's doc comment for why the two are deliberately
+      // allowed to diverge, and for the correction itself.
+      // nextResults.length === puzzle.checkpoints.length here (the early
+      // return above guarantees it), so the two arrays already line up
+      // index-for-index.
+      const actualScore = scrubberActualScore(
+        nextResults,
+        puzzle.checkpoints.map((checkpoint) => checkpoint.choices.length),
+      )
 
       // Trace shares Practice's rating pool (mode: 'practice') — see the
       // build plan's "own mode with shared rating" decision. The rating
