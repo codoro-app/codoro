@@ -1,9 +1,9 @@
 # Runbook — activate PostHog telemetry in production
 
-**Status: not done.** `getcodoro.com` has never sent a single analytics event since launch. This is an ops task, not a code change.
+**Status: done.** `VITE_POSTHOG_KEY` is live on production (`getcodoro.com`) and has been since at least **2026-07-19** — confirmed via the live PostHog project (`session_start` "first seen" is 2026-07-19; the project token `phc_CEmmM3mEz8VcT75S97CUz68F74Pu3BFdu9KiUnHdzVL3` matches what production actually sends over the wire, and `POST us.i.posthog.com/e/` returns 200 from a real production page load). This section previously said "not done" — that was stale, not current: whoever set the Cloudflare env var and redeployed never came back to update this doc, which is exactly the kind of drift this repo's own precedent (5b decision 5) warns against. **Verified 2026-08-09.**
 
 **Owner:** Thomas (Cloudflare Pages dashboard access required).
-**Time:** ~15 minutes plus one deploy.
+**Time:** ~15 minutes plus one deploy. (Already spent — nothing left to do here.)
 
 ---
 
