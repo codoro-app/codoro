@@ -1,0 +1,184 @@
+/*
+ * Same shared page-wrapper block every page carries (practicePage.css,
+ * legalPage.css, tracePage.css, ...) — see the Phase 5 amendment's
+ * .trace-page finding for why this block matters (top padding +
+ * env(safe-area-inset-top), not just centering).
+ */
+
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--content-width-mobile);
+  margin: 0 auto;
+  padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--space-4) var(--space-6);
+  box-sizing: border-box;
+  color: var(--text-1);
+}
+
+.settings-page__title {
+  font-size: var(--font-size-2xl);
+  color: var(--text-0);
+  margin: 0;
+}
+
+.settings-page__section h2 {
+  font-size: var(--font-size-lg);
+  color: var(--text-0);
+  margin: 0 0 var(--space-2);
+}
+
+.settings-page__section p {
+  font-size: var(--font-size-md);
+  line-height: 1.5;
+  margin: 0 0 var(--space-3);
+}
+
+.settings-page__section code {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9em;
+  background: var(--surface-2);
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-sm);
+}
+
+.settings-page__button {
+  min-height: var(--tap-target-min);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+  color: var(--text-0);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-page__file-input {
+  /* Trigger is the visible button above; this stays functionally present
+     (screen readers and the ref-driven click() both still work) but never
+     rendered as its own control, matching how <input type=file> defaults
+     look nothing like the rest of this app's controls. */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.settings-page__error {
+  margin: var(--space-2) 0 0;
+  color: var(--danger);
+  font-size: var(--font-size-sm);
+}
+
+.settings-page__success {
+  margin: var(--space-2) 0 0;
+  /* No dedicated --success token exists (index.css); --accent is this
+     codebase's existing "correct/good" color — see practice.css's
+     .mcq-choice--correct, which uses it the same way. */
+  color: var(--accent);
+  font-size: var(--font-size-sm);
+}
+
+/* Confirm-overwrite dialog — same blocking-overlay pattern as
+   streakPause.css's .streak-pause-overlay (the only other full-viewport
+   modal in the app), own class names since the content shape differs. */
+
+.settings-page__confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgb(14 15 19 / 70%);
+  box-sizing: border-box;
+}
+
+.settings-page__confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 420px;
+  padding: var(--space-6) var(--space-5);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  box-sizing: border-box;
+}
+
+.settings-page__confirm-title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--text-0);
+}
+
+.settings-page__confirm-copy {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-1);
+}
+
+.settings-page__confirm-note {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--accent);
+}
+
+.settings-page__confirm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.settings-page__confirm-table th,
+.settings-page__confirm-table td {
+  padding: var(--space-2);
+  text-align: right;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-page__confirm-table th[scope='row'] {
+  text-align: left;
+  color: var(--text-1);
+  font-weight: 400;
+}
+
+.settings-page__confirm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.settings-page__confirm-cancel,
+.settings-page__confirm-replace {
+  min-height: var(--tap-target-min);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  box-sizing: border-box;
+}
+
+.settings-page__confirm-replace {
+  border: none;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.settings-page__confirm-cancel {
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-0);
+}

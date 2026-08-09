@@ -6,7 +6,7 @@
  * client.ts/events.ts directly, and never `import posthog from 'posthog-js'`
  * itself — same barrel convention as engine/ and storage/.
  */
-export { initTelemetry } from './client'
+export { initTelemetry, registerAnonId } from './client'
 export {
   trackSessionStart,
   trackAttempt,

@@ -70,6 +70,9 @@ export function AppShell({ children }: AppShellProps) {
         {children}
       </main>
       <footer className="app-shell__footer">
+        <Link href={ROUTES.settings.path} className="app-shell__footer-link">
+          Settings
+        </Link>
         <Link href={ROUTES.legal.path} className="app-shell__footer-link">
           Legal
         </Link>

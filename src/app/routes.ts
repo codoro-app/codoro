@@ -10,6 +10,11 @@ export const ROUTES = {
   rush: { path: '/rush', label: 'Rush' },
   trace: { path: '/trace', label: 'Trace' },
   legal: { path: '/legal', label: 'Legal' },
+  // Phase 7: same treatment as `legal` above — a real ROUTES entry (so
+  // AppShell can reference ROUTES.settings.path type-safely) but, like
+  // `legal`, not read by NavRail/ModeSwitcher (both hardcode their own
+  // four-entry list). Footer link, alongside Legal — see AppShell.tsx.
+  settings: { path: '/settings', label: 'Settings' },
 } as const
 
 export type RouteKey = keyof typeof ROUTES
@@ -109,5 +114,9 @@ export const ROUTE_META: Record<string, RouteMetaEntry> = {
   '/challenge': {
     title: 'Challenge — Codoro',
     description: 'Beat a friend’s time on a shared Codoro challenge.',
+  },
+  '/settings': {
+    title: 'Settings — Codoro',
+    description: 'Export or import your Codoro data, and manage your local progress.',
   },
 }

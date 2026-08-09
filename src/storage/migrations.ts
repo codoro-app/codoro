@@ -6,6 +6,7 @@
  * `schema_version` onto the object it returns — the runner never auto-increments
  * — which keeps every migration self-describing and unit-testable in isolation.
  */
+import { generateAnonId } from './anonId'
 
 export type Migration = (raw: Record<string, unknown>) => Record<string, unknown>
 
@@ -92,6 +93,24 @@ function migrateV4ToV5(raw: Record<string, unknown>): Record<string, unknown> {
 }
 
 /**
+ * v5 -> v6: Phase 7 Item 6's retention-identity fix. `docs/v2-build-plan.md`'s
+ * "Backend-ready seams" #1 has claimed since v2's plan was written that a
+ * stable anonymous ID already existed "in the profile store (generate once,
+ * export/import carries it)" — a scout sweep at the start of this phase
+ * found that claim was never actually true; no such ID was ever generated
+ * anywhere in this codebase. This migration is where every existing user
+ * actually gets one, generated fresh at their next profile load after this
+ * ships (the "generate once" the seam always described, just later than
+ * documented). See the Phase 7 amendment for the full decision record,
+ * including why this ID is attached to telemetry as a registered super
+ * property rather than via `posthog.identify()`, and how import (which can
+ * otherwise silently merge two different people's identity) is handled.
+ */
+function migrateV5ToV6(raw: Record<string, unknown>): Record<string, unknown> {
+  return { ...raw, schema_version: 6, anonId: generateAnonId() }
+}
+
+/**
  * Keyed by the version each migration migrates *from*. The first real entry:
  * schema v1 predates Daily mode, so any profile still on v1 gets a null
  * dailyCompletion (equivalent to "no Daily attempt recorded yet").
@@ -101,4 +120,5 @@ export const MIGRATIONS: Record<number, Migration> = {
   2: migrateV2ToV3,
   3: migrateV3ToV4,
   4: migrateV4ToV5,
+  5: migrateV5ToV6,
 }

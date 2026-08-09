@@ -20,6 +20,7 @@ function baseProfile(): UserProfile {
     dailyCompletion: null,
     rushStats: null,
     bestRunStreak: 0,
+    anonId: 'test-anon-id',
   }
 }
 

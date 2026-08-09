@@ -17,4 +17,11 @@ describe('LegalPage', () => {
     render(<LegalPage />)
     expect(screen.getByRole('link', { name: '← Back' })).toHaveAttribute('href', '/')
   })
+
+  it('points at the in-app Settings export/import (Phase 7) and names challenge links + the anonymous ID', () => {
+    render(<LegalPage />)
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings')
+    expect(screen.getByText(/anonymous id/i)).toBeInTheDocument()
+    expect(screen.getByText(/challenge a friend/i)).toBeInTheDocument()
+  })
 })

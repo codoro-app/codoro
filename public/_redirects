@@ -20,6 +20,7 @@
 /trace / 200
 /browse / 200
 /legal / 200
+/settings / 200
 # /challenge (v2 Phase 5c) is a *static* route — the whole challenge lives in
 # the URL fragment (/challenge#<base64url>), which never reaches Cloudflare,
 # so a plain literal line covers every possible challenge link. The fragment

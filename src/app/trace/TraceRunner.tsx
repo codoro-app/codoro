@@ -107,10 +107,16 @@ export interface TraceRunnerPuzzleProps {
   onCheckpointAnswered: (result: CheckpointResult) => void
   onContinue: () => void
   /**
-   * Whether the per-checkpoint clock runs at all. Defaults to true (real
-   * Trace mode); `/puzzle/:id` passes `false` — decision 7's explicit call
-   * that a stranger following a shared link cold, on a puzzle they didn't
-   * choose, unrated, shouldn't also be timed.
+   * Whether the per-checkpoint clock runs at all. Defaults to `true`, but
+   * every real call site now passes `false` explicitly: `/puzzle/:id` and
+   * `/challenge` (5b decision 7 — a stranger on a link they didn't choose,
+   * unrated, shouldn't also be timed), and `/trace` itself since Phase 7
+   * (reversing 5b decision 7's "real Trace mode is timed" by direct user
+   * preference — scrubbing is Trace's core interaction, and a clock
+   * discourages exactly that). The clock (`TRACE_CHECKPOINT_TIME_LIMIT_MS`)
+   * and this whole timed path stay live and tested for future consumers
+   * (Phase 6b's boss run, 6c's speed round) — see docs/v2-build-plan.md's
+   * Phase 7 amendment.
    */
   timed?: boolean
 }
@@ -352,7 +358,16 @@ export function TraceRunnerPuzzle({
   )
 }
 
-export function TraceRunner() {
+export interface TraceRunnerProps {
+  /**
+   * Forwarded to the inner `TraceRunnerPuzzle` — see its own doc comment.
+   * Defaults to `true`; `/trace` (`TracePage.tsx`) is the one caller of
+   * this outer component and passes `false` explicitly (Phase 7).
+   */
+  timed?: boolean
+}
+
+export function TraceRunner({ timed = true }: TraceRunnerProps = {}) {
   const session = useTraceSession()
 
   if (session.status === 'error') {
@@ -401,6 +416,7 @@ export function TraceRunner() {
         ratingDelta={session.ratingDelta}
         onCheckpointAnswered={session.handleCheckpointAnswered}
         onContinue={session.handleContinue}
+        timed={timed}
       />
     </>
   )

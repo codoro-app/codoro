@@ -50,11 +50,28 @@ export async function loadProfile(): Promise<UserProfile> {
       if (!isPlainObject(raw) || typeof raw.schema_version !== 'number') {
         throw new Error('stored profile is not a versioned object')
       }
-      const upgraded =
-        raw.schema_version < CURRENT_SCHEMA_VERSION
-          ? runMigrations(raw, raw.schema_version, MIGRATIONS)
-          : raw
-      return UserProfileSchema.parse(upgraded)
+      const needsMigration = raw.schema_version < CURRENT_SCHEMA_VERSION
+      const upgraded = needsMigration ? runMigrations(raw, raw.schema_version, MIGRATIONS) : raw
+      const validated = UserProfileSchema.parse(upgraded)
+      // Persist the upgrade immediately, not just return it in memory. Every
+      // migration before Phase 7's migrateV5ToV6 was a pure function of its
+      // input (a version bump, a null field) — re-deriving the same result
+      // from the same raw v1 bytes on every load was correct and cheap.
+      // migrateV5ToV6 broke that: it mints a fresh crypto.randomUUID() on
+      // every call, so re-migrating in memory on every load without ever
+      // writing back would silently regenerate `anonId` every single
+      // session — exactly defeating the "stable, generate once" contract
+      // Item 6 exists to satisfy. A pre-merge review caught this as a
+      // blocker before it shipped. Writing back here also narrows (though
+      // doesn't fully close) the first-boot race where two callers both
+      // observe `raw === undefined` in the same tick — the later writer
+      // still wins non-deterministically, same as before this fix; that
+      // narrower race is pre-existing, self-heals on the next natural
+      // saveProfile, and is out of scope for this fix.
+      if (needsMigration) {
+        await putProfile(db, validated)
+      }
+      return validated
     } catch {
       // Corrupt: preserve the raw bytes under a distinct key, then reset.
       const backupKey = `corrupt-${new Date().toISOString()}`
