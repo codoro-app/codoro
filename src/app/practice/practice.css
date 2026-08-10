@@ -215,20 +215,23 @@
   gap: var(--space-3);
   /* The whole card (snippet + buttons) doubles as the drag surface (see
    * SwipeBinary.tsx) — Tinder-style, not just the buttons row.
-   * STATIC and never toggled at runtime (v3 Phase 0, OD-1/OD-2): the browser
-   * decides scroll-vs-gesture at hit-test time, before any JS handler runs,
-   * so a JS-assigned touch-action is structurally too late — the same lesson
-   * DragOrder's handle encodes. 'none', not 'pan-y': 'pan-y' was tried first
-   * and falsified by a real on-device capture (see SwipeBinary.tsx's OD-2
-   * doc comment) — WebKit's native pan recognizer can claim and
-   * `pointercancel` a touch under `pan-y` independent of whether JS is
-   * successfully calling `preventDefault()`, so 'pan-y' cannot be trusted to
-   * stay out of JS's way once granted. 'none' removes that recognizer from
-   * the picture entirely; SwipeBinary.tsx's own `vertical-yielded` branch
-   * forwards page scroll manually (`window.scrollBy`) so the page stays
-   * scrollable from the card despite the hard native block — this is NOT the
-   * same 'none' that failed in v2 Phase 7b, which had no such manual
-   * forwarding and left the page unscrollable outright.
+   * STATIC and never toggled at runtime (v3 Phase 0, OD-1 through OD-5): the
+   * browser decides scroll-vs-gesture at hit-test time, before any JS
+   * handler runs, so a JS-assigned touch-action is structurally too late —
+   * the same lesson DragOrder's handle encodes. 'none', not 'pan-y': 'pan-y'
+   * was tried first and falsified by a real on-device capture (OD-2) —
+   * WebKit's native pan recognizer can claim and `pointercancel` a touch
+   * under `pan-y` independent of whether JS is successfully calling
+   * `preventDefault()`. As of OD-5 (see SwipeBinary.tsx's doc comment), this
+   * card's own `touchstart` handler also calls `preventDefault()`
+   * unconditionally, matching `react-tinder-card`'s proven pattern, so
+   * `touch-action: none` is now the first of two independent layers rather
+   * than the sole defense. Also as of OD-5, a touch that starts on this card
+   * and resolves vertical no longer scrolls the page at all (no
+   * `window.scrollBy` forwarding, unlike OD-2's design) — the card owns
+   * 100% of a touch that starts on it, matching how Tinder-style cards
+   * actually behave; the surrounding page (filter chips, puzzle list) stays
+   * scrollable exactly as before, since those touches never reach this rule.
    * Revert-check gap, found by review, accepted rather than papered over
    * with a brittle test: this rule has NO test coverage. practice.css isn't
    * imported into SwipeBinary.test.tsx's module graph (only

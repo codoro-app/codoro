@@ -24,7 +24,7 @@ import { useCallback, useRef, useState, type ReactNode } from 'react'
  */
 
 /** How the gesture's axis has been resolved at the moment an event is logged (mirrors SwipeBinary's own `AxisResolution`). */
-export type GestureDebugAxis = 'ambiguous' | 'horizontal' | 'vertical-yielded' | 'idle'
+export type GestureDebugAxis = 'ambiguous' | 'horizontal' | 'vertical' | 'idle'
 
 export interface GestureDebugEvent {
   readonly type: 'down' | 'move' | 'up' | 'cancel' | 'lostcapture'
