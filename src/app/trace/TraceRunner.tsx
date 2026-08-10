@@ -98,6 +98,46 @@ export const TRACE_CHECKPOINT_TIME_LIMIT_MS = 30_000
 /** How often the on-screen countdown updates — render smoothness only, unrelated to TRACE_CHECKPOINT_TIME_LIMIT_MS's own tuning. */
 const TRACE_TIMER_TICK_MS = 100
 
+/** A character that can appear inside an identifier/number/string-literal token. */
+const TOKEN_CHAR = /[A-Za-z0-9_]/
+
+/**
+ * OD-4 (docs/v2-build-plan.md, "Known open defects"): a currently-visible
+ * cell's value leaks a checkpoint's answer not just when it *equals* the
+ * answer (the OD-3 co-valued-cell case), but also when it appears as a
+ * whole token *inside* a compound answer — e.g. an `output` checkpoint
+ * whose answer is a printed line like `"initial window sum:" 9` embeds the
+ * bare value `9`, which a visible `windowSum` row showing `"9"` reveals
+ * just as surely as an exact match would, even though `"9" !== '"initial
+ * window sum:" 9'`. Same shape for a `var-value` checkpoint whose answer is
+ * itself a compound value, e.g. an array `[6, 14]` embedding a sibling
+ * row's bare `"6"`.
+ *
+ * Deliberately a *token*-boundary match, not a raw substring search: a raw
+ * `answer.includes(value)` also fires on coincidental digit overlap that
+ * isn't a real leak at all (a `"0"` cell reads as contained in an unrelated
+ * answer `"40"` merely because they share a trailing digit, not because the
+ * `0` is legible as the value `40`). Requiring the match not be glued to
+ * another identifier/number/string character on either side is what tells
+ * a genuinely embedded value apart from that kind of noise — confirmed
+ * empirically via a full-pool sweep (Phase 8) before this landed: raw
+ * substring matching over-fires on dozens of additional cases the
+ * token-boundary version correctly excludes.
+ */
+function valueLeaksAnswer(value: string | undefined, answerValue: string | undefined): boolean {
+  if (value === undefined || answerValue === undefined || value.length === 0) return false
+  if (value === answerValue) return true
+  let from = 0
+  for (;;) {
+    const idx = answerValue.indexOf(value, from)
+    if (idx === -1) return false
+    const before = answerValue.charAt(idx - 1)
+    const after = answerValue.charAt(idx + value.length)
+    if (!TOKEN_CHAR.test(before) && !TOKEN_CHAR.test(after)) return true
+    from = idx + 1
+  }
+}
+
 export interface TraceRunnerPuzzleProps {
   puzzle: ScrubberPuzzle
   checkpointResults: readonly CheckpointResult[]
@@ -242,23 +282,21 @@ export function TraceRunnerPuzzle({
   let maskOutput = false
   if (pendingCheckpoint && stepIndex <= pendingCheckpoint.afterStep) {
     const answerStep = puzzle.steps[pendingCheckpoint.afterStep]
+    let answerValue: string | undefined
     if (pendingCheckpoint.question === 'var-value' && pendingCheckpoint.target && answerStep) {
-      const answerValue = answerStep.vars[pendingCheckpoint.target]
-      maskedVarNames = step
-        ? Object.keys(step.vars).filter((name) => step.vars[name] === answerValue)
-        : undefined
-      // Symmetric with the output-checkpoint branch below: if this step's
-      // output happens to equal the target's answer value, that value
-      // would otherwise sit unmasked in the output line even though
-      // maskedVarNames already hides every co-valued *variable* row.
-      maskOutput = step?.output === answerValue
+      answerValue = answerStep.vars[pendingCheckpoint.target]
     } else if (pendingCheckpoint.question === 'output' && answerStep) {
-      const answerValue = answerStep.output
-      maskOutput = step?.output === answerValue
-      maskedVarNames =
-        answerValue !== undefined && step
-          ? Object.keys(step.vars).filter((name) => step.vars[name] === answerValue)
-          : []
+      answerValue = answerStep.output
+    }
+    // Both branches above resolve to the same downstream check — a cell
+    // leaks whether it's the target of a var-value checkpoint or the whole
+    // line of an output checkpoint, equality and token-containment apply
+    // identically either way (valueLeaksAnswer's own doc comment).
+    if (answerValue !== undefined) {
+      maskedVarNames = step
+        ? Object.keys(step.vars).filter((name) => valueLeaksAnswer(step.vars[name], answerValue))
+        : undefined
+      maskOutput = valueLeaksAnswer(step?.output, answerValue)
     }
   }
 

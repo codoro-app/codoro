@@ -9,7 +9,17 @@ import { cleanup, configure } from '@testing-library/react'
 // render assertion was observed flaking this way under `vitest run`'s
 // default parallelism. Widening it here (rather than per-call) covers every
 // waitFor/findBy* in the suite the same way.
-configure({ asyncUtilTimeout: 5000 })
+//
+// Raised 5000 -> 10000, Phase 8: 5000 itself still flaked (App.test.tsx's
+// and App.bootHomeChunk.test.tsx's own initial-render waitFor calls, both
+// already carrying a 15s outer `it()` timeout for the same reason) when run
+// as part of the full `pnpm validate` chain specifically — typecheck+lint
+// finishing right before `test` starts appears to leave enough residual
+// contention that 5s isn't always enough, even though every one of these
+// tests passes reliably (well under 1s) both in isolation and via a
+// standalone `pnpm test`. Same flake class, wider margin, not a new
+// mechanism — see docs/v2-build-plan.md's Phase 8 amendment.
+configure({ asyncUtilTimeout: 10_000 })
 
 // jsdom doesn't implement the Pointer Events capture API (setPointerCapture /
 // releasePointerCapture / hasPointerCapture) — see jsdom#2527. SwipeBinary

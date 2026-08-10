@@ -175,6 +175,35 @@ describe('MIGRATIONS[5]: v5 -> v6 (Phase 7 Item 6: adds anonId)', () => {
   })
 })
 
+describe('MIGRATIONS[1]: v1 -> v2 (adds dailyCompletion)', () => {
+  it('stamps schema_version 2, adds a null dailyCompletion, and preserves every existing field untouched', () => {
+    const v1Profile = {
+      schema_version: 1,
+      rating: 1256.5,
+      ratedAttemptCount: 3,
+      streak: { currentStreak: 1, longestStreak: 4, lastActiveDate: '2026-07-10' },
+      requeueState: [{ puzzleId: 'p1', stage: 0, served: 1 }],
+      storagePersisted: true,
+    }
+
+    // Calls MIGRATIONS[1] directly rather than through runMigrations, which
+    // would keep chaining into MIGRATIONS[2] now that it's registered too —
+    // this test's whole point is to isolate v1->v2's own behavior, the same
+    // way every other MIGRATIONS[N] describe block below isolates its own
+    // step. The only prior coverage of this step was indirect, through the
+    // full v1->v6 chain test above.
+    const v1Migration = MIGRATIONS[1]
+    if (!v1Migration) throw new Error('MIGRATIONS[1] is not registered')
+    const migrated = v1Migration(v1Profile)
+
+    expect(migrated).toEqual({
+      ...v1Profile,
+      schema_version: 2,
+      dailyCompletion: null,
+    })
+  })
+})
+
 describe('MIGRATIONS[2]: v2 -> v3 (adds rushStats)', () => {
   it('stamps schema_version 3, adds a null rushStats, and preserves every existing field untouched, including a non-null dailyCompletion', () => {
     const v2Profile = {
