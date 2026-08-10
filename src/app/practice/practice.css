@@ -213,21 +213,25 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  /* The whole card (snippet + buttons) doubles as the @use-gesture drag
-   * surface (see SwipeBinary.tsx) — Tinder-style, not just the buttons row.
-   * v2 Phase 7b, OD-1, amended after a real-device re-report: this was
-   * shipped as 'none' first, on the theory that 'pan-y' was the bug (it let
-   * the browser commit to native vertical scroll before @use-gesture's JS
-   * ever ran). That diagnosis was real but the fix was wrong — 'none' is a
-   * hard, unconditional CSS-level block on ALL native panning for touches
-   * starting on this element, so it also killed the native scroll that
-   * @use-gesture's `preventScrollAxis` is supposed to hand back when a touch
-   * resolves vertical. Net effect on-device: no drag AND no scroll on a
-   * normal-speed/diagonal swipe — the same "swipe does nothing" symptom as
-   * before, for a different reason. @use-gesture's own docs
-   * (use-gesture.netlify.app/docs/options/#preventscrollaxis) are explicit
-   * that `preventScrollAxis` needs `pan-x`/`pan-y` here, not `none`. See
-   * SwipeBinary.tsx's useDrag config comment for the full account.
+  /* The whole card (snippet + buttons) doubles as the drag surface (see
+   * SwipeBinary.tsx) — Tinder-style, not just the buttons row.
+   * STATIC and never toggled at runtime (v3 Phase 0, OD-1 through OD-5): the
+   * browser decides scroll-vs-gesture at hit-test time, before any JS
+   * handler runs, so a JS-assigned touch-action is structurally too late —
+   * the same lesson DragOrder's handle encodes. 'none', not 'pan-y': 'pan-y'
+   * was tried first and falsified by a real on-device capture (OD-2) —
+   * WebKit's native pan recognizer can claim and `pointercancel` a touch
+   * under `pan-y` independent of whether JS is successfully calling
+   * `preventDefault()`. As of OD-5 (see SwipeBinary.tsx's doc comment), this
+   * card's own `touchstart` handler also calls `preventDefault()`
+   * unconditionally, matching `react-tinder-card`'s proven pattern, so
+   * `touch-action: none` is now the first of two independent layers rather
+   * than the sole defense. Also as of OD-5, a touch that starts on this card
+   * and resolves vertical no longer scrolls the page at all (no
+   * `window.scrollBy` forwarding, unlike OD-2's design) — the card owns
+   * 100% of a touch that starts on it, matching how Tinder-style cards
+   * actually behave; the surrounding page (filter chips, puzzle list) stays
+   * scrollable exactly as before, since those touches never reach this rule.
    * Revert-check gap, found by review, accepted rather than papered over
    * with a brittle test: this rule has NO test coverage. practice.css isn't
    * imported into SwipeBinary.test.tsx's module graph (only
@@ -236,11 +240,23 @@
    * the inline style attribute, never external-stylesheet rules — no
    * assertion shape here could catch a regression of this line. The value
    * actually enforced by the test suite is SwipeBinary.tsx's own inline
-   * `style={{ touchAction: 'pan-y' }}`, which duplicates this one. Keep the
+   * `style={{ touchAction: 'none' }}`, which duplicates this one. Keep the
    * two in sync by hand; a real regression risk (e.g. someone "cleans up"
    * this rule as apparently-redundant) exists and is knowingly unguarded,
    * not fixed by adding e2e coverage this repo doesn't otherwise have. */
-  touch-action: pan-y;
+  touch-action: none;
+  /* Found in v3 Phase 0 review, not part of the original OD-1 report: this
+   * card renders CodeSnippet's syntax-highlighted text directly (see the
+   * component doc comment on why), so without this a drag started on the
+   * snippet triggers native text selection instead of/alongside the swipe —
+   * `.drag-order__row` carries the identical rule for the same reason.
+   * `-webkit-user-select` covers Safari (still required there for full
+   * effect); `-webkit-touch-callout: none` suppresses iOS's long-press
+   * "Copy/Look Up" callout, which a long-press-then-drag would otherwise
+   * trigger before any pointer handler runs. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .swipe-fallback__buttons {
