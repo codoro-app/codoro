@@ -1,9 +1,14 @@
 import { useCallback, useRef, useState, type ReactNode } from 'react'
 
 /**
- * TEMPORARY, DEV-ONLY — v3 Phase 0 instrumentation (docs/v3-build-plan.md,
- * Phase 0 build item 1), to be stripped or permanently flag-gated once OD-1
- * closes (Phase 0 build item 4).
+ * DEV-ONLY — v3 Phase 0 instrumentation (docs/v3-build-plan.md, Phase 0
+ * build item 1). OD-1 closed 2026-08-10 (Amendment 7) after five real
+ * on-device capture rounds; kept rather than stripped, per Phase 0 build
+ * item 4's explicit "or gate it permanently behind the dev flag"
+ * alternative — already fully isolated and zero-cost when the flag is
+ * absent, and proved its worth enough across those five rounds that ripping
+ * out working, cheap diagnostic tooling would be a net loss for whatever
+ * gesture-shaped defect this app hits next.
  *
  * OD-1 (swipe unreliable on iPhone) survived five source-reading fix rounds,
  * so the v3 plan locks the method: capture the real pointer stream ON THE
