@@ -4,7 +4,16 @@ import { generateJsTrace } from './jsTraceGen'
 describe('generateJsTrace — sequential snippet', () => {
   it('traces one step per executed line, with post-line variable state', () => {
     const snippet = 'let x = 1;\nx = x + 1;\nconsole.log(x);'
-    const result = generateJsTrace(snippet)
+    // Explicit timeoutMs override, this call only — DEFAULT_TIMEOUT_MS (2s,
+    // types.ts) is a real hang guard on the isolated child process (OD-2)
+    // and stays untouched for production use and every other test relying
+    // on it. Under a full-suite/full-`pnpm validate` run this specific
+    // trivial snippet was observed hitting that 2s wall clock before the
+    // child process even got scheduled — same under-load flake class as
+    // App.test.tsx's/App.bootHomeChunk.test.tsx's waitFor timeouts (see
+    // docs/v2-build-plan.md's Phase 8 amendment) — not a real hang; the
+    // snippet traces in a few ms once the child runs at all.
+    const result = generateJsTrace(snippet, { timeoutMs: 10_000 })
 
     expect(result.steps).toEqual([
       { line: 0, vars: { x: '1' } },
