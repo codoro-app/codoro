@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createEvent, fireEvent, render, screen } from '@testing-library/react'
+import { createEvent, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import type { SwipeBinaryPuzzle } from '../../../content'
@@ -554,16 +554,22 @@ describe('SwipeBinary', () => {
       expect(screen.queryByTestId('gesture-debug-overlay')).not.toBeInTheDocument()
     })
 
-    it('logs the pointer stream, cancelable flags, axis state and commit decision when flagged on', () => {
+    it('logs the pointer stream, cancelable flags, axis state and commit decision when flagged on', async () => {
       window.history.replaceState({}, '', '/?gesture-debug=1')
       const { container } = render(<Harness />)
 
       swipe(getCard(container), 180, 350)
 
-      const log = screen.getByTestId('gesture-debug-overlay').textContent
-      expect(log).toContain('down x=0 y=0 cancelable=true axis=ambiguous pd=false')
-      expect(log).toContain('move x=30 y=0 cancelable=true axis=horizontal pd=true')
-      expect(log).toContain('-> right')
+      // OD-4 (v3 Phase 0): entries are buffered in a ref and flushed to
+      // state at most once per animation frame (not synchronously per
+      // event) — see the hook's own doc comment for why — so the DOM only
+      // catches up asynchronously here, same as it would on a real device.
+      await waitFor(() => {
+        const log = screen.getByTestId('gesture-debug-overlay').textContent
+        expect(log).toContain('down x=0 y=0 cancelable=true axis=ambiguous pd=false')
+        expect(log).toContain('move x=30 y=0 cancelable=true axis=horizontal pd=true')
+        expect(log).toContain('-> right')
+      })
     })
   })
 })

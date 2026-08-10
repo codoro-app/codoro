@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from 'react'
+import { useCallback, useRef, useState, type ReactNode } from 'react'
 
 /**
  * TEMPORARY, DEV-ONLY — v3 Phase 0 instrumentation (docs/v3-build-plan.md,
@@ -96,11 +96,35 @@ export function useGestureDebugOverlay(): GestureDebugOverlay {
   const [originMs] = useState(() => performance.now())
   const [lines, setLines] = useState<readonly string[]>([])
 
+  // v3 Phase 0, OD-4 candidate: a third on-device capture (post OD-2/OD-3)
+  // showed every gesture — 4 of 4, all cleanly resolved horizontal with
+  // preventDefault succeeding throughout — dying to a plain `pointercancel`
+  // instead of the normal `pointerup` a finger-lift produces. The one thing
+  // that changed once OD-2/OD-3 stopped killing gestures early: this
+  // overlay's own `log()` call, which used to run `setLines` SYNCHRONOUSLY
+  // inside the pointermove handler, forcing a full SwipeBinary re-render
+  // (state update + reconciliation + up to MAX_ENTRIES DOM nodes) on every
+  // single move sample during the drag — real work, on the main thread,
+  // inside the touch dispatch path, and iOS Safari is documented to cancel
+  // a touch it judges the page too slow to keep up with. Buffering into a
+  // ref and flushing at most once per animation frame moves that render
+  // cost off the synchronous touch-handling path entirely, to test that
+  // hypothesis — the diagnostic instrument potentially breaking the thing
+  // it exists to observe. See docs/v3-build-plan.md's amendment.
+  const linesRef = useRef<string[]>([])
+  const flushScheduledRef = useRef(false)
+
   const log = useCallback(
     (event: GestureDebugEvent) => {
       if (!enabled) return
       const line = formatEntry(event, performance.now() - originMs)
-      setLines((prev) => [line, ...prev].slice(0, MAX_ENTRIES))
+      linesRef.current = [line, ...linesRef.current].slice(0, MAX_ENTRIES)
+      if (flushScheduledRef.current) return
+      flushScheduledRef.current = true
+      requestAnimationFrame(() => {
+        flushScheduledRef.current = false
+        setLines(linesRef.current)
+      })
     },
     [enabled, originMs],
   )
