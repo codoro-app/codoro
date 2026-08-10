@@ -22,12 +22,12 @@ import { cleanup, configure } from '@testing-library/react'
 configure({ asyncUtilTimeout: 10_000 })
 
 // jsdom doesn't implement the Pointer Events capture API (setPointerCapture /
-// releasePointerCapture / hasPointerCapture) — see jsdom#2527. SwipeBinary
-// (Phase 4 concern b) binds `@use-gesture/react`'s useDrag, which calls
-// `setPointerCapture` on every real pointerdown, including the plain click
-// on its two fallback buttons (a click still starts a pointer sequence).
-// Without this stub, any test that renders SwipeBinary un-mocked (e.g.
-// PuzzleCardShell.test.tsx, which composes the real interaction bodies) hits
+// releasePointerCapture / hasPointerCapture) — see jsdom#2527. The Scrubber
+// still binds `@use-gesture/react`'s useDrag, which calls
+// `setPointerCapture` on every real pointerdown (SwipeBinary did too until
+// the v3 Phase 0 rewrite onto native Pointer Events; it and DragOrder now
+// feature-detect the API themselves rather than relying on this stub).
+// Without this stub, any test that renders a useDrag surface un-mocked hits
 // a `TypeError: event.target.setPointerCapture is not a function` that
 // aborts the click before React's onClick handler runs. This is the
 // standard, minimal workaround recommended for testing Pointer-Events-based

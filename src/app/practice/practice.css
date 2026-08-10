@@ -213,21 +213,19 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  /* The whole card (snippet + buttons) doubles as the @use-gesture drag
-   * surface (see SwipeBinary.tsx) — Tinder-style, not just the buttons row.
-   * v2 Phase 7b, OD-1, amended after a real-device re-report: this was
-   * shipped as 'none' first, on the theory that 'pan-y' was the bug (it let
-   * the browser commit to native vertical scroll before @use-gesture's JS
-   * ever ran). That diagnosis was real but the fix was wrong — 'none' is a
-   * hard, unconditional CSS-level block on ALL native panning for touches
-   * starting on this element, so it also killed the native scroll that
-   * @use-gesture's `preventScrollAxis` is supposed to hand back when a touch
-   * resolves vertical. Net effect on-device: no drag AND no scroll on a
-   * normal-speed/diagonal swipe — the same "swipe does nothing" symptom as
-   * before, for a different reason. @use-gesture's own docs
-   * (use-gesture.netlify.app/docs/options/#preventscrollaxis) are explicit
-   * that `preventScrollAxis` needs `pan-x`/`pan-y` here, not `none`. See
-   * SwipeBinary.tsx's useDrag config comment for the full account.
+  /* The whole card (snippet + buttons) doubles as the drag surface (see
+   * SwipeBinary.tsx) — Tinder-style, not just the buttons row.
+   * STATIC and never toggled at runtime (v3 Phase 0, OD-1): the browser
+   * decides scroll-vs-gesture at hit-test time, before any JS handler runs,
+   * so a JS-assigned touch-action is structurally too late — the same lesson
+   * DragOrder's handle encodes. 'pan-y', not 'none': this card fills the
+   * practice view, so 'none' (a hard, unconditional CSS-level block on ALL
+   * native panning for touches starting here — it was shipped once, in v2
+   * Phase 7b, and re-tested worse on device) would leave a player unable to
+   * scroll the page at all from the card. Under 'pan-y' the browser will
+   * never steal a horizontal pan; SwipeBinary.tsx's own axis arbitration
+   * calls preventDefault() the moment it resolves a gesture horizontal so a
+   * diagonal continuation can't hand the touch to a vertical scroll either.
    * Revert-check gap, found by review, accepted rather than papered over
    * with a brittle test: this rule has NO test coverage. practice.css isn't
    * imported into SwipeBinary.test.tsx's module graph (only

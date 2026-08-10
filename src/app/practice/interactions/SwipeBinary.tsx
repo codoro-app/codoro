@@ -1,6 +1,6 @@
-import { useMemo, useState, type ComponentPropsWithoutRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import { animate, motion, useMotionValue, useMotionValueEvent, useTransform } from 'framer-motion'
-import { useDrag } from '@use-gesture/react'
 import type { InteractionBodyProps } from '../interactionTypes'
 import type { SwipeBinaryPuzzle } from '../../../content'
 import type { AnswerState } from '../answerState'
@@ -12,6 +12,7 @@ import {
 import type { SwipeCommitDirection } from '../gestureThreshold'
 import { highlightSnippet } from '../highlightSnippet'
 import { CodeSnippet } from '../CodeSnippet'
+import { useGestureDebugOverlay } from './useGestureDebugOverlay'
 
 /**
  * How far offscreen (px) the card animates on a successful drag commit —
@@ -40,29 +41,159 @@ const PREVIEW_RANGE = 90
 const MAX_TILT_DEG = 10
 
 /**
+ * Movement (px, either axis) the gesture must travel before this component
+ * will call it horizontal or vertical. Carried over verbatim from the
+ * `axisThreshold: { touch: 20 }` the previous `@use-gesture` implementation
+ * used, and for the same reason: a real touchscreen's very first move sample
+ * very often has a slightly larger vertical than horizontal component
+ * (finger jitter, a not-quite-flat swipe angle), so deciding the axis off
+ * that first sample locks a genuine horizontal swipe to 'vertical' and drops
+ * it. 20px of travel is enough for the dominant axis of a deliberate gesture
+ * to be unambiguous, while still being small enough that a vertical scroll
+ * feels immediate.
+ */
+const AXIS_TOLERANCE = 20
+
+/**
+ * Whether this gesture has been decided to be a horizontal card drag, a
+ * vertical gesture we hand back to the browser's native scrolling, or is
+ * still too small to call.
+ */
+type AxisResolution = 'ambiguous' | 'horizontal' | 'vertical-yielded'
+
+/**
+ * Feature-detected pointer capture (same guard, and same reason, as
+ * DragOrder.tsx's): every real browser target implements it, jsdom does not,
+ * and `typeof` rather than optional chaining because
+ * `@typescript-eslint/no-unnecessary-condition` rejects the latter against
+ * lib.dom's always-present typing.
+ */
+function setPointerCaptureIfSupported(el: HTMLElement, pointerId: number): void {
+  if (typeof el.setPointerCapture === 'function') {
+    el.setPointerCapture(pointerId)
+  }
+}
+
+function releasePointerCaptureIfSupported(el: HTMLElement, pointerId: number): void {
+  if (typeof el.releasePointerCapture === 'function') {
+    el.releasePointerCapture(pointerId)
+  }
+}
+
+/**
  * `left_label` / `right_label` as hints plus two labelled side buttons
  * (danger-bordered left, success-bordered right) that commit directly on
- * click/tap — the desktop/tap fallback the locked design requires, built by
- * concern (a) and left fully playable here, unchanged in behavior. A click
- * never goes through the drag-threshold math below; it commits immediately,
- * exactly as before.
+ * click/tap — the desktop/tap fallback the locked design requires. A click
+ * never goes through the drag-threshold math below; it commits immediately.
  *
  * On top of that fallback, the whole card — the syntax-highlighted snippet
- * plus the buttons row below it, not just the buttons — is a single
- * `@use-gesture/react`-bound drag surface (the "Tinder-style card" the brief
- * calls for): it tilts and previews a side as the user drags, springs back
- * to center below threshold, and flies off in the drag direction (then
- * resets to center to show the reveal) once `resolveSwipeCommit`
- * (gestureThreshold.ts) says the drag both traveled far enough AND was
- * released fast enough, in the same direction. Rendering the snippet here
- * (rather than PuzzleCardShell's usual static copy) is what lets it move
- * with the drag; see PuzzleCardShell's `staticLines` doc comment.
+ * plus the buttons row below it — is a single drag surface (the
+ * "Tinder-style card" the brief calls for): it tilts and previews a side as
+ * the user drags, springs back to center below threshold, and flies off in
+ * the drag direction (then resets to center to show the reveal) once
+ * `resolveSwipeCommit` (gestureThreshold.ts) says the drag both traveled far
+ * enough AND was released fast enough, in the same direction. Rendering the
+ * snippet here (rather than PuzzleCardShell's usual static copy) is what
+ * lets it move with the drag; see PuzzleCardShell's `staticLines` doc
+ * comment.
+ *
+ * ## Gesture plumbing: native Pointer Events (v3 Phase 0, OD-1)
+ *
+ * The drag used to be `@use-gesture/react`'s `useDrag`. OD-1 ("normal-speed
+ * or slightly-diagonal swipes do nothing on iPhone; only fast, purely
+ * horizontal flicks commit") survived five fix rounds against that
+ * implementation — 32ms kinematics staleness, zero touch `axisThreshold`,
+ * `touch-action: none`, then the corrected `pan-y` + `preventScroll`, whose
+ * `preventScrollAxis` the library's own docs label experimental. Each round
+ * found a real mechanism; none fixed the device.
+ *
+ * So the gesture DETECTION is now hand-rolled on raw Pointer Events,
+ * mirroring DragOrder.tsx — the sibling interaction that has always worked
+ * reliably on the same phone. The Framer Motion visual layer (`x`,
+ * `rotate`, `animate`) and every commit decision (`gestureThreshold.ts`,
+ * untouched) are unchanged; only what feeds `x` changed. What we inherit
+ * from DragOrder:
+ *
+ * 1. **`touch-action` is static.** `pan-y` is declared in practice.css AND
+ *    in the inline style below, and is never assigned at runtime by any code
+ *    path. A browser commits a touch to native scroll vs. custom gesture at
+ *    hit-test time, BEFORE any JS handler runs, so a runtime-toggled
+ *    `touch-action` is structurally too late no matter how early the toggle
+ *    fires. `pan-y` (not `none`) because this card, unlike DragOrder's
+ *    handle, has to let a genuinely vertical swipe scroll the page: it is
+ *    full-width and full-height in the practice view, so `none` would strand
+ *    the player with an unscrollable page.
+ * 2. **Explicit axis arbitration in JS**, below — the "is this a scroll or a
+ *    swipe" decision made by our own code on our own samples, inspectable
+ *    and testable, rather than delegated to a library's experimental path.
+ * 3. **`pointercancel` / `lostpointercapture` both reset**, so a gesture
+ *    the browser takes away from us can never leave the card stuck
+ *    off-center.
+ *
+ * ### Why pointer capture is deferred until horizontal intent resolves
+ *
+ * DragOrder captures at pointerdown; this component captures only once the
+ * axis resolves horizontal. Two reasons, one of which is a real bug the
+ * DragOrder pattern would introduce here:
+ *
+ * - Capturing at pointerdown would break the tap-fallback buttons. They live
+ *   INSIDE this drag surface (DragOrder's rows contain no buttons), and with
+ *   an active pointer capture Chromium retargets the subsequent `click` to
+ *   the capturing element — the card — so the buttons' own `onClick` would
+ *   never fire. Deferring means a tap, which never travels `AXIS_TOLERANCE`
+ *   px, never captures at all.
+ * - It costs nothing on the failing device. Per Pointer Events Level 3's
+ *   implicit pointer capture, direct-manipulation pointers (touch, pen)
+ *   behave as if `setPointerCapture` had already been called on the
+ *   pointerdown target, so an explicit call adds nothing for touch; it
+ *   matters only for mouse, where it keeps a drag tracking once the cursor
+ *   leaves the card.
+ *
+ * Note what is NOT the reason: capturing early would not "fight" `pan-y`.
+ * Pointer capture only retargets pointer events — it has no bearing on the
+ * touch-action scroll arbitration, and if the browser does claim the touch
+ * for scrolling it fires `pointercancel` and implicitly drops the capture
+ * regardless. The scroll-vs-swipe call is `touch-action` + `preventDefault`,
+ * never capture.
+ *
+ * ### The axis arbitration itself
+ *
+ * Per gesture, from the pointerdown origin:
+ *
+ * - **Ambiguous** while `|dx| < AXIS_TOLERANCE && |dy| < AXIS_TOLERANCE`:
+ *   do nothing at all. Notably we do NOT `preventDefault()` here — if the
+ *   browser decides during this window that the touch is a vertical scroll,
+ *   that is the correct outcome for a vertical swipe, not a bug to suppress.
+ * - The first sample past the tolerance in either axis decides: `|dx| >
+ *   |dy|` → **horizontal**, else **vertical-yielded** (ties go to vertical;
+ *   native scroll is the safer default).
+ * - **Horizontal**: `preventDefault()` on that event and every later move of
+ *   the gesture, so a diagonal continuation can't hand the touch to a
+ *   vertical scroll mid-drag; take pointer capture; track `x` 1:1.
+ *   `preventDefault` is only possible on a `cancelable` event — when it is
+ *   not, the browser has ALREADY committed the touch to scrolling, which is
+ *   precisely OD-1's suspected mechanism, so that case is recorded in the
+ *   debug overlay rather than silently ignored.
+ * - **Vertical-yielded**: never `preventDefault`, never move `x`, never
+ *   commit. The page scrolls natively, exactly as `pan-y` promises.
+ *
+ * Only pointerup can commit, and only from the horizontal state.
+ *
+ * ### Timing source
+ *
+ * `elapsedTime` for `signedVelocityFromGesture` is measured with
+ * `performance.now()` read inside the pointerdown/pointerup handlers, not
+ * from `event.timeStamp`. `timeStamp` would be marginally more precise (it
+ * predates any handler-dispatch delay) but is read-only and not settable
+ * through RTL's `fireEvent`, which would make every timing-dependent case in
+ * SwipeBinary.test.tsx — including the 32ms-staleness regression — untestable.
+ * The difference is at most a frame or so over a ~350ms gesture, far inside
+ * `minVelocity`'s margin.
  *
  * `CommitPayload.choiceIndex` is `null` for swipe-binary by contract — but
  * since this is a strictly binary choice, `correct` + `puzzle.correct_direction`
- * is always enough to reconstruct which side was actually picked (if
- * correct, the pick was `correct_direction`; if not, it was the other one),
- * so no additional field is needed to render "you picked X" post-commit.
+ * is always enough to reconstruct which side was actually picked, so no
+ * additional field is needed to render "you picked X" post-commit.
  */
 export function SwipeBinary({
   puzzle,
@@ -130,161 +261,227 @@ export function SwipeBinary({
     void animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 })
   }
 
-  const bind = useDrag(
-    ({ down, movement: [mx], elapsedTime, last, cancel }) => {
-      if (committed) {
-        // Belt-and-suspenders: `enabled: !committed` below already tells
-        // @use-gesture not to run this gesture at all once committed, but
-        // bail out defensively too in case a drag was already in flight
-        // the instant commit happened (e.g. committed via the other side's
-        // button mid-drag).
-        cancel()
-        return
-      }
+  // TEMPORARY, dev-flagged (`?gesture-debug=1`) on-screen capture — v3
+  // Phase 0 instrumentation for OD-1; see useGestureDebugOverlay.tsx. A
+  // no-op (and renders nothing) without the flag.
+  const debug = useGestureDebugOverlay()
 
-      if (down) {
-        x.set(mx)
-        return
-      }
+  // The pointerId of the single gesture currently owning the card, or null
+  // between gestures — a second finger landing mid-drag must not hijack or
+  // interleave with the first's move/up events (DragOrder.tsx's convention).
+  const activePointerIdRef = useRef<number | null>(null)
+  const startXRef = useRef(0)
+  const startYRef = useRef(0)
+  const startTimeRef = useRef(0)
+  const axisRef = useRef<AxisResolution>('ambiguous')
+  const capturedRef = useRef(false)
 
-      // Only the final (pointer-up) frame of the gesture can resolve a
-      // commit — intermediate frames only update the live drag position
-      // above.
-      if (!last) return
+  const resetGesture = () => {
+    activePointerIdRef.current = null
+    axisRef.current = 'ambiguous'
+    capturedRef.current = false
+  }
 
-      // Signed velocity averaged over the whole gesture (movement /
-      // elapsedTime), NOT @use-gesture's own final-frame velocity/direction
-      // — see signedVelocityFromGesture's doc comment in gestureThreshold.ts
-      // for the real-hardware bug (a >32ms pause before release collapses
-      // @use-gesture's last-frame kinematics to ~0) that approach used to
-      // reproduce.
-      const commitDirection = resolveSwipeCommit(
-        { dx: mx, velocityX: signedVelocityFromGesture({ movement: mx, elapsedTime }) },
-        DEFAULT_SWIPE_THRESHOLD,
-      )
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (committed) return
+    if (activePointerIdRef.current !== null) return
+    activePointerIdRef.current = event.pointerId
+    startXRef.current = event.clientX
+    startYRef.current = event.clientY
+    startTimeRef.current = performance.now()
+    axisRef.current = 'ambiguous'
+    capturedRef.current = false
+    debug.log({
+      type: 'down',
+      x: event.clientX,
+      y: event.clientY,
+      cancelable: event.cancelable,
+      axis: 'ambiguous',
+      prevented: false,
+    })
+  }
 
-      setPreviewDirection(null)
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (committed) return
+    if (event.pointerId !== activePointerIdRef.current) return
 
-      if (commitDirection) {
-        handlePick(commitDirection)
-        void animate(x, commitDirection === 'right' ? FLY_OUT_DISTANCE : -FLY_OUT_DISTANCE, {
-          duration: 0.22,
-          ease: 'easeIn',
-        }).then(() => {
-          x.set(0)
+    const dx = event.clientX - startXRef.current
+    const dy = event.clientY - startYRef.current
+
+    if (axisRef.current === 'ambiguous') {
+      if (Math.abs(dx) < AXIS_TOLERANCE && Math.abs(dy) < AXIS_TOLERANCE) {
+        // Still too small to call — deliberately inert (no preventDefault),
+        // so a genuinely vertical touch stays free to become a native scroll.
+        debug.log({
+          type: 'move',
+          x: event.clientX,
+          y: event.clientY,
+          cancelable: event.cancelable,
+          axis: 'ambiguous',
+          prevented: false,
         })
-      } else {
-        springBackToCenter()
+        return
       }
-    },
-    {
-      axis: 'x',
-      filterTaps: true,
-      enabled: !committed,
-      // @use-gesture/core defaults axisThreshold to { mouse: 0, touch: 0, pen: 8 }
-      // (dragConfigResolver.ts) — zero tolerance for touch means the very
-      // FIRST touchmove sample permanently locks the gesture's axis, and on
-      // real touchscreens that sample very often has a slightly larger
-      // vertical component than horizontal (finger jitter, a not-quite-flat
-      // swipe angle), which locks axis to 'y' and then silently drops the
-      // whole gesture: `axis: 'x'` + a mismatched locked axis makes every
-      // frame (including the final pointerup one) get blocked before it ever
-      // reaches this callback — see DragEngine.ts's `axisIntent`/`_blocked`
-      // and Engine.ts's emit-skip check. This never reproduces with a mouse
-      // or in jsdom-mocked tests (both produce clean axis-dominant deltas),
-      // which is why it slipped through the existing test suite and a prior
-      // fix that only addressed a different bug (stale last-frame velocity
-      // over a >32ms pause before release). A few pixels of touch tolerance
-      // is enough to absorb that natural jitter without weakening genuine
-      // vertical-scroll detection.
-      axisThreshold: { touch: 20 },
-      // v2 Phase 7b, OD-1 (third gesture defect, real device — iPhone 15
-      // Pro, iOS 26.5.2, both PWA and browser tab): the two fixes above
-      // (32ms kinematics staleness, this axisThreshold) close the JS-level
-      // axis-lock bugs but don't touch a separate, earlier-arbitrating
-      // layer — `touch-action: pan-y` below tells the WebKit compositor at
-      // parse time that it may commit a touch to native vertical scroll
-      // WITHOUT ever consulting JS, and it can make that commitment within
-      // the first few touchmove samples, before `axisThreshold` above gets
-      // a meaningful chance to run. Once committed, the touchmove's own
-      // `cancelable` flips to false — confirmed directly in
-      // @use-gesture/core's own DragEngine.preventScroll(), which no-ops
-      // under that guard. That's the actual symptom this device reproduced:
-      // a normal-speed or slightly-diagonal swipe loses this race to native
-      // scroll and does nothing; only a fast, purely-horizontal flick wins
-      // it. `preventScroll: true` activates @use-gesture's own
-      // already-shipped scroll-arbitration path instead of leaving it to
-      // touch-action: a dedicated non-passive listener defers the
-      // vertical/horizontal call to this same axisThreshold — if it
-      // resolves vertical, it cleanly yields (removes itself, never calls
-      // preventDefault, native scroll proceeds normally) before scroll
-      // visibly starts; if horizontal, the drag wins and scroll is
-      // prevented for the rest of the gesture. `preventScrollAxis` defaults
-      // to 'y', which is exactly the axis this card must still yield to.
-      //
-      // Amendment (real-device re-report after the first Phase 7b deploy):
-      // touch-action was shipped as 'none' here, which does NOT reproduce
-      // the swipe-arbitration bug fix real-device testers expected — a
-      // normal-speed or diagonal swipe still did nothing. Root cause, read
-      // directly from @use-gesture's own docs (use-gesture.netlify.app/docs/
-      // options/#preventscroll and #preventscrollaxis), not just its source:
-      // preventScroll/preventScrollAxis is explicitly documented to require
-      // `touch-action: pan-x`/`pan-y` on the element, NOT `none` — "touch-
-      // action: none ... generally means that the scroll of the page can't
-      // be initiated from the draggable element", which is exactly the
-      // "yields to native scroll" behavior this card needs. `touch-action:
-      // none` is a hard, unconditional browser-level opt-out of ALL default
-      // panning for touches starting on this element — it takes effect at
-      // hit-test time, before any JS runs, and isn't something preventScroll
-      // (or NOT calling preventDefault) can hand back. So with 'none', a
-      // vertical/diagonal touch on the card was already blocked from
-      // scrolling the page by CSS alone, `state.axis` still resolved to 'y',
-      // the gesture engine correctly "yielded" by cleaning up and never
-      // calling preventDefault — but there was no native scroll left to
-      // yield TO, so the touch produced no visible effect at all (no card
-      // drag, no page scroll). That reads to a real user exactly like the
-      // original bug: "swipe does nothing." The previous doc comment's claim
-      // that @use-gesture's docs require 'none' for a draggable element was
-      // wrong — that guidance is for drag surfaces that don't need to hand
-      // any axis back to native scroll at all; this card explicitly does.
-      // Switched to `touchAction: 'pan-y'` below (matching the library's own
-      // documented setup for `preventScrollAxis`), so the browser can still
-      // start a native vertical scroll on this element, with
-      // preventScrollAxis's non-passive listener responsible for calling
-      // preventDefault before that scroll visibly commits once the axis
-      // resolves horizontal. Per @use-gesture's own docs this feature is
-      // explicitly labeled "experimental" and "still under testing" — this
-      // change is not assumed correct from source/docs alone and needs a
-      // real on-device re-test (iPhone, both PWA and browser tab) before
-      // OD-1 is re-closed.
-      preventScroll: true,
-    },
-  )
+      axisRef.current = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical-yielded'
+      if (axisRef.current === 'horizontal' && !capturedRef.current) {
+        setPointerCaptureIfSupported(event.currentTarget, event.pointerId)
+        capturedRef.current = true
+      }
+    }
 
-  // `bind()`'s TS type is `@use-gesture/react`'s own generic
-  // `ReactDOMAttributes` (every possible React DOM handler name, widely
-  // typed) — that shape structurally conflicts with `motion.div`'s props
-  // for a handful of names framer-motion gives its own gesture-specific
-  // signature to (`onDrag`, `onDragStart`, ...), even though `bind()` never
-  // actually populates those with anything but plain pointer-event
-  // handlers at runtime. This is a known typing mismatch between the two
-  // libraries, not a real prop conflict, so it's cast through `unknown`
-  // rather than fighting the two independently-authored handler types.
-  const dragSurfaceProps = bind() as unknown as ComponentPropsWithoutRef<typeof motion.div>
+    if (axisRef.current === 'vertical-yielded') {
+      debug.log({
+        type: 'move',
+        x: event.clientX,
+        y: event.clientY,
+        cancelable: event.cancelable,
+        axis: 'vertical-yielded',
+        prevented: false,
+      })
+      return
+    }
+
+    // Horizontal: claim the gesture. A non-cancelable event means the
+    // browser already committed this touch to scrolling before JS could
+    // object — OD-1's suspected mechanism, so it is logged rather than
+    // silently swallowed.
+    const canPrevent = event.cancelable
+    if (canPrevent) event.preventDefault()
+    x.set(dx)
+    debug.log({
+      type: 'move',
+      x: event.clientX,
+      y: event.clientY,
+      cancelable: event.cancelable,
+      axis: 'horizontal',
+      prevented: canPrevent,
+      note: canPrevent ? `dx=${String(Math.round(dx))}` : 'NOT CANCELABLE — scroll already claimed',
+    })
+  }
+
+  const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerId !== activePointerIdRef.current) return
+
+    const axis = axisRef.current
+    const dx = event.clientX - startXRef.current
+    const elapsedTime = performance.now() - startTimeRef.current
+    const wasCaptured = capturedRef.current
+    const target = event.currentTarget
+
+    // Reset before releasing capture: releasing synthesizes a
+    // `lostpointercapture`, and by then this gesture must already read as
+    // finished so that handler no-ops instead of springing an in-flight
+    // commit animation back to center.
+    resetGesture()
+    if (wasCaptured) releasePointerCaptureIfSupported(target, event.pointerId)
+
+    if (committed || axis !== 'horizontal') {
+      // Nothing to spring back: `x` is only ever moved from the horizontal
+      // branch above, so an ambiguous/yielded gesture left it at 0.
+      debug.log({
+        type: 'up',
+        x: event.clientX,
+        y: event.clientY,
+        cancelable: event.cancelable,
+        axis,
+        prevented: false,
+        note: 'no commit (gesture never resolved horizontal, or already committed)',
+      })
+      return
+    }
+
+    // Signed velocity averaged over the WHOLE gesture (movement /
+    // elapsedTime) — see signedVelocityFromGesture's doc comment in
+    // gestureThreshold.ts for the real-hardware bug (a pause before release
+    // collapsing a final-frame velocity to ~0) that averaging sidesteps.
+    const velocityX = signedVelocityFromGesture({ movement: dx, elapsedTime })
+    const commitDirection = resolveSwipeCommit({ dx, velocityX }, DEFAULT_SWIPE_THRESHOLD)
+
+    debug.log({
+      type: 'up',
+      x: event.clientX,
+      y: event.clientY,
+      cancelable: event.cancelable,
+      axis: 'horizontal',
+      prevented: false,
+      note: `dx=${String(Math.round(dx))} t=${String(Math.round(elapsedTime))}ms v=${velocityX.toFixed(3)} -> ${commitDirection ?? 'no commit'}`,
+    })
+
+    setPreviewDirection(null)
+
+    if (commitDirection) {
+      handlePick(commitDirection)
+      void animate(x, commitDirection === 'right' ? FLY_OUT_DISTANCE : -FLY_OUT_DISTANCE, {
+        duration: 0.22,
+        ease: 'easeIn',
+      }).then(() => {
+        x.set(0)
+      })
+    } else {
+      springBackToCenter()
+    }
+  }
+
+  /** A gesture the browser took away (native scroll claimed it, a system gesture interrupted it): drop everything and settle the card back to center — never leave it stuck off-center. */
+  const handlePointerCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerId !== activePointerIdRef.current) return
+    const wasCaptured = capturedRef.current
+    const target = event.currentTarget
+    resetGesture()
+    if (wasCaptured) releasePointerCaptureIfSupported(target, event.pointerId)
+    setPreviewDirection(null)
+    springBackToCenter()
+    debug.log({
+      type: 'cancel',
+      x: event.clientX,
+      y: event.clientY,
+      cancelable: event.cancelable,
+      axis: 'ambiguous',
+      prevented: false,
+      note: 'gesture cancelled — reset to center',
+    })
+  }
+
+  /**
+   * A capture the card never releases itself (the browser reassigns it
+   * mid-gesture) would otherwise leave the card stuck mid-drag, since no
+   * pointerup would ever arrive. Only clears state — does NOT call
+   * `releasePointerCaptureIfSupported`, since releasing a capture that is
+   * already gone throws `NotFoundError` in real browsers (DragOrder.tsx's
+   * same recovery rule).
+   */
+  const handleLostPointerCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerId !== activePointerIdRef.current) return
+    resetGesture()
+    setPreviewDirection(null)
+    springBackToCenter()
+    debug.log({
+      type: 'lostcapture',
+      x: event.clientX,
+      y: event.clientY,
+      cancelable: event.cancelable,
+      axis: 'ambiguous',
+      prevented: false,
+      note: 'capture lost — reset to center',
+    })
+  }
 
   return (
     <div className="swipe-fallback">
       <p className="swipe-fallback__hint">Drag the card, or tap a button.</p>
       <motion.div
-        {...dragSurfaceProps}
         className="swipe-fallback__card"
-        // v2 Phase 7b, OD-1: 'pan-y', not 'none' — see the useDrag config's
-        // own comment above (preventScroll) for the full amendment. 'none'
-        // blocks native scroll unconditionally at the CSS level, which
-        // silently defeats preventScrollAxis's own "yield to native scroll"
-        // path; 'pan-y' is what @use-gesture's own docs specify for this
-        // exact setup.
+        // STATIC, never assigned at runtime — see the component doc
+        // comment's point 1. Duplicated from practice.css's own
+        // `.swipe-fallback__card { touch-action: pan-y }` because jsdom only
+        // reflects inline styles, so this copy is the one the test suite can
+        // actually assert on; keep the two in sync by hand.
         style={{ x, rotate, touchAction: 'pan-y' }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onLostPointerCapture={handleLostPointerCapture}
       >
         <CodeSnippet lines={lines} />
         <div className="swipe-fallback__buttons">
@@ -310,6 +507,7 @@ export function SwipeBinary({
           </button>
         </div>
       </motion.div>
+      {debug.overlay}
     </div>
   )
 }
