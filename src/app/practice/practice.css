@@ -239,6 +239,18 @@
    * this rule as apparently-redundant) exists and is knowingly unguarded,
    * not fixed by adding e2e coverage this repo doesn't otherwise have. */
   touch-action: pan-y;
+  /* Found in v3 Phase 0 review, not part of the original OD-1 report: this
+   * card renders CodeSnippet's syntax-highlighted text directly (see the
+   * component doc comment on why), so without this a drag started on the
+   * snippet triggers native text selection instead of/alongside the swipe —
+   * `.drag-order__row` carries the identical rule for the same reason.
+   * `-webkit-user-select` covers Safari (still required there for full
+   * effect); `-webkit-touch-callout: none` suppresses iOS's long-press
+   * "Copy/Look Up" callout, which a long-press-then-drag would otherwise
+   * trigger before any pointer handler runs. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .swipe-fallback__buttons {
