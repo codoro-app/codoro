@@ -289,6 +289,18 @@ describe('SwipeBinary', () => {
   // scroll before @use-gesture's JS ever ran. Both halves of the fix are
   // asserted here — reverting either one fails this test mechanically, not
   // just "looks reverted".
+  //
+  // Amended after a second real-device round: the first fix shipped
+  // `touchAction: 'none'` here, which a fresh on-device re-test showed does
+  // NOT fix the bug — 'none' unconditionally blocks native scroll at the CSS
+  // level (before any JS runs), which defeats preventScrollAxis's own
+  // "yield to native scroll" path just as thoroughly as the original
+  // `pan-y`-lets-the-browser-commit-early bug did, just via a different
+  // mechanism. @use-gesture's own docs (options/#preventscrollaxis) specify
+  // `pan-x`/`pan-y` here, not `none`. This assertion was updated to match —
+  // see SwipeBinary.tsx's useDrag config comment for the full account. This
+  // second fix is not assumed correct from source/docs alone either; a real
+  // on-device re-test is still owed before OD-1 is re-closed.
   describe('scroll arbitration (OD-1 third defect)', () => {
     it('hands vertical-scroll arbitration to @use-gesture via preventScroll, not touch-action', () => {
       render(<Harness />)
@@ -296,11 +308,11 @@ describe('SwipeBinary', () => {
       expect(config?.preventScroll).toBeTruthy()
     })
 
-    it("sets the drag surface's touch-action to 'none', not 'pan-y'", () => {
+    it("sets the drag surface's touch-action to 'pan-y', matching @use-gesture's documented preventScrollAxis setup", () => {
       const { container } = render(<Harness />)
       const card = container.querySelector('.swipe-fallback__card')
       expect(card).not.toBeNull()
-      expect((card as HTMLElement).style.touchAction).toBe('none')
+      expect((card as HTMLElement).style.touchAction).toBe('pan-y')
     })
   })
 })

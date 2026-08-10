@@ -220,11 +220,43 @@ export function SwipeBinary({
       // preventDefault, native scroll proceeds normally) before scroll
       // visibly starts; if horizontal, the drag wins and scroll is
       // prevented for the rest of the gesture. `preventScrollAxis` defaults
-      // to 'y', which is exactly the axis this card must still yield to, so
-      // no override is needed. This requires `touchAction: 'none'` below
-      // (not 'pan-y') — @use-gesture's own bundled docs are explicit that
-      // 'none' is what a draggable element needs; 'pan-y' is what caused
-      // this bug by pre-committing the browser before JS ever ran.
+      // to 'y', which is exactly the axis this card must still yield to.
+      //
+      // Amendment (real-device re-report after the first Phase 7b deploy):
+      // touch-action was shipped as 'none' here, which does NOT reproduce
+      // the swipe-arbitration bug fix real-device testers expected — a
+      // normal-speed or diagonal swipe still did nothing. Root cause, read
+      // directly from @use-gesture's own docs (use-gesture.netlify.app/docs/
+      // options/#preventscroll and #preventscrollaxis), not just its source:
+      // preventScroll/preventScrollAxis is explicitly documented to require
+      // `touch-action: pan-x`/`pan-y` on the element, NOT `none` — "touch-
+      // action: none ... generally means that the scroll of the page can't
+      // be initiated from the draggable element", which is exactly the
+      // "yields to native scroll" behavior this card needs. `touch-action:
+      // none` is a hard, unconditional browser-level opt-out of ALL default
+      // panning for touches starting on this element — it takes effect at
+      // hit-test time, before any JS runs, and isn't something preventScroll
+      // (or NOT calling preventDefault) can hand back. So with 'none', a
+      // vertical/diagonal touch on the card was already blocked from
+      // scrolling the page by CSS alone, `state.axis` still resolved to 'y',
+      // the gesture engine correctly "yielded" by cleaning up and never
+      // calling preventDefault — but there was no native scroll left to
+      // yield TO, so the touch produced no visible effect at all (no card
+      // drag, no page scroll). That reads to a real user exactly like the
+      // original bug: "swipe does nothing." The previous doc comment's claim
+      // that @use-gesture's docs require 'none' for a draggable element was
+      // wrong — that guidance is for drag surfaces that don't need to hand
+      // any axis back to native scroll at all; this card explicitly does.
+      // Switched to `touchAction: 'pan-y'` below (matching the library's own
+      // documented setup for `preventScrollAxis`), so the browser can still
+      // start a native vertical scroll on this element, with
+      // preventScrollAxis's non-passive listener responsible for calling
+      // preventDefault before that scroll visibly commits once the axis
+      // resolves horizontal. Per @use-gesture's own docs this feature is
+      // explicitly labeled "experimental" and "still under testing" — this
+      // change is not assumed correct from source/docs alone and needs a
+      // real on-device re-test (iPhone, both PWA and browser tab) before
+      // OD-1 is re-closed.
       preventScroll: true,
     },
   )
@@ -246,12 +278,13 @@ export function SwipeBinary({
       <motion.div
         {...dragSurfaceProps}
         className="swipe-fallback__card"
-        // v2 Phase 7b, OD-1: 'none', not 'pan-y' — see the useDrag config's
-        // own comment above (preventScroll) for why. @use-gesture's own
-        // scroll-arbitration path (preventScroll: true) now owns the
-        // vertical-scroll-passthrough decision this used to hand to the
-        // browser directly.
-        style={{ x, rotate, touchAction: 'none' }}
+        // v2 Phase 7b, OD-1: 'pan-y', not 'none' — see the useDrag config's
+        // own comment above (preventScroll) for the full amendment. 'none'
+        // blocks native scroll unconditionally at the CSS level, which
+        // silently defeats preventScrollAxis's own "yield to native scroll"
+        // path; 'pan-y' is what @use-gesture's own docs specify for this
+        // exact setup.
+        style={{ x, rotate, touchAction: 'pan-y' }}
       >
         <CodeSnippet lines={lines} />
         <div className="swipe-fallback__buttons">
