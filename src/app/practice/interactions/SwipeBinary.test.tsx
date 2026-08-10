@@ -411,6 +411,21 @@ describe('SwipeBinary', () => {
       expect(later.defaultPrevented).toBe(true)
     })
 
+    it('never calls setPointerCapture for a touch gesture (OD-3: touch is implicitly captured; the explicit call caused a spurious lostpointercapture on-device)', () => {
+      const captureSpy = vi.spyOn(Element.prototype, 'setPointerCapture')
+      const { container } = render(<Harness />)
+      const card = getCard(container)
+
+      pointerDown(card, 0, 0)
+      advanceClock(16)
+      pointerMove(card, 40, 6)
+      pointerMove(card, 120, 10)
+      pointerUp(card, 120, 10)
+
+      expect(captureSpy).not.toHaveBeenCalled()
+      captureSpy.mockRestore()
+    })
+
     it('forwards a vertical gesture to window.scrollBy, and stays yielded even if it later turns horizontal', () => {
       // OD-2 (v3 Phase 0): touch-action is 'none', not 'pan-y' — see the
       // component's OD-2 doc comment for why 'pan-y' was falsified by a real

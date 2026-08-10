@@ -157,24 +157,36 @@ function releasePointerCaptureIfSupported(el: HTMLElement, pointerId: number): v
  * bounce that scrolling anywhere else on the page still has. Flagged, not
  * fixed, in v3 Phase 0 — see the amendment in docs/v3-build-plan.md.
  *
- * ### Why pointer capture is deferred until horizontal intent resolves
+ * ### OD-3 (v3 Phase 0): explicit pointer capture is skipped for touch
+ * entirely, not just deferred
  *
- * DragOrder captures at pointerdown; this component captures only once the
- * axis resolves horizontal. Two reasons, one of which is a real bug the
- * DragOrder pattern would introduce here:
+ * DragOrder captures at pointerdown, unconditionally; this component used to
+ * defer capture until the axis resolved horizontal, and now — per a second
+ * on-device capture — never explicitly captures touch at all:
  *
- * - Capturing at pointerdown would break the tap-fallback buttons. They live
- *   INSIDE this drag surface (DragOrder's rows contain no buttons), and with
- *   an active pointer capture Chromium retargets the subsequent `click` to
- *   the capturing element — the card — so the buttons' own `onClick` would
- *   never fire. Deferring means a tap, which never travels `AXIS_TOLERANCE`
- *   px, never captures at all.
- * - It costs nothing on the failing device. Per Pointer Events Level 3's
- *   implicit pointer capture, direct-manipulation pointers (touch, pen)
- *   behave as if `setPointerCapture` had already been called on the
- *   pointerdown target, so an explicit call adds nothing for touch; it
- *   matters only for mouse, where it keeps a drag tracking once the cursor
- *   leaves the card.
+ * - **The actual OD-3 finding**: that second capture showed WebKit firing
+ *   `lostpointercapture` within 0-13ms of the `setPointerCapture()` call, on
+ *   every horizontal-resolving touch gesture (3 of 3) — not a
+ *   `pointercancel`, and not this component's own code (which only releases
+ *   from `pointerup`/`pointercancel`/`lostpointercapture` itself). This
+ *   component's `handleLostPointerCapture` then read that as "gesture over"
+ *   and sprang the card back to center mid-drag, while the finger was still
+ *   down — very likely the reported "jumpy" feeling itself. Per Pointer
+ *   Events Level 3's implicit pointer capture, touch pointers are captured
+ *   to the pointerdown target automatically, without any explicit call —
+ *   so the explicit call here was pure redundancy, on a pointer WebKit
+ *   already owned, and WebKit's handling of that redundant call is what
+ *   produced the spurious `lostpointercapture`. Fix: skip the explicit call
+ *   for `event.pointerType === 'touch'` entirely; implicit capture still
+ *   covers it.
+ * - Capturing at pointerdown (mouse/pen only, now) would still break the
+ *   tap-fallback buttons if applied to touch: they live INSIDE this drag
+ *   surface (DragOrder's rows contain no buttons), and an active pointer
+ *   capture makes Chromium retarget the subsequent `click` to the capturing
+ *   element — the card — so the buttons' own `onClick` would never fire.
+ *   Moot for touch now that it's never captured; still the reason mouse/pen
+ *   capture (if it ever happens) stays deferred to axis-resolution rather
+ *   than moving to pointerdown.
  *
  * Note what is NOT the reason: capturing early would not "fight" the scroll
  * arbitration. Pointer capture only retargets pointer events — under
@@ -350,7 +362,19 @@ export function SwipeBinary({
         return
       }
       axisRef.current = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical-yielded'
-      if (axisRef.current === 'horizontal' && !capturedRef.current) {
+      // OD-3 (v3 Phase 0): touch pointers get IMPLICIT capture on
+      // pointerdown per spec (see the component doc comment) — this
+      // explicit call is only needed for mouse/pen, which don't. A second
+      // on-device capture showed WebKit firing `lostpointercapture` within
+      // 0-13ms of this call on every horizontal-resolving touch gesture
+      // (3 of 3), which this component's own handler then reads as
+      // "gesture over" and springs the card back mid-drag — an explicit
+      // capture call WebKit doesn't need, on a pointer it already owns.
+      if (
+        axisRef.current === 'horizontal' &&
+        !capturedRef.current &&
+        event.pointerType !== 'touch'
+      ) {
         setPointerCaptureIfSupported(event.currentTarget, event.pointerId)
         capturedRef.current = true
       }
