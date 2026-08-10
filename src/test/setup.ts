@@ -46,6 +46,12 @@ Element.prototype.releasePointerCapture = () => undefined
 // that's a real no-op instead of console noise on every test in this file.
 window.scrollTo = () => undefined
 
+// jsdom doesn't implement window.scrollBy either — SwipeBinary's
+// `vertical-yielded` branch calls it every move to forward page scroll
+// manually (v3 Phase 0, OD-2: `touch-action: none` means there's no more
+// native scroll to fall back on). Same stub pattern as scrollTo above.
+window.scrollBy = () => undefined
+
 // jsdom doesn't implement window.matchMedia at all — PwaPrompts calls it
 // (via iosInstall.ts's currentIosEnvironment) on every mount to check for
 // display-mode: standalone, which every App.test.tsx render exercises.

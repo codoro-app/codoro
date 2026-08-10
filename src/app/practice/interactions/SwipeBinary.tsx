@@ -114,21 +114,48 @@ function releasePointerCaptureIfSupported(el: HTMLElement, pointerId: number): v
  * untouched) are unchanged; only what feeds `x` changed. What we inherit
  * from DragOrder:
  *
- * 1. **`touch-action` is static.** `pan-y` is declared in practice.css AND
+ * 1. **`touch-action` is static.** `none` is declared in practice.css AND
  *    in the inline style below, and is never assigned at runtime by any code
  *    path. A browser commits a touch to native scroll vs. custom gesture at
  *    hit-test time, BEFORE any JS handler runs, so a runtime-toggled
  *    `touch-action` is structurally too late no matter how early the toggle
- *    fires. `pan-y` (not `none`) because this card, unlike DragOrder's
- *    handle, has to let a genuinely vertical swipe scroll the page: it is
- *    full-width and full-height in the practice view, so `none` would strand
- *    the player with an unscrollable page.
+ *    fires.
  * 2. **Explicit axis arbitration in JS**, below — the "is this a scroll or a
  *    swipe" decision made by our own code on our own samples, inspectable
  *    and testable, rather than delegated to a library's experimental path.
  * 3. **`pointercancel` / `lostpointercapture` both reset**, so a gesture
  *    the browser takes away from us can never leave the card stuck
  *    off-center.
+ *
+ * ### OD-2 (v3 Phase 0): why `touch-action` is `none`, not `pan-y`, and the
+ * page scroll is now forwarded manually
+ *
+ * The first version of this rewrite used `pan-y` (this card fills the
+ * practice view, so `none` — a hard block on ALL native panning starting
+ * here — would have stranded a player mid-scroll, same reasoning DragOrder's
+ * *handle* doesn't need to worry about since its *row* stays `pan-y`).
+ * Thomas's on-device capture (iPhone 15 Pro, real production preview,
+ * `?gesture-debug=1`) falsified that design: a clean, purely-horizontal drag
+ * — axis correctly resolved `horizontal`, `preventDefault()` called
+ * successfully on every move, `cancelable` never once false — still got a
+ * `pointercancel` one frame later. Under `pan-y`, WebKit's native pan
+ * gesture recognizer runs in parallel with JS and can independently decide
+ * to claim the touch and cancel our pointer stream — that authority comes
+ * from `pan-y` itself granting it permission to pan vertically at all, and
+ * is not gated on whether individual `pointermove` events had
+ * `preventDefault()` called on them. Consistently succeeding at
+ * `preventDefault()` (which the capture shows we were) cannot revoke a
+ * `touch-action` value's grant.
+ *
+ * So: `touch-action: none` removes WebKit's competing recognizer from the
+ * picture for both axes, and this component takes over ALL of scrolling for
+ * touches that start on the card — `window.scrollBy` in the
+ * `vertical-yielded` branch below, driven by the same per-frame `dy` this
+ * component already reads. Real trade-off, accepted rather than hidden: this
+ * is a plain `scrollBy`, not a physics simulation, so a vertical swipe on
+ * the card loses the OS's native momentum/inertia and elastic overscroll
+ * bounce that scrolling anywhere else on the page still has. Flagged, not
+ * fixed, in v3 Phase 0 — see the amendment in docs/v3-build-plan.md.
  *
  * ### Why pointer capture is deferred until horizontal intent resolves
  *
@@ -149,33 +176,31 @@ function releasePointerCaptureIfSupported(el: HTMLElement, pointerId: number): v
  *   matters only for mouse, where it keeps a drag tracking once the cursor
  *   leaves the card.
  *
- * Note what is NOT the reason: capturing early would not "fight" `pan-y`.
- * Pointer capture only retargets pointer events — it has no bearing on the
- * touch-action scroll arbitration, and if the browser does claim the touch
- * for scrolling it fires `pointercancel` and implicitly drops the capture
- * regardless. The scroll-vs-swipe call is `touch-action` + `preventDefault`,
- * never capture.
+ * Note what is NOT the reason: capturing early would not "fight" the scroll
+ * arbitration. Pointer capture only retargets pointer events — under
+ * `touch-action: none` there is no native scroll left to fight in the first
+ * place (see OD-2 above); if a gesture is cancelled for some other reason
+ * (`pointercancel`) capture is implicitly dropped regardless.
  *
  * ### The axis arbitration itself
  *
  * Per gesture, from the pointerdown origin:
  *
- * - **Ambiguous** while `|dx| < AXIS_TOLERANCE && |dy| < AXIS_TOLERANCE`:
- *   do nothing at all. Notably we do NOT `preventDefault()` here — if the
- *   browser decides during this window that the touch is a vertical scroll,
- *   that is the correct outcome for a vertical swipe, not a bug to suppress.
+ * - **Ambiguous** while `|dx| < AXIS_TOLERANCE && |dy| < AXIS_TOLERANCE`: do
+ *   nothing at all — under `touch-action: none` there is no native default
+ *   to suppress or allow either way, so this window exists only to decide
+ *   which axis the gesture belongs to, not to referee against the browser.
  * - The first sample past the tolerance in either axis decides: `|dx| >
- *   |dy|` → **horizontal**, else **vertical-yielded** (ties go to vertical;
- *   native scroll is the safer default).
+ *   |dy|` → **horizontal**, else **vertical-yielded** (ties go to vertical —
+ *   the safer default for a page that must stay scrollable).
  * - **Horizontal**: `preventDefault()` on that event and every later move of
- *   the gesture, so a diagonal continuation can't hand the touch to a
- *   vertical scroll mid-drag; take pointer capture; track `x` 1:1.
- *   `preventDefault` is only possible on a `cancelable` event — when it is
- *   not, the browser has ALREADY committed the touch to scrolling, which is
- *   precisely OD-1's suspected mechanism, so that case is recorded in the
- *   debug overlay rather than silently ignored.
- * - **Vertical-yielded**: never `preventDefault`, never move `x`, never
- *   commit. The page scrolls natively, exactly as `pan-y` promises.
+ *   the gesture (belt-and-suspenders under `none`, which already blocks any
+ *   native default); take pointer capture; track `x` 1:1. The `cancelable`
+ *   field is still logged to the debug overlay — useful evidence if a future
+ *   defect resembles OD-1/OD-2's shape again.
+ * - **Vertical-yielded**: forward the raw `dy` to `window.scrollBy` every
+ *   move (OD-2, above) instead of relying on a native scroll that
+ *   `touch-action: none` no longer permits; never move `x`; never commit.
  *
  * Only pointerup can commit, and only from the horizontal state.
  *
@@ -272,6 +297,7 @@ export function SwipeBinary({
   const activePointerIdRef = useRef<number | null>(null)
   const startXRef = useRef(0)
   const startYRef = useRef(0)
+  const lastYRef = useRef(0)
   const startTimeRef = useRef(0)
   const axisRef = useRef<AxisResolution>('ambiguous')
   const capturedRef = useRef(false)
@@ -288,6 +314,7 @@ export function SwipeBinary({
     activePointerIdRef.current = event.pointerId
     startXRef.current = event.clientX
     startYRef.current = event.clientY
+    lastYRef.current = event.clientY
     startTimeRef.current = performance.now()
     axisRef.current = 'ambiguous'
     capturedRef.current = false
@@ -330,13 +357,23 @@ export function SwipeBinary({
     }
 
     if (axisRef.current === 'vertical-yielded') {
+      // Forwarded manually — see the component doc comment's "OD-2" section
+      // for why native scroll can no longer do this. `window.scrollBy` (not
+      // the nearest scrollable ancestor) because this app has none: page
+      // scroll is the document's own, confirmed by grep (no `overflow-y`
+      // rule anywhere in the practice route's CSS).
+      const deltaY = event.clientY - lastYRef.current
+      lastYRef.current = event.clientY
+      window.scrollBy(0, -deltaY)
+      if (event.cancelable) event.preventDefault()
       debug.log({
         type: 'move',
         x: event.clientX,
         y: event.clientY,
         cancelable: event.cancelable,
         axis: 'vertical-yielded',
-        prevented: false,
+        prevented: event.cancelable,
+        note: `manual scrollBy(0, ${String(Math.round(-deltaY))})`,
       })
       return
     }
@@ -472,11 +509,11 @@ export function SwipeBinary({
       <motion.div
         className="swipe-fallback__card"
         // STATIC, never assigned at runtime — see the component doc
-        // comment's point 1. Duplicated from practice.css's own
-        // `.swipe-fallback__card { touch-action: pan-y }` because jsdom only
-        // reflects inline styles, so this copy is the one the test suite can
-        // actually assert on; keep the two in sync by hand.
-        style={{ x, rotate, touchAction: 'pan-y' }}
+        // comment's point 1 and the OD-2 section. Duplicated from
+        // practice.css's own `.swipe-fallback__card { touch-action: none }`
+        // because jsdom only reflects inline styles, so this copy is the one
+        // the test suite can actually assert on; keep the two in sync by hand.
+        style={{ x, rotate, touchAction: 'none' }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

@@ -411,25 +411,37 @@ describe('SwipeBinary', () => {
       expect(later.defaultPrevented).toBe(true)
     })
 
-    it('never preventDefaults a vertical gesture, and stays yielded even if it later turns horizontal', () => {
+    it('forwards a vertical gesture to window.scrollBy, and stays yielded even if it later turns horizontal', () => {
+      // OD-2 (v3 Phase 0): touch-action is 'none', not 'pan-y' — see the
+      // component's OD-2 doc comment for why 'pan-y' was falsified by a real
+      // on-device capture. With no native scroll left to fall back on, a
+      // vertical gesture must be forwarded manually.
+      const scrollBySpy = vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined)
       const onCommit = vi.fn()
       const { container } = render(<Harness onCommit={onCommit} />)
       const card = getCard(container)
 
       pointerDown(card, 0, 0)
       advanceClock(16)
-      // Vertical-dominant first sample past the tolerance: this is a page
-      // scroll, and the browser owns it from here.
+      // Vertical-dominant first sample past the tolerance decides the axis.
       const vertical = pointerMove(card, 8, 40)
-      // Even a big horizontal continuation must not steal it back — the
-      // browser is already scrolling by now on a real device.
+      // Even a big horizontal continuation must not steal it back.
       const late = pointerMove(card, 200, 60)
       advanceClock(300)
       pointerUp(card, 200, 60)
 
-      expect(vertical.defaultPrevented).toBe(false)
-      expect(late.defaultPrevented).toBe(false)
+      // preventDefault is called defensively on every move regardless of
+      // axis (harmless under 'none', which already blocks any native
+      // default) — the vertical-vs-horizontal distinction now lives in
+      // *what* happens next: scrollBy vs. tracking `x`, not in whether
+      // preventDefault fires.
+      expect(vertical.defaultPrevented).toBe(true)
+      expect(late.defaultPrevented).toBe(true)
+      expect(scrollBySpy).toHaveBeenCalledWith(0, -40)
+      expect(scrollBySpy).toHaveBeenCalledWith(0, -20)
       expect(onCommit).not.toHaveBeenCalled()
+
+      scrollBySpy.mockRestore()
     })
 
     it('resolves a slightly-diagonal swipe as horizontal and commits it', () => {
@@ -486,25 +498,25 @@ describe('SwipeBinary', () => {
   describe('static touch-action', () => {
     installMockClock()
 
-    it("keeps the card's inline touch-action at 'pan-y' through a whole gesture", () => {
+    it("keeps the card's inline touch-action at 'none' through a whole gesture", () => {
       const { container } = render(<Harness />)
       const card = getCard(container)
-      expect(card.style.touchAction).toBe('pan-y')
+      expect(card.style.touchAction).toBe('none')
 
       pointerDown(card, 0, 0)
-      expect(card.style.touchAction).toBe('pan-y')
+      expect(card.style.touchAction).toBe('none')
       advanceClock(100)
       pointerMove(card, 40, 6)
-      expect(card.style.touchAction).toBe('pan-y')
+      expect(card.style.touchAction).toBe('none')
       pointerMove(card, 180, 6)
       advanceClock(250)
       pointerUp(card, 180, 6)
-      expect(card.style.touchAction).toBe('pan-y')
+      expect(card.style.touchAction).toBe('none')
 
       pointerDown(card, 0, 0)
       pointerMove(card, 6, 40)
       pointerCancel(card, 6, 40)
-      expect(card.style.touchAction).toBe('pan-y')
+      expect(card.style.touchAction).toBe('none')
     })
   })
 
