@@ -67,7 +67,7 @@ describe('runMigrations', () => {
 })
 
 describe('MIGRATIONS: full chain from v1 to the current version', () => {
-  it('v1 -> v6, stamping schema_version 6, adding null dailyCompletion + rushStats + bestRunStreak 0 + a generated anonId, and preserving every existing field untouched', () => {
+  it('v1 -> v7, stamping schema_version 7, adding null dailyCompletion + rushStats + bestRunStreak 0 + bossStats + a generated anonId, and preserving every existing field untouched', () => {
     const v1Profile = {
       schema_version: 1,
       rating: 1342.75,
@@ -84,10 +84,11 @@ describe('MIGRATIONS: full chain from v1 to the current version', () => {
     expect((anonId as string).length).toBeGreaterThan(0)
     expect(rest).toEqual({
       ...v1Profile,
-      schema_version: 6,
+      schema_version: 7,
       dailyCompletion: null,
       rushStats: null,
       bestRunStreak: 0,
+      bossStats: null,
     })
   })
 })
@@ -227,6 +228,33 @@ describe('MIGRATIONS[2]: v2 -> v3 (adds rushStats)', () => {
       ...v2Profile,
       schema_version: 3,
       rushStats: null,
+    })
+  })
+})
+
+describe('MIGRATIONS[6]: v6 -> v7 (v3 Phase 1: adds bossStats)', () => {
+  it('stamps schema_version 7, adds bossStats: null, and preserves every other field untouched', () => {
+    const v6Profile = {
+      schema_version: 6,
+      rating: 1450.75,
+      ratedAttemptCount: 18,
+      streak: { currentStreak: 5, longestStreak: 12, lastActiveDate: '2026-08-05' },
+      requeueState: [{ puzzleId: 'p4', stage: 2, served: 1 }],
+      storagePersisted: true,
+      dailyCompletion: { date: '2026-08-05', attemptId: 'a11', correct: true },
+      rushStats: { bestScore: 15, bestStreak: 9, runs: 4, lastRunAt: '2026-08-04T12:00:00.000Z' },
+      bestRunStreak: 22,
+      anonId: 'anon-abc-123',
+    }
+
+    const v6Migration = MIGRATIONS[6]
+    if (!v6Migration) throw new Error('MIGRATIONS[6] is not registered')
+    const migrated = v6Migration(v6Profile)
+
+    expect(migrated).toEqual({
+      ...v6Profile,
+      schema_version: 7,
+      bossStats: null,
     })
   })
 })

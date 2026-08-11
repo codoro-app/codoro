@@ -75,3 +75,24 @@ export function resolveDailyStubPuzzle(dayIndexZeroBased: number): ContentPuzzle
   }
   return puzzle
 }
+
+/**
+ * Boss's curated BOSS_RUN ids don't exist in DEV_STUB_PUZZLES (a handful of
+ * generic stub puzzles, not a curated set) — the same problem Daily solved
+ * above, not a new one. When the switch is on, serve a puzzle chosen by the
+ * run's own position, cycling through the stub pool instead of looking up
+ * BOSS_RUN ids in the real pool (which resolvePool's swap makes empty of
+ * them). Lets a full 10-puzzle run be smashed through in dev without
+ * touching real content, same as Daily/Rush/Practice already can.
+ */
+export function resolveBossStubPuzzle(positionIndexZeroBased: number): ContentPuzzle {
+  if (!import.meta.env.DEV) {
+    throw new Error('resolveBossStubPuzzle: called outside DEV')
+  }
+  const puzzle = DEV_STUB_PUZZLES[positionIndexZeroBased % DEV_STUB_PUZZLES.length]
+  // DEV_STUB_PUZZLES is a non-empty const array; unreachable in practice.
+  if (!puzzle) {
+    throw new Error('resolveBossStubPuzzle: DEV_STUB_PUZZLES is empty')
+  }
+  return puzzle
+}

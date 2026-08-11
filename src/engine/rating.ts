@@ -6,7 +6,7 @@
 export const INITIAL_RATING = 1200
 export const RATING_FLOOR = 400
 
-export type AttemptMode = 'practice' | 'daily' | 'rush'
+export type AttemptMode = 'practice' | 'daily' | 'rush' | 'boss'
 
 export function expectedScore(userRating: number, puzzleRating: number): number {
   return 1 / (1 + 10 ** ((puzzleRating - userRating) / 400))
@@ -75,6 +75,8 @@ export function shouldRateAttempt(mode: AttemptMode, isFirstAttemptOfDay: boolea
     case 'daily':
       return isFirstAttemptOfDay
     case 'rush':
+      return false
+    case 'boss':
       return false
   }
 }

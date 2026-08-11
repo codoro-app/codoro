@@ -24,6 +24,7 @@ function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
     dailyCompletion: null,
     rushStats: null,
     bestRunStreak: 0,
+    bossStats: null,
     anonId: 'anon-fixture-1',
     ...overrides,
   }
@@ -247,7 +248,8 @@ describe('resolveImportCandidate', () => {
       dailyCompletion: null,
       rushStats: null,
       bestRunStreak: 0,
-      // no anonId — this is the whole point of the test.
+      // no anonId, no bossStats — genuinely v5-shaped (bossStats didn't
+      // exist until v7); this is the whole point of the test.
     }
     const json = JSON.stringify({
       schema_version: 5,

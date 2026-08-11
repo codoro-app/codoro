@@ -1,0 +1,53 @@
+/*
+ * Boss's own layout. Deliberately does NOT reuse Rush's .rush-strikes/
+ * .rush-timer-row wholesale: every prior cross-mode CSS reuse in this
+ * codebase (Rush reusing Daily's .daily-hero/.status-bar) reused GLOBAL
+ * page CSS already loaded independent of which mode's own chunk loaded
+ * (see rushPage.css's own doc comment) — rushPage.css itself is Rush's own
+ * page-specific, lazily-chunked CSS, not guaranteed loaded when Boss's own
+ * chunk loads. The strikes-indicator pattern is small (a dozen lines);
+ * duplicating it here under Boss's own class names is cheaper and more
+ * self-contained than cross-importing another mode's page CSS file for one
+ * shared visual pattern — no other example of that exists in this codebase.
+ * The end-of-run hero still reuses .daily-hero/.status-bar directly (global
+ * CSS, same as Rush's own reuse).
+ */
+.boss-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.boss-page__status {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--muted);
+}
+
+.boss-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.boss-strikes {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.boss-strikes__slot {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.boss-strikes__slot--missed {
+  background: var(--danger);
+}
+
+.boss-progress {
+  font-size: 0.875rem;
+  color: var(--muted);
+}

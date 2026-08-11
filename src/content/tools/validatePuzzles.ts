@@ -118,6 +118,72 @@ export function validateDailyCalendar(
 }
 
 /**
+ * Boss's authored run (src/content/bossRun.ts) gets the same treatment as
+ * the daily calendar above: every id must resolve to a real, non-scrubber
+ * puzzle, and ids must be unique. Boss-specific on top of that, since the
+ * whole feature's premise is "escalating difficulty": ratings must be
+ * non-decreasing across the run, and the run must be exactly
+ * BOSS_RUN_LENGTH long. A future hand-edit that breaks the escalation (or
+ * silently drops/adds a puzzle) fails the build instead of shipping a Boss
+ * run that doesn't actually escalate.
+ */
+export const BOSS_RUN_LENGTH = 10
+
+export function validateBossRun(
+  bossRun: readonly string[],
+  valid: readonly ValidatedPuzzle[],
+): string[] {
+  const errors: string[] = []
+  const byId = new Map(valid.map((entry) => [entry.puzzle.id, entry.puzzle]))
+  const scrubberIds = new Set(
+    valid
+      .filter((entry) => entry.puzzle.interaction === 'scrubber')
+      .map((entry) => entry.puzzle.id),
+  )
+
+  if (bossRun.length !== BOSS_RUN_LENGTH) {
+    errors.push(
+      `bossRun.ts: expected exactly ${String(BOSS_RUN_LENGTH)} entries, found ${String(bossRun.length)}`,
+    )
+  }
+
+  const seen = new Set<string>()
+  let previousRating: number | null = null
+
+  bossRun.forEach((id, index) => {
+    if (seen.has(id)) {
+      errors.push(`bossRun.ts: duplicate id "${id}" at position ${String(index)}`)
+      return
+    }
+    seen.add(id)
+
+    if (scrubberIds.has(id)) {
+      errors.push(
+        `bossRun.ts: entry "${id}" at position ${String(index)} is a scrubber puzzle — Boss's strike model needs a binary correct/wrong outcome, not scrubber's partial credit.`,
+      )
+      return
+    }
+
+    const puzzle = byId.get(id)
+    if (!puzzle) {
+      errors.push(
+        `bossRun.ts: entry "${id}" at position ${String(index)} does not match any valid puzzle`,
+      )
+      return
+    }
+
+    if (previousRating !== null && puzzle.difficulty_rating < previousRating) {
+      errors.push(
+        `bossRun.ts: entry "${id}" at position ${String(index)} (rating ${String(puzzle.difficulty_rating)}) is lower than the previous entry's rating ${String(previousRating)} — Boss must escalate, never step down`,
+      )
+    }
+    previousRating = puzzle.difficulty_rating
+  })
+
+  return errors
+}
+
+/**
  * The floor on how much of the swipe-binary library must be the "code is
  * fine" negative class (docs/v2-build-plan.md, Phase 6 item 5). A swipe
  * puzzle carries a 50% guess floor; if the library is ~all "find the bug",

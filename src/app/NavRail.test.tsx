@@ -25,6 +25,14 @@ describe('NavRail', () => {
     expect(window.location.pathname).toBe('/rush')
   })
 
+  it('navigates to /boss when Boss is clicked', async () => {
+    const user = userEvent.setup()
+    render(<NavRail />)
+
+    await user.click(screen.getByRole('link', { name: 'Boss' }))
+    expect(window.location.pathname).toBe('/boss')
+  })
+
   it('navigates to /trace when Trace is clicked', async () => {
     const user = userEvent.setup()
     render(<NavRail />)

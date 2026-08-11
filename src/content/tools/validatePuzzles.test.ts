@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  validateBossRun,
   validateDailyCalendar,
   validateInteractionMix,
   validateLanguageMix,
@@ -366,10 +367,10 @@ describe('Phase 6 DoD library gates', () => {
   })
 })
 
-function validated(id: string, interaction: string): ValidatedPuzzle {
+function validated(id: string, interaction: string, difficulty_rating = 1000): ValidatedPuzzle {
   return {
     filePath: `${id}.json`,
-    puzzle: { id, interaction } as unknown as Puzzle,
+    puzzle: { id, interaction, difficulty_rating } as unknown as Puzzle,
   }
 }
 
@@ -413,5 +414,50 @@ describe('validateDailyCalendar', () => {
     expect(errors).toHaveLength(2)
     expect(errors[0]).toContain('is a scrubber puzzle')
     expect(errors[1]).toContain('duplicate id "scr-001"')
+  })
+})
+
+describe('validateBossRun', () => {
+  const boss1 = validated('boss-001', 'mcq', 1000)
+  const boss2 = validated('boss-002', 'mcq', 1100)
+  const boss3 = validated('boss-003', 'mcq', 1050)
+  const tenAscending = Array.from({ length: 10 }, (_, i) => `boss-${String(i).padStart(3, '0')}`)
+  const tenAscendingValid = tenAscending.map((id, i) => validated(id, 'mcq', 1000 + i * 50))
+
+  it('passes exactly 10 unique, non-scrubber, escalating ids', () => {
+    const errors = validateBossRun(tenAscending, tenAscendingValid)
+    expect(errors).toEqual([])
+  })
+
+  it('flags a run that is not exactly 10 entries long', () => {
+    const errors = validateBossRun(['boss-001', 'boss-002'], [boss1, boss2])
+    expect(errors.some((e) => e.includes('expected exactly 10 entries'))).toBe(true)
+  })
+
+  it('flags a duplicate id, naming its position', () => {
+    const firstId = tenAscending[0]
+    if (firstId === undefined) throw new Error('unreachable: tenAscending is non-empty')
+    const tenWithDup = [...tenAscending.slice(0, 9), firstId]
+    const errors = validateBossRun(tenWithDup, tenAscendingValid)
+    expect(errors.some((e) => e.includes('duplicate id'))).toBe(true)
+  })
+
+  it('flags an entry that does not match any valid puzzle', () => {
+    const tenWithMissing = [...tenAscending.slice(0, 9), 'missing-id']
+    const errors = validateBossRun(tenWithMissing, tenAscendingValid)
+    expect(errors.some((e) => e.includes('missing-id') && e.includes('does not match'))).toBe(true)
+  })
+
+  it('rejects a scrubber puzzle id (Boss needs a binary strike outcome)', () => {
+    const errors = validateBossRun(
+      ['boss-001', 'scr-001'],
+      [boss1, validated('scr-001', 'scrubber', 1000)],
+    )
+    expect(errors.some((e) => e.includes('scrubber puzzle'))).toBe(true)
+  })
+
+  it('flags a rating that steps down instead of escalating', () => {
+    const errors = validateBossRun(['boss-001', 'boss-002', 'boss-003'], [boss1, boss2, boss3])
+    expect(errors.some((e) => e.includes('must escalate'))).toBe(true)
   })
 })

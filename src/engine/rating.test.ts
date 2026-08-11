@@ -153,6 +153,11 @@ describe('shouldRateAttempt', () => {
     expect(shouldRateAttempt('rush', true)).toBe(false)
     expect(shouldRateAttempt('rush', false)).toBe(false)
   })
+
+  it('never rates boss attempts', () => {
+    expect(shouldRateAttempt('boss', true)).toBe(false)
+    expect(shouldRateAttempt('boss', false)).toBe(false)
+  })
 })
 
 // Domain rationale: user/puzzle ratings are drawn from [0, 3000], comfortably

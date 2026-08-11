@@ -66,6 +66,34 @@ export function trackRushRunEnd(payload: RushRunEndPayload): void {
   safeCapture('rush_run_end', payload)
 }
 
+/** Run-level context attached to every Boss `attempt` event, additive to the locked AttemptEventPayload shape above. No `difficulty_served`/`timed_out` (unlike Rush's own RushAttemptContext): Boss has no live difficulty selection and no per-puzzle clock — `position_in_run` alone identifies which fixed-sequence puzzle this was. */
+export interface BossAttemptContext {
+  run_id: string
+  position_in_run: number
+}
+
+/** Fires the same `attempt` event as trackAttempt, with Boss's run-level context appended — so Boss attempts land in the same event stream (mode: 'boss') alongside every other mode's. */
+export function trackBossAttempt(payload: AttemptEventPayload & BossAttemptContext): void {
+  safeCapture('attempt', payload)
+}
+
+export interface BossRunEndPayload {
+  run_id: string
+  /** 1-indexed position of the last puzzle this run reached (whether that puzzle was answered right or wrong), capped at BOSS_RUN.length — see useBossSession's own doc comment ("depth reached"). */
+  depth_reached: number
+  /** True only when the run reached BOSS_RUN.length WITHOUT being struck out — see useBossSession's own doc comment for why depth alone (`depth_reached`) can't distinguish a clean finish on the last puzzle from losing the 3rd strike on it. */
+  cleared: boolean
+  /** Which of Boss's two ending conditions actually fired — independent of `cleared`/`depth_reached`, since a run can strike out anywhere, including on the final puzzle. */
+  ended_reason: 'strikes' | 'completed'
+  /** True when this run's depth_reached just beat the profile's prior all-time bestDepth. */
+  is_new_best_depth: boolean
+}
+
+/** Fired once per completed Boss run (3 strikes or a full clear), independent of the per-attempt `attempt` events above. */
+export function trackBossRunEnd(payload: BossRunEndPayload): void {
+  safeCapture('boss_run_end', payload)
+}
+
 /** Per-checkpoint context attached to every Trace `attempt` event, additive to the locked AttemptEventPayload shape above (new fields, nothing renamed/removed). One entry per checkpoint on the puzzle, in answer order — mirrors the `checkpoint_results` field persisted on the Attempt record (src/storage/schema.ts's CheckpointResultSchema), just snake_cased for the analytics stream. `choice_index` is nullable and `timed_out` is additive (Phase 5b Item 6): a checkpoint whose per-checkpoint clock (30s) reached 0 before an answer reports `choice_index: null, timed_out: true` rather than reusing an existing value as a repurposed signal. */
 export interface TraceAttemptContext {
   checkpoint_results: { correct: boolean; choice_index: number | null; timed_out: boolean }[]

@@ -47,3 +47,5 @@ export type { RushInteraction, RushPuzzle, RushSelectionInput, RushSelectionResu
 
 export { scoreScrubberAttempt, scrubberActualScore, TRACE_K_MULTIPLIER } from './scrubber'
 export type { CheckpointResult } from './scrubber'
+
+export { BOSS_STRIKE_LIMIT } from './boss'

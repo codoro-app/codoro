@@ -60,6 +60,7 @@ describe('loadProfile', () => {
       dailyCompletion: { date: '2026-07-14', attemptId: 'a1', correct: true },
       rushStats: null,
       bestRunStreak: 0,
+      bossStats: null,
       anonId: 'test-anon-id',
     }
     await saveProfile(profile)
@@ -169,6 +170,7 @@ describe('schema migration on load', () => {
       dailyCompletion: null,
       rushStats: null,
       bestRunStreak: 0,
+      bossStats: null,
     })
 
     // loadProfile now writes the migrated shape back to disk immediately

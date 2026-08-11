@@ -8,12 +8,13 @@ export const ROUTES = {
   practice: { path: '/practice', label: 'Practice' },
   daily: { path: '/daily', label: 'Daily' },
   rush: { path: '/rush', label: 'Rush' },
+  boss: { path: '/boss', label: 'Boss' },
   trace: { path: '/trace', label: 'Trace' },
   legal: { path: '/legal', label: 'Legal' },
   // Phase 7: same treatment as `legal` above — a real ROUTES entry (so
   // AppShell can reference ROUTES.settings.path type-safely) but, like
   // `legal`, not read by NavRail/ModeSwitcher (both hardcode their own
-  // four-entry list). Footer link, alongside Legal — see AppShell.tsx.
+  // list of mode entries). Footer link, alongside Legal — see AppShell.tsx.
   settings: { path: '/settings', label: 'Settings' },
 } as const
 
@@ -98,6 +99,10 @@ export const ROUTE_META: Record<string, RouteMetaEntry> = {
   '/rush': {
     title: 'Rush — Codoro',
     description: "Escalating coding puzzles — three strikes and you're out.",
+  },
+  '/boss': {
+    title: 'Boss — Codoro',
+    description: 'Ten hand-picked puzzles, escalating difficulty — three strikes and the run ends.',
   },
   '/trace': {
     title: 'Trace — Codoro',
