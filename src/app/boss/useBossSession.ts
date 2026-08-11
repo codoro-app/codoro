@@ -21,6 +21,20 @@
  * run stays on one set from puzzle 1 to its end" true by construction
  * rather than true by accident of when runs happens to change.
  *
+ * Ghost pace (engagement pass): runStartAtRef/splitsRef capture elapsed-ms-
+ * per-position for THIS run, in position order, reset by startRun exactly
+ * like strikes/position ("Run it back" gets a clean split trace too). At
+ * run end, endRun snapshots `previousBestSplits` from the profile's stored
+ * bossStats.bestRunSplits BEFORE writing anything — this is deliberate: it
+ * is the run being raced against, and stays the prior record even when
+ * THIS run just set a new bestDepth (which overwrites the stored value for
+ * next time, but must not change what THIS run's own summary compares
+ * against). `bestRunSplits` in storage is overwritten wholesale only when
+ * isNewBestDepth; every ordinary run leaves it untouched. This is a static
+ * post-run comparison only — never a live animated race, per the Boss
+ * engagement pass's locked decisions (no simulated opponent, no per-puzzle
+ * clock added to Boss).
+ *
  * "Depth reached" is the run's score: the 1-indexed position of the last
  * puzzle the run reached, whether that puzzle was answered right or wrong,
  * capped at the active set's length. This always hits that length once a
@@ -75,6 +89,22 @@ export interface BossRunSummary {
   bestDepthEver: number
   /** True when this run's depthReached just beat the profile's prior all-time bestDepth. */
   isNewBestDepth: boolean
+  /**
+   * This run's own elapsed-ms-per-position splits — index i is the time from
+   * run start to answering the puzzle at position i+1, length === depthReached.
+   * Ghost-pace comparison data (see this file's own doc comment); never a
+   * live/animated race — see the Boss engagement pass's locked decisions.
+   */
+  splits: number[]
+  /**
+   * The prior best-depth run's splits — captured BEFORE this run started, so
+   * it's always the run this run is racing against, even if this run just set
+   * a new bestDepth itself (see endRun's own comment for why the *new*
+   * bestRunSplits it writes is never read back here). Null when no prior
+   * best-depth run ever recorded splits (the very first run, or a bestDepth
+   * that predates this field via the v7->v8 migration).
+   */
+  previousBestSplits: number[] | null
 }
 
 export interface BossSession {
@@ -121,6 +151,13 @@ export function useBossSession(): BossSession {
   const activeSetRef = useRef<readonly string[]>(resolveActiveBossSet(0))
   const setIndexRef = useRef(0)
 
+  // Ghost-pace capture: runStartAtRef is stamped once at startRun;
+  // splitsRef accumulates one elapsed-ms entry per puzzle answered, in
+  // position order (see handleAnswered) — reset by startRun the same way
+  // strikes/position are, so "Run it back" starts a clean split trace too.
+  const runStartAtRef = useRef(0)
+  const splitsRef = useRef<number[]>([])
+
   const contentById = useRef(new Map(quizPool.map((p) => [p.id, p])))
 
   const serveAt = useCallback((index: number) => {
@@ -163,6 +200,8 @@ export function useBossSession(): BossSession {
       runIdRef.current = crypto.randomUUID()
       pendingEndRef.current = false
       pendingNextIndexRef.current = 0
+      runStartAtRef.current = Date.now()
+      splitsRef.current = []
       setPhase('playing')
       setStrikes(0)
       setTotalPuzzles(activeSet.length)
@@ -210,15 +249,22 @@ export function useBossSession(): BossSession {
       const cleared = finalPosition >= activeSetRef.current.length && !struckOut
       const priorStats = currentProfile.bossStats
       const isNewBestDepth = finalPosition > (priorStats?.bestDepth ?? 0)
+      // The run this run is racing against: the best-depth run recorded
+      // BEFORE this one started. Captured here, before newBossStats
+      // potentially overwrites bestRunSplits below — never read back from
+      // newBossStats itself, so a run that just set a new best still
+      // compares against the PRIOR record, not against its own splits.
+      const previousBestSplits = priorStats?.bestRunSplits ?? null
+      const thisRunSplits = [...splitsRef.current]
       const newBossStats: BossStats = {
         bestDepth: Math.max(priorStats?.bestDepth ?? 0, finalPosition),
         clears: (priorStats?.clears ?? 0) + (cleared ? 1 : 0),
         runs: (priorStats?.runs ?? 0) + 1,
         lastRunAt: new Date().toISOString(),
-        // Preserved unchanged here — real per-position split capture (only
-        // overwriting when this run sets a new bestDepth) is wired in the
-        // ghost-capture task, layered on top of this schema/migration work.
-        bestRunSplits: priorStats?.bestRunSplits ?? null,
+        // Overwritten wholesale only when this run set a new bestDepth —
+        // ordinary (non-record) runs leave the stored bestRunSplits
+        // untouched, per BossStatsSchema's own doc comment.
+        bestRunSplits: isNewBestDepth ? thisRunSplits : previousBestSplits,
       }
       const updatedProfile: UserProfile = { ...currentProfile, bossStats: newBossStats }
       setProfile(updatedProfile)
@@ -238,6 +284,8 @@ export function useBossSession(): BossSession {
         cleared,
         bestDepthEver: newBossStats.bestDepth,
         isNewBestDepth,
+        splits: thisRunSplits,
+        previousBestSplits,
       })
       setPhase('ended')
     },
@@ -294,6 +342,11 @@ export function useBossSession(): BossSession {
         position_in_run: position,
         set_index: setIndexRef.current,
       })
+
+      // Ghost-pace split: cumulative elapsed time from run start to
+      // answering this position, pushed once per position in order — see
+      // this file's own doc comment and BossRunSummary.splits.
+      splitsRef.current.push(Math.max(0, Date.now() - runStartAtRef.current))
 
       const newStrikes = payload.correct ? strikes : strikes + 1
       setStrikes(newStrikes)
