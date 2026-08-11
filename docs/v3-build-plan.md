@@ -82,12 +82,12 @@ The two items v2 waived by direct decision rather than fixed. Both need real-dev
 
 v2 Phase 6b, never built; the sketch in `v2-build-plan.md`'s Phase 6b section is the starting point. A run of 10 puzzles of escalating difficulty — a fourth own-mode following Rush's structural precedent (session hook + page + route), distinct from Rush: **fixed-length, curated-difficulty, not endless-against-the-clock.** The content gate that blocked it in v2 is open (214 puzzles).
 
-**Design questions to settle in the build prompt's first session, in writing, before code** (carried verbatim from the v2 sketch — they were never answered):
+**Design questions — settled, 2026-08-10 (direct user decision, before any Boss code):**
 
-1. **Selection: curated fixed sets vs. rating-laddered per run.** Recommendation to evaluate first: rating-laddered, seeded by run date/id for reproducibility, drawing an ascending difficulty ladder from the full pool — curated sets are authored content that goes stale; the ladder reuses calibration work Phase 6 (v2) already did.
-2. **Rated or best-score-only.** Rush's precedent is best-score-only, but the v2 sketch flags this as the one genuinely open case — the boss run is the natural home for the todo item's `+24 Elo` payoff framing. Whichever way this lands, the decision and its reasoning get recorded here as an amendment.
-3. **End condition:** survive-all-10 vs. strikes.
-4. **Whether boss completion is the mission-progression trigger surface** — decide here, because Phase 2 builds on the answer.
+1. **Selection: curated fixed sets.** Hand-authored 10-puzzle sequences, not rating-laddered draws from the pool — the opposite of this doc's own recommendation (rating-laddered, seeded by run/date). Chosen anyway for pacing/narrative control over a run: a boss fight reads as authored escalation, not a random sample that happens to trend harder. **Accepted trade-off, stated for the record:** authored sets are content that goes stale as the pool grows and need maintenance the ladder approach would have avoided for free — a real cost, taken deliberately.
+2. **Best-score-only**, matching Rush's precedent exactly. No Elo integration in this phase; the `+24 Elo` payoff framing from the v2 todo item does not land in Boss.
+3. **End condition: strikes** (3 wrong answers ends the run), not survive-all-10. More forgiving — the payoff is the escalating-difficulty arc itself (how deep a run got), not flawless play; a single early misclick ending a 10-puzzle run would undercut that framing.
+4. **Boss completion is the mission-progression trigger surface.** Wired now so Phase 2's mission chain (🧠 Trace → ⚡ Speed Round → 🏆 Boss → Elo payoff) doesn't have to retrofit a trigger onto Boss after the fact.
 
 **Build:**
 
@@ -100,7 +100,7 @@ v2 Phase 6b, never built; the sketch in `v2-build-plan.md`'s Phase 6b section is
 **DoD:**
 
 - [ ] Boss mode playable end-to-end on desktop and mobile widths; run assembly deterministic (seeded) and covered by pool-level tests
-- [ ] Design questions 1–4 answered in a written amendment here, with reasoning — the v2 standard for decision records
+- [x] Design questions 1–4 answered in a written amendment here, with reasoning — the v2 standard for decision records — **met, 2026-08-10** (see "Design questions — settled" above)
 - [ ] Schema bump (if any) has an isolated migration test; export/import round-trips the new fields
 - [ ] Telemetry events verified firing locally; `pnpm validate` green; `validate:content` untouched or updated deliberately
 
