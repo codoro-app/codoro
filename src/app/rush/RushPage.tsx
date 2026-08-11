@@ -27,9 +27,9 @@
  *   itself), so this shows the one thing neither already covers: how long
  *   is left to answer.
  */
-import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { RushIcon } from '../Icons'
-import { RUSH_PUZZLE_TIME_LIMIT_MS, useRushSession } from './useRushSession'
+import { useRushSession } from './useRushSession'
+import { RushActivePlay } from './RushActivePlay'
 import { RushShareCard } from './RushShareCard'
 import { RushChallengeCard } from './RushChallengeCard'
 import './rushPage.css'
@@ -66,71 +66,7 @@ export function RushPage() {
 
   return (
     <div className="rush-page app-shell__main">
-      {session.phase === 'playing' && (
-        <>
-          <div className="rush-header">
-            <div
-              className="rush-strikes"
-              role="status"
-              aria-label={`${String(session.strikes)} of 3 strikes`}
-            >
-              {[0, 1, 2].map((slot) => (
-                <span
-                  key={slot}
-                  className={`rush-strikes__slot${
-                    slot < session.strikes ? ' rush-strikes__slot--missed' : ''
-                  }`}
-                  aria-hidden="true"
-                />
-              ))}
-            </div>
-            <div className="status-bar">
-              <div className="status-bar__solved" title="Solved this run">
-                <svg
-                  aria-hidden="true"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="var(--accent)"
-                  strokeWidth="2.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                <span>{session.solvedCount} solved</span>
-              </div>
-              {session.currentStreak >= 2 && (
-                <div className="status-bar__combo">
-                  <RushIcon size={14} />
-                  <span>{session.currentStreak} in a row</span>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="rush-timer-row">
-            <div
-              className="rush-timer"
-              role="progressbar"
-              aria-label="Time remaining for this puzzle"
-              aria-valuemin={0}
-              aria-valuemax={RUSH_PUZZLE_TIME_LIMIT_MS}
-              aria-valuenow={Math.round(session.remainingMs)}
-            >
-              <div
-                className="rush-timer__fill"
-                style={{
-                  width: `${String((session.remainingMs / RUSH_PUZZLE_TIME_LIMIT_MS) * 100)}%`,
-                }}
-              />
-            </div>
-            <span className="rush-timer__seconds" aria-hidden="true">
-              {Math.ceil(session.remainingMs / 1000)}s
-            </span>
-          </div>
-        </>
-      )}
+      {session.phase === 'playing' && <RushActivePlay session={session} />}
 
       {session.phase === 'ended' && session.runSummary && (
         <>
@@ -188,17 +124,6 @@ export function RushPage() {
             Run it back
           </button>
         </>
-      )}
-
-      {session.phase === 'playing' && session.puzzle && (
-        <PuzzleCardShell
-          key={session.puzzle.id}
-          puzzle={session.puzzle}
-          ratingDelta={null}
-          onAnswered={session.handleAnswered}
-          onContinue={session.handleContinue}
-          forcedCommit={session.forcedCommit}
-        />
       )}
     </div>
   )
