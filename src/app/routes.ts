@@ -14,7 +14,7 @@ export const ROUTES = {
   // Phase 7: same treatment as `legal` above — a real ROUTES entry (so
   // AppShell can reference ROUTES.settings.path type-safely) but, like
   // `legal`, not read by NavRail/ModeSwitcher (both hardcode their own
-  // four-entry list). Footer link, alongside Legal — see AppShell.tsx.
+  // list of mode entries). Footer link, alongside Legal — see AppShell.tsx.
   settings: { path: '/settings', label: 'Settings' },
 } as const
 

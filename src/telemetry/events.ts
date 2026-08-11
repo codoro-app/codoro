@@ -81,8 +81,10 @@ export interface BossRunEndPayload {
   run_id: string
   /** 1-indexed position of the last puzzle this run reached (whether that puzzle was answered right or wrong), capped at BOSS_RUN.length — see useBossSession's own doc comment ("depth reached"). */
   depth_reached: number
-  /** True whenever the run reached the last puzzle in BOSS_RUN, independent of strikes — see the Boss Challenges plan's "Design record" for the exact edge case (3rd strike landing on the final puzzle is still `cleared: true`). */
+  /** True only when the run reached BOSS_RUN.length WITHOUT being struck out — see useBossSession's own doc comment for why depth alone (`depth_reached`) can't distinguish a clean finish on the last puzzle from losing the 3rd strike on it. */
   cleared: boolean
+  /** Which of Boss's two ending conditions actually fired — independent of `cleared`/`depth_reached`, since a run can strike out anywhere, including on the final puzzle. */
+  ended_reason: 'strikes' | 'completed'
   /** True when this run's depth_reached just beat the profile's prior all-time bestDepth. */
   is_new_best_depth: boolean
 }

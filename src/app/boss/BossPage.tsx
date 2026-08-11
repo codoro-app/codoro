@@ -14,8 +14,11 @@
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { BossIcon } from '../Icons'
 import { BOSS_RUN } from '../../content'
+import { BOSS_STRIKE_LIMIT } from '../../engine'
 import { useBossSession } from './useBossSession'
 import './bossPage.css'
+
+const STRIKE_SLOTS = Array.from({ length: BOSS_STRIKE_LIMIT }, (_, i) => i)
 
 export function BossPage() {
   const session = useBossSession()
@@ -54,9 +57,9 @@ export function BossPage() {
           <div
             className="boss-strikes"
             role="status"
-            aria-label={`${String(session.strikes)} of 3 strikes`}
+            aria-label={`${String(session.strikes)} of ${String(BOSS_STRIKE_LIMIT)} strikes`}
           >
-            {[0, 1, 2].map((slot) => (
+            {STRIKE_SLOTS.map((slot) => (
               <span
                 key={slot}
                 className={`boss-strikes__slot${

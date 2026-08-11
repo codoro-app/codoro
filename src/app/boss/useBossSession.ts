@@ -9,11 +9,22 @@
  *
  * "Depth reached" is the run's score: the 1-indexed position of the last
  * puzzle the run reached, whether that puzzle was answered right or wrong,
- * capped at BOSS_RUN.length. `cleared` is true whenever depth reached ===
- * BOSS_RUN.length, independent of strikes — a run whose 3rd strike lands
- * exactly on the 10th puzzle still reports cleared: true (it did reach the
- * end of the sequence) even though ended_reason still reports 'strikes'
- * (that's what actually ended it). Both facts are real; neither is dropped.
+ * capped at BOSS_RUN.length. This always hits BOSS_RUN.length once a run
+ * gets that far — there's no puzzle 11 to fail into — so depth alone can't
+ * distinguish "answered puzzle 10 correctly" from "answered it wrong but it
+ * wasn't the 3rd strike" from "answered it wrong AS the 3rd strike".
+ * `cleared` is the fact that actually makes that distinction: true only when
+ * the run reached the end of the sequence WITHOUT being struck out
+ * (`finalStrikes < BOSS_STRIKE_LIMIT`) — a run that reaches puzzle 10 and
+ * loses its 3rd strike there is `cleared: false`, exactly like striking out
+ * on any earlier puzzle. `ended_reason` names which of the two ending
+ * conditions actually fired (`'strikes'` vs `'completed'`), independent of
+ * `cleared`/`depthReached` — Amendment finding from the Phase 1 final
+ * review: an earlier draft computed `cleared` from depth alone (true
+ * whenever position reached 10, regardless of the final answer) and
+ * documented an `ended_reason` field this file never actually shipped —
+ * both fixed together here, since they're the same underlying question
+ * ("what does a run's outcome actually mean?").
  *
  * Boss is unrated by construction, not by omission: shouldRateAttempt
  * (rating.ts) hardcodes `mode === 'boss' -> false`, so `rates` below is
@@ -26,7 +37,7 @@ import { BOSS_STRIKE_LIMIT, shouldRateAttempt, updateRating } from '../../engine
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, BossStats, UserProfile } from '../../storage'
 import { quizPool, BOSS_RUN } from '../../content'
-import { resolvePool } from '../devTools/devPuzzleMode'
+import { isDevPuzzleModeEnabled, resolveBossStubPuzzle } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle } from '../../content'
 import { trackError, trackBossAttempt, trackBossRunEnd } from '../../telemetry'
 import type { CommitPayload } from '../practice/interactionTypes'
@@ -44,6 +55,7 @@ export type BossPhase = 'playing' | 'ended'
 
 export interface BossRunSummary {
   depthReached: number
+  /** True only when the run reached BOSS_RUN.length WITHOUT being struck out — see this file's doc comment for why depth alone can't tell the two apart. */
   cleared: boolean
   /** All-time deepest run, post this run's update. */
   bestDepthEver: number
@@ -82,10 +94,21 @@ export function useBossSession(): BossSession {
   const pendingNextIndexRef = useRef(0)
   const cancelledRef = useRef(false)
 
-  const activePool = resolvePool(quizPool)
-  const contentById = useRef(new Map(activePool.map((p) => [p.id, p])))
+  const contentById = useRef(new Map(quizPool.map((p) => [p.id, p])))
 
   const serveAt = useCallback((index: number) => {
+    // Dev-stub swap (see devPuzzleMode.ts's own doc comment): BOSS_RUN's
+    // curated ids don't exist in DEV_STUB_PUZZLES, so — unlike
+    // useRushSession's resolvePool(quizPool), which swaps the whole pool —
+    // Boss branches explicitly and asks for a stub keyed by run position,
+    // the same fix Daily already needed for its own curated calendar.
+    if (isDevPuzzleModeEnabled()) {
+      setPuzzle(resolveBossStubPuzzle(index))
+      setPosition(index + 1)
+      servedAtRef.current = Date.now()
+      setStatus('ready')
+      return
+    }
     const id = BOSS_RUN[index]
     if (id === undefined) {
       setPuzzle(null)
@@ -114,8 +137,8 @@ export function useBossSession(): BossSession {
     serveAt(0)
   }, [serveAt])
 
-  useEffect(() => {
-    cancelledRef.current = false
+  /** Shared by the mount effect and retryLoad — was duplicated verbatim before (Phase 1 final review finding); one copy now, one error-context string. */
+  const loadAndStart = useCallback(() => {
     void (async () => {
       try {
         const loaded = await loadProfile()
@@ -124,10 +147,15 @@ export function useBossSession(): BossSession {
         startRun()
       } catch (error) {
         if (cancelledRef.current) return
-        trackError(error, 'useBossSession: loadProfile failed on mount')
+        trackError(error, 'useBossSession: loadProfile failed')
         setStatus('error')
       }
     })()
+  }, [startRun])
+
+  useEffect(() => {
+    cancelledRef.current = false
+    loadAndStart()
     return () => {
       cancelledRef.current = true
     }
@@ -138,49 +166,43 @@ export function useBossSession(): BossSession {
   const retryLoad = useCallback(() => {
     cancelledRef.current = false
     setStatus('loading')
-    void (async () => {
-      try {
-        const loaded = await loadProfile()
-        if (cancelledRef.current) return
-        setProfile(loaded)
-        startRun()
-      } catch (error) {
-        if (cancelledRef.current) return
-        trackError(error, 'useBossSession: loadProfile failed on mount')
-        setStatus('error')
-      }
-    })()
-  }, [startRun])
+    loadAndStart()
+  }, [loadAndStart])
 
-  const endRun = useCallback((currentProfile: UserProfile, finalPosition: number) => {
-    const cleared = finalPosition >= BOSS_RUN.length
-    const priorStats = currentProfile.bossStats
-    const isNewBestDepth = finalPosition > (priorStats?.bestDepth ?? 0)
-    const newBossStats: BossStats = {
-      bestDepth: Math.max(priorStats?.bestDepth ?? 0, finalPosition),
-      clears: (priorStats?.clears ?? 0) + (cleared ? 1 : 0),
-      runs: (priorStats?.runs ?? 0) + 1,
-      lastRunAt: new Date().toISOString(),
-    }
-    const updatedProfile: UserProfile = { ...currentProfile, bossStats: newBossStats }
-    setProfile(updatedProfile)
-    saveProfile(updatedProfile).catch((error: unknown) => {
-      trackError(error, 'useBossSession: saveProfile failed')
-    })
-    trackBossRunEnd({
-      run_id: runIdRef.current,
-      depth_reached: finalPosition,
-      cleared,
-      is_new_best_depth: isNewBestDepth,
-    })
-    setRunSummary({
-      depthReached: finalPosition,
-      cleared,
-      bestDepthEver: newBossStats.bestDepth,
-      isNewBestDepth,
-    })
-    setPhase('ended')
-  }, [])
+  const endRun = useCallback(
+    (currentProfile: UserProfile, finalPosition: number, finalStrikes: number) => {
+      const struckOut = finalStrikes >= BOSS_STRIKE_LIMIT
+      const cleared = finalPosition >= BOSS_RUN.length && !struckOut
+      const priorStats = currentProfile.bossStats
+      const isNewBestDepth = finalPosition > (priorStats?.bestDepth ?? 0)
+      const newBossStats: BossStats = {
+        bestDepth: Math.max(priorStats?.bestDepth ?? 0, finalPosition),
+        clears: (priorStats?.clears ?? 0) + (cleared ? 1 : 0),
+        runs: (priorStats?.runs ?? 0) + 1,
+        lastRunAt: new Date().toISOString(),
+      }
+      const updatedProfile: UserProfile = { ...currentProfile, bossStats: newBossStats }
+      setProfile(updatedProfile)
+      saveProfile(updatedProfile).catch((error: unknown) => {
+        trackError(error, 'useBossSession: saveProfile failed')
+      })
+      trackBossRunEnd({
+        run_id: runIdRef.current,
+        depth_reached: finalPosition,
+        cleared,
+        ended_reason: struckOut ? 'strikes' : 'completed',
+        is_new_best_depth: isNewBestDepth,
+      })
+      setRunSummary({
+        depthReached: finalPosition,
+        cleared,
+        bestDepthEver: newBossStats.bestDepth,
+        isNewBestDepth,
+      })
+      setPhase('ended')
+    },
+    [],
+  )
 
   const handleAnswered = useCallback(
     (payload: CommitPayload) => {
@@ -245,11 +267,11 @@ export function useBossSession(): BossSession {
   const handleContinue = useCallback(() => {
     if (!profile || phase !== 'playing') return
     if (pendingEndRef.current) {
-      endRun(profile, position)
+      endRun(profile, position, strikes)
       return
     }
     serveAt(pendingNextIndexRef.current)
-  }, [profile, phase, position, serveAt, endRun])
+  }, [profile, phase, position, strikes, serveAt, endRun])
 
   const handleRunItBack = useCallback(() => {
     if (!profile) return

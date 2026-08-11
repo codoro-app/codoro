@@ -275,6 +275,7 @@ describe('trackBossRunEnd', () => {
       run_id: 'run-1',
       depth_reached: 7,
       cleared: false,
+      ended_reason: 'strikes' as const,
       is_new_best_depth: true,
     }
     trackBossRunEnd(payload)
@@ -284,7 +285,13 @@ describe('trackBossRunEnd', () => {
 
   it('no-ops without calling posthog.capture when the key is unset', async () => {
     const { trackBossRunEnd } = await loadTelemetry(undefined)
-    trackBossRunEnd({ run_id: 'run-1', depth_reached: 0, cleared: false, is_new_best_depth: false })
+    trackBossRunEnd({
+      run_id: 'run-1',
+      depth_reached: 0,
+      cleared: false,
+      ended_reason: 'strikes',
+      is_new_best_depth: false,
+    })
     await flushPromises()
     expect(posthogMock.capture).not.toHaveBeenCalled()
   })

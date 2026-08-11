@@ -146,11 +146,16 @@ describe('useBossSession', () => {
       isNewBestDepth: true,
     })
     expect(trackBossRunEnd).toHaveBeenCalledWith(
-      expect.objectContaining({ depth_reached: 3, cleared: false, is_new_best_depth: true }),
+      expect.objectContaining({
+        depth_reached: 3,
+        cleared: false,
+        ended_reason: 'strikes',
+        is_new_best_depth: true,
+      }),
     )
   })
 
-  it('ends the run after the 10th puzzle with cleared: true', async () => {
+  it('ends the run after the 10th puzzle with cleared: true when the run was never struck out', async () => {
     const { result } = renderHook(() => useBossSession())
     await waitFor(() => {
       expect(result.current.status).toBe('ready')
@@ -173,6 +178,123 @@ describe('useBossSession', () => {
       bestDepthEver: 10,
       isNewBestDepth: true,
     })
+    expect(trackBossRunEnd).toHaveBeenCalledWith(
+      expect.objectContaining({ cleared: true, ended_reason: 'completed' }),
+    )
+  })
+
+  // Plan-flagged edge case: reaching the 10th puzzle and losing the 3rd
+  // strike there is a loss, not a clear — depth alone (10) can't tell this
+  // apart from a clean finish; only `cleared`/`ended_reason` can.
+  it('reports cleared: false when the 3rd strike lands exactly on the 10th puzzle', async () => {
+    const { result } = renderHook(() => useBossSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    answerAndContinue(result, false) // strike 1, puzzle 1 -> 2
+    await waitFor(() => {
+      expect(result.current.position).toBe(2)
+    })
+    for (let i = 0; i < 7; i++) {
+      answerAndContinue(result, true) // puzzles 2-8, correct
+      await waitFor(() => {
+        expect(result.current.position).toBe(i + 3)
+      })
+    }
+    answerAndContinue(result, false) // strike 2, puzzle 9 -> 10
+    await waitFor(() => {
+      expect(result.current.position).toBe(10)
+    })
+    answerAndContinue(result, false) // strike 3, on puzzle 10 itself — the run ends here
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe('ended')
+    })
+    expect(result.current.runSummary).toEqual({
+      depthReached: 10,
+      cleared: false,
+      bestDepthEver: 10,
+      isNewBestDepth: true,
+    })
+    expect(trackBossRunEnd).toHaveBeenCalledWith(
+      expect.objectContaining({ depth_reached: 10, cleared: false, ended_reason: 'strikes' }),
+    )
+  })
+
+  // A wrong answer on the 10th puzzle that is NOT the 3rd strike still
+  // counts as clearing the run — the player was never eliminated.
+  it('reports cleared: true when the 10th puzzle is answered wrong but it is not the 3rd strike', async () => {
+    const { result } = renderHook(() => useBossSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    answerAndContinue(result, false) // strike 1, puzzle 1 -> 2
+    await waitFor(() => {
+      expect(result.current.position).toBe(2)
+    })
+    for (let i = 0; i < 8; i++) {
+      answerAndContinue(result, true) // puzzles 2-9, correct
+      await waitFor(() => {
+        expect(result.current.position).toBe(i + 3)
+      })
+    }
+    answerAndContinue(result, false) // strike 2, on puzzle 10 — not the 3rd strike
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe('ended')
+    })
+    expect(result.current.runSummary).toEqual({
+      depthReached: 10,
+      cleared: true,
+      bestDepthEver: 10,
+      isNewBestDepth: true,
+    })
+    expect(trackBossRunEnd).toHaveBeenCalledWith(
+      expect.objectContaining({ depth_reached: 10, cleared: true, ended_reason: 'completed' }),
+    )
+  })
+
+  it('accumulates onto prior bossStats and reports isNewBestDepth: false when the run does not beat the stored best', async () => {
+    vi.mocked(loadProfile).mockResolvedValue({
+      ...createDefaultProfile(),
+      bossStats: { bestDepth: 8, clears: 2, runs: 5, lastRunAt: '2026-08-01T00:00:00.000Z' },
+    })
+
+    const { result } = renderHook(() => useBossSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+
+    // 3 strikes at depth 3 — well short of the stored bestDepth of 8.
+    answerAndContinue(result, false)
+    await waitFor(() => {
+      expect(result.current.position).toBe(2)
+    })
+    answerAndContinue(result, false)
+    await waitFor(() => {
+      expect(result.current.position).toBe(3)
+    })
+    answerAndContinue(result, false)
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe('ended')
+    })
+    expect(result.current.runSummary).toEqual({
+      depthReached: 3,
+      cleared: false,
+      bestDepthEver: 8,
+      isNewBestDepth: false,
+    })
+    expect(saveProfile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bossStats: { bestDepth: 8, clears: 2, runs: 6, lastRunAt: expect.any(String) as string },
+      }),
+    )
+    expect(trackBossRunEnd).toHaveBeenCalledWith(
+      expect.objectContaining({ is_new_best_depth: false }),
+    )
   })
 
   it('never rates — updateRating is never called across a full run including wrong answers', async () => {
