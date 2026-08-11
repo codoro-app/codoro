@@ -241,6 +241,55 @@ describe('trackRushRunEnd', () => {
   })
 })
 
+describe('trackBossAttempt', () => {
+  it('captures the "attempt" event with the locked shape plus run-level context', async () => {
+    const { trackBossAttempt } = await loadTelemetry('phc_test_key')
+    const payload = {
+      ...attemptPayload,
+      mode: 'boss' as const,
+      run_id: 'run-1',
+      position_in_run: 4,
+    }
+    trackBossAttempt(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('attempt', payload)
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackBossAttempt } = await loadTelemetry(undefined)
+    trackBossAttempt({
+      ...attemptPayload,
+      mode: 'boss',
+      run_id: 'run-1',
+      position_in_run: 1,
+    })
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
+describe('trackBossRunEnd', () => {
+  it('captures boss_run_end with the exact payload shape', async () => {
+    const { trackBossRunEnd } = await loadTelemetry('phc_test_key')
+    const payload = {
+      run_id: 'run-1',
+      depth_reached: 7,
+      cleared: false,
+      is_new_best_depth: true,
+    }
+    trackBossRunEnd(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('boss_run_end', payload)
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackBossRunEnd } = await loadTelemetry(undefined)
+    trackBossRunEnd({ run_id: 'run-1', depth_reached: 0, cleared: false, is_new_best_depth: false })
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
 describe('trackPuzzleLinkView', () => {
   it('captures puzzle_link_view with the exact property shape for a found puzzle', async () => {
     const { trackPuzzleLinkView } = await loadTelemetry('phc_test_key')
