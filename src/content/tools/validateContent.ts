@@ -9,8 +9,10 @@
 import process from 'node:process'
 import { getDailyNumber } from '../../engine/daily'
 import { DAILY_CALENDAR } from '../dailyCalendar'
+import { BOSS_RUN } from '../bossRun'
 import { loadRawPuzzleFiles } from './loadPuzzles'
 import {
+  validateBossRun,
   validateDailyCalendar,
   validateInteractionMix,
   validateLanguageMix,
@@ -56,6 +58,7 @@ function main(): void {
   const allErrors = [
     ...errors,
     ...validateDailyCalendar(DAILY_CALENDAR, valid),
+    ...validateBossRun(BOSS_RUN, valid),
     ...validateRatingCluster(valid),
     ...validateLanguageMix(valid),
     ...validateInteractionMix(valid),
@@ -72,7 +75,7 @@ function main(): void {
 
   checkDailyCalendarRunway()
   console.log(
-    `validate:content: ${String(valid.length)} puzzle(s) OK, ${String(DAILY_CALENDAR.length)} daily-calendar entries OK`,
+    `validate:content: ${String(valid.length)} puzzle(s) OK, ${String(DAILY_CALENDAR.length)} daily-calendar entries OK, boss run OK`,
   )
 }
 
