@@ -160,7 +160,7 @@ export const AttemptSchema = z.object({
   puzzleId: z.string().min(1),
   puzzleRating: z.number(),
   // Literal values must stay in sync with engine's AttemptMode union.
-  mode: z.enum(['practice', 'daily', 'rush']),
+  mode: z.enum(['practice', 'daily', 'rush', 'boss']),
   correct: z.boolean(),
   time_ms: z.number().nonnegative(),
   // Nullable: not every interaction type has a choice index (e.g. swipe-binary).
