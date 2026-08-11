@@ -140,9 +140,22 @@ v2 Phase 6c, never built. Missions chain existing modes into one directed arc �
 
 **DoD:**
 
-- [ ] `docs/design/click-meaningfulness.md` exists and the build demonstrably follows it (the amendment cites which decisions came from which section)
+- [x] `docs/design/click-meaningfulness.md` exists and the build demonstrably follows it (the amendment cites which decisions came from which section) — **met, 2026-08-11**: definition session run as a live dialogue with Thomas (not an offline write-up), doc committed. See amendment below.
 - [ ] Full mission chain playable end-to-end; resume-after-close works; export/import round-trips mission state
 - [ ] Isolated migration test for any schema bump; telemetry verified locally; `pnpm validate` green
+
+**Amendment — definition session complete, 2026-08-11.** Run live rather than offline, per this phase's own blocking requirement (never satisfied in v2). Locked decisions, direct user decisions this session, written out in full in `docs/design/click-meaningfulness.md`:
+
+1. **Stage sizing**: uniform time-boxed stages, 60 seconds each (not the bounded-doses-per-mode alternative) — untuned by admission, same honest posture as Rush's own flat per-puzzle clock.
+2. **Timer cutoff**: soft — the on-screen puzzle finishes before the clock is checked; never interrupts mid-puzzle.
+3. **Stage end condition**: timer OR the mode's own native end (Rush's 3-strike limit, Boss's 3-strikes/depth-10), whichever fires first. Trace has no native end at all — the timer is its only one, a stated asymmetry, not an oversight. Boss's stage will almost always end via timer, not its own limit — accepted trade-off.
+4. **Payoff**: celebration/recap screen only. **No bonus-Elo/rating mechanic invented** — a deliberate rejection of `docs/todo.md`'s literal "+24 Elo" framing, matching Boss Phase 1's own "no Elo integration" call and this app's no-fake-numbers rule.
+5. **Replayability**: unlimited, anytime, mirroring Boss's "Run it back."
+6. **Resume**: restarts at the current stage with a fresh clock; completed-stage results are kept. Achieved structurally — mission progress is persisted only at stage boundaries, never mid-stage, so there's nothing to distinguish a bare tab close from an ordinary resumable state.
+7. **Abandon**: a distinct, explicit "Exit mission" action (not inferred from a tab close), which clears progress and fires its own telemetry event.
+8. **Tooltips** (v2 todo item 12): deferred explicitly, same disposition as Phase 6's parked AI features — no tooltip component exists yet and there's no real-user confusion data pre-launch to design one against.
+
+Full implementation plan (schema v8→v9, `useMissionSession` design, UI/routing, telemetry, test plan, session-sized sequencing) written to `docs/superpowers/plans/` this same session; build not yet started.
 
 ## Phase 3 — Launch-readiness (1–2 sessions + Thomas verification passes)
 
