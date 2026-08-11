@@ -111,6 +111,16 @@ function migrateV5ToV6(raw: Record<string, unknown>): Record<string, unknown> {
 }
 
 /**
+ * v6 -> v7: v3 Phase 1's Boss mode adds `bossStats` (nullable), same
+ * null-until-first-run convention as `rushStats` — see
+ * src/storage/schema.ts's BossStatsSchema doc comment. Every existing field
+ * is passed through unchanged.
+ */
+function migrateV6ToV7(raw: Record<string, unknown>): Record<string, unknown> {
+  return { ...raw, schema_version: 7, bossStats: null }
+}
+
+/**
  * Keyed by the version each migration migrates *from*. The first real entry:
  * schema v1 predates Daily mode, so any profile still on v1 gets a null
  * dailyCompletion (equivalent to "no Daily attempt recorded yet").
@@ -121,4 +131,5 @@ export const MIGRATIONS: Record<number, Migration> = {
   3: migrateV3ToV4,
   4: migrateV4ToV5,
   5: migrateV5ToV6,
+  6: migrateV6ToV7,
 }

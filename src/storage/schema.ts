@@ -21,7 +21,7 @@ import { generateAnonId } from './anonId'
  * migrated through migrations.ts — see AttemptSchema's own doc comment for
  * why `checkpoint_results` (the v4 addition) doesn't go through this chain.
  */
-export const CURRENT_SCHEMA_VERSION = 6
+export const CURRENT_SCHEMA_VERSION = 7
 
 /** Mirrors engine's StreakState shape. */
 export const StreakStateSchema = z.object({
@@ -72,6 +72,30 @@ export interface RushStats {
   lastRunAt: string | null
 }
 
+/**
+ * Boss's persisted best-ever stats (v3 Phase 1) — mirrors RushStatsSchema's
+ * shape and null-until-first-run convention. `bestDepth` is the deepest any
+ * run has ever reached (1-10, see useBossSession's own doc comment for the
+ * "depth reached" definition); `clears` counts full completions (depth
+ * reached === BOSS_RUN.length) separately from `runs` (every run, cleared or
+ * struck out) because a future mission-progression trigger (Phase 2) needs
+ * "has this player ever cleared a boss run" as a queryable fact without
+ * re-deriving it from raw attempt history.
+ */
+export const BossStatsSchema = z.object({
+  bestDepth: z.number().int().nonnegative(),
+  clears: z.number().int().nonnegative(),
+  runs: z.number().int().nonnegative(),
+  lastRunAt: z.string().nullable(),
+})
+
+export interface BossStats {
+  bestDepth: number
+  clears: number
+  runs: number
+  lastRunAt: string | null
+}
+
 export const UserProfileSchema = z.object({
   // z.literal, not z.number(): reaching full validation implies migration has
   // already brought the record onto the current version.
@@ -84,6 +108,8 @@ export const UserProfileSchema = z.object({
   dailyCompletion: DailyCompletionSchema.nullable(),
   rushStats: RushStatsSchema.nullable(),
   bestRunStreak: z.number().int().nonnegative(),
+  /** Non-null once at least one Boss run has completed — see BossStatsSchema's doc comment. */
+  bossStats: BossStatsSchema.nullable(),
   // Phase 7 Item 6: app-generated, contains no personal information — see
   // migrations.ts's migrateV5ToV6 doc comment for the full context. Exists
   // to let telemetry count returning visits (retention) without knowing
@@ -108,6 +134,8 @@ export interface UserProfile {
   rushStats: RushStats | null
   /** All-time best in-session correct-answer streak, Practice and Trace combined (Phase 5b Item 8) — the same two modes the streak-pause moment fires in (decision 8). 0 until the first streak-pause fires; unlike rushStats there's no "no data yet" state worth a null for a single counter. */
   bestRunStreak: number
+  /** Non-null once at least one Boss run has completed — see BossStats's doc comment. */
+  bossStats: BossStats | null
   /** Stable anonymous ID (Phase 7 Item 6) — see UserProfileSchema's own doc comment on this field. */
   anonId: string
 }
@@ -201,6 +229,7 @@ export function createDefaultProfile(): UserProfile {
     dailyCompletion: null,
     rushStats: null,
     bestRunStreak: 0,
+    bossStats: null,
     anonId: generateAnonId(),
   }
 }

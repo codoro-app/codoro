@@ -24,6 +24,7 @@ function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
     dailyCompletion: null,
     rushStats: null,
     bestRunStreak: 0,
+    bossStats: null,
     anonId: 'anon-fixture-1',
     ...overrides,
   }
@@ -247,6 +248,7 @@ describe('resolveImportCandidate', () => {
       dailyCompletion: null,
       rushStats: null,
       bestRunStreak: 0,
+      bossStats: null,
       // no anonId — this is the whole point of the test.
     }
     const json = JSON.stringify({
