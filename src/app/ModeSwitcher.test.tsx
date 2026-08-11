@@ -16,6 +16,14 @@ describe('ModeSwitcher', () => {
     expect(window.location.pathname).toBe('/rush')
   })
 
+  it('navigates to /boss when the Boss tab is clicked', async () => {
+    const user = userEvent.setup()
+    render(<ModeSwitcher />)
+
+    await user.click(screen.getByRole('link', { name: 'Boss' }))
+    expect(window.location.pathname).toBe('/boss')
+  })
+
   it('navigates to /trace when the Trace tab is clicked', async () => {
     const user = userEvent.setup()
     render(<ModeSwitcher />)

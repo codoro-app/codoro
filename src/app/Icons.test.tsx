@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
 import {
+  BossIcon,
   CloseIcon,
   CollapseIcon,
   DailyIcon,
@@ -16,6 +17,7 @@ describe('Icons', () => {
     ['PracticeIcon', PracticeIcon],
     ['DailyIcon', DailyIcon],
     ['RushIcon', RushIcon],
+    ['BossIcon', BossIcon],
     ['TraceIcon', TraceIcon],
     ['CollapseIcon', CollapseIcon],
     ['CloseIcon', CloseIcon],

@@ -42,6 +42,13 @@ export function ModeSwitcher() {
         Rush
       </Link>
       <Link
+        href={ROUTES.boss.path}
+        className={`mode-switcher__tab${location === ROUTES.boss.path ? ' mode-switcher__tab--active' : ''}`}
+        aria-current={location === ROUTES.boss.path ? 'page' : undefined}
+      >
+        Boss
+      </Link>
+      <Link
         href={ROUTES.trace.path}
         className={`mode-switcher__tab${location === ROUTES.trace.path ? ' mode-switcher__tab--active' : ''}`}
         aria-current={location === ROUTES.trace.path ? 'page' : undefined}

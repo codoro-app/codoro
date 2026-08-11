@@ -73,6 +73,31 @@ export function RushIcon({ size = 20 }: IconProps) {
   )
 }
 
+// Authored fresh for Boss (a trophy — matches the 🏆 shorthand the build
+// plan itself uses for the mission chain's boss-run stage), same house
+// stroke conventions as every icon above.
+export function BossIcon({ size = 20 }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M8 21h8" />
+      <path d="M12 17v4" />
+      <path d="M7 4h10v5a5 5 0 0 1-10 0V4Z" />
+      <path d="M5 4H3v2a4 4 0 0 0 4 3" />
+      <path d="M19 4h2v2a4 4 0 0 1-4 3" />
+    </svg>
+  )
+}
+
 // Authored fresh for Trace (no existing glyph fit "step through code" —
 // unlike RushIcon above, which reuses StatusBar's zap): a play triangle
 // plus a trailing step bar, the conventional "step forward" pairing (e.g.

@@ -40,7 +40,7 @@
  */
 import { useState } from 'react'
 import { Link, useLocation } from 'wouter'
-import { CollapseIcon, DailyIcon, PracticeIcon, RushIcon, TraceIcon } from './Icons'
+import { BossIcon, CollapseIcon, DailyIcon, PracticeIcon, RushIcon, TraceIcon } from './Icons'
 import { ROUTES } from './routes'
 
 const COLLAPSED_KEY = 'codoro:nav-rail-collapsed'
@@ -103,6 +103,16 @@ export function NavRail() {
       >
         <RushIcon size={20} />
         {!collapsed && <span className="nav-rail__item-label">Rush</span>}
+      </Link>
+      <Link
+        href={ROUTES.boss.path}
+        className={`nav-rail__item${location === ROUTES.boss.path ? ' nav-rail__item--active' : ''}`}
+        aria-current={location === ROUTES.boss.path ? 'page' : undefined}
+        aria-label="Boss"
+        title="Boss"
+      >
+        <BossIcon size={20} />
+        {!collapsed && <span className="nav-rail__item-label">Boss</span>}
       </Link>
       <Link
         href={ROUTES.trace.path}
