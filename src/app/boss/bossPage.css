@@ -15,7 +15,18 @@
 .boss-page {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--content-width-mobile);
+  margin: 0 auto;
+  padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--space-4) var(--space-4);
+  box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+  .boss-page {
+    max-width: var(--content-width-desktop);
+  }
 }
 
 .boss-page__status {
@@ -51,6 +62,13 @@
  * (.boss-strikes__slot--missed before this restyle, .feedback-panel--wrong).
  */
 .boss-strikes {
+  /* flex: 1 is load-bearing, not decorative: .boss-strikes is a flex child
+   * of .boss-header (space-between) with no content of its own, so without
+   * an explicit width/flex it collapses to 0px and the bar renders
+   * invisible — exactly what shipped originally. Rush's equivalent track
+   * (.rush-timer, rushPage.css) has the same rule for the same reason;
+   * this file's own doc comment above claimed to mirror it but omitted it. */
+  flex: 1;
   height: 6px;
   border-radius: var(--radius-full);
   background: var(--surface-2);
