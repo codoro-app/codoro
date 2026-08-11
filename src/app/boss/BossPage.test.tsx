@@ -77,6 +77,27 @@ describe('BossPage', () => {
     expect(screen.getByRole('button', { name: 'a' })).toBeInTheDocument()
   })
 
+  it('renders the health bar full at 0 strikes, with no hit-reaction class', async () => {
+    render(<BossPage />)
+    const bar = await screen.findByRole('status', { name: /0 of 3 strikes/i })
+    const fill = bar.querySelector('.boss-strikes__fill')
+    expect(fill).toHaveStyle({ width: '100%' })
+    expect(fill).not.toHaveClass('boss-strikes__fill--hit')
+  })
+
+  it('depletes the health bar as strikes land, and applies the hit-reaction class', async () => {
+    const user = userEvent.setup()
+    render(<BossPage />)
+    await waitFor(() => screen.getByRole('button', { name: 'a' }))
+
+    await answerAndContinue(user, false)
+
+    const bar = await screen.findByRole('status', { name: /1 of 3 strikes/i })
+    const fill = bar.querySelector('.boss-strikes__fill')
+    expect(fill).toHaveStyle({ width: `${String((2 / 3) * 100)}%` })
+    expect(fill).toHaveClass('boss-strikes__fill--hit')
+  })
+
   it('advances to puzzle 2 of 10 on a correct answer', async () => {
     const user = userEvent.setup()
     render(<BossPage />)
