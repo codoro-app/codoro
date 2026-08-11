@@ -301,6 +301,84 @@ describe('trackBossRunEnd', () => {
   })
 })
 
+describe('trackMissionStart', () => {
+  it('captures mission_start with the exact payload shape', async () => {
+    const { trackMissionStart } = await loadTelemetry('phc_test_key')
+    const payload = { run_id: 'mission-run-1' }
+    trackMissionStart(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('mission_start', payload)
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackMissionStart } = await loadTelemetry(undefined)
+    trackMissionStart({ run_id: 'mission-run-1' })
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
+describe('trackMissionStageComplete', () => {
+  it('captures mission_stage_complete with the exact payload shape', async () => {
+    const { trackMissionStageComplete } = await loadTelemetry('phc_test_key')
+    const payload = {
+      run_id: 'mission-run-1',
+      stage: 'speed' as const,
+      ended_reason: 'native' as const,
+      stats: { stage_id: 'speed' as const, solved_count: 4, best_streak_this_run: 3 },
+    }
+    trackMissionStageComplete(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('mission_stage_complete', payload)
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackMissionStageComplete } = await loadTelemetry(undefined)
+    trackMissionStageComplete({
+      run_id: 'mission-run-1',
+      stage: 'trace',
+      ended_reason: 'timer',
+      stats: { stage_id: 'trace', puzzles_completed: 2, solved_count: 1 },
+    })
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
+describe('trackMissionAbandoned', () => {
+  it('captures mission_abandoned with the exact payload shape', async () => {
+    const { trackMissionAbandoned } = await loadTelemetry('phc_test_key')
+    const payload = { run_id: 'mission-run-1', stage: 'boss' as const, completed_stage_count: 2 }
+    trackMissionAbandoned(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('mission_abandoned', payload)
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackMissionAbandoned } = await loadTelemetry(undefined)
+    trackMissionAbandoned({ run_id: 'mission-run-1', stage: 'trace', completed_stage_count: 0 })
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
+describe('trackMissionFinished', () => {
+  it('captures mission_finished with the exact payload shape', async () => {
+    const { trackMissionFinished } = await loadTelemetry('phc_test_key')
+    const payload = { run_id: 'mission-run-1', completions: 3 }
+    trackMissionFinished(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('mission_finished', payload)
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackMissionFinished } = await loadTelemetry(undefined)
+    trackMissionFinished({ run_id: 'mission-run-1', completions: 1 })
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
 describe('trackPuzzleLinkView', () => {
   it('captures puzzle_link_view with the exact property shape for a found puzzle', async () => {
     const { trackPuzzleLinkView } = await loadTelemetry('phc_test_key')

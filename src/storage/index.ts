@@ -8,8 +8,18 @@
  *
  * Barrel exports only — no logic lives here.
  */
-export { createDefaultProfile } from './schema'
-export type { UserProfile, Attempt, RushStats, BossStats } from './schema'
+export { createDefaultProfile, MISSION_STAGE_ORDER } from './schema'
+export type {
+  UserProfile,
+  Attempt,
+  RushStats,
+  BossStats,
+  MissionStageId,
+  MissionStageStats,
+  MissionStageSummary,
+  MissionProgress,
+  MissionStats,
+} from './schema'
 
 export { loadProfile, saveProfile } from './profile'
 export { appendAttempt, listAttempts } from './attempts'
