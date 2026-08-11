@@ -145,6 +145,19 @@ function migrateV7ToV8(raw: Record<string, unknown>): Record<string, unknown> {
 }
 
 /**
+ * v8 -> v9: v3 Phase 2's Missions add `missionProgress` and `missionStats`
+ * (both nullable) — see src/storage/schema.ts's MissionProgressSchema/
+ * MissionStatsSchema doc comments. No prior field is touched: unlike
+ * migrateV7ToV8, there's no existing data to fold the new fields into —
+ * no profile has ever had mission state before this version — so every
+ * profile, regardless of its other contents, gets the same "no mission
+ * in progress, none ever completed" starting point.
+ */
+function migrateV8ToV9(raw: Record<string, unknown>): Record<string, unknown> {
+  return { ...raw, schema_version: 9, missionProgress: null, missionStats: null }
+}
+
+/**
  * Keyed by the version each migration migrates *from*. The first real entry:
  * schema v1 predates Daily mode, so any profile still on v1 gets a null
  * dailyCompletion (equivalent to "no Daily attempt recorded yet").
@@ -157,4 +170,5 @@ export const MIGRATIONS: Record<number, Migration> = {
   5: migrateV5ToV6,
   6: migrateV6ToV7,
   7: migrateV7ToV8,
+  8: migrateV8ToV9,
 }

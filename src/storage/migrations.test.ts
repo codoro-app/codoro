@@ -67,7 +67,7 @@ describe('runMigrations', () => {
 })
 
 describe('MIGRATIONS: full chain from v1 to the current version', () => {
-  it('v1 -> v8, stamping schema_version 8, adding null dailyCompletion + rushStats + bestRunStreak 0 + bossStats + a generated anonId, and preserving every existing field untouched', () => {
+  it('v1 -> v9, stamping schema_version 9, adding null dailyCompletion + rushStats + bestRunStreak 0 + bossStats + missionProgress + missionStats + a generated anonId, and preserving every existing field untouched', () => {
     const v1Profile = {
       schema_version: 1,
       rating: 1342.75,
@@ -84,11 +84,48 @@ describe('MIGRATIONS: full chain from v1 to the current version', () => {
     expect((anonId as string).length).toBeGreaterThan(0)
     expect(rest).toEqual({
       ...v1Profile,
-      schema_version: 8,
+      schema_version: 9,
       dailyCompletion: null,
       rushStats: null,
       bestRunStreak: 0,
       bossStats: null,
+      missionProgress: null,
+      missionStats: null,
+    })
+  })
+})
+
+describe('MIGRATIONS[8]: v8 -> v9 (v3 Phase 2: adds missionProgress + missionStats)', () => {
+  it('stamps schema_version 9, adds null missionProgress + missionStats, and preserves every existing field untouched', () => {
+    const v8Profile = {
+      schema_version: 8,
+      rating: 1602.0,
+      ratedAttemptCount: 44,
+      streak: { currentStreak: 5, longestStreak: 22, lastActiveDate: '2026-08-10' },
+      requeueState: [{ puzzleId: 'p3', stage: 0, served: 1 }],
+      storagePersisted: true,
+      dailyCompletion: { date: '2026-08-10', attemptId: 'a9', correct: true },
+      rushStats: { bestScore: 51, bestStreak: 30, runs: 12, lastRunAt: '2026-08-09T09:00:00.000Z' },
+      bestRunStreak: 15,
+      bossStats: {
+        bestDepth: 8,
+        clears: 2,
+        runs: 6,
+        lastRunAt: '2026-08-10T12:00:00.000Z',
+        bestRunSplits: [1000, 2100, 3300],
+      },
+      anonId: 'anon-abc-123',
+    }
+
+    const v8Migration = MIGRATIONS[8]
+    if (!v8Migration) throw new Error('MIGRATIONS[8] is not registered')
+    const migrated = v8Migration(v8Profile)
+
+    expect(migrated).toEqual({
+      ...v8Profile,
+      schema_version: 9,
+      missionProgress: null,
+      missionStats: null,
     })
   })
 })

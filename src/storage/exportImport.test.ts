@@ -25,6 +25,8 @@ function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
     rushStats: null,
     bestRunStreak: 0,
     bossStats: null,
+    missionProgress: null,
+    missionStats: null,
     anonId: 'anon-fixture-1',
     ...overrides,
   }
@@ -71,6 +73,42 @@ describe('exportData / importData round-trip', () => {
         runs: 5,
         lastRunAt: '2026-08-05T12:00:00.000Z',
         bestRunSplits: [1100, 2450, 3900, 5200, 6800, 8100, 9950],
+      },
+    })
+    await saveProfile(profile)
+
+    const json = await exportData()
+
+    await deleteDB(DB_NAME)
+
+    await importData(json)
+
+    expect(await loadProfile()).toEqual(profile)
+  })
+
+  it('round-trips a populated missionProgress and missionStats', async () => {
+    const profile = makeProfile({
+      missionProgress: {
+        runId: 'mission-run-1',
+        currentStage: 'boss',
+        completedStages: [
+          {
+            stats: { stageId: 'trace', puzzlesCompleted: 4, solvedCount: 3 },
+            endedReason: 'timer',
+            completedAt: '2026-08-11T18:00:00.000Z',
+          },
+          {
+            stats: { stageId: 'speed', solvedCount: 5, bestStreakThisRun: 4 },
+            endedReason: 'native',
+            completedAt: '2026-08-11T18:01:30.000Z',
+          },
+        ],
+        startedAt: '2026-08-11T17:58:00.000Z',
+      },
+      missionStats: {
+        completions: 2,
+        lastRunAt: '2026-08-11T18:01:30.000Z',
+        lastCompletedAt: '2026-08-10T12:00:00.000Z',
       },
     })
     await saveProfile(profile)
