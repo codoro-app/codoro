@@ -190,7 +190,7 @@ export default defineConfig({
         // v2 Phase 7 adds /settings, another plain static route (same
         // treatment as /legal) — the export/import UI.
         navigateFallbackDenylist: [
-          /^\/(?!(?:practice|daily|rush|browse|legal|trace|challenge|settings|puzzle\/[^/?]+)?(?:\?|$))/,
+          /^\/(?!(?:practice|daily|rush|boss|browse|legal|trace|challenge|settings|puzzle\/[^/?]+)?(?:\?|$))/,
         ],
         cleanupOutdatedCaches: true,
       },

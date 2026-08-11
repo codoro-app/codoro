@@ -70,6 +70,7 @@ function resolveIntendedPath(): string | null {
 const practiceImporter = () => import('./practice/PracticePage')
 const dailyImporter = () => import('./daily/DailyPage')
 const rushImporter = () => import('./rush/RushPage')
+const bossImporter = () => import('./boss/BossPage')
 const traceImporter = () => import('./trace/TracePage')
 const homeImporter = () => import('./Home')
 const legalImporter = () => import('./legal/LegalPage')
@@ -80,6 +81,7 @@ const settingsImporter = () => import('./settings/SettingsPage')
 const PracticePage = lazy(async () => ({ default: (await practiceImporter()).PracticePage }))
 const DailyPage = lazy(async () => ({ default: (await dailyImporter()).DailyPage }))
 const RushPage = lazy(async () => ({ default: (await rushImporter()).RushPage }))
+const BossPage = lazy(async () => ({ default: (await bossImporter()).BossPage }))
 const TracePage = lazy(async () => ({ default: (await traceImporter()).TracePage }))
 const Home = lazy(async () => ({ default: (await homeImporter()).Home }))
 const LegalPage = lazy(async () => ({ default: (await legalImporter()).LegalPage }))
@@ -219,6 +221,9 @@ export function App() {
             </Route>
             <Route path="/rush">
               <RushPage />
+            </Route>
+            <Route path="/boss">
+              <BossPage />
             </Route>
             <Route path="/trace">
               <TracePage />
