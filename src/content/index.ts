@@ -49,7 +49,7 @@ export { PATTERN_SLUGS, PATTERN_LABELS } from './patterns'
 export type { PatternSlug } from './patterns'
 
 export { DAILY_CALENDAR } from './dailyCalendar'
-export { BOSS_RUN } from './bossRun'
+export { BOSS_SETS, resolveActiveBossSet } from './bossRun'
 
 export { DEV_STUB_PUZZLES } from './devPuzzles'
 

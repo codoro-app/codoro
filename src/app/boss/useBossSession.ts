@@ -1,30 +1,44 @@
 /**
- * Orchestrates the Boss loop: serve BOSS_RUN in fixed order, 3-strikes-ends-
- * it (BOSS_STRIKE_LIMIT), best-depth-ever persistence. Deliberately much
- * simpler than useRushSession: no per-puzzle clock (Boss's settled design
- * questions never call for one — see the Boss Challenges plan's design
- * record), and no live difficulty selection (the run order is fixed, see
+ * Orchestrates the Boss loop: serve the run's active BOSS_SETS entry in
+ * fixed order, 3-strikes-ends-it (BOSS_STRIKE_LIMIT), best-depth-ever
+ * persistence. Deliberately much simpler than useRushSession: no
+ * per-puzzle clock (Boss's settled design questions never call for one —
+ * see the Boss Challenges plan's design record), and no live difficulty
+ * selection (each run's order is a fixed, pre-authored sequence, see
  * bossRun.ts) — so there's no widening pool, no rng, no interval/
  * visibilitychange machinery to manage.
  *
+ * BOSS_SETS rotation (engagement pass): a run no longer always plays the
+ * same 10 puzzles — resolveActiveBossSet(runsCompleted) picks which
+ * BOSS_SETS entry this run serves, keyed off bossStats.runs at the moment
+ * the run starts. That resolution happens exactly ONCE per run, in
+ * startRun, and is cached in activeSetRef for the run's entire lifetime —
+ * never recomputed per puzzle. This matters: bossStats.runs only changes
+ * when a run ends (endRun writes the incremented count), so nothing
+ * *could* change it mid-run today, but resolving it once at run start
+ * rather than reading BOSS_SETS/profile.bossStats.runs live on every
+ * serveAt call is still the deliberate contract — it's what makes "this
+ * run stays on one set from puzzle 1 to its end" true by construction
+ * rather than true by accident of when runs happens to change.
+ *
  * "Depth reached" is the run's score: the 1-indexed position of the last
  * puzzle the run reached, whether that puzzle was answered right or wrong,
- * capped at BOSS_RUN.length. This always hits BOSS_RUN.length once a run
- * gets that far — there's no puzzle 11 to fail into — so depth alone can't
- * distinguish "answered puzzle 10 correctly" from "answered it wrong but it
- * wasn't the 3rd strike" from "answered it wrong AS the 3rd strike".
- * `cleared` is the fact that actually makes that distinction: true only when
- * the run reached the end of the sequence WITHOUT being struck out
- * (`finalStrikes < BOSS_STRIKE_LIMIT`) — a run that reaches puzzle 10 and
- * loses its 3rd strike there is `cleared: false`, exactly like striking out
- * on any earlier puzzle. `ended_reason` names which of the two ending
- * conditions actually fired (`'strikes'` vs `'completed'`), independent of
- * `cleared`/`depthReached` — Amendment finding from the Phase 1 final
- * review: an earlier draft computed `cleared` from depth alone (true
- * whenever position reached 10, regardless of the final answer) and
- * documented an `ended_reason` field this file never actually shipped —
- * both fixed together here, since they're the same underlying question
- * ("what does a run's outcome actually mean?").
+ * capped at the active set's length. This always hits that length once a
+ * run gets that far — there's no puzzle 11 to fail into — so depth alone
+ * can't distinguish "answered puzzle 10 correctly" from "answered it wrong
+ * but it wasn't the 3rd strike" from "answered it wrong AS the 3rd
+ * strike". `cleared` is the fact that actually makes that distinction:
+ * true only when the run reached the end of the sequence WITHOUT being
+ * struck out (`finalStrikes < BOSS_STRIKE_LIMIT`) — a run that reaches the
+ * last puzzle and loses its 3rd strike there is `cleared: false`, exactly
+ * like striking out on any earlier puzzle. `ended_reason` names which of
+ * the two ending conditions actually fired (`'strikes'` vs `'completed'`),
+ * independent of `cleared`/`depthReached` — Amendment finding from the
+ * Phase 1 final review: an earlier draft computed `cleared` from depth
+ * alone (true whenever position reached the end, regardless of the final
+ * answer) and documented an `ended_reason` field this file never actually
+ * shipped — both fixed together here, since they're the same underlying
+ * question ("what does a run's outcome actually mean?").
  *
  * Boss is unrated by construction, not by omission: shouldRateAttempt
  * (rating.ts) hardcodes `mode === 'boss' -> false`, so `rates` below is
@@ -36,7 +50,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { BOSS_STRIKE_LIMIT, shouldRateAttempt, updateRating } from '../../engine'
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, BossStats, UserProfile } from '../../storage'
-import { quizPool, BOSS_RUN } from '../../content'
+import { quizPool, BOSS_SETS, resolveActiveBossSet } from '../../content'
 import { isDevPuzzleModeEnabled, resolveBossStubPuzzle } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle } from '../../content'
 import { trackError, trackBossAttempt, trackBossRunEnd } from '../../telemetry'
@@ -55,7 +69,7 @@ export type BossPhase = 'playing' | 'ended'
 
 export interface BossRunSummary {
   depthReached: number
-  /** True only when the run reached BOSS_RUN.length WITHOUT being struck out — see this file's doc comment for why depth alone can't tell the two apart. */
+  /** True only when the run reached the active set's length WITHOUT being struck out — see this file's doc comment for why depth alone can't tell the two apart. */
   cleared: boolean
   /** All-time deepest run, post this run's update. */
   bestDepthEver: number
@@ -69,8 +83,10 @@ export interface BossSession {
   profile: UserProfile | null
   puzzle: ContentPuzzle | null
   strikes: number
-  /** 1-indexed position of the currently served puzzle within BOSS_RUN. */
+  /** 1-indexed position of the currently served puzzle within this run's active set. */
   position: number
+  /** Length of this run's active set (BOSS_SETS rotation) — always the current run's real puzzle count, not a hardcoded constant. */
+  totalPuzzles: number
   /** Populated once phase === 'ended'. */
   runSummary: BossRunSummary | null
   handleAnswered: (payload: CommitPayload) => void
@@ -86,6 +102,11 @@ export function useBossSession(): BossSession {
   const [puzzle, setPuzzle] = useState<ContentPuzzle | null>(null)
   const [strikes, setStrikes] = useState(0)
   const [position, setPosition] = useState(0)
+  // Mirrors activeSetRef.current.length as real state (not a ref read at
+  // render time — eslint's react-hooks/refs rule disallows accessing
+  // ref.current during render): set once per run start, alongside
+  // strikes/position, from the same activeSet startRun just resolved.
+  const [totalPuzzles, setTotalPuzzles] = useState(() => resolveActiveBossSet(0).length)
   const [runSummary, setRunSummary] = useState<BossRunSummary | null>(null)
 
   const runIdRef = useRef(crypto.randomUUID())
@@ -94,11 +115,17 @@ export function useBossSession(): BossSession {
   const pendingNextIndexRef = useRef(0)
   const cancelledRef = useRef(false)
 
+  // This run's resolved BOSS_SETS entry + its index, cached once at
+  // startRun and read (never recomputed) by serveAt/endRun/handleAnswered
+  // for the rest of the run — see this file's own doc comment.
+  const activeSetRef = useRef<readonly string[]>(resolveActiveBossSet(0))
+  const setIndexRef = useRef(0)
+
   const contentById = useRef(new Map(quizPool.map((p) => [p.id, p])))
 
   const serveAt = useCallback((index: number) => {
-    // Dev-stub swap (see devPuzzleMode.ts's own doc comment): BOSS_RUN's
-    // curated ids don't exist in DEV_STUB_PUZZLES, so — unlike
+    // Dev-stub swap (see devPuzzleMode.ts's own doc comment): the curated
+    // BOSS_SETS ids don't exist in DEV_STUB_PUZZLES, so — unlike
     // useRushSession's resolvePool(quizPool), which swaps the whole pool —
     // Boss branches explicitly and asks for a stub keyed by run position,
     // the same fix Daily already needed for its own curated calendar.
@@ -109,7 +136,7 @@ export function useBossSession(): BossSession {
       setStatus('ready')
       return
     }
-    const id = BOSS_RUN[index]
+    const id = activeSetRef.current[index]
     if (id === undefined) {
       setPuzzle(null)
       setStatus('empty')
@@ -127,15 +154,23 @@ export function useBossSession(): BossSession {
     setStatus('ready')
   }, [])
 
-  const startRun = useCallback(() => {
-    runIdRef.current = crypto.randomUUID()
-    pendingEndRef.current = false
-    pendingNextIndexRef.current = 0
-    setPhase('playing')
-    setStrikes(0)
-    setRunSummary(null)
-    serveAt(0)
-  }, [serveAt])
+  const startRun = useCallback(
+    (activeProfile: UserProfile) => {
+      const runsCompleted = activeProfile.bossStats?.runs ?? 0
+      const activeSet = resolveActiveBossSet(runsCompleted)
+      activeSetRef.current = activeSet
+      setIndexRef.current = runsCompleted % BOSS_SETS.length
+      runIdRef.current = crypto.randomUUID()
+      pendingEndRef.current = false
+      pendingNextIndexRef.current = 0
+      setPhase('playing')
+      setStrikes(0)
+      setTotalPuzzles(activeSet.length)
+      setRunSummary(null)
+      serveAt(0)
+    },
+    [serveAt],
+  )
 
   /** Shared by the mount effect and retryLoad — was duplicated verbatim before (Phase 1 final review finding); one copy now, one error-context string. */
   const loadAndStart = useCallback(() => {
@@ -144,7 +179,7 @@ export function useBossSession(): BossSession {
         const loaded = await loadProfile()
         if (cancelledRef.current) return
         setProfile(loaded)
-        startRun()
+        startRun(loaded)
       } catch (error) {
         if (cancelledRef.current) return
         trackError(error, 'useBossSession: loadProfile failed')
@@ -172,7 +207,7 @@ export function useBossSession(): BossSession {
   const endRun = useCallback(
     (currentProfile: UserProfile, finalPosition: number, finalStrikes: number) => {
       const struckOut = finalStrikes >= BOSS_STRIKE_LIMIT
-      const cleared = finalPosition >= BOSS_RUN.length && !struckOut
+      const cleared = finalPosition >= activeSetRef.current.length && !struckOut
       const priorStats = currentProfile.bossStats
       const isNewBestDepth = finalPosition > (priorStats?.bestDepth ?? 0)
       const newBossStats: BossStats = {
@@ -192,6 +227,7 @@ export function useBossSession(): BossSession {
         cleared,
         ended_reason: struckOut ? 'strikes' : 'completed',
         is_new_best_depth: isNewBestDepth,
+        set_index: setIndexRef.current,
       })
       setRunSummary({
         depthReached: finalPosition,
@@ -252,12 +288,13 @@ export function useBossSession(): BossSession {
         user_rating_after: newRating,
         run_id: runIdRef.current,
         position_in_run: position,
+        set_index: setIndexRef.current,
       })
 
       const newStrikes = payload.correct ? strikes : strikes + 1
       setStrikes(newStrikes)
 
-      const reachedEnd = position >= BOSS_RUN.length
+      const reachedEnd = position >= activeSetRef.current.length
       pendingEndRef.current = newStrikes >= BOSS_STRIKE_LIMIT || reachedEnd
       pendingNextIndexRef.current = position
     },
@@ -275,7 +312,7 @@ export function useBossSession(): BossSession {
 
   const handleRunItBack = useCallback(() => {
     if (!profile) return
-    startRun()
+    startRun(profile)
   }, [profile, startRun])
 
   return {
@@ -285,6 +322,7 @@ export function useBossSession(): BossSession {
     puzzle,
     strikes,
     position,
+    totalPuzzles,
     runSummary,
     handleAnswered,
     handleContinue,

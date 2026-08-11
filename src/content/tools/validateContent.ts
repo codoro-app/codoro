@@ -9,7 +9,7 @@
 import process from 'node:process'
 import { getDailyNumber } from '../../engine/daily'
 import { DAILY_CALENDAR } from '../dailyCalendar'
-import { BOSS_RUN } from '../bossRun'
+import { BOSS_SETS } from '../bossRun'
 import { loadRawPuzzleFiles } from './loadPuzzles'
 import {
   validateBossRun,
@@ -52,13 +52,30 @@ function checkDailyCalendarRunway(): void {
   }
 }
 
+/**
+ * Validates every entry in BOSS_SETS (not just index 0), prefixing each
+ * error with the set's index so a broken set is traceable back to which
+ * one broke — e.g. `bossRun.ts[1]: entry "x-000" ... must escalate`.
+ * validateBossRun's own signature/messages are untouched (still take one
+ * `bossRun: readonly string[]` and prefix their own messages with
+ * `bossRun.ts:`) — this just loops it and rewrites that fixed prefix per
+ * set, per the deliberate decision not to change validateBossRun itself.
+ */
+function validateAllBossSets(valid: Parameters<typeof validateBossRun>[1]): string[] {
+  return BOSS_SETS.flatMap((set, index) =>
+    validateBossRun(set, valid).map((error) =>
+      error.replace(/^bossRun\.ts:/, `bossRun.ts[${String(index)}]:`),
+    ),
+  )
+}
+
 function main(): void {
   const files = loadRawPuzzleFiles()
   const { valid, errors } = validatePuzzleFiles(files)
   const allErrors = [
     ...errors,
     ...validateDailyCalendar(DAILY_CALENDAR, valid),
-    ...validateBossRun(BOSS_RUN, valid),
+    ...validateAllBossSets(valid),
     ...validateRatingCluster(valid),
     ...validateLanguageMix(valid),
     ...validateInteractionMix(valid),
@@ -75,7 +92,7 @@ function main(): void {
 
   checkDailyCalendarRunway()
   console.log(
-    `validate:content: ${String(valid.length)} puzzle(s) OK, ${String(DAILY_CALENDAR.length)} daily-calendar entries OK, boss run OK`,
+    `validate:content: ${String(valid.length)} puzzle(s) OK, ${String(DAILY_CALENDAR.length)} daily-calendar entries OK, ${String(BOSS_SETS.length)} boss set(s) OK`,
   )
 }
 

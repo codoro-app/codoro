@@ -22,9 +22,23 @@ const { FIXTURE_POOL, BOSS_RUN_IDS } = vi.hoisted(() => {
   }
 })
 
+// resolveActiveBossSet must be mocked too, not just BOSS_SETS: its default
+// `sets` parameter closes over the real bossRun.ts module-scope BOSS_SETS
+// (the real puzzle ids), independent of what this mock re-exports as
+// content's BOSS_SETS — mocking only the constant would leave useBossSession
+// resolving real ids that don't exist in FIXTURE_POOL. This stub ignores
+// runsCompleted (rotation-specific coverage lives in its own describe block
+// below) and always returns the single fixture set, preserving every
+// existing test's "serves position 1 first" assumption for a fresh profile.
 vi.mock('../../content', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../content')>()
-  return { ...actual, puzzlePool: FIXTURE_POOL, quizPool: FIXTURE_POOL, BOSS_RUN: BOSS_RUN_IDS }
+  return {
+    ...actual,
+    puzzlePool: FIXTURE_POOL,
+    quizPool: FIXTURE_POOL,
+    BOSS_SETS: [BOSS_RUN_IDS],
+    resolveActiveBossSet: () => BOSS_RUN_IDS,
+  }
 })
 
 vi.mock('../../storage', async (importOriginal) => {

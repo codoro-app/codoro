@@ -22,9 +22,17 @@ const { FIXTURE_POOL, BOSS_RUN_IDS } = vi.hoisted(() => {
   }
 })
 
+// See useBossSession.test.ts's identical mock for why resolveActiveBossSet
+// must be stubbed alongside BOSS_SETS, not just the constant.
 vi.mock('../../content', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../content')>()
-  return { ...actual, puzzlePool: FIXTURE_POOL, quizPool: FIXTURE_POOL, BOSS_RUN: BOSS_RUN_IDS }
+  return {
+    ...actual,
+    puzzlePool: FIXTURE_POOL,
+    quizPool: FIXTURE_POOL,
+    BOSS_SETS: [BOSS_RUN_IDS],
+    resolveActiveBossSet: () => BOSS_RUN_IDS,
+  }
 })
 
 vi.mock('../../storage', async (importOriginal) => {

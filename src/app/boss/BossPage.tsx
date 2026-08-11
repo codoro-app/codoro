@@ -13,7 +13,6 @@
  */
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { BossIcon } from '../Icons'
-import { BOSS_RUN } from '../../content'
 import { BOSS_STRIKE_LIMIT } from '../../engine'
 import { useBossSession } from './useBossSession'
 import './bossPage.css'
@@ -70,7 +69,7 @@ export function BossPage() {
             ))}
           </div>
           <span className="boss-progress">
-            Puzzle {session.position} of {BOSS_RUN.length}
+            Puzzle {session.position} of {session.totalPuzzles}
           </span>
         </div>
       )}
