@@ -66,10 +66,11 @@ export function trackRushRunEnd(payload: RushRunEndPayload): void {
   safeCapture('rush_run_end', payload)
 }
 
-/** Run-level context attached to every Boss `attempt` event, additive to the locked AttemptEventPayload shape above. No `difficulty_served`/`timed_out` (unlike Rush's own RushAttemptContext): Boss has no live difficulty selection and no per-puzzle clock — `position_in_run` alone identifies which fixed-sequence puzzle this was. */
+/** Run-level context attached to every Boss `attempt` event, additive to the locked AttemptEventPayload shape above. No `difficulty_served`/`timed_out` (unlike Rush's own RushAttemptContext): Boss has no live difficulty selection and no per-puzzle clock — `position_in_run` alone identifies which fixed-sequence puzzle this was. `set_index` (BOSS_SETS rotation) names which curated set this run is playing, additive same as Rush's own `difficulty_served`, so set-level performance is queryable later. */
 export interface BossAttemptContext {
   run_id: string
   position_in_run: number
+  set_index: number
 }
 
 /** Fires the same `attempt` event as trackAttempt, with Boss's run-level context appended — so Boss attempts land in the same event stream (mode: 'boss') alongside every other mode's. */
@@ -87,6 +88,8 @@ export interface BossRunEndPayload {
   ended_reason: 'strikes' | 'completed'
   /** True when this run's depth_reached just beat the profile's prior all-time bestDepth. */
   is_new_best_depth: boolean
+  /** Which curated BOSS_SETS entry this run played — see BossAttemptContext's own doc comment. */
+  set_index: number
 }
 
 /** Fired once per completed Boss run (3 strikes or a full clear), independent of the per-attempt `attempt` events above. */

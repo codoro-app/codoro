@@ -67,7 +67,7 @@ describe('runMigrations', () => {
 })
 
 describe('MIGRATIONS: full chain from v1 to the current version', () => {
-  it('v1 -> v7, stamping schema_version 7, adding null dailyCompletion + rushStats + bestRunStreak 0 + bossStats + a generated anonId, and preserving every existing field untouched', () => {
+  it('v1 -> v8, stamping schema_version 8, adding null dailyCompletion + rushStats + bestRunStreak 0 + bossStats + a generated anonId, and preserving every existing field untouched', () => {
     const v1Profile = {
       schema_version: 1,
       rating: 1342.75,
@@ -84,12 +84,62 @@ describe('MIGRATIONS: full chain from v1 to the current version', () => {
     expect((anonId as string).length).toBeGreaterThan(0)
     expect(rest).toEqual({
       ...v1Profile,
-      schema_version: 7,
+      schema_version: 8,
       dailyCompletion: null,
       rushStats: null,
       bestRunStreak: 0,
       bossStats: null,
     })
+  })
+})
+
+describe('MIGRATIONS[7]: v7 -> v8 (Boss engagement pass: adds bestRunSplits inside bossStats)', () => {
+  it('stamps schema_version 8, adds bestRunSplits: null inside a populated bossStats, and preserves every other field (including the rest of bossStats) untouched', () => {
+    const v7Profile = {
+      schema_version: 7,
+      rating: 1512.25,
+      ratedAttemptCount: 30,
+      streak: { currentStreak: 2, longestStreak: 20, lastActiveDate: '2026-08-01' },
+      requeueState: [{ puzzleId: 'p2', stage: 1, served: 5 }],
+      storagePersisted: true,
+      dailyCompletion: { date: '2026-08-01', attemptId: 'a5', correct: true },
+      rushStats: { bestScore: 40, bestStreak: 25, runs: 9, lastRunAt: '2026-07-30T09:00:00.000Z' },
+      bestRunStreak: 12,
+      bossStats: { bestDepth: 6, clears: 1, runs: 4, lastRunAt: '2026-08-05T12:00:00.000Z' },
+      anonId: 'anon-xyz-789',
+    }
+
+    const v7Migration = MIGRATIONS[7]
+    if (!v7Migration) throw new Error('MIGRATIONS[7] is not registered')
+    const migrated = v7Migration(v7Profile)
+
+    expect(migrated).toEqual({
+      ...v7Profile,
+      schema_version: 8,
+      bossStats: { ...v7Profile.bossStats, bestRunSplits: null },
+    })
+  })
+
+  it('leaves a null bossStats untouched (no Boss run ever completed) — only the version bumps', () => {
+    const v7Profile = {
+      schema_version: 7,
+      rating: 1200,
+      ratedAttemptCount: 0,
+      streak: { currentStreak: 0, longestStreak: 0, lastActiveDate: null },
+      requeueState: [],
+      storagePersisted: null,
+      dailyCompletion: null,
+      rushStats: null,
+      bestRunStreak: 0,
+      bossStats: null,
+      anonId: 'anon-fresh-1',
+    }
+
+    const v7Migration = MIGRATIONS[7]
+    if (!v7Migration) throw new Error('MIGRATIONS[7] is not registered')
+    const migrated = v7Migration(v7Profile)
+
+    expect(migrated).toEqual({ ...v7Profile, schema_version: 8 })
   })
 })
 

@@ -63,6 +63,27 @@ describe('exportData / importData round-trip', () => {
     expect(await listAttempts()).toEqual([])
   })
 
+  it('round-trips a populated bossStats, including a non-null bestRunSplits array', async () => {
+    const profile = makeProfile({
+      bossStats: {
+        bestDepth: 7,
+        clears: 2,
+        runs: 5,
+        lastRunAt: '2026-08-05T12:00:00.000Z',
+        bestRunSplits: [1100, 2450, 3900, 5200, 6800, 8100, 9950],
+      },
+    })
+    await saveProfile(profile)
+
+    const json = await exportData()
+
+    await deleteDB(DB_NAME)
+
+    await importData(json)
+
+    expect(await loadProfile()).toEqual(profile)
+  })
+
   it('round-trips a profile with several attempts, edge values intact', async () => {
     const profile = makeProfile({
       rating: RATING_FLOOR,

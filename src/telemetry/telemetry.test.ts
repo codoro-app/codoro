@@ -249,6 +249,7 @@ describe('trackBossAttempt', () => {
       mode: 'boss' as const,
       run_id: 'run-1',
       position_in_run: 4,
+      set_index: 1,
     }
     trackBossAttempt(payload)
     await flushPromises()
@@ -262,6 +263,7 @@ describe('trackBossAttempt', () => {
       mode: 'boss',
       run_id: 'run-1',
       position_in_run: 1,
+      set_index: 0,
     })
     await flushPromises()
     expect(posthogMock.capture).not.toHaveBeenCalled()
@@ -277,6 +279,7 @@ describe('trackBossRunEnd', () => {
       cleared: false,
       ended_reason: 'strikes' as const,
       is_new_best_depth: true,
+      set_index: 2,
     }
     trackBossRunEnd(payload)
     await flushPromises()
@@ -291,6 +294,7 @@ describe('trackBossRunEnd', () => {
       cleared: false,
       ended_reason: 'strikes',
       is_new_best_depth: false,
+      set_index: 0,
     })
     await flushPromises()
     expect(posthogMock.capture).not.toHaveBeenCalled()

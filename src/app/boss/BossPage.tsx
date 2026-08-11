@@ -4,24 +4,35 @@
  * PuzzleCardShell for the puzzle itself, the .daily-hero/.status-bar
  * treatment for the end-of-run summary (global CSS, already loaded whenever
  * DailyPage is reachable — see RushPage.tsx's own doc comment for why that's
- * safe to reuse verbatim). The strikes indicator is Boss's own small CSS
- * (see bossPage.css's doc comment for why it isn't literally rushPage.css's
- * classes). No timer row (Boss has no per-puzzle clock — see the Boss
- * Challenges plan's design record) and no share/challenge cards this phase
- * (not in Phase 1's build item list — a deliberate scope decision, see the
- * same plan).
+ * safe to reuse verbatim). The strikes indicator (engagement pass: now a
+ * depleting health bar, not discrete dot-slots — see bossPage.css's own
+ * doc comment for the visual design record) is Boss's own small CSS, not
+ * literally rushPage.css's classes. No timer row (Boss has no per-puzzle
+ * clock — see the Boss Challenges plan's design record) and no share/
+ * challenge cards this phase (not in Phase 1's build item list — a
+ * deliberate scope decision, see the same plan).
  */
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { BossIcon } from '../Icons'
-import { BOSS_RUN } from '../../content'
 import { BOSS_STRIKE_LIMIT } from '../../engine'
 import { useBossSession } from './useBossSession'
+import { buildBossGhostPaceText } from './ghostPace'
 import './bossPage.css'
-
-const STRIKE_SLOTS = Array.from({ length: BOSS_STRIKE_LIMIT }, (_, i) => i)
 
 export function BossPage() {
   const session = useBossSession()
+  const ghostPaceText = session.runSummary
+    ? buildBossGhostPaceText({
+        depthReached: session.runSummary.depthReached,
+        splits: session.runSummary.splits,
+        previousBestSplits: session.runSummary.previousBestSplits,
+      })
+    : null
+  // Health-bar fill: 100% at 0 strikes, draining to 0% once
+  // BOSS_STRIKE_LIMIT lands (100% -> ~66% -> ~33% -> 0% at the default
+  // limit of 3) — reads session.strikes/BOSS_STRIKE_LIMIT only, the same
+  // data the old dot-slot indicator used, no new state.
+  const healthPercent = ((BOSS_STRIKE_LIMIT - session.strikes) / BOSS_STRIKE_LIMIT) * 100
 
   if (session.status === 'error') {
     return (
@@ -59,18 +70,19 @@ export function BossPage() {
             role="status"
             aria-label={`${String(session.strikes)} of ${String(BOSS_STRIKE_LIMIT)} strikes`}
           >
-            {STRIKE_SLOTS.map((slot) => (
-              <span
-                key={slot}
-                className={`boss-strikes__slot${
-                  slot < session.strikes ? ' boss-strikes__slot--missed' : ''
-                }`}
-                aria-hidden="true"
-              />
-            ))}
+            {/* key={session.strikes}: forces a remount on every strike so
+                the CSS hit-reaction animation (bossPage.css) restarts each
+                time, without any new component state — see that file's
+                own doc comment. */}
+            <div
+              key={session.strikes}
+              className={`boss-strikes__fill${session.strikes > 0 ? ' boss-strikes__fill--hit' : ''}`}
+              style={{ width: `${String(healthPercent)}%` }}
+              aria-hidden="true"
+            />
           </div>
           <span className="boss-progress">
-            Puzzle {session.position} of {BOSS_RUN.length}
+            Puzzle {session.position} of {session.totalPuzzles}
           </span>
         </div>
       )}
@@ -101,6 +113,7 @@ export function BossPage() {
                 <span className="daily-hero__stat-label">Best ever</span>
               </div>
             </div>
+            {ghostPaceText && <p className="boss-ghost-pace">{ghostPaceText}</p>}
           </div>
 
           <button type="button" className="share-card__button" onClick={session.handleRunItBack}>

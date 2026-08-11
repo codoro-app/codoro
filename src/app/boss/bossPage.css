@@ -15,13 +15,31 @@
 .boss-page {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--content-width-mobile);
+  margin: 0 auto;
+  padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--space-4) var(--space-4);
+  box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+  .boss-page {
+    max-width: var(--content-width-desktop);
+  }
 }
 
 .boss-page__status {
   padding: 2rem 1rem;
   text-align: center;
-  color: var(--muted);
+  /* --text-1, not --muted: --muted was never a defined token anywhere in
+   * this codebase (a latent bug from Phase 1's ship — every sibling page's
+   * identical .{mode}-page__status rule uses --text-1). Fixed here rather
+   * than left in place, since the health-bar restyle below is already
+   * rewriting this exact file and "compose entirely from the existing v2
+   * token system" is this task's own explicit constraint — an undefined
+   * token isn't part of that system by definition. */
+  color: var(--text-1);
 }
 
 .boss-header {
@@ -31,23 +49,81 @@
   gap: 1rem;
 }
 
+/* --- health bar (engagement pass) --------------------------------------
+ * Reframes the strike-slot indicator as a depleting boss-health bar,
+ * mirroring Rush's own per-puzzle countdown structure (.rush-timer/
+ * .rush-timer__fill, rushPage.css) — track + width-transitioned fill is
+ * already this codebase's one progress-bar pattern, not a new one. Fill
+ * width is `(BOSS_STRIKE_LIMIT - strikes) / BOSS_STRIKE_LIMIT * 100%`,
+ * computed in BossPage.tsx: 100% -> ~66% -> ~33% -> 0% as strikes land.
+ * --danger for the fill (not --accent, unlike Rush's timer): this is a
+ * health bar draining toward elimination, and --danger/--danger-dim
+ * already carry that exact "at risk" meaning everywhere else in this app
+ * (.boss-strikes__slot--missed before this restyle, .feedback-panel--wrong).
+ */
 .boss-strikes {
-  display: flex;
-  gap: 0.375rem;
+  /* flex: 1 is load-bearing, not decorative: .boss-strikes is a flex child
+   * of .boss-header (space-between) with no content of its own, so without
+   * an explicit width/flex it collapses to 0px and the bar renders
+   * invisible — exactly what shipped originally. Rush's equivalent track
+   * (.rush-timer, rushPage.css) has the same rule for the same reason;
+   * this file's own doc comment above claimed to mirror it but omitted it. */
+  flex: 1;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  overflow: hidden;
 }
 
-.boss-strikes__slot {
-  width: 0.625rem;
-  height: 0.625rem;
-  border-radius: 999px;
-  background: var(--border);
-}
-
-.boss-strikes__slot--missed {
+.boss-strikes__fill {
+  height: 100%;
+  border-radius: var(--radius-full);
   background: var(--danger);
+  transition: width 0.25s ease-out;
+}
+
+/* Hit reaction: a brief shake on the transition each time a strike lands.
+ * CSS-only, no new state — BossPage.tsx keys this element on
+ * session.strikes, so React remounts it on every change, and a freshly-
+ * mounted element with an `animation` property always plays from the
+ * start. session.strikes itself (already-existing state) drives both the
+ * width above and this animation trigger. */
+.boss-strikes__fill--hit {
+  animation: boss-strikes-hit 0.25s ease-out;
+}
+
+@keyframes boss-strikes-hit {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-3px);
+  }
+  40% {
+    transform: translateX(3px);
+  }
+  60% {
+    transform: translateX(-2px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
 }
 
 .boss-progress {
   font-size: 0.875rem;
-  color: var(--muted);
+  color: var(--text-1);
+}
+
+/* Ghost-pace comparison line (engagement pass) — a plain caption inside
+ * .daily-hero's stats column, not a new visual pattern: same muted/small
+ * treatment .boss-progress already uses above, just with a reset margin
+ * since it sits inside .daily-hero's flex column (gap-spaced children with
+ * their own margin: 0, same convention as dailyPage.css's own
+ * .daily-hero__* rules). */
+.boss-ghost-pace {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-1);
 }
