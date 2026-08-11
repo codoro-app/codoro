@@ -51,3 +51,15 @@
   font-size: 0.875rem;
   color: var(--muted);
 }
+
+/* Ghost-pace comparison line (engagement pass) — a plain caption inside
+ * .daily-hero's stats column, not a new visual pattern: same muted/small
+ * treatment .boss-progress already uses above, just with a reset margin
+ * since it sits inside .daily-hero's flex column (gap-spaced children with
+ * their own margin: 0, same convention as dailyPage.css's own
+ * .daily-hero__* rules). */
+.boss-ghost-pace {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}

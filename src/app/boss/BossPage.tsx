@@ -15,12 +15,20 @@ import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { BossIcon } from '../Icons'
 import { BOSS_STRIKE_LIMIT } from '../../engine'
 import { useBossSession } from './useBossSession'
+import { buildBossGhostPaceText } from './ghostPace'
 import './bossPage.css'
 
 const STRIKE_SLOTS = Array.from({ length: BOSS_STRIKE_LIMIT }, (_, i) => i)
 
 export function BossPage() {
   const session = useBossSession()
+  const ghostPaceText = session.runSummary
+    ? buildBossGhostPaceText({
+        depthReached: session.runSummary.depthReached,
+        splits: session.runSummary.splits,
+        previousBestSplits: session.runSummary.previousBestSplits,
+      })
+    : null
 
   if (session.status === 'error') {
     return (
@@ -100,6 +108,7 @@ export function BossPage() {
                 <span className="daily-hero__stat-label">Best ever</span>
               </div>
             </div>
+            {ghostPaceText && <p className="boss-ghost-pace">{ghostPaceText}</p>}
           </div>
 
           <button type="button" className="share-card__button" onClick={session.handleRunItBack}>
