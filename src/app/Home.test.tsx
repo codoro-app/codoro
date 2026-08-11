@@ -92,6 +92,31 @@ describe('Home', () => {
     expect(await screen.findByRole('link', { name: /trace/i })).toHaveAttribute('href', '/trace')
   })
 
+  it('links the Boss card to /boss', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    render(<Home />)
+
+    expect(await screen.findByRole('link', { name: /boss/i })).toHaveAttribute('href', '/boss')
+  })
+
+  it('shows no best-depth badge on the Boss card when bossStats is null', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    render(<Home />)
+
+    await screen.findByRole('link', { name: /boss/i })
+    expect(screen.queryByText(/^Best depth \d/)).not.toBeInTheDocument()
+  })
+
+  it('shows the best-depth badge on the Boss card once bossStats is set', async () => {
+    vi.mocked(loadProfile).mockResolvedValue({
+      ...baseProfile(),
+      bossStats: { bestDepth: 6, clears: 1, runs: 3, lastRunAt: '2026-08-01T10:00:00.000Z' },
+    })
+    render(<Home />)
+
+    expect(await screen.findByText('Best depth 6')).toBeInTheDocument()
+  })
+
   it('shows no best-score badge on the Rush card when rushStats is null', async () => {
     vi.mocked(loadProfile).mockResolvedValue(baseProfile())
     render(<Home />)

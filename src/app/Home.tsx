@@ -26,13 +26,20 @@
  * profile field a Trace "best score"-style badge could read from (unlike
  * Rush's `rushStats`, which already existed). Revisit once Trace earns its
  * own persisted stat.
+ *
+ * Boss's card (v3 Phase 1, added after the initial build in response to a
+ * final-review finding — no task in that phase's plan had scoped Home.tsx,
+ * a real gap, not a deliberate omission) follows Rush's exact badge
+ * pattern: a "Best depth {n}" chip appears only once `profile.bossStats` is
+ * non-null. `.home__cards-secondary`'s grid (home.css) was re-tuned for 4
+ * tracks, not 3, at the same time — see that file's own comment.
  */
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'wouter'
 import { loadProfile } from '../storage'
 import type { UserProfile } from '../storage'
 import { getDailyNumber } from '../engine'
-import { DailyIcon, PracticeIcon, RushIcon, StreakIcon, TraceIcon } from './Icons'
+import { BossIcon, DailyIcon, PracticeIcon, RushIcon, StreakIcon, TraceIcon } from './Icons'
 import { ROUTES } from './routes'
 import './home.css'
 
@@ -132,6 +139,19 @@ export function Home() {
             </span>
             <span className="home__card-title">Trace</span>
             <span className="home__card-desc">Step through code, predict each line</span>
+          </Link>
+
+          <Link href={ROUTES.boss.path} className="home__card">
+            <span className="home__card-icon">
+              <BossIcon size={20} />
+            </span>
+            <span className="home__card-title">Boss</span>
+            <span className="home__card-desc">10 puzzles, escalating — how deep can you get?</span>
+            {profile.bossStats && (
+              <span className="pattern-picker__badge pattern-picker__badge--mastered">
+                Best depth {profile.bossStats.bestDepth}
+              </span>
+            )}
           </Link>
         </div>
       </div>
