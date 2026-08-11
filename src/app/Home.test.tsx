@@ -110,7 +110,13 @@ describe('Home', () => {
   it('shows the best-depth badge on the Boss card once bossStats is set', async () => {
     vi.mocked(loadProfile).mockResolvedValue({
       ...baseProfile(),
-      bossStats: { bestDepth: 6, clears: 1, runs: 3, lastRunAt: '2026-08-01T10:00:00.000Z' },
+      bossStats: {
+        bestDepth: 6,
+        clears: 1,
+        runs: 3,
+        lastRunAt: '2026-08-01T10:00:00.000Z',
+        bestRunSplits: null,
+      },
     })
     render(<Home />)
 

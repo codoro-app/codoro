@@ -21,7 +21,7 @@ import { generateAnonId } from './anonId'
  * migrated through migrations.ts — see AttemptSchema's own doc comment for
  * why `checkpoint_results` (the v4 addition) doesn't go through this chain.
  */
-export const CURRENT_SCHEMA_VERSION = 7
+export const CURRENT_SCHEMA_VERSION = 8
 
 /** Mirrors engine's StreakState shape. */
 export const StreakStateSchema = z.object({
@@ -77,16 +77,29 @@ export interface RushStats {
  * shape and null-until-first-run convention. `bestDepth` is the deepest any
  * run has ever reached (1-10, see useBossSession's own doc comment for the
  * "depth reached" definition); `clears` counts full completions (depth
- * reached === BOSS_RUN.length) separately from `runs` (every run, cleared or
- * struck out) because a future mission-progression trigger (Phase 2) needs
- * "has this player ever cleared a boss run" as a queryable fact without
- * re-deriving it from raw attempt history.
+ * reached === active set length) separately from `runs` (every run, cleared
+ * or struck out) because a future mission-progression trigger (Phase 2)
+ * needs "has this player ever cleared a boss run" as a queryable fact
+ * without re-deriving it from raw attempt history.
+ *
+ * `bestRunSplits` (engagement pass, v8): elapsed-ms-per-position for the run
+ * that set the CURRENT `bestDepth`, length === bestDepth, index i = time from
+ * run start to answering the puzzle at position i+1. Null until the first
+ * run that sets a best depth; overwritten wholesale (never merged/appended)
+ * whenever a run beats the existing bestDepth, and left untouched by every
+ * ordinary (non-record) run — see useBossSession's own doc comment for why
+ * "only the run that actually set bestDepth" is the one invariant this field
+ * must never violate. Powers the post-run "ghost pace" comparison
+ * (bossPage's runSummary): this run's per-position splits vs. the
+ * all-time-best run's, surfaced once the run ends. Deliberately NOT a live
+ * race/animated ghost — see the Boss engagement pass's locked decisions.
  */
 export const BossStatsSchema = z.object({
   bestDepth: z.number().int().nonnegative(),
   clears: z.number().int().nonnegative(),
   runs: z.number().int().nonnegative(),
   lastRunAt: z.string().nullable(),
+  bestRunSplits: z.array(z.number().nonnegative()).nullable(),
 })
 
 export interface BossStats {
@@ -94,6 +107,7 @@ export interface BossStats {
   clears: number
   runs: number
   lastRunAt: string | null
+  bestRunSplits: number[] | null
 }
 
 export const UserProfileSchema = z.object({

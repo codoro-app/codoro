@@ -121,6 +121,30 @@ function migrateV6ToV7(raw: Record<string, unknown>): Record<string, unknown> {
 }
 
 /**
+ * v7 -> v8: the Boss engagement pass adds `bestRunSplits` to `bossStats` —
+ * see src/storage/schema.ts's BossStatsSchema doc comment. A profile whose
+ * `bossStats` is still null (no Boss run ever completed) passes through
+ * unchanged, same as `rushStats`'s own null-until-first-run handling
+ * elsewhere. A profile with a populated `bossStats` (at least one prior
+ * Boss run) gets `bestRunSplits: null` added inside it — we have no
+ * historical per-position timing for a best-depth run that was already
+ * recorded before this field existed, so "no splits known yet" is the only
+ * honest value; the next run that beats (or ties into) that bestDepth
+ * records real splits going forward (useBossSession's endRun).
+ */
+function migrateV7ToV8(raw: Record<string, unknown>): Record<string, unknown> {
+  const { bossStats } = raw
+  if (bossStats && typeof bossStats === 'object') {
+    return {
+      ...raw,
+      schema_version: 8,
+      bossStats: { ...bossStats, bestRunSplits: null },
+    }
+  }
+  return { ...raw, schema_version: 8 }
+}
+
+/**
  * Keyed by the version each migration migrates *from*. The first real entry:
  * schema v1 predates Daily mode, so any profile still on v1 gets a null
  * dailyCompletion (equivalent to "no Daily attempt recorded yet").
@@ -132,4 +156,5 @@ export const MIGRATIONS: Record<number, Migration> = {
   4: migrateV4ToV5,
   5: migrateV5ToV6,
   6: migrateV6ToV7,
+  7: migrateV7ToV8,
 }

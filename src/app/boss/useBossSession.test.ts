@@ -273,7 +273,13 @@ describe('useBossSession', () => {
   it('accumulates onto prior bossStats and reports isNewBestDepth: false when the run does not beat the stored best', async () => {
     vi.mocked(loadProfile).mockResolvedValue({
       ...createDefaultProfile(),
-      bossStats: { bestDepth: 8, clears: 2, runs: 5, lastRunAt: '2026-08-01T00:00:00.000Z' },
+      bossStats: {
+        bestDepth: 8,
+        clears: 2,
+        runs: 5,
+        lastRunAt: '2026-08-01T00:00:00.000Z',
+        bestRunSplits: [1000, 2200, 3400, 4800, 6100, 7300, 8500, 9900],
+      },
     })
 
     const { result } = renderHook(() => useBossSession())
@@ -303,7 +309,13 @@ describe('useBossSession', () => {
     })
     expect(saveProfile).toHaveBeenCalledWith(
       expect.objectContaining({
-        bossStats: { bestDepth: 8, clears: 2, runs: 6, lastRunAt: expect.any(String) as string },
+        bossStats: {
+          bestDepth: 8,
+          clears: 2,
+          runs: 6,
+          lastRunAt: expect.any(String) as string,
+          bestRunSplits: [1000, 2200, 3400, 4800, 6100, 7300, 8500, 9900],
+        },
       }),
     )
     expect(trackBossRunEnd).toHaveBeenCalledWith(

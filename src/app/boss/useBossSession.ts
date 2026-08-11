@@ -215,6 +215,10 @@ export function useBossSession(): BossSession {
         clears: (priorStats?.clears ?? 0) + (cleared ? 1 : 0),
         runs: (priorStats?.runs ?? 0) + 1,
         lastRunAt: new Date().toISOString(),
+        // Preserved unchanged here — real per-position split capture (only
+        // overwriting when this run sets a new bestDepth) is wired in the
+        // ghost-capture task, layered on top of this schema/migration work.
+        bestRunSplits: priorStats?.bestRunSplits ?? null,
       }
       const updatedProfile: UserProfile = { ...currentProfile, bossStats: newBossStats }
       setProfile(updatedProfile)
