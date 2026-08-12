@@ -38,15 +38,22 @@ export function MissionComplete({ missionSession }: MissionCompleteProps) {
   const { completedStages, finishedStats } = missionSession
 
   return (
-    <div className="daily-hero">
-      <div className="daily-hero__top">
-        <div className="daily-hero__icon" aria-hidden="true">
+    // 2b.0: was `.daily-hero`/`.daily-hero__*` (dailyPage.css) — always the
+    // "correct"/accent styling here, never `--wrong`.
+    <div className="flex flex-col gap-4 p-4 lg:py-[28px] lg:px-[30px] rounded-xl border-[1.5px] border-accent [background:linear-gradient(160deg,var(--accent-dim),var(--surface-1))]">
+      <div className="flex items-center gap-3">
+        <div
+          className="flex items-center justify-center shrink-0 w-11 h-11 rounded-md bg-accent"
+          aria-hidden="true"
+        >
           <MissionIcon size={22} />
         </div>
-        <div className="daily-hero__copy">
-          <p className="daily-hero__verdict">Mission complete</p>
+        <div className="flex flex-col gap-1">
+          <p className="m-0 text-lg font-bold text-text-0">Mission complete</p>
           {finishedStats && finishedStats.completions > 1 && (
-            <p className="daily-hero__badge">{finishedStats.completions} missions completed</p>
+            <p className="m-0 text-sm font-semibold text-accent">
+              {finishedStats.completions} missions completed
+            </p>
           )}
         </div>
       </div>
@@ -67,7 +74,7 @@ export function MissionComplete({ missionSession }: MissionCompleteProps) {
 
       <button
         type="button"
-        className="share-card__button"
+        className="min-h-11 border-0 rounded-sm bg-accent text-accent-ink font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
         onClick={missionSession.handleRunItAgain}
       >
         Run it back

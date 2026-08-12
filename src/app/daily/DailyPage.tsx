@@ -17,7 +17,31 @@ import { useDailySession } from './useDailySession'
 import { useMediaQuery } from '../useMediaQuery'
 import { ShareCard } from './ShareCard'
 import { ChallengeCard } from './ChallengeCard'
-import './dailyPage.css'
+
+// 2b.0: was `.daily-page` in dailyPage.css (max-width breakpoint matches
+// Tailwind's `lg` exactly). None of `.daily-page*`/`.daily-hero*` are
+// test-asserted (grep-verified), so no literal marker classnames needed.
+const PAGE_SHELL_CLASS =
+  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-4'
+
+// Was the shared `.daily-page__link`/`.practice-page__link` classname (also
+// reused verbatim in RushPage.tsx's "Try again" button).
+const LINK_CLASS =
+  'min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer'
+
+// 2b.0: was `.daily-hero`/`--wrong` + `.daily-hero__icon`/`--wrong` in
+// dailyPage.css — reused verbatim in RushPage.tsx's run-ended card (always
+// the "correct"/accent styling there, never wrong).
+function heroClass(correct: boolean): string {
+  const BASE = 'flex flex-col gap-4 p-4 lg:py-[28px] lg:px-[30px] rounded-xl border-[1.5px]'
+  return correct
+    ? `${BASE} border-accent [background:linear-gradient(160deg,var(--accent-dim),var(--surface-1))]`
+    : `${BASE} border-danger [background:linear-gradient(160deg,var(--danger-dim),var(--surface-1))]`
+}
+function heroIconClass(correct: boolean): string {
+  const BASE = 'flex items-center justify-center shrink-0 w-11 h-11 rounded-md'
+  return correct ? `${BASE} bg-accent` : `${BASE} bg-danger`
+}
 
 export function DailyPage() {
   const session = useDailySession()
@@ -25,11 +49,11 @@ export function DailyPage() {
 
   if (session.status === 'error') {
     return (
-      <div className="daily-page app-shell__main">
-        <p className="daily-page__status">
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">
           We couldn&apos;t load today&apos;s puzzle. Please try again.
         </p>
-        <button type="button" className="daily-page__link" onClick={session.retryLoad}>
+        <button type="button" className={LINK_CLASS} onClick={session.retryLoad}>
           Try again
         </button>
       </div>
@@ -38,37 +62,33 @@ export function DailyPage() {
 
   if (session.status === 'loading' || session.profile === null) {
     return (
-      <div className="daily-page app-shell__main">
-        <p className="daily-page__status">Loading today&apos;s puzzle…</p>
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">Loading today&apos;s puzzle…</p>
       </div>
     )
   }
 
   if (session.status === 'empty' || session.puzzle === null) {
     return (
-      <div className="daily-page app-shell__main">
-        <p className="daily-page__status">No daily puzzle available right now.</p>
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">No daily puzzle available right now.</p>
       </div>
     )
   }
 
   return (
     <>
-      <div className="daily-page app-shell__main">
-        <p className="daily-page__heading">Codoro Daily #{session.dayNumber}</p>
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="m-0 text-center text-xl font-bold text-text-0">
+          Codoro Daily #{session.dayNumber}
+        </p>
 
         {session.completedToday && (
           <>
-            <div
-              className={`daily-hero daily-hero--${
-                session.profile.dailyCompletion?.correct ? 'correct' : 'wrong'
-              }`}
-            >
-              <div className="daily-hero__top">
+            <div className={heroClass(session.profile.dailyCompletion?.correct ?? false)}>
+              <div className="flex items-center gap-3">
                 <div
-                  className={`daily-hero__icon daily-hero__icon--${
-                    session.profile.dailyCompletion?.correct ? 'correct' : 'wrong'
-                  }`}
+                  className={heroIconClass(session.profile.dailyCompletion?.correct ?? false)}
                   aria-hidden="true"
                 >
                   {session.profile.dailyCompletion?.correct ? (
@@ -100,14 +120,14 @@ export function DailyPage() {
                     </svg>
                   )}
                 </div>
-                <div className="daily-hero__copy">
-                  <p className="daily-hero__verdict">
+                <div className="flex flex-col gap-1">
+                  <p className="m-0 text-lg font-bold text-text-0">
                     {session.profile.dailyCompletion?.correct
                       ? 'Solved on first try'
                       : "Missed today's puzzle"}
                   </p>
                   {session.ratingDelta !== null && (
-                    <span className="daily-hero__delta">
+                    <span className="font-mono text-sm font-semibold text-accent">
                       {session.ratingDelta > 0
                         ? `+${String(session.ratingDelta)}`
                         : String(session.ratingDelta)}{' '}
@@ -117,8 +137,8 @@ export function DailyPage() {
                 </div>
               </div>
 
-              <div className="daily-hero__stats">
-                <div className="daily-hero__stat">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
                   <svg
                     aria-hidden="true"
                     width="16"
@@ -135,12 +155,12 @@ export function DailyPage() {
                     <path d="M4 22h16" />
                     <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
                   </svg>
-                  <span className="daily-hero__stat-value">
+                  <span className="text-lg font-bold text-text-0">
                     {Math.round(session.profile.rating)}
                   </span>
-                  <span className="daily-hero__stat-label">Rating</span>
+                  <span className="text-xs text-text-2">Rating</span>
                 </div>
-                <div className="daily-hero__stat">
+                <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
                   <svg
                     aria-hidden="true"
                     width="16"
@@ -156,10 +176,10 @@ export function DailyPage() {
                   >
                     <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
                   </svg>
-                  <span className="daily-hero__stat-value">
+                  <span className="text-lg font-bold text-text-0">
                     {session.profile.streak.currentStreak}
                   </span>
-                  <span className="daily-hero__stat-label">Streak</span>
+                  <span className="text-xs text-text-2">Streak</span>
                 </div>
                 {/* Puzzle difficulty, revealed only here — inside the
                     completedToday block, which flips true synchronously in
@@ -169,7 +189,7 @@ export function DailyPage() {
                     player could find pre-attempt (devtools, a title attr)
                     would anchor the attempt, which is the whole point of
                     revealing it only after (Phase 5 Item 3). */}
-                <div className="daily-hero__stat">
+                <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
                   <svg
                     aria-hidden="true"
                     width="16"
@@ -186,10 +206,10 @@ export function DailyPage() {
                     <path d="M4 22h16" />
                     <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
                   </svg>
-                  <span className="daily-hero__stat-value">
+                  <span className="text-lg font-bold text-text-0">
                     {Math.round(session.puzzle.difficulty_rating)}
                   </span>
-                  <span className="daily-hero__stat-label">Puzzle rating</span>
+                  <span className="text-xs text-text-2">Puzzle rating</span>
                 </div>
               </div>
             </div>

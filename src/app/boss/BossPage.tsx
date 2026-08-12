@@ -32,7 +32,11 @@ export function BossPage() {
     return (
       <div className="boss-page app-shell__main">
         <p className="boss-page__status">We couldn&apos;t load Boss. Please try again.</p>
-        <button type="button" className="daily-page__link" onClick={session.retryLoad}>
+        <button
+          type="button"
+          className="min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer"
+          onClick={session.retryLoad}
+        >
           Try again
         </button>
       </div>
@@ -61,34 +65,47 @@ export function BossPage() {
 
       {session.phase === 'ended' && session.runSummary && (
         <>
-          <div className="daily-hero">
-            <div className="daily-hero__top">
-              <div className="daily-hero__icon" aria-hidden="true">
+          {/* 2b.0: was `.daily-hero`/`.daily-hero__*` (dailyPage.css) — this
+              card is always the "correct"/accent styling, never `--wrong`. */}
+          <div className="flex flex-col gap-4 p-4 lg:py-[28px] lg:px-[30px] rounded-xl border-[1.5px] border-accent [background:linear-gradient(160deg,var(--accent-dim),var(--surface-1))]">
+            <div className="flex items-center gap-3">
+              <div
+                className="flex items-center justify-center shrink-0 w-11 h-11 rounded-md bg-accent"
+                aria-hidden="true"
+              >
                 <BossIcon size={22} />
               </div>
-              <div className="daily-hero__copy">
-                <p className="daily-hero__verdict">
+              <div className="flex flex-col gap-1">
+                <p className="m-0 text-lg font-bold text-text-0">
                   {session.runSummary.cleared ? 'Boss cleared!' : 'Run complete'}
                 </p>
                 {session.runSummary.isNewBestDepth && (
-                  <p className="daily-hero__badge">New personal best</p>
+                  <p className="m-0 text-sm font-semibold text-accent">New personal best</p>
                 )}
               </div>
             </div>
-            <div className="daily-hero__stats">
-              <div className="daily-hero__stat">
-                <span className="daily-hero__stat-value">{session.runSummary.depthReached}</span>
-                <span className="daily-hero__stat-label">Reached</span>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
+                <span className="text-lg font-bold text-text-0">
+                  {session.runSummary.depthReached}
+                </span>
+                <span className="text-xs text-text-2">Reached</span>
               </div>
-              <div className="daily-hero__stat">
-                <span className="daily-hero__stat-value">{session.runSummary.bestDepthEver}</span>
-                <span className="daily-hero__stat-label">Best ever</span>
+              <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
+                <span className="text-lg font-bold text-text-0">
+                  {session.runSummary.bestDepthEver}
+                </span>
+                <span className="text-xs text-text-2">Best ever</span>
               </div>
             </div>
             {ghostPaceText && <p className="boss-ghost-pace">{ghostPaceText}</p>}
           </div>
 
-          <button type="button" className="share-card__button" onClick={session.handleRunItBack}>
+          <button
+            type="button"
+            className="min-h-11 border-0 rounded-sm bg-accent text-accent-ink font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+            onClick={session.handleRunItBack}
+          >
             Run it back
           </button>
         </>

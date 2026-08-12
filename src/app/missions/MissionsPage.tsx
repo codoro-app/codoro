@@ -24,7 +24,11 @@ export function MissionsPage() {
     return (
       <div className="missions-page app-shell__main">
         <p className="missions-page__status">We couldn&apos;t load Missions. Please try again.</p>
-        <button type="button" className="daily-page__link" onClick={missionSession.retryLoad}>
+        <button
+          type="button"
+          className="min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer"
+          onClick={missionSession.retryLoad}
+        >
           Try again
         </button>
       </div>

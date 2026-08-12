@@ -87,7 +87,11 @@ export function SpeedStage({ missionSession }: SpeedStageProps) {
     return (
       <div className="rush-page__status">
         <p>We couldn&apos;t load this stage. Please try again.</p>
-        <button type="button" className="daily-page__link" onClick={rushSession.retryLoad}>
+        <button
+          type="button"
+          className="min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer"
+          onClick={rushSession.retryLoad}
+        >
           Try again
         </button>
       </div>
