@@ -122,6 +122,28 @@ export function TraceIcon({ size = 20 }: IconProps) {
   )
 }
 
+// Authored fresh for Missions (v3 Phase 2): a finish flag — the chain's
+// payoff moment (docs/design/click-meaningfulness.md §3, decision 4) is the
+// through-line Trace/Speed/Boss don't individually have on their own icons.
+export function MissionIcon({ size = 20 }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+      <line x1="4" y1="22" x2="4" y2="15" />
+    </svg>
+  )
+}
+
 // Points left by default; consumers rotate 180deg via CSS (transform) for
 // the expand direction rather than shipping two mirrored icon components.
 export function CollapseIcon({ size = 20 }: IconProps) {

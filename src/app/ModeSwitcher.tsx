@@ -55,6 +55,13 @@ export function ModeSwitcher() {
       >
         Trace
       </Link>
+      <Link
+        href={ROUTES.missions.path}
+        className={`mode-switcher__tab${location === ROUTES.missions.path ? ' mode-switcher__tab--active' : ''}`}
+        aria-current={location === ROUTES.missions.path ? 'page' : undefined}
+      >
+        Missions
+      </Link>
     </nav>
   )
 }
