@@ -142,4 +142,20 @@ describe('Home', () => {
 
     expect(await screen.findByText('Best 23')).toBeInTheDocument()
   })
+
+  it('pins the rating/streak header and Practice card in the sticky header region, above the scrollable Modes list', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    const { container } = render(<Home />)
+
+    const practiceLink = await screen.findByRole('link', { name: /practice/i })
+    const stickyHeader = container.querySelector('.sticky.top-0')
+    expect(stickyHeader).not.toBeNull()
+    expect(stickyHeader?.contains(practiceLink)).toBe(true)
+    expect(stickyHeader?.textContent).toContain('1250')
+
+    // "Modes" and the secondary-card grid render outside the sticky region,
+    // in the scrollable body.
+    const modesLabel = screen.getByText('Modes')
+    expect(stickyHeader?.contains(modesLabel)).toBe(false)
+  })
 })
