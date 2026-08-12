@@ -210,8 +210,8 @@ Sits between Phase 2 (Missions, merged as PR #57) and Phase 3 (Launch-readiness)
 
 **DoD:**
 
-- [ ] Token file is the single source of truth — grep confirms no hardcoded hex/rgb color values remain in component CSS.
-- [ ] Shell primitive in use on ≥1 real screen, no scroll needed to reach the primary action on a standard mobile viewport.
+- [x] Token file is the single source of truth — grep confirms no hardcoded hex/rgb color values remain in component CSS. **Met**: `src/index.css` already carried the full palette pre-phase (a values-only pass, as anticipated); one real gap found during this phase's own verification — `practice.css`'s `.drag-order__row--dragging` box-shadow had an inline `rgb(0 0 0 / 25%)` fallback with no corresponding token — fixed by formalizing `--shadow-color` in `index.css`. Grep now returns zero matches for hardcoded hex/rgb outside `index.css`/`tokens.css`.
+- [ ] Shell primitive in use on ≥1 real screen, no scroll needed to reach the primary action on a standard mobile viewport. **Not met this session**: `PageShell` (`src/app/PageShell.tsx`) built and applied to Home — rating/streak header + Practice card pinned via `position: sticky`, structurally verified (`PageShell.test.tsx`, plus a `Home.test.tsx` test asserting the sticky region contains the Practice link and excludes the "Modes" list). `pnpm validate` green (1764/1764 tests, typecheck, lint, content, build). **Outstanding, same limitation 2b.0 hit**: this session ran headless (background job) — neither `claude-in-chrome` nor the Playwright MCP bridge could reach a live browser extension, so the literal on-device "no scroll needed on a standard mobile viewport" confirmation is unverified. Confirm visually (375×667 and desktop widths) from a session with a live browser attached before treating this box as closed.
 
 ### 2b.2 — Systemic click-meaningfulness + Boss game-feel (1–2 sessions)
 

@@ -33,7 +33,7 @@
   .app-shell {
     display: grid;
     grid-template-columns: var(--nav-rail-width) 1fr;
-    min-height: 100vh;
+    min-height: 100dvh;
   }
 
   .app-shell:has(.nav-rail--collapsed) {

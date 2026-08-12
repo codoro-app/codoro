@@ -233,7 +233,7 @@
    * source order — so `transform` stays untransitioned while dragging,
    * tracking the pointer 1:1 instead of easing behind it. */
   scale: 1.02;
-  box-shadow: 0 4px 12px var(--shadow-color, rgb(0 0 0 / 25%));
+  box-shadow: 0 4px 12px var(--shadow-color);
   transition:
     box-shadow 0.15s ease,
     scale 0.15s ease;

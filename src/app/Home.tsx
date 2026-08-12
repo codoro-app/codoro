@@ -39,6 +39,13 @@
  * non-null (decision 4's "no invented rating number" constraint applies to
  * this chip too — completions is a plain count, not a rating/Elo delta).
  * `.home__cards-secondary`'s grid was re-tuned again, for a 5th track.
+ *
+ * 2b.1: rating/streak header + the Practice card (primary action) now
+ * render inside PageShell's sticky `header` slot, pinned above the
+ * scrollable Daily/Rush/Trace/Boss/Missions grid — see PageShell.tsx and
+ * docs/superpowers/plans/2026-08-12-phase-2b1-layout-shell.md's Design
+ * record for why. The loading-state early return is untouched (no header
+ * to pin yet).
  */
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'wouter'
@@ -54,6 +61,7 @@ import {
   StreakIcon,
   TraceIcon,
 } from './Icons'
+import { PageShell } from './PageShell'
 import { ROUTES } from './routes'
 
 function todayDateString(date = new Date()): string {
@@ -115,10 +123,16 @@ export function Home() {
   // literal — App.test.tsx's boot-mode tests use it (and PracticePage's
   // `.practice-page`) as a root-container marker to tell the two pages
   // apart, since both can render the same "1200" text on a fresh profile.
-  // Repeated on both early-return branches, same as the original CSS
-  // applied regardless of loading state.
+  //
+  // 2b.1: the loading branch below has no PageShell/header (nothing to pin
+  // yet), so it keeps its own top safe-area padding directly. The loaded
+  // branch passes HOME_SHELL_CLASS to PageShell instead — no top padding of
+  // its own, since the rating row inside `header` now owns that (see the
+  // 2b.1 Design record's "known, accepted spacing delta").
   const homeShellClass =
     'home app-shell__main flex flex-col gap-3 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-4'
+  const HOME_SHELL_CLASS =
+    'home app-shell__main flex flex-col gap-3 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto px-4 pb-4'
 
   if (profile === null) {
     return (
@@ -134,104 +148,109 @@ export function Home() {
   const streakActive = profile.streak.currentStreak > 0
 
   return (
-    <div className={homeShellClass}>
-      <div className="flex items-baseline justify-between flex-wrap gap-3 pt-5 pb-2">
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-bold text-text-1 uppercase tracking-[0.04em]">Rating</span>
-          <span className="text-4xl font-bold text-text-0 leading-none tabular-nums">
-            {Math.round(profile.rating)}
-          </span>
-        </div>
-        <div
-          className={`flex items-center gap-1.5 text-md font-bold ${streakActive ? 'text-warn' : 'text-text-2'}`}
-        >
-          <StreakIcon size={16} />
-          <span>{profile.streak.currentStreak}</span>
-          <span className="text-text-1 font-semibold">day streak</span>
-        </div>
-      </div>
+    <PageShell
+      className={HOME_SHELL_CLASS}
+      header={
+        <div className="flex flex-col gap-3">
+          <div className="flex items-baseline justify-between flex-wrap gap-3 pt-[calc(var(--space-5)+env(safe-area-inset-top))]">
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-bold text-text-1 uppercase tracking-[0.04em]">
+                Rating
+              </span>
+              <span className="text-4xl font-bold text-text-0 leading-none tabular-nums">
+                {Math.round(profile.rating)}
+              </span>
+            </div>
+            <div
+              className={`flex items-center gap-1.5 text-md font-bold ${streakActive ? 'text-warn' : 'text-text-2'}`}
+            >
+              <StreakIcon size={16} />
+              <span>{profile.streak.currentStreak}</span>
+              <span className="text-text-1 font-semibold">day streak</span>
+            </div>
+          </div>
 
+          <Link href={ROUTES.practice.path} className={CARD_PRIMARY}>
+            <span className={ICON_PRIMARY}>
+              <PracticeIcon size={24} />
+            </span>
+            <span className={TITLE_PRIMARY}>Practice</span>
+            <span className="text-sm text-inherit opacity-85">Endless rating-matched puzzles</span>
+          </Link>
+        </div>
+      }
+    >
       <p className="m-0 text-xs font-bold text-text-2 uppercase tracking-[0.04em]">Modes</p>
 
-      <div className="flex flex-col gap-3">
-        <Link href={ROUTES.practice.path} className={CARD_PRIMARY}>
-          <span className={ICON_PRIMARY}>
-            <PracticeIcon size={24} />
+      {/* 2b.0: was `.home__cards-secondary` — grid only kicks in >=640px
+       * (Tailwind `sm`, exact match), auto-fit/minmax(75px,1fr) so
+       * Daily/Rush/Trace/Boss/Missions (5 same-tier cards) share one row
+       * evenly instead of a fixed 2-column split. The 75px floor is tuned
+       * to this card's own container: 480px (--content-width-mobile) minus
+       * 2x16px (px-4) padding = 448px, minus 4x12px (gap-3) column gaps =
+       * 400px for 5 tracks, i.e. 80px/track — 75px leaves ~25px slack for
+       * rounding. Re-derive this number if a 6th mode card is ever added;
+       * at >=1024px (--content-width-desktop, 608px available) 5 tracks
+       * still fit and grow evenly via `1fr` regardless of this floor. */}
+      <div className="flex flex-col gap-3 sm:grid sm:grid-cols-[repeat(auto-fit,minmax(75px,1fr))]">
+        <Link href={ROUTES.daily.path} className={CARD_SECONDARY}>
+          <span className={ICON_SECONDARY}>
+            <DailyIcon size={20} />
           </span>
-          <span className={TITLE_PRIMARY}>Practice</span>
-          <span className="text-sm text-inherit opacity-85">Endless rating-matched puzzles</span>
+          <span className={TITLE_SECONDARY}>Daily #{dayNumber}</span>
+          <span className="text-sm text-inherit opacity-85">One puzzle, once a day</span>
+          <span className={doneToday ? BADGE_MASTERED : BADGE_NEW}>
+            {doneToday ? 'Done today' : 'Not done yet'}
+          </span>
         </Link>
 
-        {/* 2b.0: was `.home__cards-secondary` — grid only kicks in >=640px
-         * (Tailwind `sm`, exact match), auto-fit/minmax(75px,1fr) so
-         * Daily/Rush/Trace/Boss/Missions (5 same-tier cards) share one row
-         * evenly instead of a fixed 2-column split. The 75px floor is tuned
-         * to this card's own container: 480px (--content-width-mobile) minus
-         * 2x16px (px-4) padding = 448px, minus 4x12px (gap-3) column gaps =
-         * 400px for 5 tracks, i.e. 80px/track — 75px leaves ~25px slack for
-         * rounding. Re-derive this number if a 6th mode card is ever added;
-         * at >=1024px (--content-width-desktop, 608px available) 5 tracks
-         * still fit and grow evenly via `1fr` regardless of this floor. */}
-        <div className="flex flex-col gap-3 sm:grid sm:grid-cols-[repeat(auto-fit,minmax(75px,1fr))]">
-          <Link href={ROUTES.daily.path} className={CARD_SECONDARY}>
-            <span className={ICON_SECONDARY}>
-              <DailyIcon size={20} />
-            </span>
-            <span className={TITLE_SECONDARY}>Daily #{dayNumber}</span>
-            <span className="text-sm text-inherit opacity-85">One puzzle, once a day</span>
-            <span className={doneToday ? BADGE_MASTERED : BADGE_NEW}>
-              {doneToday ? 'Done today' : 'Not done yet'}
-            </span>
-          </Link>
+        <Link href={ROUTES.rush.path} className={CARD_SECONDARY}>
+          <span className={ICON_SECONDARY}>
+            <RushIcon size={20} />
+          </span>
+          <span className={TITLE_SECONDARY}>Rush</span>
+          <span className="text-sm text-inherit opacity-85">
+            Escalating puzzles — 3 strikes and you&apos;re out
+          </span>
+          {profile.rushStats && (
+            <span className={BADGE_MASTERED}>Best {profile.rushStats.bestScore}</span>
+          )}
+        </Link>
 
-          <Link href={ROUTES.rush.path} className={CARD_SECONDARY}>
-            <span className={ICON_SECONDARY}>
-              <RushIcon size={20} />
-            </span>
-            <span className={TITLE_SECONDARY}>Rush</span>
-            <span className="text-sm text-inherit opacity-85">
-              Escalating puzzles — 3 strikes and you&apos;re out
-            </span>
-            {profile.rushStats && (
-              <span className={BADGE_MASTERED}>Best {profile.rushStats.bestScore}</span>
-            )}
-          </Link>
+        <Link href={ROUTES.trace.path} className={CARD_SECONDARY}>
+          <span className={ICON_SECONDARY}>
+            <TraceIcon size={20} />
+          </span>
+          <span className={TITLE_SECONDARY}>Trace</span>
+          <span className="text-sm text-inherit opacity-85">
+            Step through code, predict each line
+          </span>
+        </Link>
 
-          <Link href={ROUTES.trace.path} className={CARD_SECONDARY}>
-            <span className={ICON_SECONDARY}>
-              <TraceIcon size={20} />
-            </span>
-            <span className={TITLE_SECONDARY}>Trace</span>
-            <span className="text-sm text-inherit opacity-85">
-              Step through code, predict each line
-            </span>
-          </Link>
+        <Link href={ROUTES.boss.path} className={CARD_SECONDARY}>
+          <span className={ICON_SECONDARY}>
+            <BossIcon size={20} />
+          </span>
+          <span className={TITLE_SECONDARY}>Boss</span>
+          <span className="text-sm text-inherit opacity-85">
+            10 puzzles, escalating — how deep can you get?
+          </span>
+          {profile.bossStats && (
+            <span className={BADGE_MASTERED}>Best depth {profile.bossStats.bestDepth}</span>
+          )}
+        </Link>
 
-          <Link href={ROUTES.boss.path} className={CARD_SECONDARY}>
-            <span className={ICON_SECONDARY}>
-              <BossIcon size={20} />
-            </span>
-            <span className={TITLE_SECONDARY}>Boss</span>
-            <span className="text-sm text-inherit opacity-85">
-              10 puzzles, escalating — how deep can you get?
-            </span>
-            {profile.bossStats && (
-              <span className={BADGE_MASTERED}>Best depth {profile.bossStats.bestDepth}</span>
-            )}
-          </Link>
-
-          <Link href={ROUTES.missions.path} className={CARD_SECONDARY}>
-            <span className={ICON_SECONDARY}>
-              <MissionIcon size={20} />
-            </span>
-            <span className={TITLE_SECONDARY}>Missions</span>
-            <span className="text-sm text-inherit opacity-85">Three modes, one directed run</span>
-            {profile.missionStats && (
-              <span className={BADGE_MASTERED}>{profile.missionStats.completions} completed</span>
-            )}
-          </Link>
-        </div>
+        <Link href={ROUTES.missions.path} className={CARD_SECONDARY}>
+          <span className={ICON_SECONDARY}>
+            <MissionIcon size={20} />
+          </span>
+          <span className={TITLE_SECONDARY}>Missions</span>
+          <span className="text-sm text-inherit opacity-85">Three modes, one directed run</span>
+          {profile.missionStats && (
+            <span className={BADGE_MASTERED}>{profile.missionStats.completions} completed</span>
+          )}
+        </Link>
       </div>
-    </div>
+    </PageShell>
   )
 }
