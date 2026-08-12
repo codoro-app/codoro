@@ -42,8 +42,8 @@ export function RushActivePlay({ session, onContinue }: RushActivePlayProps) {
             />
           ))}
         </div>
-        <div className="status-bar">
-          <div className="status-bar__solved" title="Solved this run">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 text-text-1 text-sm" title="Solved this run">
             <svg
               aria-hidden="true"
               width="14"
@@ -60,7 +60,7 @@ export function RushActivePlay({ session, onContinue }: RushActivePlayProps) {
             <span>{session.solvedCount} solved</span>
           </div>
           {session.currentStreak >= 2 && (
-            <div className="status-bar__combo">
+            <div className="status-bar__combo flex items-center gap-1.5 min-h-11 py-1.5 px-3 rounded-full bg-ok-dim text-accent font-bold">
               <RushIcon size={14} />
               <span>{session.currentStreak} in a row</span>
             </div>

@@ -190,12 +190,15 @@ export function PuzzleCardShell({
   }
 
   return (
-    <div className="puzzle-card">
-      <p className="puzzle-card__prompt">{puzzle.prompt}</p>
+    // `puzzle-card` stays literal (no styling of its own now) — App.test.tsx/
+    // ChallengePage.test.tsx/PuzzlePage.test.tsx all use it as a root-marker
+    // selector to confirm the quiz shell (vs. Trace's `.trace-runner`) mounted.
+    <div className="puzzle-card flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto p-4">
+      <p className="m-0 text-center text-xl font-semibold text-text-0">{puzzle.prompt}</p>
 
       {staticLines && <CodeSnippet lines={staticLines} />}
 
-      <div className="puzzle-card__interaction">{interactionBody}</div>
+      <div className="flex flex-col">{interactionBody}</div>
 
       {committed && committedPayload && (
         <div

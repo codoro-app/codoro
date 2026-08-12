@@ -216,10 +216,16 @@ export function DailyPage() {
         />
       </div>
 
+      {/* 2b.0: was `.practice-page__sidebar, .daily-page__sidebar` in
+          practicePage.css — same utility string PracticePage.tsx's own
+          sidebar reapplies. */}
       {isDesktop && (
-        <aside className="app-shell__sidebar daily-page__sidebar">
-          <div className="status-bar">
-            <div className="status-bar__pill status-bar__pill--rating" title="Rating">
+        <aside className="app-shell__sidebar flex flex-col gap-4 py-6 px-4 border-l border-border self-start">
+          <div className="flex flex-wrap items-center gap-2">
+            <div
+              className="flex items-center gap-1.5 min-h-11 py-1.5 px-3 rounded-full bg-surface-1 border border-border text-text-0 font-bold tabular-nums"
+              title="Rating"
+            >
               <svg
                 aria-hidden="true"
                 width="14"
@@ -238,7 +244,10 @@ export function DailyPage() {
               </svg>
               <span>{Math.round(session.profile.rating)}</span>
             </div>
-            <div className="status-bar__pill status-bar__pill--streak" title="Daily streak">
+            <div
+              className="flex items-center gap-1.5 min-h-11 py-1.5 px-3 rounded-full bg-surface-1 border border-border text-text-0 font-bold tabular-nums"
+              title="Daily streak"
+            >
               <svg
                 aria-hidden="true"
                 width="14"

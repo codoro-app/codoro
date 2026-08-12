@@ -86,7 +86,17 @@ export function CodeSnippet({ lines, onLineClick, lineState }: CodeSnippetProps)
     }
   }, [lines])
 
-  const className = ['code-snippet', scrollable && 'code-snippet--scrollable']
+  // 2b.0: `code-snippet`/`code-snippet__line` stay literal (test-asserted —
+  // CodeSnippet.test.tsx/PuzzleCardShell.test.tsx/TapLine.test.tsx all
+  // select on them) and `code-snippet--scrollable` stays literal too (its
+  // `::after` fade lives in practice.css, not expressible as a plain
+  // utility class) — everything else here is Tailwind utilities.
+  const className = [
+    'code-snippet relative bg-surface-code border border-border rounded-md py-2.5 overflow-x-auto',
+    "font-[ui-monospace,SFMono-Regular,Consolas,'Liberation_Mono',Menlo,monospace]",
+    'text-[calc(var(--font-size-sm)*var(--code-snippet-font-scale,1))] leading-[1.5]',
+    scrollable && 'code-snippet--scrollable',
+  ]
     .filter(Boolean)
     .join(' ')
 
@@ -98,16 +108,26 @@ export function CodeSnippet({ lines, onLineClick, lineState }: CodeSnippetProps)
     >
       {lines.map((line, index) => {
         const state = lineState?.(index) ?? 'default'
+        // `code-snippet__line--<state>` markers stay literal alongside the
+        // utilities — TapLine.test.tsx asserts on
+        // `className.toContain('wrong'|'reveal-correct')`.
+        const stateBg =
+          state === 'wrong' ? 'bg-danger-dim' : state === 'reveal-correct' ? 'bg-ok-dim' : ''
         const lineClassName = [
-          'code-snippet__line',
-          interactive && 'code-snippet__line--interactive',
+          'code-snippet__line flex items-center gap-3 w-full py-px px-4 whitespace-pre text-left border-0 bg-transparent text-text-0 [font:inherit]',
+          interactive &&
+            'cursor-pointer min-h-11 hover:bg-surface-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:-outline-offset-2',
           state !== 'default' && `code-snippet__line--${state}`,
+          stateBg,
         ]
           .filter(Boolean)
           .join(' ')
 
         const lineNumber = (
-          <span className="code-snippet__line-number" aria-hidden="true">
+          <span
+            className="code-snippet__line-number min-w-6 shrink-0 text-right text-text-2 select-none"
+            aria-hidden="true"
+          >
             {index + 1}
           </span>
         )
@@ -125,7 +145,10 @@ export function CodeSnippet({ lines, onLineClick, lineState }: CodeSnippetProps)
               aria-label={`Line ${String(index + 1)}: ${line.text.trim().length > 0 ? line.text : '(blank)'}`}
             >
               {lineNumber}
-              <span className="code-snippet__line-code" dangerouslySetInnerHTML={codeHtml} />
+              <span
+                className="code-snippet__line-code whitespace-pre"
+                dangerouslySetInnerHTML={codeHtml}
+              />
             </button>
           )
         }
@@ -133,7 +156,10 @@ export function CodeSnippet({ lines, onLineClick, lineState }: CodeSnippetProps)
         return (
           <div key={index} className={lineClassName}>
             {lineNumber}
-            <span className="code-snippet__line-code" dangerouslySetInnerHTML={codeHtml} />
+            <span
+              className="code-snippet__line-code whitespace-pre"
+              dangerouslySetInnerHTML={codeHtml}
+            />
           </div>
         )
       })}

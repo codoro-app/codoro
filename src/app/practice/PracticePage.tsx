@@ -80,6 +80,18 @@ interface LastAnswer {
   correct: boolean
 }
 
+// 2b.0: was `.practice-page` in practicePage.css (max-width breakpoint
+// matches Tailwind's `lg` exactly). `practice-page` stays literal —
+// App.test.tsx uses it as a root-container marker
+// (`querySelector('.practice-page')`) to confirm this page mounted.
+const PAGE_SHELL_CLASS =
+  'practice-page app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-4'
+
+// Was the shared `.practice-page__link` classname (also used verbatim in
+// MasteryView.tsx/PatternPicker.tsx's "← Back" buttons).
+const LINK_CLASS =
+  'min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer'
+
 export function PracticePage() {
   const [location, navigate] = useLocation()
   const search = useSearch()
@@ -170,11 +182,11 @@ export function PracticePage() {
   // usePracticeSession's SessionStatus doc comment).
   if (session.status === 'error') {
     return (
-      <div className="practice-page app-shell__main">
-        <p className="practice-page__status">
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">
           We couldn&apos;t load your practice session. Please try again.
         </p>
-        <button type="button" className="practice-page__link" onClick={session.retryLoad}>
+        <button type="button" className={LINK_CLASS} onClick={session.retryLoad}>
           Try again
         </button>
       </div>
@@ -183,15 +195,15 @@ export function PracticePage() {
 
   if (session.status === 'loading' || session.profile === null) {
     return (
-      <div className="practice-page app-shell__main">
-        <p className="practice-page__status">Loading your practice session…</p>
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">Loading your practice session…</p>
       </div>
     )
   }
 
   if (isBrowseRoute && !isDesktop) {
     return (
-      <div className="practice-page app-shell__main">
+      <div className={PAGE_SHELL_CLASS}>
         <PatternPicker
           onSelect={(pattern) => {
             session.setPatternFilter(pattern)
@@ -207,7 +219,7 @@ export function PracticePage() {
 
   if (view === 'mastery') {
     return (
-      <div className="practice-page app-shell__main">
+      <div className={PAGE_SHELL_CLASS}>
         <MasteryView
           onBack={() => {
             setView('practice')
@@ -240,7 +252,7 @@ export function PracticePage() {
         />
       )}
 
-      <div className="practice-page app-shell__main">
+      <div className={PAGE_SHELL_CLASS}>
         {!isDesktop && (
           <StatusBar
             rating={session.profile.rating}
@@ -257,8 +269,11 @@ export function PracticePage() {
             call, so cmd/middle-click opens it in a new tab. Mastery stays
             mobile-only since desktop already shows it persistently in the
             sidebar (below). */}
-        <div className="practice-page__nav">
-          <Link href="/browse" className="practice-page__browse">
+        <div className="flex flex-col gap-2">
+          <Link
+            href="/browse"
+            className="flex items-center justify-between gap-2 w-full min-h-11 py-[13px] px-[14px] border border-border-strong rounded-sm bg-transparent text-text-0 font-sans text-base font-bold no-underline cursor-pointer"
+          >
             <span>Browse patterns</span>
             <svg
               aria-hidden="true"
@@ -278,7 +293,7 @@ export function PracticePage() {
           {!isDesktop && (
             <button
               type="button"
-              className="practice-page__link"
+              className={LINK_CLASS}
               onClick={() => {
                 setView('mastery')
               }}
@@ -292,18 +307,17 @@ export function PracticePage() {
             with the pattern filter below, not mutually exclusive. Clicking
             an already-active chip clears just that filter; the banner below
             clears both at once. */}
-        <div
-          className="practice-page__interaction-filter"
-          role="group"
-          aria-label="Filter by interaction type"
-        >
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by interaction type">
           {QUIZ_INTERACTIONS.map((interaction) => {
             const active = session.interactionFilter === interaction
+            const chipClass = active
+              ? 'min-h-11 py-1.5 px-3 border border-accent rounded-full bg-accent-dim text-text-0 text-sm font-semibold cursor-pointer'
+              : 'min-h-11 py-1.5 px-3 border border-border rounded-full bg-surface-1 text-text-1 text-sm font-semibold cursor-pointer'
             return (
               <button
                 key={interaction}
                 type="button"
-                className={`practice-page__interaction-chip${active ? ' practice-page__interaction-chip--active' : ''}`}
+                className={chipClass}
                 aria-pressed={active}
                 onClick={() => {
                   session.setInteractionFilter(active ? null : interaction)
@@ -316,11 +330,11 @@ export function PracticePage() {
         </div>
 
         {activeFilterLabels.length > 0 && (
-          <div className="practice-page__filter-banner">
+          <div className="inline-flex items-center gap-2 min-h-11 py-1.5 pl-3 pr-2 rounded-full bg-accent-dim border border-accent text-text-0 text-sm">
             <span>Filtering: {activeFilterLabels.join(' + ')}</span>
             <button
               type="button"
-              className="practice-page__filter-clear"
+              className="flex items-center gap-1 min-h-8 py-1 px-2.5 border-0 rounded-full bg-surface-0 text-text-0 text-xs font-bold cursor-pointer"
               onClick={() => {
                 session.setFilters(null, null)
               }}
@@ -332,7 +346,7 @@ export function PracticePage() {
         )}
 
         {session.status === 'empty' || session.puzzle === null ? (
-          <p className="practice-page__status">
+          <p className="text-center text-text-1 py-8">
             {activeFilterLabels.length > 0
               ? `No puzzles available for ${activeFilterLabels.join(' + ')} yet.`
               : 'No puzzles available yet.'}
@@ -369,9 +383,13 @@ export function PracticePage() {
       </div>
 
       {isDesktop && (
-        <aside className="app-shell__sidebar practice-page__sidebar">
+        // 2b.0: was `.practice-page__sidebar, .daily-page__sidebar` in
+        // practicePage.css (shared with DailyPage.tsx's own sidebar, same
+        // utility string reapplied there — see that cluster's conversion).
+        <aside className="app-shell__sidebar flex flex-col gap-4 py-6 px-4 border-l border-border self-start">
           {isBrowseRoute ? (
             <PatternPicker
+              singleColumn
               onSelect={(pattern) => {
                 session.setPatternFilter(pattern)
                 navigate('/practice', { replace: true })
