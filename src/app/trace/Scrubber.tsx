@@ -58,7 +58,6 @@ import type { ScrubberPuzzle } from '../../content'
 import { highlightSnippet } from '../practice/highlightSnippet'
 import { mapDragToStepIndex } from './mapDragToStepIndex'
 import '../tokens.css'
-import './scrubber.css'
 
 /** Rendered in place of a masked variable value or output string. */
 const MASK_MARKER = '?'
@@ -169,34 +168,52 @@ export function Scrubber({
     }
   }
 
+  // 2b.0: was `.scrubber__tap-target` (scrubber.css) — `:not(:disabled):hover`
+  // needs an arbitrary variant since Tailwind has no canned "not-disabled"
+  // combinator.
+  const tapTargetClass =
+    'shrink-0 w-11 h-11 flex items-center justify-center border border-border-strong rounded-full bg-surface-1 text-text-0 text-xl cursor-pointer disabled:text-text-2 disabled:border-border disabled:cursor-default [&:not(:disabled):hover]:bg-surface-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+
   return (
-    <div className="scrubber">
-      <div className="scrubber__code" aria-label="Code">
+    <div className="flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto">
+      <div
+        className="bg-surface-code border border-border rounded-md py-2.5 overflow-x-auto font-mono text-sm leading-[1.5]"
+        aria-label="Code"
+      >
         {lines.map((line, i) => (
           <div
             key={i}
             className={
               i === step.line
-                ? 'scrubber__code-line scrubber__code-line--current'
-                : 'scrubber__code-line'
+                ? 'scrubber__code-line--current flex items-center gap-3 w-full py-px px-4 whitespace-pre bg-accent-dim-2 shadow-[inset_2px_0_0_var(--accent)]'
+                : 'flex items-center gap-3 w-full py-px px-4 whitespace-pre'
             }
           >
-            <span className="scrubber__code-line-number" aria-hidden="true">
+            <span
+              className="min-w-6 shrink-0 text-right text-text-2 select-none"
+              aria-hidden="true"
+            >
               {i + 1}
             </span>
             <span
-              className="scrubber__code-line-code"
+              className="whitespace-pre"
               dangerouslySetInnerHTML={{ __html: line.html || '&nbsp;' }}
             />
           </div>
         ))}
       </div>
 
-      <dl className="scrubber__vars" aria-label="Variables">
+      <dl
+        className="flex flex-col gap-1 m-0 p-3 bg-surface-1 border border-border rounded-md"
+        aria-label="Variables"
+      >
         {Object.entries(step.vars).map(([name, value]) => (
-          <div className="scrubber__vars-row" key={name}>
-            <dt className="scrubber__vars-name">{name}</dt>
-            <dd className="scrubber__vars-value">
+          <div
+            className="scrubber__vars-row flex items-baseline gap-2 font-mono text-base"
+            key={name}
+          >
+            <dt className="scrubber__vars-name m-0 text-text-1">{name}</dt>
+            <dd className="scrubber__vars-value m-0 text-text-0 font-medium">
               {maskedVarNames?.includes(name) ? MASK_MARKER : value}
             </dd>
           </div>
@@ -204,16 +221,18 @@ export function Scrubber({
       </dl>
 
       {step.output !== undefined && (
-        <p className="scrubber__output">
-          <span className="scrubber__output-label">Output since previous step:</span>{' '}
-          <span className="scrubber__output-value">{maskOutput ? MASK_MARKER : step.output}</span>
+        <p className="m-0 py-2.5 px-3 bg-surface-1 border border-border rounded-md text-sm">
+          <span className="text-text-1">Output since previous step:</span>{' '}
+          <span className="scrubber__output-value text-text-0 font-mono">
+            {maskOutput ? MASK_MARKER : step.output}
+          </span>
         </p>
       )}
 
-      <div className="scrubber__transport">
+      <div className="flex items-center gap-3 pl-[max(var(--space-2),env(safe-area-inset-left))] pr-[max(var(--space-2),env(safe-area-inset-right))]">
         <button
           type="button"
-          className="scrubber__tap-target"
+          className={tapTargetClass}
           aria-label="Previous step"
           disabled={stepIndex <= 0}
           onClick={() => {
@@ -225,7 +244,7 @@ export function Scrubber({
 
         <div
           ref={trackRef}
-          className="scrubber__track"
+          className="relative flex-1 h-11 flex items-center cursor-grab active:cursor-grabbing focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 focus-visible:rounded-full before:content-[''] before:absolute before:inset-x-0 before:h-1 before:rounded-full before:bg-surface-2"
           role="slider"
           tabIndex={0}
           aria-label="Step"
@@ -237,13 +256,19 @@ export function Scrubber({
           style={{ touchAction: 'pan-y' }}
           {...bind()}
         >
-          <div className="scrubber__track-fill" style={{ width: `${String(progressPercent)}%` }} />
-          <div className="scrubber__track-thumb" style={{ left: `${String(progressPercent)}%` }} />
+          <div
+            className="absolute left-0 h-1 rounded-full bg-accent-dim pointer-events-none"
+            style={{ width: `${String(progressPercent)}%` }}
+          />
+          <div
+            className="absolute w-4 h-4 rounded-full bg-accent -translate-x-1/2 pointer-events-none transition-[left] duration-[120ms] [transition-timing-function:ease]"
+            style={{ left: `${String(progressPercent)}%` }}
+          />
         </div>
 
         <button
           type="button"
-          className="scrubber__tap-target"
+          className={tapTargetClass}
           aria-label="Next step"
           disabled={stepIndex >= upperBound}
           onClick={() => {

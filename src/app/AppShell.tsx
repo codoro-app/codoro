@@ -49,16 +49,25 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div className="app-shell">
-      <div className="app-shell__mobile-nav">
-        <Link href="/" className="app-shell__mobile-brand" aria-label="Home">
-          <div className="nav-rail__logo-mark" aria-hidden="true">
+      {/* 2b.0: was `.app-shell__mobile-nav` (app.css) — display toggle now inline. */}
+      <div className="block lg:hidden pt-[calc(var(--space-2)+env(safe-area-inset-top))] px-4">
+        <Link
+          href="/"
+          className="flex items-center gap-2 min-h-11 py-2 bg-transparent no-underline cursor-pointer"
+          aria-label="Home"
+        >
+          <div
+            className="flex items-center justify-center w-7 h-7 flex-none rounded-sm bg-accent text-accent-ink font-mono font-bold text-md"
+            aria-hidden="true"
+          >
             C
           </div>
-          <span className="nav-rail__wordmark">Codoro</span>
+          <span className="text-xl font-bold text-text-0">Codoro</span>
         </Link>
         <ModeSwitcher />
       </div>
-      <div className="app-shell__rail">
+      {/* 2b.0: was `.app-shell__rail` (app.css) — display toggle now inline. */}
+      <div className="hidden lg:block">
         <NavRail />
       </div>
       <main
@@ -69,11 +78,17 @@ export function AppShell({ children }: AppShellProps) {
       >
         {children}
       </main>
-      <footer className="app-shell__footer">
-        <Link href={ROUTES.settings.path} className="app-shell__footer-link">
+      <footer className="flex justify-center p-4 border-t border-border lg:col-span-full">
+        <Link
+          href={ROUTES.settings.path}
+          className="min-h-11 px-3 py-2 bg-transparent text-text-2 text-sm no-underline cursor-pointer inline-flex items-center"
+        >
           Settings
         </Link>
-        <Link href={ROUTES.legal.path} className="app-shell__footer-link">
+        <Link
+          href={ROUTES.legal.path}
+          className="min-h-11 px-3 py-2 bg-transparent text-text-2 text-sm no-underline cursor-pointer inline-flex items-center"
+        >
           Legal
         </Link>
       </footer>

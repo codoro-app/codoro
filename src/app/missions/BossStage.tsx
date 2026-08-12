@@ -74,9 +74,13 @@ export function BossStage({ missionSession }: BossStageProps) {
 
   if (bossSession.status === 'error') {
     return (
-      <div className="boss-page__status">
+      <div className="py-8 px-4 text-center text-text-1">
         <p>We couldn&apos;t load this stage. Please try again.</p>
-        <button type="button" className="daily-page__link" onClick={bossSession.retryLoad}>
+        <button
+          type="button"
+          className="min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer"
+          onClick={bossSession.retryLoad}
+        >
           Try again
         </button>
       </div>
@@ -85,7 +89,7 @@ export function BossStage({ missionSession }: BossStageProps) {
 
   if (bossSession.status === 'loading' || bossSession.profile === null) {
     return (
-      <div className="boss-page__status">
+      <div className="py-8 px-4 text-center text-text-1">
         <p>Loading…</p>
       </div>
     )
@@ -93,7 +97,7 @@ export function BossStage({ missionSession }: BossStageProps) {
 
   if (bossSession.status === 'empty') {
     return (
-      <div className="boss-page__status">
+      <div className="py-8 px-4 text-center text-text-1">
         <p>Boss isn&apos;t available right now.</p>
       </div>
     )

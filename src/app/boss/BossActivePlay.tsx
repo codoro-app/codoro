@@ -29,24 +29,26 @@ export function BossActivePlay({ session, onContinue }: BossActivePlayProps) {
 
   return (
     <>
-      <div className="boss-header">
+      <div className="flex items-center justify-between gap-4">
         <div
-          className="boss-strikes"
+          className="flex-1 h-1.5 rounded-full bg-surface-2 overflow-hidden"
           role="status"
           aria-label={`${String(session.strikes)} of ${String(BOSS_STRIKE_LIMIT)} strikes`}
         >
           {/* key={session.strikes}: forces a remount on every strike so
               the CSS hit-reaction animation (bossPage.css) restarts each
               time, without any new component state — see that file's
-              own doc comment. */}
+              own doc comment. boss-strikes__fill/--hit stay literal —
+              BossPage.test.tsx asserts on them directly, and --hit still
+              needs its @keyframes from bossPage.css. */}
           <div
             key={session.strikes}
-            className={`boss-strikes__fill${session.strikes > 0 ? ' boss-strikes__fill--hit' : ''}`}
+            className={`boss-strikes__fill h-full rounded-full bg-danger transition-[width] duration-[0.25s] ease-out${session.strikes > 0 ? ' boss-strikes__fill--hit' : ''}`}
             style={{ width: `${String(healthPercent)}%` }}
             aria-hidden="true"
           />
         </div>
-        <span className="boss-progress">
+        <span className="text-sm text-text-1">
           Puzzle {session.position} of {session.totalPuzzles}
         </span>
       </div>

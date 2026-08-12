@@ -32,16 +32,25 @@ import { useRushSession } from './useRushSession'
 import { RushActivePlay } from './RushActivePlay'
 import { RushShareCard } from './RushShareCard'
 import { RushChallengeCard } from './RushChallengeCard'
-import './rushPage.css'
+// 2b.0: was `.rush-page` in rushPage.css (max-width breakpoint matches
+// Tailwind's `lg` exactly). Not test-asserted (grep-verified).
+const PAGE_SHELL_CLASS =
+  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-4'
 
 export function RushPage() {
   const session = useRushSession()
 
   if (session.status === 'error') {
     return (
-      <div className="rush-page app-shell__main">
-        <p className="rush-page__status">We couldn&apos;t load Rush. Please try again.</p>
-        <button type="button" className="daily-page__link" onClick={session.retryLoad}>
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">
+          We couldn&apos;t load Rush. Please try again.
+        </p>
+        <button
+          type="button"
+          className="min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer"
+          onClick={session.retryLoad}
+        >
           Try again
         </button>
       </div>
@@ -50,58 +59,68 @@ export function RushPage() {
 
   if (session.status === 'loading' || session.profile === null) {
     return (
-      <div className="rush-page app-shell__main">
-        <p className="rush-page__status">Loading Rush…</p>
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">Loading Rush…</p>
       </div>
     )
   }
 
   if (session.status === 'empty') {
     return (
-      <div className="rush-page app-shell__main">
-        <p className="rush-page__status">No puzzles available for Rush right now.</p>
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">No puzzles available for Rush right now.</p>
       </div>
     )
   }
 
   return (
-    <div className="rush-page app-shell__main">
+    <div className={PAGE_SHELL_CLASS}>
       {session.phase === 'playing' && <RushActivePlay session={session} />}
 
       {session.phase === 'ended' && session.runSummary && (
         <>
-          <div className="daily-hero">
-            <div className="daily-hero__top">
-              <div className="daily-hero__icon" aria-hidden="true">
+          {/* 2b.0: was `.daily-hero`/`.daily-hero__*` (dailyPage.css) — this
+              card is always the "correct"/accent styling, never the
+              `--wrong` variant. */}
+          <div className="flex flex-col gap-4 p-4 lg:py-[28px] lg:px-[30px] rounded-xl border-[1.5px] border-accent [background:linear-gradient(160deg,var(--accent-dim),var(--surface-1))]">
+            <div className="flex items-center gap-3">
+              <div
+                className="flex items-center justify-center shrink-0 w-11 h-11 rounded-md bg-accent"
+                aria-hidden="true"
+              >
                 <RushIcon size={22} />
               </div>
-              <div className="daily-hero__copy">
-                <p className="daily-hero__verdict">Run complete</p>
+              <div className="flex flex-col gap-1">
+                <p className="m-0 text-lg font-bold text-text-0">Run complete</p>
                 {session.runSummary.isNewBestScore && (
-                  <p className="daily-hero__badge">New personal best</p>
+                  <p className="m-0 text-sm font-semibold text-accent">New personal best</p>
                 )}
               </div>
             </div>
-            <div className="daily-hero__stats">
-              <div className="daily-hero__stat">
-                <span className="daily-hero__stat-value">{session.runSummary.solvedCount}</span>
-                <span className="daily-hero__stat-label">Solved</span>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
+                <span className="text-lg font-bold text-text-0">
+                  {session.runSummary.solvedCount}
+                </span>
+                <span className="text-xs text-text-2">Solved</span>
               </div>
-              <div className="daily-hero__stat">
-                <span className="daily-hero__stat-value">
+              <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
+                <span className="text-lg font-bold text-text-0">
                   {session.runSummary.bestStreakThisRun}
                 </span>
-                <span className="daily-hero__stat-label">Best streak (run)</span>
+                <span className="text-xs text-text-2">Best streak (run)</span>
               </div>
-              <div className="daily-hero__stat">
-                <span className="daily-hero__stat-value">
+              <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
+                <span className="text-lg font-bold text-text-0">
                   {session.runSummary.longestStreakEver}
                 </span>
-                <span className="daily-hero__stat-label">Longest streak ever</span>
+                <span className="text-xs text-text-2">Longest streak ever</span>
               </div>
-              <div className="daily-hero__stat">
-                <span className="daily-hero__stat-value">{session.runSummary.bestScoreEver}</span>
-                <span className="daily-hero__stat-label">Best score ever</span>
+              <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
+                <span className="text-lg font-bold text-text-0">
+                  {session.runSummary.bestScoreEver}
+                </span>
+                <span className="text-xs text-text-2">Best score ever</span>
               </div>
             </div>
           </div>
@@ -120,7 +139,11 @@ export function RushPage() {
             attempts={session.runAttempts}
           />
 
-          <button type="button" className="share-card__button" onClick={session.handleRunItBack}>
+          <button
+            type="button"
+            className="min-h-11 border-0 rounded-sm bg-accent text-accent-ink font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+            onClick={session.handleRunItBack}
+          >
             Run it back
           </button>
         </>

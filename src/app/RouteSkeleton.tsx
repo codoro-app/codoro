@@ -24,13 +24,22 @@
  */
 import './routeSkeleton.css'
 
+// 2b.0: `.route-skeleton__block` keeps its bare classname (routeSkeleton.css
+// still needs it for the shimmer @keyframes) but everything visual —
+// rounding, the gradient, its size — moved to Tailwind utilities here.
+const BLOCK_BASE =
+  'route-skeleton__block rounded-md bg-[linear-gradient(90deg,var(--surface-1)_25%,var(--surface-2)_37%,var(--surface-1)_63%)] bg-[length:400%_100%]'
+
 export function RouteSkeleton() {
   return (
-    <div className="route-skeleton app-shell__main" aria-hidden="true">
-      <div className="route-skeleton__block route-skeleton__block--title" />
-      <div className="route-skeleton__block route-skeleton__block--line" />
-      <div className="route-skeleton__block route-skeleton__block--line" />
-      <div className="route-skeleton__block route-skeleton__block--card" />
+    <div
+      className="app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-4"
+      aria-hidden="true"
+    >
+      <div className={`${BLOCK_BASE} h-8 w-2/5`} />
+      <div className={`${BLOCK_BASE} h-4 w-[90%]`} />
+      <div className={`${BLOCK_BASE} h-4 w-[90%]`} />
+      <div className={`${BLOCK_BASE} h-32 w-full`} />
     </div>
   )
 }

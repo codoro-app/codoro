@@ -1,6 +1,7 @@
 import { configDefaults, defineConfig } from 'vitest/config'
 import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 const BRAND_PURPLE = '#863bff'
@@ -99,6 +100,11 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    // 2b.0: CSS-first Tailwind v4 — no tailwind.config.js, theme values live
+    // in index.css's @theme inline block (see that file). Must run before
+    // inlineCriticalCss() so its generated utilities land in the same
+    // bundled stylesheet that plugin inlines into <head>.
+    tailwindcss(),
     inlineCriticalCss(),
     VitePWA({
       // 'prompt', not 'autoUpdate': a new SW installs and Workbox checks for

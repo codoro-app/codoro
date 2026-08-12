@@ -54,7 +54,14 @@ import { TraceRunnerPuzzle } from '../trace/TraceRunner'
 import { trackPuzzleLinkAttempt, trackPuzzleLinkView } from '../../telemetry'
 import type { CommitPayload } from '../practice/interactionTypes'
 import '../tokens.css'
-import './puzzlePage.css'
+
+// 2b.0: was `.puzzle-page` (puzzlePage.css, max-width breakpoint matches
+// Tailwind's `lg` exactly) and `.puzzle-page__cta`. Not test-asserted
+// (grep-verified).
+const PAGE_SHELL_CLASS =
+  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-4'
+const CTA_CLASS =
+  'inline-flex self-start items-center min-h-11 py-2 px-3 rounded-sm border border-border bg-surface-1 text-accent font-semibold no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
 function isScrubberPuzzle(puzzle: Puzzle): puzzle is ScrubberPuzzle {
   return puzzle.interaction === 'scrubber'
@@ -66,7 +73,7 @@ interface PracticeMoreCtaProps {
 
 function PracticeMoreCta({ pattern }: PracticeMoreCtaProps) {
   return (
-    <Link href={`/practice?pattern=${pattern}`} className="puzzle-page__cta">
+    <Link href={`/practice?pattern=${pattern}`} className={CTA_CLASS}>
       Practice more like this
     </Link>
   )
@@ -188,11 +195,11 @@ export function PuzzlePageForId({ id }: PuzzlePageForIdProps) {
 
   if (!puzzle) {
     return (
-      <div className="puzzle-page app-shell__main">
-        <p className="puzzle-page__status">
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">
           We couldn&apos;t find that puzzle — the link may be wrong, or the puzzle was removed.
         </p>
-        <Link href="/practice" className="puzzle-page__cta">
+        <Link href="/practice" className={CTA_CLASS}>
           Go to Practice
         </Link>
       </div>
@@ -200,7 +207,7 @@ export function PuzzlePageForId({ id }: PuzzlePageForIdProps) {
   }
 
   return (
-    <div className="puzzle-page app-shell__main">
+    <div className={PAGE_SHELL_CLASS}>
       {isScrubberPuzzle(puzzle) ? (
         <ScrubberLinkPuzzle puzzle={puzzle} />
       ) : (

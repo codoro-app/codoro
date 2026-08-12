@@ -1,96 +1,32 @@
 /*
- * App-shell-level chrome: the mode switcher, nav rail, and responsive shell
- * grid. Elevation: v2 Arena retires box-shadow chrome entirely — the rail
- * is flat, `border-right` only, no background (see the v2 plan's
- * "Elevation" decision). Interactive cards/buttons stay flat too. >=44px
- * tap targets.
+ * 2b.0 Tailwind migration: the mode-switcher, nav-rail item styling, and
+ * most app-shell chrome moved to Tailwind utility classes directly on their
+ * elements (see AppShell.tsx/ModeSwitcher.tsx/NavRail.tsx). What's left
+ * here is what utility classes can't express (or shouldn't have to repeat
+ * per call site):
+ *
+ *  - `.app-shell`'s responsive grid, plus its `:has(.nav-rail--collapsed)`
+ *    companion rule — a CSS relational selector reaching from this
+ *    component's DOM into a sibling component's (NavRail) internal state,
+ *    which has no Tailwind utility-class equivalent.
+ *  - `.app-shell__content`'s named-grid-area layout, and `.app-shell__main`
+ *    / `.app-shell__sidebar`, which ~13 unrelated page components use to
+ *    place themselves into that layout — kept as shared classnames rather
+ *    than repeating an identical arbitrary-value grid-area utility string
+ *    in every page file.
+ *  - `.nav-rail--collapsed` stays as a bare marker class with no rules of
+ *    its own: NavRail.tsx applies its own Tailwind utilities for the
+ *    collapsed width/padding directly (it already has the `collapsed`
+ *    boolean in scope), but the classname itself has to remain literal for
+ *    `.app-shell`'s `:has()` rule above to detect the collapsed state.
  */
 
-.mode-switcher {
-  display: flex;
-  gap: 4px;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 4px;
+.app-shell__main {
+  grid-area: main;
 }
 
-.mode-switcher__tab {
-  flex: 1;
-  min-height: var(--tap-target-min);
-  padding: var(--space-2) var(--space-4);
-  border: none;
-  border-radius: var(--radius-xs);
-  background: transparent;
-  color: var(--text-1);
-  font-size: var(--font-size-md);
-  font-weight: 600;
-  text-align: center;
-  text-decoration: none;
-  cursor: pointer;
-  /* Now a <Link> (real <a href>), not a <button> — display:flex so it lays
-   * out identically and behaves as an inline block for the tap-target
-   * sizing above. */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.mode-switcher__tab--active {
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-
-.mode-switcher__tab--disabled,
-.mode-switcher__tab--disabled:disabled {
-  color: var(--text-1);
-  opacity: 0.55;
-  cursor: default;
-}
-
-/*
- * Responsive shell grid. <1024px: `.app-shell` is plain block flow — the
- * rail is hidden, the mobile mode-switcher shows, `.app-shell__content`
- * (and whatever the active page renders inside it) is the only visible
- * region, unchanged from pre-shell behavior. >=1024px: a fixed-width rail
- * plus a fluid content column; the content column's own internal
- * main/sidebar split (if any) is each page's responsibility, not this
- * shell's — see PracticePage.tsx/DailyPage.tsx and their `.app-shell__main`
- * / `.app-shell__sidebar` grid-area assignments below.
- */
-.app-shell__rail {
-  display: none;
-}
-
-.app-shell__mobile-nav {
-  display: block;
-  /* iOS standalone mode draws the status bar over the page (see
-   * practicePage.css's matching comment) — this top padding used to live on
-   * `.mode-switcher` itself, but v2's pill-tab-strip needs a tight 4px
-   * padding all around, so the safe-area inset moved up to this wrapper. */
-  padding: calc(var(--space-2) + env(safe-area-inset-top)) var(--space-4) 0;
-}
-
-/* Slim, low-emphasis link row below the active page — currently just
- * "Legal", so no need for a nav-style row of items. */
-.app-shell__footer {
-  display: flex;
-  justify-content: center;
-  padding: var(--space-4);
-  border-top: 1px solid var(--border);
-}
-
-.app-shell__footer-link {
-  min-height: var(--tap-target-min);
-  padding: var(--space-2) var(--space-3);
-  border: none;
-  background: transparent;
-  color: var(--text-2);
-  font-size: var(--font-size-sm);
-  text-decoration: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
+.app-shell__sidebar {
+  grid-area: sidebar;
 }
 
 @media (min-width: 1024px) {
@@ -100,12 +36,8 @@
     min-height: 100vh;
   }
 
-  .app-shell__mobile-nav {
-    display: none;
-  }
-
-  .app-shell__rail {
-    display: block;
+  .app-shell:has(.nav-rail--collapsed) {
+    grid-template-columns: var(--nav-rail-width-collapsed) 1fr;
   }
 
   .app-shell__content {
@@ -114,167 +46,4 @@
     align-items: start;
     grid-template-areas: 'main sidebar';
   }
-
-  .app-shell__main {
-    grid-area: main;
-  }
-
-  .app-shell__sidebar {
-    grid-area: sidebar;
-  }
-
-  /* .app-shell has 2 explicit columns (rail, content) with no named grid
-   * areas beyond .app-shell__content's own nested grid — without this, the
-   * footer would auto-place into just the rail's narrow column instead of
-   * spanning the full width below both. */
-  .app-shell__footer {
-    grid-column: 1 / -1;
-  }
-}
-
-.nav-rail {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-6) var(--space-4);
-  /* Sticky + a fixed viewport height, not height:100% of the grid row —
-   * `.app-shell` is a CSS grid whose row height (default align-items:
-   * stretch) matches its TALLEST item, which on content-heavy pages
-   * (e.g. a long feedback panel) can exceed 100vh. height:100% would
-   * stretch the rail to match, pushing the margin-top:auto collapse
-   * toggle far below the visible viewport on those pages. Pinning to the
-   * viewport instead keeps every rail control visible on every page. */
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  box-sizing: border-box;
-  border-right: 1px solid var(--border);
-  width: var(--nav-rail-width);
-  transition: width 0.15s ease-out;
-}
-
-.nav-rail--collapsed {
-  width: var(--nav-rail-width-collapsed);
-  padding-left: var(--space-2-5);
-  padding-right: var(--space-2-5);
-}
-
-.nav-rail--collapsed .nav-rail__item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-3);
-}
-
-.nav-rail--collapsed .nav-rail__brand {
-  justify-content: center;
-  padding: 0 0 var(--space-4);
-}
-
-.nav-rail__collapse-toggle {
-  margin-top: auto;
-  min-width: var(--tap-target-min);
-  min-height: var(--tap-target-min);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-1);
-  cursor: pointer;
-}
-
-.nav-rail__collapse-icon {
-  display: inline-flex;
-  transition: transform 0.15s ease-out;
-}
-
-@media (min-width: 1024px) {
-  .app-shell:has(.nav-rail--collapsed) {
-    grid-template-columns: var(--nav-rail-width-collapsed) 1fr;
-  }
-}
-
-.nav-rail__brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2-5);
-  padding: 0 var(--space-2) var(--space-4);
-}
-
-.nav-rail__brand--button {
-  border: none;
-  background: transparent;
-  text-decoration: none;
-  cursor: pointer;
-  min-height: var(--tap-target-min);
-}
-
-.app-shell__mobile-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: var(--tap-target-min);
-  padding: var(--space-2) 0;
-  border: none;
-  background: transparent;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.nav-rail__logo-mark {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  flex: none;
-  border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: var(--font-size-md);
-}
-
-.nav-rail__wordmark {
-  font-size: var(--font-size-xl);
-  font-weight: 700;
-  color: var(--text-0);
-}
-
-.nav-rail__item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2-5);
-  min-height: var(--tap-target-min);
-  padding: var(--space-3) var(--space-4);
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-1);
-  font-size: var(--font-size-md);
-  font-weight: 600;
-  text-align: left;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.nav-rail__item-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.nav-rail__item--active {
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-
-.nav-rail__item--disabled,
-.nav-rail__item--disabled:disabled {
-  color: var(--text-1);
-  opacity: 0.55;
-  cursor: default;
 }

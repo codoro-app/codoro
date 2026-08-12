@@ -41,7 +41,18 @@ import {
   resolveImportCandidate,
 } from '../../storage'
 import type { ExportedData, UserProfile } from '../../storage'
-import './settingsPage.css'
+
+// 2b.0: was `.settings-page` (settingsPage.css). Not test-asserted
+// (grep-verified).
+const PAGE_SHELL_CLASS =
+  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-6 text-text-1'
+// Was `.settings-page__section h2`/`p`/`code` descendant selectors —
+// applied directly to each element (same pattern as LegalPage.tsx).
+const SECTION_HEADING_CLASS = 'text-lg text-text-0 m-0 mb-2'
+const SECTION_COPY_CLASS = 'text-md leading-[1.5] m-0 mb-3'
+const INLINE_CODE_CLASS = 'font-mono text-[0.9em] bg-surface-2 py-[0.1em] px-[0.35em] rounded-sm'
+const BUTTON_CLASS =
+  'min-h-11 py-3 px-4 border border-border-strong rounded-md bg-surface-1 text-text-0 text-md font-semibold cursor-pointer'
 
 type ImportFlowState =
   | { kind: 'idle' }
@@ -169,46 +180,46 @@ export function SettingsPage() {
     importFlow.kind === 'confirm' || importFlow.kind === 'importing' ? importFlow : null
 
   return (
-    <div className="settings-page app-shell__main">
-      <h1 className="settings-page__title">Settings</h1>
+    <div className={PAGE_SHELL_CLASS}>
+      <h1 className="text-2xl text-text-0 m-0">Settings</h1>
 
-      <section className="settings-page__section">
-        <h2>Your data</h2>
-        <p>
+      <section>
+        <h2 className={SECTION_HEADING_CLASS}>Your data</h2>
+        <p className={SECTION_COPY_CLASS}>
           Codoro has no accounts — your rating, streak, and puzzle history live only in this
           browser. Export a copy to back it up or move it to another device; import a copy to
           restore it.
         </p>
         {profileError && (
-          <p className="settings-page__error" role="alert">
+          <p className="mt-2 text-danger text-sm" role="alert">
             Couldn&apos;t load your current data. Export and import may not reflect it correctly —
             try reloading the page.
           </p>
         )}
       </section>
 
-      <section className="settings-page__section">
-        <h2>Export</h2>
-        <p>Download your data as a file.</p>
-        <button type="button" className="settings-page__button" onClick={() => void handleExport()}>
+      <section>
+        <h2 className={SECTION_HEADING_CLASS}>Export</h2>
+        <p className={SECTION_COPY_CLASS}>Download your data as a file.</p>
+        <button type="button" className={BUTTON_CLASS} onClick={() => void handleExport()}>
           Export my data
         </button>
         {exportError && (
-          <p className="settings-page__error" role="alert">
+          <p className="mt-2 text-danger text-sm" role="alert">
             Export failed — nothing was downloaded. Try again.
           </p>
         )}
       </section>
 
-      <section className="settings-page__section">
-        <h2>Import</h2>
-        <p>
+      <section>
+        <h2 className={SECTION_HEADING_CLASS}>Import</h2>
+        <p className={SECTION_COPY_CLASS}>
           Replace your current data with a previously exported file. You&apos;ll see exactly
           what&apos;s about to change before anything is replaced.
         </p>
         <button
           type="button"
-          className="settings-page__button"
+          className={BUTTON_CLASS}
           onClick={() => fileInputRef.current?.click()}
         >
           Choose file to import…
@@ -217,29 +228,30 @@ export function SettingsPage() {
           ref={fileInputRef}
           type="file"
           accept="application/json,.json"
-          className="settings-page__file-input"
+          className="sr-only"
           onChange={handleFileSelected}
           aria-label="Choose a Codoro export file to import"
         />
         {importFlow.kind === 'error' && (
-          <p className="settings-page__error" role="alert">
+          <p className="mt-2 text-danger text-sm" role="alert">
             {importFlow.message}
           </p>
         )}
         {importFlow.kind === 'success' && (
-          <p className="settings-page__success" role="status">
+          <p className="mt-2 text-accent text-sm" role="status">
             Import complete — your data has been replaced.
           </p>
         )}
       </section>
 
-      <section className="settings-page__section">
-        <h2>Reset your rating</h2>
-        <p>
+      <section>
+        <h2 className={SECTION_HEADING_CLASS}>Reset your rating</h2>
+        <p className={SECTION_COPY_CLASS}>
           There&apos;s no in-app rating reset button, but the export/import above doubles as one:
           export your data, open the downloaded file in a text editor, change the number after{' '}
-          <code>&quot;rating&quot;</code> under <code>&quot;profile&quot;</code>, save, then import
-          that file back in here.
+          <code className={INLINE_CODE_CLASS}>&quot;rating&quot;</code> under{' '}
+          <code className={INLINE_CODE_CLASS}>&quot;profile&quot;</code>, save, then import that
+          file back in here.
         </p>
       </section>
 
@@ -278,54 +290,71 @@ function ImportConfirmDialog({
   onCancel,
   onConfirm,
 }: ImportConfirmDialogProps) {
+  // 2b.0: was `.settings-page__confirm-table th`/`td` (right-aligned,
+  // bordered) with `th[scope='row']` overriding to left-aligned/muted/
+  // normal-weight — applied directly per cell since there's no attribute
+  // selector equivalent in Tailwind utility classes.
+  const cellClass = 'py-2 text-right border-b border-border'
+  const rowHeaderClass = 'py-2 text-left border-b border-border text-text-1 font-normal'
+
   return (
-    <div className="settings-page__confirm-overlay">
+    <div className="fixed inset-0 z-20 flex items-center justify-center p-4 bg-surface-0/70">
       <div
-        className="settings-page__confirm"
+        className="flex flex-col gap-3 w-full max-w-[420px] py-6 px-5 rounded-lg border border-border bg-surface-1"
         role="dialog"
         aria-modal="true"
         aria-label="Confirm import — replace your data"
       >
-        <p className="settings-page__confirm-title">Replace your data?</p>
-        <p className="settings-page__confirm-copy">
+        <p className="m-0 text-xl font-bold text-text-0">Replace your data?</p>
+        <p className="m-0 text-sm text-text-1">
           Importing this file replaces your current rating, streak, and attempt history. This
           can&apos;t be undone unless you&apos;ve exported your current data separately.
         </p>
         {migratedFromVersion !== null && (
-          <p className="settings-page__confirm-note">
+          <p className="m-0 text-sm text-accent">
             This file is from an older Codoro version and will be upgraded automatically.
           </p>
         )}
-        <table className="settings-page__confirm-table">
+        <table className="w-full border-collapse text-sm">
           <thead>
             <tr>
-              <th scope="col"></th>
-              <th scope="col">Current</th>
-              <th scope="col">Incoming</th>
+              <th scope="col" className={cellClass}></th>
+              <th scope="col" className={cellClass}>
+                Current
+              </th>
+              <th scope="col" className={cellClass}>
+                Incoming
+              </th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <th scope="row">Rating</th>
-              <td>{current ? Math.round(current.rating) : '—'}</td>
-              <td>{Math.round(incoming.profile.rating)}</td>
+              <th scope="row" className={rowHeaderClass}>
+                Rating
+              </th>
+              <td className={cellClass}>{current ? Math.round(current.rating) : '—'}</td>
+              <td className={cellClass}>{Math.round(incoming.profile.rating)}</td>
             </tr>
             <tr>
-              <th scope="row">Rated attempts</th>
-              <td>{current ? current.ratedAttemptCount : '—'}</td>
-              <td>{incoming.profile.ratedAttemptCount}</td>
+              <th scope="row" className={rowHeaderClass}>
+                Rated attempts
+              </th>
+              <td className={cellClass}>{current ? current.ratedAttemptCount : '—'}</td>
+              <td className={cellClass}>{incoming.profile.ratedAttemptCount}</td>
             </tr>
             <tr>
-              <th scope="row">Best streak</th>
-              <td>{current ? current.bestRunStreak : '—'}</td>
-              <td>{incoming.profile.bestRunStreak}</td>
+              <th scope="row" className={rowHeaderClass}>
+                Best streak
+              </th>
+              <td className={cellClass}>{current ? current.bestRunStreak : '—'}</td>
+              <td className={cellClass}>{incoming.profile.bestRunStreak}</td>
             </tr>
           </tbody>
         </table>
-        <div className="settings-page__confirm-actions">
+        <div className="flex flex-col gap-2 mt-2">
           <button
             type="button"
-            className="settings-page__confirm-cancel"
+            className="min-h-11 w-full py-3 px-4 rounded-md text-md font-semibold border border-border-strong bg-transparent text-text-0"
             onClick={onCancel}
             disabled={busy}
           >
@@ -333,7 +362,7 @@ function ImportConfirmDialog({
           </button>
           <button
             type="button"
-            className="settings-page__confirm-replace"
+            className="min-h-11 w-full py-3 px-4 rounded-md text-md font-semibold border-0 bg-accent text-accent-ink"
             onClick={onConfirm}
             disabled={busy}
           >

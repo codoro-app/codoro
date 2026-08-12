@@ -15,16 +15,25 @@ import { MissionComplete } from './MissionComplete'
 import { TraceStage } from './TraceStage'
 import { SpeedStage } from './SpeedStage'
 import { BossStage } from './BossStage'
-import './missionsPage.css'
+// 2b.0: was `.missions-page` in missionsPage.css (max-width breakpoint
+// matches Tailwind's `lg` exactly). Not test-asserted (grep-verified).
+const PAGE_SHELL_CLASS =
+  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-4'
 
 export function MissionsPage() {
   const missionSession = useMissionSession()
 
   if (missionSession.status === 'error') {
     return (
-      <div className="missions-page app-shell__main">
-        <p className="missions-page__status">We couldn&apos;t load Missions. Please try again.</p>
-        <button type="button" className="daily-page__link" onClick={missionSession.retryLoad}>
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">
+          We couldn&apos;t load Missions. Please try again.
+        </p>
+        <button
+          type="button"
+          className="min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer"
+          onClick={missionSession.retryLoad}
+        >
           Try again
         </button>
       </div>
@@ -33,14 +42,14 @@ export function MissionsPage() {
 
   if (missionSession.status === 'loading' || missionSession.profile === null) {
     return (
-      <div className="missions-page app-shell__main">
-        <p className="missions-page__status">Loading Missions…</p>
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">Loading Missions…</p>
       </div>
     )
   }
 
   return (
-    <div className="missions-page app-shell__main">
+    <div className={PAGE_SHELL_CLASS}>
       {missionSession.phase === 'checkpoint' && (
         <MissionCheckpoint missionSession={missionSession} />
       )}

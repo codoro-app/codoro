@@ -28,6 +28,14 @@ import './practicePage.css'
 export interface PatternPickerProps {
   onSelect: (pattern: PatternSlug | null) => void
   onBack: () => void
+  /**
+   * 2b.0: was `.practice-page__sidebar .pattern-picker__grid { grid-template-columns: 1fr }`
+   * in practicePage.css — the >=1024px 2-up grid (below) assumes a
+   * full-width main column; inside the fixed-width desktop sidebar there's
+   * only room for one. Defaults to false (the mobile full-page takeover's
+   * own 2-up grid at >=1024px, unchanged).
+   */
+  singleColumn?: boolean
 }
 
 /** Decision #10's four accuracy-state buckets (UI v2 Arena plan). */
@@ -44,7 +52,25 @@ function emptyRow(pattern: PatternSlug): PatternMastery {
   return { pattern, attemptCount: 0, accuracy: null }
 }
 
-export function PatternPicker({ onSelect, onBack }: PatternPickerProps) {
+// 2b.0: was `.pattern-picker__badge` (base) + `--new`/`--mastered`/
+// `--learning`/`--weak` in practicePage.css.
+function badgeClass(state: MasteryState): string {
+  const BASE = 'flex-none font-mono text-xs font-bold rounded-full py-[3px] px-2'
+  if (state === 'mastered') return `${BASE} text-accent bg-accent-dim`
+  if (state === 'learning') return `${BASE} text-warn bg-warn-dim`
+  if (state === 'weak') return `${BASE} text-danger`
+  return `${BASE} text-text-2`
+}
+
+// 2b.0: was `.progress-track__fill--<state>` in practicePage.css.
+function fillClass(state: MasteryState): string {
+  if (state === 'mastered') return 'bg-accent'
+  if (state === 'learning') return 'bg-warn'
+  if (state === 'weak') return 'bg-danger'
+  return 'bg-border-strong'
+}
+
+export function PatternPicker({ onSelect, onBack, singleColumn = false }: PatternPickerProps) {
   const [rows, setRows] = useState<PatternMastery[] | null>(null)
 
   const cancelledRef = useRef(false)
@@ -61,17 +87,21 @@ export function PatternPicker({ onSelect, onBack }: PatternPickerProps) {
   }, [])
 
   return (
-    <div className="pattern-picker">
-      <div className="pattern-picker__header">
-        <button type="button" className="practice-page__link" onClick={onBack}>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer"
+          onClick={onBack}
+        >
           ← Back
         </button>
-        <h2 className="pattern-picker__title">Practice by pattern</h2>
+        <h2 className="m-0 text-xl">Practice by pattern</h2>
       </div>
 
       <button
         type="button"
-        className="pattern-picker__all"
+        className="min-h-11 py-3 px-4 border-0 rounded-md bg-accent text-accent-ink font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
         onClick={() => {
           onSelect(null)
         }}
@@ -79,7 +109,13 @@ export function PatternPicker({ onSelect, onBack }: PatternPickerProps) {
         Practice all patterns
       </button>
 
-      <div className="pattern-picker__grid">
+      <div
+        className={
+          singleColumn
+            ? 'flex flex-col gap-2'
+            : 'flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3'
+        }
+      >
         {PATTERN_SLUGS.map((slug) => {
           const row = rows?.find((candidate) => candidate.pattern === slug) ?? emptyRow(slug)
           const state = masteryState(row)
@@ -89,29 +125,33 @@ export function PatternPicker({ onSelect, onBack }: PatternPickerProps) {
               : `${String(Math.round(row.accuracy * 100))}%`
           const captionText = `${String(row.attemptCount)}/${String(MIN_ATTEMPTS_FOR_MASTERY)} · ${state}`
           const fillPct = Math.min(100, (row.attemptCount / MIN_ATTEMPTS_FOR_MASTERY) * 100)
+          // Weak (accuracy < 0.4) is the only state that recolors the whole
+          // card (decision #10, UI v2 Arena plan) — was `.pattern-picker__button--weak`.
+          const buttonClass =
+            state === 'weak'
+              ? 'min-h-11 w-full py-3 px-4 rounded-md border border-danger bg-danger-dim text-text-0 text-left text-md flex flex-col gap-3 cursor-pointer'
+              : 'min-h-11 w-full py-3 px-4 rounded-md border border-border bg-surface-1 text-text-0 text-left text-md flex flex-col gap-3 cursor-pointer'
 
           return (
             <button
               key={slug}
               type="button"
-              className={`pattern-picker__button pattern-picker__button--${state}`}
+              className={buttonClass}
               onClick={() => {
                 onSelect(slug)
               }}
             >
-              <div className="pattern-picker__row">
-                <span className="pattern-picker__name">{PATTERN_LABELS[slug]}</span>
-                <span className={`pattern-picker__badge pattern-picker__badge--${state}`}>
-                  {accuracyText}
-                </span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-base text-text-0">{PATTERN_LABELS[slug]}</span>
+                <span className={badgeClass(state)}>{accuracyText}</span>
               </div>
-              <div className="progress-track">
+              <div className="h-[5px] rounded-[3px] bg-surface-2 overflow-hidden">
                 <div
-                  className={`progress-track__fill progress-track__fill--${state}`}
+                  className={`h-full rounded-[3px] ${fillClass(state)}`}
                   style={{ width: `${String(fillPct)}%` }}
                 />
               </div>
-              <span className="pattern-picker__caption">{captionText}</span>
+              <span className="font-mono text-xs text-text-2">{captionText}</span>
             </button>
           )
         })}

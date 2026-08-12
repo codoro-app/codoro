@@ -85,9 +85,13 @@ export function TraceStage({ missionSession }: TraceStageProps) {
 
   if (traceSession.status === 'error') {
     return (
-      <div className="trace-runner__status">
+      <div className="text-center text-text-1 py-8">
         <p>We couldn&apos;t load this stage. Please try again.</p>
-        <button type="button" className="trace-runner__link" onClick={traceSession.retryLoad}>
+        <button
+          type="button"
+          className="min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer"
+          onClick={traceSession.retryLoad}
+        >
           Try again
         </button>
       </div>
@@ -96,7 +100,7 @@ export function TraceStage({ missionSession }: TraceStageProps) {
 
   if (traceSession.status === 'loading' || traceSession.profile === null) {
     return (
-      <div className="trace-runner__status">
+      <div className="text-center text-text-1 py-8">
         <p>Loading…</p>
       </div>
     )
@@ -104,7 +108,7 @@ export function TraceStage({ missionSession }: TraceStageProps) {
 
   if (traceSession.status === 'empty' || traceSession.puzzle === null) {
     return (
-      <div className="trace-runner__status">
+      <div className="text-center text-text-1 py-8">
         <p>No trace puzzles available yet.</p>
       </div>
     )

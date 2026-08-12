@@ -51,6 +51,29 @@ function masteryState(row: PatternMastery): MasteryState {
   return 'weak'
 }
 
+// 2b.0: was `.mastery-row__accuracy--<state>` in practicePage.css. Only
+// mastered/learning get a pill background (decision #10: "no pill
+// background" for new/weak — those stay plain colored text).
+function accuracyClass(state: MasteryState): string {
+  if (state === 'mastered') return 'text-accent bg-accent-dim py-0.5 px-2 rounded-full'
+  if (state === 'learning') return 'text-warn bg-warn-dim py-0.5 px-2 rounded-full'
+  if (state === 'weak') return 'text-danger'
+  return 'text-text-2'
+}
+
+// 2b.0: was `.progress-track__fill--<state>` in practicePage.css.
+function fillClass(state: MasteryState): string {
+  if (state === 'mastered') return 'bg-accent'
+  if (state === 'learning') return 'bg-warn'
+  if (state === 'weak') return 'bg-danger'
+  return 'bg-border-strong'
+}
+
+// Reused verbatim from PatternPicker.tsx's "← Back" button (was the shared
+// `.practice-page__link` classname).
+const LINK_CLASS =
+  'min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer'
+
 export function MasteryView({ onBack, refreshKey, onSelectPattern }: MasteryViewProps) {
   const [rows, setRows] = useState<PatternMastery[] | null>(null)
 
@@ -71,23 +94,23 @@ export function MasteryView({ onBack, refreshKey, onSelectPattern }: MasteryView
   }, [refreshKey])
 
   return (
-    <div className="mastery-view">
-      <div className="mastery-view__header">
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
         {onBack && (
-          <button type="button" className="practice-page__link" onClick={onBack}>
+          <button type="button" className={LINK_CLASS} onClick={onBack}>
             ← Back
           </button>
         )}
-        <h2 className="mastery-view__title">Mastery by pattern</h2>
+        <h2 className="m-0 text-xl">Mastery by pattern</h2>
       </div>
 
       {rows === null ? (
-        <p className="practice-page__status">Loading mastery…</p>
+        <p className="text-center text-text-1 py-8">Loading mastery…</p>
       ) : (
         <>
           {rows.every((row) => row.attemptCount === 0) && (
-            <div className="mastery-view__empty">
-              <div className="mastery-view__empty-icon">
+            <div className="text-center py-5 px-3 pb-6 border border-dashed border-border-strong rounded-md bg-surface-1">
+              <div className="w-11 h-11 rounded-md bg-surface-2 flex items-center justify-center mx-auto">
                 <svg
                   width="22"
                   height="22"
@@ -102,14 +125,14 @@ export function MasteryView({ onBack, refreshKey, onSelectPattern }: MasteryView
                   <path d="m19 9-5 5-4-4-3 3" />
                 </svg>
               </div>
-              <p className="mastery-view__empty-title">Build your mastery map</p>
-              <p className="mastery-view__empty-copy">
+              <p className="text-base font-bold m-0 mt-3">Build your mastery map</p>
+              <p className="text-xs text-text-1 leading-[1.5] m-0 mt-1.5">
                 Solve puzzles and each pattern fills in with your accuracy over time.
               </p>
             </div>
           )}
 
-          <ul className="mastery-view__list">
+          <ul className="list-none m-0 p-0 flex flex-col gap-2">
             {rows.map((row) => {
               const state = masteryState(row)
               const accuracyText =
@@ -126,27 +149,38 @@ export function MasteryView({ onBack, refreshKey, onSelectPattern }: MasteryView
                 row.accuracy === null
                   ? Math.min(100, (row.attemptCount / MIN_ATTEMPTS_FOR_MASTERY) * 100)
                   : row.accuracy * 100
+              // `mastery-row`/`--weak` stay literal — practicePage.css's
+              // compound-selector cascade (see its header comment) and
+              // PracticePage.test.tsx's `toHaveClass('mastery-row')`.
               const rowClassName =
-                state === 'weak' ? 'mastery-row mastery-row--weak' : 'mastery-row'
+                state === 'weak'
+                  ? 'mastery-row mastery-row--weak flex flex-col gap-2 min-h-11 w-full py-2.5 px-4 rounded-md border border-transparent bg-surface-0'
+                  : 'mastery-row flex flex-col gap-2 min-h-11 w-full py-2.5 px-4 rounded-md border border-transparent bg-surface-0'
 
               const rowContent = (
                 <>
-                  <div className="mastery-row__top">
-                    <span className="mastery-row__label">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex-1 text-text-0 text-base">
                       {PATTERN_LABELS[row.pattern]}
-                      {state === 'weak' && <span className="mastery-row__weak-tag"> · weak</span>}
+                      {state === 'weak' && (
+                        <span className="text-xs font-bold text-danger"> · weak</span>
+                      )}
                     </span>
-                    <span className={`mastery-row__accuracy mastery-row__accuracy--${state}`}>
+                    <span
+                      className={`flex-none font-mono text-xs font-bold tabular-nums ${accuracyClass(state)}`}
+                    >
                       {accuracyText}
                     </span>
                   </div>
-                  <div className="progress-track">
+                  <div className="h-[5px] rounded-[3px] bg-surface-2 overflow-hidden">
                     <div
-                      className={`progress-track__fill progress-track__fill--${state}`}
+                      className={`h-full rounded-[3px] ${fillClass(state)}`}
                       style={{ width: `${String(fillPct)}%` }}
                     />
                   </div>
-                  <span className="mastery-row__count">{countText}</span>
+                  {/* `mastery-row__count` stays literal — PracticePage.test.tsx
+                      sums `.mastery-row__count` text across all rows. */}
+                  <span className="mastery-row__count text-text-1 text-xs">{countText}</span>
                 </>
               )
 

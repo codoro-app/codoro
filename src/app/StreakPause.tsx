@@ -19,8 +19,6 @@
  * shared too) — Rush never renders this (timed, decision 8), Daily has no
  * in-session streak to speak of.
  */
-import './streakPause.css'
-
 export interface StreakPauseProps {
   streak: number
   isNewBest: boolean
@@ -30,18 +28,31 @@ export interface StreakPauseProps {
 
 export function StreakPause({ streak, isNewBest, onKeepGoing, onDoneForNow }: StreakPauseProps) {
   return (
-    <div className="streak-pause-overlay">
-      <div className="streak-pause" role="dialog" aria-modal="true" aria-label="Streak milestone">
-        <p className="streak-pause__streak">{streak} in a row</p>
-        {isNewBest && <p className="streak-pause__badge">New best streak</p>}
-        <p className="streak-pause__copy">
+    <div className="fixed inset-0 z-20 flex items-center justify-center p-4 bg-surface-0/70">
+      <div
+        className="flex flex-col items-center gap-3 w-full max-w-[360px] py-6 px-5 rounded-lg border border-border bg-surface-1 text-center"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Streak milestone"
+      >
+        <p className="m-0 text-xl font-bold text-text-0">{streak} in a row</p>
+        {isNewBest && <p className="m-0 text-sm font-semibold text-accent">New best streak</p>}
+        <p className="m-0 text-sm text-text-1">
           Keep the momentum going, or stop here — your streak stays intact either way.
         </p>
-        <div className="streak-pause__actions">
-          <button type="button" className="streak-pause__keep-going" onClick={onKeepGoing}>
+        <div className="flex flex-col gap-2 w-full mt-2">
+          <button
+            type="button"
+            className="min-h-11 w-full py-3 px-4 rounded-md text-md font-semibold border-0 bg-accent text-accent-ink"
+            onClick={onKeepGoing}
+          >
             Keep going
           </button>
-          <button type="button" className="streak-pause__done" onClick={onDoneForNow}>
+          <button
+            type="button"
+            className="min-h-11 w-full py-3 px-4 rounded-md text-md font-semibold border border-border-strong bg-transparent text-text-0"
+            onClick={onDoneForNow}
+          >
             Done for now
           </button>
         </div>

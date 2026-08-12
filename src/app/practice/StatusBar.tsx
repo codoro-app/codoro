@@ -28,9 +28,12 @@ export interface StatusBarProps {
 }
 
 export function StatusBar({ rating, streak, combo, solvedThisSession }: StatusBarProps) {
+  const pillClass =
+    'flex items-center gap-1.5 min-h-11 py-1.5 px-3 rounded-full bg-surface-1 border border-border text-text-0 font-bold tabular-nums'
+
   return (
-    <div className="status-bar">
-      <div className="status-bar__pill status-bar__pill--rating" title="Rating">
+    <div className="flex flex-wrap items-center gap-2">
+      <div className={pillClass} title="Rating">
         <svg
           aria-hidden="true"
           width="14"
@@ -49,7 +52,7 @@ export function StatusBar({ rating, streak, combo, solvedThisSession }: StatusBa
         </svg>
         <span>{Math.round(rating)}</span>
       </div>
-      <div className="status-bar__pill status-bar__pill--streak" title="Daily streak">
+      <div className={pillClass} title="Daily streak">
         <svg
           aria-hidden="true"
           width="14"
@@ -65,7 +68,7 @@ export function StatusBar({ rating, streak, combo, solvedThisSession }: StatusBa
         </svg>
         <span>{streak}</span>
       </div>
-      <div className="status-bar__solved" title="Solved this session">
+      <div className="flex items-center gap-1.5 text-text-1 text-sm" title="Solved this session">
         <svg
           aria-hidden="true"
           width="14"
@@ -82,7 +85,10 @@ export function StatusBar({ rating, streak, combo, solvedThisSession }: StatusBa
         <span>{solvedThisSession} solved this session</span>
       </div>
       {combo >= 2 && (
-        <div className="status-bar__combo" data-testid="combo-badge">
+        <div
+          className="status-bar__combo flex items-center gap-1.5 min-h-11 py-1.5 px-3 rounded-full bg-ok-dim text-accent font-bold"
+          data-testid="combo-badge"
+        >
           <svg
             aria-hidden="true"
             width="14"
