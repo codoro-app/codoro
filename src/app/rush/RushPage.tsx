@@ -32,15 +32,20 @@ import { useRushSession } from './useRushSession'
 import { RushActivePlay } from './RushActivePlay'
 import { RushShareCard } from './RushShareCard'
 import { RushChallengeCard } from './RushChallengeCard'
-import './rushPage.css'
+// 2b.0: was `.rush-page` in rushPage.css (max-width breakpoint matches
+// Tailwind's `lg` exactly). Not test-asserted (grep-verified).
+const PAGE_SHELL_CLASS =
+  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-4'
 
 export function RushPage() {
   const session = useRushSession()
 
   if (session.status === 'error') {
     return (
-      <div className="rush-page app-shell__main">
-        <p className="rush-page__status">We couldn&apos;t load Rush. Please try again.</p>
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">
+          We couldn&apos;t load Rush. Please try again.
+        </p>
         <button
           type="button"
           className="min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer"
@@ -54,22 +59,22 @@ export function RushPage() {
 
   if (session.status === 'loading' || session.profile === null) {
     return (
-      <div className="rush-page app-shell__main">
-        <p className="rush-page__status">Loading Rush…</p>
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">Loading Rush…</p>
       </div>
     )
   }
 
   if (session.status === 'empty') {
     return (
-      <div className="rush-page app-shell__main">
-        <p className="rush-page__status">No puzzles available for Rush right now.</p>
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">No puzzles available for Rush right now.</p>
       </div>
     )
   }
 
   return (
-    <div className="rush-page app-shell__main">
+    <div className={PAGE_SHELL_CLASS}>
       {session.phase === 'playing' && <RushActivePlay session={session} />}
 
       {session.phase === 'ended' && session.runSummary && (

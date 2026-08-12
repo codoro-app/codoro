@@ -85,7 +85,7 @@ export function SpeedStage({ missionSession }: SpeedStageProps) {
 
   if (rushSession.status === 'error') {
     return (
-      <div className="rush-page__status">
+      <div className="text-center text-text-1 py-8">
         <p>We couldn&apos;t load this stage. Please try again.</p>
         <button
           type="button"
@@ -100,7 +100,7 @@ export function SpeedStage({ missionSession }: SpeedStageProps) {
 
   if (rushSession.status === 'loading' || rushSession.profile === null) {
     return (
-      <div className="rush-page__status">
+      <div className="text-center text-text-1 py-8">
         <p>Loading…</p>
       </div>
     )
@@ -108,7 +108,7 @@ export function SpeedStage({ missionSession }: SpeedStageProps) {
 
   if (rushSession.status === 'empty') {
     return (
-      <div className="rush-page__status">
+      <div className="text-center text-text-1 py-8">
         <p>No puzzles available right now.</p>
       </div>
     )

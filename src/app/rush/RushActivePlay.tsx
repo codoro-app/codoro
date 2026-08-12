@@ -26,18 +26,20 @@ export interface RushActivePlayProps {
 export function RushActivePlay({ session, onContinue }: RushActivePlayProps) {
   return (
     <>
-      <div className="rush-header">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div
-          className="rush-strikes"
+          className="flex gap-2"
           role="status"
           aria-label={`${String(session.strikes)} of 3 strikes`}
         >
           {[0, 1, 2].map((slot) => (
             <span
               key={slot}
-              className={`rush-strikes__slot${
-                slot < session.strikes ? ' rush-strikes__slot--missed' : ''
-              }`}
+              className={
+                slot < session.strikes
+                  ? 'w-3.5 h-3.5 rounded-full border-2 border-danger bg-danger'
+                  : 'w-3.5 h-3.5 rounded-full border-2 border-border-strong bg-transparent'
+              }
               aria-hidden="true"
             />
           ))}
@@ -67,9 +69,9 @@ export function RushActivePlay({ session, onContinue }: RushActivePlayProps) {
           )}
         </div>
       </div>
-      <div className="rush-timer-row">
+      <div className="flex items-center gap-2">
         <div
-          className="rush-timer"
+          className="flex-1 h-1.5 rounded-full bg-surface-2 overflow-hidden"
           role="progressbar"
           aria-label="Time remaining for this puzzle"
           aria-valuemin={0}
@@ -77,13 +79,16 @@ export function RushActivePlay({ session, onContinue }: RushActivePlayProps) {
           aria-valuenow={Math.round(session.remainingMs)}
         >
           <div
-            className="rush-timer__fill"
+            className="h-full bg-accent transition-[width] duration-100 ease-linear"
             style={{
               width: `${String((session.remainingMs / RUSH_PUZZLE_TIME_LIMIT_MS) * 100)}%`,
             }}
           />
         </div>
-        <span className="rush-timer__seconds" aria-hidden="true">
+        <span
+          className="flex-none min-w-[2ch] text-right font-mono text-sm text-text-1"
+          aria-hidden="true"
+        >
           {Math.ceil(session.remainingMs / 1000)}s
         </span>
       </div>
