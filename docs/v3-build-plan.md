@@ -24,15 +24,16 @@ This plan absorbs every v2 carryover (`docs/roadmap.md`'s v2-carryover section, 
 
 Roadmap labels in the second column so cross-references to `docs/roadmap.md` stay intact.
 
-| Phase | Roadmap | What                                                                                                                      | Est. sessions       |
-| ----- | ------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| 0     | —       | v2 defect carryovers: OD-1 instrumented capture + fix, mobile Lighthouse 84→90+                                           | 1–2 + device passes |
-| 1     | —       | Boss challenges (v2 Phase 6b, never built)                                                                                | 2                   |
-| 2     | —       | Missions + click-meaningfulness UX pass (v2 Phase 6c, never built; **definition session required before build**)          | 2–3 + definition    |
-| 3     | 3.0     | Launch-readiness: v2 loose ends, soak, fresh-user walkthrough, dashboards, quota math, lawyer review                      | 1–2 + Thomas passes |
-| 4     | 3.1     | Minimal anonymous backend: Workers + D1/KV leaderboard, edge OG meta, rate limiting, load test                            | 2–3                 |
-| 5     | 3.2     | Distribution: prerender/SEO pass, launch posts, reel videos — **gated on the scaling validation amendment**               | 1 + ongoing         |
-| 6     | 3.3     | Growth loop: feedback channel (report-question), weekly content drops, dashboard watch. **Produces the v4 gate evidence** | ongoing             |
+| Phase | Roadmap | What                                                                                                                                        | Est. sessions       |
+| ----- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| 0     | —       | v2 defect carryovers: OD-1 instrumented capture + fix, mobile Lighthouse 84→90+                                                             | 1–2 + device passes |
+| 1     | —       | Boss challenges (v2 Phase 6b, never built)                                                                                                  | 2                   |
+| 2     | —       | Missions + click-meaningfulness UX pass (v2 Phase 6c, never built; **definition session required before build**)                            | 2–3 + definition    |
+| 2b    | —       | UI/UX redesign: Tailwind migration, design tokens, click-meaningfulness app-wide, Missions staging clarity, sharing, Home, mastery page, QA | ~10 sessions        |
+| 3     | 3.0     | Launch-readiness: v2 loose ends, soak, fresh-user walkthrough, dashboards, quota math, lawyer review                                        | 1–2 + Thomas passes |
+| 4     | 3.1     | Minimal anonymous backend: Workers + D1/KV leaderboard, edge OG meta, rate limiting, load test                                              | 2–3                 |
+| 5     | 3.2     | Distribution: prerender/SEO pass, launch posts, reel videos — **gated on the scaling validation amendment**                                 | 1 + ongoing         |
+| 6     | 3.3     | Growth loop: feedback channel (report-question), weekly content drops, dashboard watch. **Produces the v4 gate evidence**                   | ongoing             |
 
 **Sequencing.** Phase 0 first — it's the smallest and everything downstream (Phase 3's regression pass, Phase 5's launch) depends on the swipe working. Phase 1 → 2 in order (missions chain ends in a boss run; 6c was gated on 6b in v2 and still is). Phase 3's build items (dashboards, soak setup) can interleave with Phases 1–2, but its **gate** — the full regression pass — runs only after Phase 2 merges, because the pass must cover boss and mission surfaces or it will just be re-run. The lawyer review (Phase 3, external) starts as early as possible and runs in parallel with everything; it blocks Phase 5, not Phase 4. Phase 4 can start any time after Phase 0 but its load test is only meaningful against the final pre-launch build. Phase 5 is hard-gated: **no post goes out until the scaling validation amendment is recorded with measured numbers and every Phase 0–4 DoD is closed.** Phase 6 begins the day the first post lands and doesn't end — it's the feedback loop, not a phase that completes.
 
@@ -170,6 +171,109 @@ Full implementation plan (schema v8→v9, `useMissionSession` design, UI/routing
 - **§5 (tooltips deferred)** → no tooltip component was added anywhere in this build, consistent with the deferral.
 
 **What this build item did not do**, stated rather than silently skipped: Thomas's own manual desktop/mobile playthrough (start → all 3 stages → payoff → "Run it back", plus a real resume-after-close and a real abandon) has not run yet — the DoD box above is checked on the strength of full automated coverage of the same state machine, per this repo's standing build-vs-verify split (sessions build/test, Thomas verifies real widths/devices), not as a substitute for that pass. Telemetry "verified locally" means unit-tested against a mocked PostHog capture call, the same meaning Phase 1's own DoD used for that phrase — no live PostHog dashboard was checked.
+
+## Phase 2b — UI/UX redesign (~10 sessions)
+
+Sits between Phase 2 (Missions, merged as PR #57) and Phase 3 (Launch-readiness). Origin: `docs/design/click-meaningfulness.md` §2/§4 already named the systemic answer→Continue gap as "a full-UI-redesign question," explicitly out of scope for Missions — this phase is that deferred work, plus a working session with Thomas (2026-08-12) that surfaced the rest of the list below. Folded in here from `docs/ui-redesign-plan.md` (now deleted) per that file's own instruction, by the session that opened 2b.0.
+
+**Explicitly not touched by this phase — already correctly resolved, do not re-open without new evidence:**
+
+- Skeleton loaders — scoped correctly in Phase 7 (route-chunk `Suspense` boundary only; every other "loading" state resolves off IndexedDB in single-digit ms).
+- Optimistic rendering — deferred, in writing, to v3 Phase 4 (first real network round-trip).
+- Theme picker — direct user decision, 2026-08-12: **later**, not this phase. The token work is built theme-ready (CSS custom properties, no hardcoded hex) so a picker is cheap to add afterward, but no picker UI or second/third palette ships in 2b.
+
+### 2b.0 — Tailwind migration (mechanical, zero visual change)
+
+**Build:** installed Tailwind v4 + `@tailwindcss/vite`, CSS-first config (no `tailwind.config.js` — every existing design token in `src/index.css` aliased via `@theme inline`, not redeclared, so 2b.1's theme-picker work stays a single-source-of-truth edit). Converted all 17 feature CSS files (~3,400 lines) to Tailwind utility classes on the JSX elements, one cluster at a time, verifying tests green after each: app shell, Home, Practice (largest cluster — puzzle card, code snippet, mcq, status bar, pattern picker, mastery view), Daily/share-card family (wider than expected — reused verbatim across Rush/Boss/Missions), Rush, Trace/Scrubber/Checkpoint, Boss, and the remaining Missions/Challenge/Puzzle/Settings/Legal/PWA cluster.
+
+**DoD:**
+
+- [x] Full test suite green, unmodified except where a file's utility conversion is the only diff — **met**: 97 files / 1757 tests, identical count to the pre-migration baseline, all passing. Every test-asserted classname (grep-verified far beyond the plan's originally-flagged 5 — includes `className.toContain()` substring checks and Testing-Library `selector:` options, not just `querySelector`/`toHaveClass`) kept literal alongside the new utility classes.
+- [x] Bundle size delta recorded — **met**: raw JS+CSS assets 1,146,599 → 1,131,618 bytes (−1.3%), gzip 342,478 → 340,886 bytes (−0.5%), CSS chunk count 14 → 4. Measured via a side-by-side worktree build of the pre-migration commit (`d457172`, PR #57's merge) against this phase's final commit.
+- [ ] Before/after screenshot pass on every screen — **not met this session**: this session ran headless (background job, no live browser attached) — both `claude-in-chrome` and the Playwright MCP bridge require a connected browser extension neither could reach. Both a current-branch and a pre-migration dev server were stood up (ports 5173/5174) and confirmed reachable before this became clear. **Outstanding**: run a visual pass over every route (`/`, `/practice`, `/daily`, `/rush`, `/boss`, `/trace`, `/missions`, `/settings`, `/legal`, `/browse`, a `/challenge` link, a `/puzzle/:id` link) at mobile and desktop widths before merging, from a session with a live browser attached.
+
+**What this build item deliberately did NOT convert, and why** (a real, considered scope narrowing, not an oversight):
+
+- `DragOrder.tsx`/`SwipeBinary.tsx`'s `.drag-order__*`/`.swipe-fallback__*` CSS (practice.css): both components' own doc comments describe hard-won, real-device-verified touch/gesture behavior (SwipeBinary's OD-1 through OD-5 device-capture history; DragOrder's two-layer touch-action hit-target model), with explicit warnings that some of it (`.swipe-fallback__card`'s `touch-action: none`) has **no test coverage** and must be "kept in sync by hand." Converting those classnames for a phase whose entire premise is zero-behavior-change wasn't worth the regression risk. Left untouched, verbatim. Revisit only alongside a real device pass, not as a mechanical conversion.
+- A handful of compound-selector cascades relying on CSS specificity (`.mastery-row.mastery-row--weak`, `button.mastery-row`) and every custom `@keyframes` animation (route-skeleton shimmer, combo-badge-pop, boss-strikes-hit, feedback-panel-slide-in) — no Tailwind utility-class equivalent exists without hand-authoring the keyframes in CSS anyway, so these stayed as small, deliberately-trimmed residual CSS files (7 remain, down from 18: `app.css`, `bossPage.css`, `practice.css`, `practicePage.css`, `routeSkeleton.css`, `tokens.css`, `index.css`).
+- Prism's `.token.*` syntax-highlight classnames (`tokens.css`) — generated by Prism itself via `dangerouslySetInnerHTML`, not ours to rename.
+
+**Cross-file coupling found during the build, not anticipated by the sketch below:** `.app-shell__main`/`.app-shell__sidebar` are shared by ~13 unrelated page components (not one); `.daily-hero`/`.share-card*` (dailyPage.css) are reused verbatim by Rush/Boss/Missions' own result and share/challenge cards, none of which import `dailyPage.css` directly — converting that cluster touched 13 files, not the ~5 the file's own line count suggested. Handled by grouping conversions around actual classname usage (grepped app-wide) rather than import statements alone.
+
+### 2b.1 — Design tokens + layout shell (1 session)
+
+**Build:**
+
+1. Formalize `docs/design/codoro-v2-arena.html`'s palette as the canonical theme (direct user decision, 2026-08-12: still the intended direction) — dark surfaces, lime accent `#c6f83c`, danger/warning colors, code-syntax token set, Space Grotesk (UI) + JetBrains Mono (code). Every color as a CSS custom property, zero hardcoded hex outside `src/index.css` — theme-ready for the deferred picker. (2b.0 already wired every token through `@theme inline`, so this is a values-only pass, not a re-plumbing.)
+2. Define a shared viewport-fit layout primitive: `dvh`-based page shell, primary action (Continue/Start/etc.) anchored/sticky rather than requiring scroll to reach. Direct fix for two of Thomas's complaints that are actually one root cause — "scrolling to reach Continue" and "empty space on every page" both trace to no screen having an intentional fit-to-viewport layout.
+3. Apply the shell to at least one screen end-to-end as proof (candidate: Home, since it's getting redesigned in 2b.5 anyway).
+
+**DoD:**
+
+- [ ] Token file is the single source of truth — grep confirms no hardcoded hex/rgb color values remain in component CSS.
+- [ ] Shell primitive in use on ≥1 real screen, no scroll needed to reach the primary action on a standard mobile viewport.
+
+### 2b.2 — Systemic click-meaningfulness + Boss game-feel (1–2 sessions)
+
+**Build:**
+
+1. Fix the answer→Continue gating-tap gap app-wide (Practice/Daily/Rush/Trace/Boss) — `PuzzleCardShell`'s and `TraceRunner`'s Continue button previews the destination before the tap, matching the pattern Missions' own `MissionCheckpoint` already proved out.
+2. **Trace arrow mis-click fix**: reserve space for (or detach the nav control from) the growing checkpoint stack so the arrow doesn't shift position under an in-flight tap. Treat as an interaction-correctness fix, not a cosmetic one — same rigor as the OD-1/OD-5 gesture defects.
+3. **Boss game-feel pass** — code-verified gaps (`BossActivePlay.tsx`, `bossPage.css`): the existing hit-reaction (`boss-strikes-hit`, 250ms/3px shake) only fires on wrong answers and reads as a flinch, not an impact; there is no feedback at all on correct answers; the progress readout is plain text (`Puzzle {position} of {totalPuzzles}`); there is no boss "presence" (name/avatar/portrait) anywhere. Build:
+   - Escalate the wrong-answer hit reaction (bigger motion and/or a color flash, not just translateX).
+   - Add a new correct-answer beat — the player should feel like they're landing hits too, not just taking them.
+   - Replace the plain puzzle counter with a themed progress element (segmented/pip-style, or "hits landed" framing).
+   - **Open design question, settle in the build prompt**: does Boss get an actual character (name + simple icon/portrait that visibly reacts — no commissioned art required) or stay abstract with a punchier feedback loop only? Default to abstract-but-punchier unless Thomas says otherwise when this session opens.
+
+**DoD:**
+
+- [ ] Every mode's Continue action previews what's next before the tap.
+- [ ] Trace's checkpoint arrow never moves under an already-in-flight tap.
+- [ ] Boss shows a distinct, escalated reaction on wrong answers and a new, visible reaction on correct answers.
+- [ ] Existing test suite green; Boss's `role="status"`/`aria-label` strikes announcement preserved (still true post-2b.0 — verified in that phase's own test run).
+
+### 2b.3 — Missions staging + clarity pass (1 session)
+
+**Build:**
+
+1. Persistent stage tracker (🧠 Trace → ⚡ Speed → 🏆 Boss → payoff) visible throughout a mission run, not just at checkpoints — `MissionCheckpoint` today only lists _completed_ stages, and only when resuming mid-arc. Desktop: rail placement to the right (direct user request). **Open design question, settle in the build prompt**: mobile treatment — top stepper bar, bottom pip row, or a collapsible dots indicator. Default to a top stepper bar (cheapest, most conventional) unless Thomas specifies otherwise.
+2. Expand `MissionCheckpoint`'s copy — today it's icon + label + duration only. Add explicit framing of what's about to happen at each stage, not just its name.
+
+**DoD:**
+
+- [ ] Current stage position is visible at all times during a run, not only at transition screens.
+- [ ] A first-time player can state what's about to happen next without guessing, per a quick Thomas walkthrough.
+
+### 2b.4 — Sharing consolidation (1 session)
+
+**Build:** one `ShareMenu` component (Web Share API on mobile → native share sheet; clipboard-copy fallback on desktop) replacing today's oversized challenge-link UI and the share-text block repeated under every mode. Exposes two actions: share puzzle, share challenge. Note from 2b.0: the share-card markup this replaces is duplicated across `daily/ChallengeCard.tsx`/`ShareCard.tsx`, `practice/PracticeChallengeCard.tsx`/`PracticeShareCard.tsx`, and `rush/RushShareCard.tsx`/`RushChallengeCard.tsx` — six near-identical files, confirmed during that phase's own conversion pass.
+
+**DoD:**
+
+- [ ] Verified on ≥1 real mobile browser (real share sheet opens) and desktop (clipboard fallback works).
+- [ ] Old inline share-text markup removed everywhere it was duplicated.
+
+### 2b.5 — Home redesign (1 session)
+
+**Build:** apply 2b.1's shell + tokens to Home. Address "empty space" via information density (recent activity, a mission entry point, stats teaser) rather than purely decorative filler — ties into 2b.7 if the stats page lands first.
+
+### 2b.6 — Drag handle affordance (small; fold into 2b.2 or run standalone)
+
+**Build:** hit target stays at 44px (already at Apple HIG minimum — confirmed functionally sound via the OD-5 investigation, closed "works as designed"). Fix the _visual_ affordance instead: the rendered grip icon should visually read as large as the actual tappable zone, so the size complaint is a perception fix, not a hitbox inflation.
+
+### 2b.7 — Mastery/stats page (not sized — scope decision needed first)
+
+Fully buildable off existing local IndexedDB history, not blocked on the Phase 4 backend. **Blocking question before this gets a session**: permanent nav slot (core-loop surface) or a secondary view nested under Settings? Starter directions once scope is picked: per-pattern accuracy heatmap, rating/streak history graph, a "weakest pattern" callout.
+
+### 2b.8 — QA pass (1 session)
+
+Batched screenshot review across all touched screens + a Lighthouse re-check (Phase 3 already gates on Lighthouse 90+, and a redesign is exactly the kind of change that regresses it). Absorbs 2b.0's own outstanding visual-pass DoD item if that hasn't been closed by then.
+
+**Open design questions to settle in build prompts, not here** (carried from the original sketch):
+
+- Boss: character (name + reactive portrait) vs. abstract-but-punchier feedback only (2b.2).
+- Mission staging rail's mobile treatment: top stepper vs. bottom pips vs. collapsible dots (2b.3).
+- Mastery/stats page: nav-level surface vs. Settings-nested (2b.7) — blocks sizing that phase at all.
 
 ## Phase 3 — Launch-readiness (1–2 sessions + Thomas verification passes)
 
