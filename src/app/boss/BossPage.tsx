@@ -18,6 +18,11 @@ import { BossActivePlay } from './BossActivePlay'
 import { buildBossGhostPaceText } from './ghostPace'
 import './bossPage.css'
 
+// 2b.0: was `.boss-page` in bossPage.css (max-width breakpoint matches
+// Tailwind's `lg` exactly). Not test-asserted (grep-verified).
+const PAGE_SHELL_CLASS =
+  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-4'
+
 export function BossPage() {
   const session = useBossSession()
   const ghostPaceText = session.runSummary
@@ -30,8 +35,10 @@ export function BossPage() {
 
   if (session.status === 'error') {
     return (
-      <div className="boss-page app-shell__main">
-        <p className="boss-page__status">We couldn&apos;t load Boss. Please try again.</p>
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="py-8 px-4 text-center text-text-1">
+          We couldn&apos;t load Boss. Please try again.
+        </p>
         <button
           type="button"
           className="min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer"
@@ -45,22 +52,22 @@ export function BossPage() {
 
   if (session.status === 'loading' || session.profile === null) {
     return (
-      <div className="boss-page app-shell__main">
-        <p className="boss-page__status">Loading Boss…</p>
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="py-8 px-4 text-center text-text-1">Loading Boss…</p>
       </div>
     )
   }
 
   if (session.status === 'empty') {
     return (
-      <div className="boss-page app-shell__main">
-        <p className="boss-page__status">Boss isn&apos;t available right now.</p>
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="py-8 px-4 text-center text-text-1">Boss isn&apos;t available right now.</p>
       </div>
     )
   }
 
   return (
-    <div className="boss-page app-shell__main">
+    <div className={PAGE_SHELL_CLASS}>
       {session.phase === 'playing' && <BossActivePlay session={session} />}
 
       {session.phase === 'ended' && session.runSummary && (
@@ -98,7 +105,7 @@ export function BossPage() {
                 <span className="text-xs text-text-2">Best ever</span>
               </div>
             </div>
-            {ghostPaceText && <p className="boss-ghost-pace">{ghostPaceText}</p>}
+            {ghostPaceText && <p className="m-0 text-sm text-text-1">{ghostPaceText}</p>}
           </div>
 
           <button
