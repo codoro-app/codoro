@@ -38,4 +38,9 @@ describe('ModeSwitcher', () => {
     expect(screen.getByRole('link', { name: 'Daily' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('link', { name: 'Practice' })).not.toHaveAttribute('aria-current')
   })
+
+  it('scrolls horizontally within its own bar instead of overflowing the page when tabs do not fit', () => {
+    render(<ModeSwitcher />)
+    expect(screen.getByRole('navigation', { name: 'Mode' })).toHaveClass('overflow-x-auto')
+  })
 })

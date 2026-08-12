@@ -28,7 +28,22 @@ export function ModeSwitcher() {
   const [location] = useLocation()
 
   return (
-    <nav className="flex gap-1 bg-surface-1 border border-border rounded-sm p-1" aria-label="Mode">
+    // Pre-existing bug, fixed here (not part of 2b.0/2b.1's own scope):
+    // TAB_BASE's `flex-1` tabs default to `min-width: auto` (their
+    // min-content size), so once 6 tabs' combined min-content width exceeds
+    // this bar's own box (narrow viewports), they refuse to shrink further
+    // and overflow — with nothing here or on any ancestor setting
+    // `overflow`, that overflow bled into the page itself. `overflow-x-auto`
+    // contains it as a horizontal scroll region on the bar instead.
+    // Deliberately keeps `flex-1` (not `flex-none`): min-width:auto already
+    // floors each tab at content width once squeezed (that's the bug
+    // itself), so `flex-1` behaves identically to `flex-none` in the
+    // overflow case — but unlike `flex-none`, it still stretches tabs to
+    // fill the bar evenly on every viewport where they already fit today.
+    <nav
+      className="flex gap-1 overflow-x-auto bg-surface-1 border border-border rounded-sm p-1"
+      aria-label="Mode"
+    >
       <Link
         href={ROUTES.practice.path}
         className={tabClass(location === ROUTES.practice.path)}
