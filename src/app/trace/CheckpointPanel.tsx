@@ -44,11 +44,23 @@ export interface CheckpointPanelProps {
   onAnswer: (result: CheckpointResult) => void
 }
 
+// 2b.0: was `.checkpoint-choice__badge` (base) + `.checkpoint-choice--correct
+// .checkpoint-choice__badge`/`--reveal-correct`/`--wrong` descendant
+// overrides (scrubber.css) — same shape as Mcq.tsx's ChoiceBadge equivalent.
+const BADGE_BASE =
+  'flex-none flex items-center justify-center rounded-xs font-mono font-bold text-xs py-0.5 px-2'
+function badgeClass(state: AnswerState): string {
+  if (state === 'correct' || state === 'reveal-correct')
+    return `${BADGE_BASE} bg-accent text-accent-ink`
+  if (state === 'wrong') return `${BADGE_BASE} bg-danger text-accent-ink`
+  return `${BADGE_BASE} bg-surface-2 text-text-1`
+}
+
 /** Leading A/B/C/D badge per choice, swapping to a check/x once committed — adapted from Mcq.tsx's ChoiceBadge (see this file's doc comment for why it's a local copy, not an import). */
 function ChoiceBadge({ state, letter }: { state: AnswerState; letter: string }) {
   if (state === 'correct' || state === 'reveal-correct') {
     return (
-      <span className="checkpoint-choice__badge" aria-hidden="true">
+      <span className={badgeClass(state)} aria-hidden="true">
         <svg
           width="12"
           height="12"
@@ -66,7 +78,7 @@ function ChoiceBadge({ state, letter }: { state: AnswerState; letter: string }) 
   }
   if (state === 'wrong') {
     return (
-      <span className="checkpoint-choice__badge" aria-hidden="true">
+      <span className={badgeClass(state)} aria-hidden="true">
         <svg
           width="12"
           height="12"
@@ -84,7 +96,7 @@ function ChoiceBadge({ state, letter }: { state: AnswerState; letter: string }) 
     )
   }
   return (
-    <span className="checkpoint-choice__badge" aria-hidden="true">
+    <span className={badgeClass(state)} aria-hidden="true">
       {letter}
     </span>
   )
@@ -129,20 +141,20 @@ function StateDiff({
         : '(not yet set)'
     const newValue = step.vars[target] ?? ''
     return (
-      <p className="checkpoint-diff">
-        <span className="checkpoint-diff__label">{checkpoint.target}:</span>{' '}
-        <span className="checkpoint-diff__from">{previousValue}</span>
+      <p className="checkpoint-diff m-0 py-2.5 px-3 bg-surface-1 border border-border rounded-md text-sm font-mono text-text-1">
+        <span className="text-text-1">{checkpoint.target}:</span>{' '}
+        <span className="text-text-2 line-through">{previousValue}</span>
         {' → '}
-        <span className="checkpoint-diff__to">{newValue}</span>
+        <span className="text-text-0 font-semibold">{newValue}</span>
       </p>
     )
   }
 
   if (checkpoint.question === 'output' && step.output !== undefined) {
     return (
-      <p className="checkpoint-diff">
-        <span className="checkpoint-diff__label">Printed:</span>{' '}
-        <span className="checkpoint-diff__to">{step.output}</span>
+      <p className="checkpoint-diff m-0 py-2.5 px-3 bg-surface-1 border border-border rounded-md text-sm font-mono text-text-1">
+        <span className="text-text-1">Printed:</span>{' '}
+        <span className="text-text-0 font-semibold">{step.output}</span>
       </p>
     )
   }
@@ -151,14 +163,33 @@ function StateDiff({
     const nextStep = steps[checkpoint.afterStep + 1]
     if (!nextStep) return null
     return (
-      <p className="checkpoint-diff">
-        <span className="checkpoint-diff__label">Next:</span>{' '}
-        <span className="checkpoint-diff__to">Line {nextStep.line + 1}</span>
+      <p className="checkpoint-diff m-0 py-2.5 px-3 bg-surface-1 border border-border rounded-md text-sm font-mono text-text-1">
+        <span className="text-text-1">Next:</span>{' '}
+        <span className="text-text-0 font-semibold">Line {nextStep.line + 1}</span>
       </p>
     )
   }
 
   return null
+}
+
+// 2b.0: was `.checkpoint-choice` base + `--correct`/`--reveal-correct`/
+// `--wrong` state classes, plus a `:disabled:not(...)` chain in
+// scrubber.css for the "committed but this wasn't the chosen/correct/wrong
+// one" dimmed state — same shape as Mcq.tsx's choiceClass. Bare
+// `checkpoint-choice`/`--correct`/`--wrong` markers stay literal
+// (test-asserted: CheckpointPanel.test.tsx/.pool.test.tsx,
+// TraceRunner.test.tsx's `querySelectorAll('.checkpoint-choice')`).
+const CHOICE_BASE =
+  'checkpoint-choice flex items-start gap-3 min-h-11 w-full py-3 px-4 rounded-md border text-md font-mono text-left cursor-pointer disabled:cursor-default'
+function choiceClass(committed: boolean, state: AnswerState): string {
+  if (state === 'correct' || state === 'reveal-correct') {
+    return `${CHOICE_BASE} checkpoint-choice--${state} border-[1.5px] border-accent bg-ok-dim text-text-0`
+  }
+  if (state === 'wrong') {
+    return `${CHOICE_BASE} checkpoint-choice--wrong border-[1.5px] border-danger bg-danger-dim text-text-0`
+  }
+  return `${CHOICE_BASE} border-border bg-surface-1 text-text-0${committed ? ' opacity-55' : ''}`
 }
 
 export function CheckpointPanel({ checkpoint, steps, result, onAnswer }: CheckpointPanelProps) {
@@ -197,21 +228,16 @@ export function CheckpointPanel({ checkpoint, steps, result, onAnswer }: Checkpo
   }
 
   return (
-    <div className="checkpoint-panel" role="group" aria-label="Checkpoint">
-      <p className="checkpoint-panel__question">{questionLabel(checkpoint.question)}</p>
-      <div className="checkpoint-choices">
+    <div className="checkpoint-panel flex flex-col gap-3" role="group" aria-label="Checkpoint">
+      <p className="m-0 text-text-1 text-sm">{questionLabel(checkpoint.question)}</p>
+      <div className="flex flex-col gap-2">
         {displayOrder.map((originalIndex, position) => {
           const choiceText = checkpoint.choices[originalIndex]
           if (choiceText === undefined) {
             throw new Error(`CheckpointPanel: shuffled index ${String(originalIndex)} out of range`)
           }
           const state = stateFor(originalIndex)
-          const className = [
-            'checkpoint-choice',
-            state !== 'default' && `checkpoint-choice--${state}`,
-          ]
-            .filter(Boolean)
-            .join(' ')
+          const className = choiceClass(committed, state)
           return (
             <button
               key={originalIndex}

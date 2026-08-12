@@ -60,6 +60,24 @@ function assertNever(value: never): never {
   throw new Error(`PuzzleCardShell: unhandled interaction variant ${JSON.stringify(value)}`)
 }
 
+// 2b.0: was `.feedback-panel--correct`/`--wrong` + their descendant
+// icon/verdict/delta color overrides (tokens.css) — reused verbatim in
+// TraceRunner.tsx's identical feedback panel. `feedback-panel` itself stays
+// literal (tokens.css keeps its entrance-animation keyframes keyed to it);
+// `feedback-panel__delta` stays literal too — PuzzlePage.test.tsx asserts
+// on it directly.
+const FEEDBACK_BASE = 'feedback-panel flex flex-col gap-3 p-4 rounded-xl border-[1.5px]'
+function feedbackPanelClass(correct: boolean): string {
+  return correct
+    ? `${FEEDBACK_BASE} border-accent [background:linear-gradient(160deg,var(--ok-dim),var(--surface-1))]`
+    : `${FEEDBACK_BASE} border-danger [background:linear-gradient(160deg,var(--danger-dim),var(--surface-1))]`
+}
+function feedbackAccentClass(correct: boolean): string {
+  return correct ? 'text-accent' : 'text-danger'
+}
+const FEEDBACK_CONTINUE_CLASS =
+  'min-h-11 w-full py-3.5 px-4 border-0 rounded-md bg-accent text-accent-ink text-base font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+
 /**
  * Tracks committed state as `{ puzzleId, payload }` rather than plain
  * `payload` state, and compares `commit.puzzleId === puzzle.id` to decide
@@ -201,12 +219,12 @@ export function PuzzleCardShell({
       <div className="flex flex-col">{interactionBody}</div>
 
       {committed && committedPayload && (
-        <div
-          className={`feedback-panel feedback-panel--${committedPayload.correct ? 'correct' : 'wrong'}`}
-          role="status"
-        >
-          <div className="feedback-panel__header">
-            <span className="feedback-panel__icon" aria-hidden="true">
+        <div className={feedbackPanelClass(committedPayload.correct)} role="status">
+          <div className="flex items-center gap-2">
+            <span
+              className={`flex items-center ${feedbackAccentClass(committedPayload.correct)}`}
+              aria-hidden="true"
+            >
               {committedPayload.correct ? (
                 <svg
                   width="20"
@@ -236,17 +254,21 @@ export function PuzzleCardShell({
                 </svg>
               )}
             </span>
-            <span className="feedback-panel__verdict">
+            <span
+              className={`flex-1 font-bold text-base ${feedbackAccentClass(committedPayload.correct)}`}
+            >
               {committedPayload.correct ? 'Nice — correct' : 'Not quite'}
             </span>
             {ratingDelta !== null && (
-              <span className="feedback-panel__delta">
+              <span
+                className={`feedback-panel__delta font-mono font-bold tabular-nums ${feedbackAccentClass(committedPayload.correct)}`}
+              >
                 {ratingDelta > 0 ? `+${String(ratingDelta)}` : String(ratingDelta)}
               </span>
             )}
           </div>
-          <p className="feedback-panel__explanation">{puzzle.explanation}</p>
-          <button type="button" className="feedback-panel__continue" onClick={onContinue}>
+          <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">{puzzle.explanation}</p>
+          <button type="button" className={FEEDBACK_CONTINUE_CLASS} onClick={onContinue}>
             Continue
           </button>
         </div>

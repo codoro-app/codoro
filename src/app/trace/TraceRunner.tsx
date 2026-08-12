@@ -83,7 +83,23 @@ import type { CheckpointResult } from '../../engine'
 import type { ScrubberPuzzle } from '../../content'
 import { StreakPause } from '../StreakPause'
 import '../tokens.css'
-import './scrubber.css'
+
+// 2b.0: was `.feedback-panel--correct`/`--wrong` + descendant color
+// overrides (tokens.css) — same helpers as PuzzleCardShell.tsx (duplicated,
+// not extracted — no shared module for this exists, matching this file's
+// own established convention of duplicating rather than cross-importing
+// route-chunk-specific styling).
+const FEEDBACK_BASE = 'feedback-panel flex flex-col gap-3 p-4 rounded-xl border-[1.5px]'
+function feedbackPanelClass(correct: boolean): string {
+  return correct
+    ? `${FEEDBACK_BASE} border-accent [background:linear-gradient(160deg,var(--ok-dim),var(--surface-1))]`
+    : `${FEEDBACK_BASE} border-danger [background:linear-gradient(160deg,var(--danger-dim),var(--surface-1))]`
+}
+function feedbackAccentClass(correct: boolean): string {
+  return correct ? 'text-accent' : 'text-danger'
+}
+const FEEDBACK_CONTINUE_CLASS =
+  'min-h-11 w-full py-3.5 px-4 border-0 rounded-md bg-accent text-accent-ink text-base font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
 /**
  * Untuned — no production telemetry has ever fired (docs/v2-backlog.md), so
@@ -306,8 +322,8 @@ export function TraceRunnerPuzzle({
   }
 
   return (
-    <div className="trace-runner">
-      <p className="trace-runner__prompt">{puzzle.prompt}</p>
+    <div className="trace-runner flex flex-col gap-4">
+      <p className="m-0 text-text-0 text-md font-semibold">{puzzle.prompt}</p>
 
       <Scrubber
         snippet={puzzle.snippet}
@@ -327,7 +343,7 @@ export function TraceRunnerPuzzle({
             // TRACE_TIMER_TICK_MS would spam a screen reader with constant
             // announcements — a purely visual supplement, not the kind of
             // status change that needs narrating.
-            <p className="checkpoint-timer" aria-hidden="true">
+            <p className="m-0 self-end font-mono text-sm text-text-1" aria-hidden="true">
               {Math.ceil(remainingMs / 1000)}s
             </p>
           )}
@@ -342,12 +358,12 @@ export function TraceRunnerPuzzle({
       )}
 
       {isComplete && (
-        <div
-          className={`feedback-panel feedback-panel--${solved ? 'correct' : 'wrong'}`}
-          role="status"
-        >
-          <div className="feedback-panel__header">
-            <span className="feedback-panel__icon" aria-hidden="true">
+        <div className={feedbackPanelClass(solved ?? false)} role="status">
+          <div className="flex items-center gap-2">
+            <span
+              className={`flex items-center ${feedbackAccentClass(solved ?? false)}`}
+              aria-hidden="true"
+            >
               {solved ? (
                 <svg
                   width="20"
@@ -377,17 +393,19 @@ export function TraceRunnerPuzzle({
                 </svg>
               )}
             </span>
-            <span className="feedback-panel__verdict">
+            <span className={`flex-1 font-bold text-base ${feedbackAccentClass(solved ?? false)}`}>
               {solved ? 'Nice — fully traced' : 'Not quite'}
             </span>
             {ratingDelta !== null && (
-              <span className="feedback-panel__delta">
+              <span
+                className={`feedback-panel__delta font-mono font-bold tabular-nums ${feedbackAccentClass(solved ?? false)}`}
+              >
                 {ratingDelta > 0 ? `+${String(ratingDelta)}` : String(ratingDelta)}
               </span>
             )}
           </div>
-          <p className="feedback-panel__explanation">{puzzle.explanation}</p>
-          <button type="button" className="feedback-panel__continue" onClick={onContinue}>
+          <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">{puzzle.explanation}</p>
+          <button type="button" className={FEEDBACK_CONTINUE_CLASS} onClick={onContinue}>
             Continue
           </button>
         </div>
@@ -410,9 +428,13 @@ export function TraceRunner({ timed = true }: TraceRunnerProps = {}) {
 
   if (session.status === 'error') {
     return (
-      <div className="trace-runner__status">
+      <div className="text-center text-text-1 py-8">
         <p>We couldn&apos;t load your trace session. Please try again.</p>
-        <button type="button" className="trace-runner__link" onClick={session.retryLoad}>
+        <button
+          type="button"
+          className="min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer"
+          onClick={session.retryLoad}
+        >
           Try again
         </button>
       </div>
@@ -421,7 +443,7 @@ export function TraceRunner({ timed = true }: TraceRunnerProps = {}) {
 
   if (session.status === 'loading' || session.profile === null) {
     return (
-      <div className="trace-runner__status">
+      <div className="text-center text-text-1 py-8">
         <p>Loading your trace session…</p>
       </div>
     )
@@ -429,7 +451,7 @@ export function TraceRunner({ timed = true }: TraceRunnerProps = {}) {
 
   if (session.status === 'empty' || session.puzzle === null) {
     return (
-      <div className="trace-runner__status">
+      <div className="text-center text-text-1 py-8">
         <p>No trace puzzles available yet.</p>
       </div>
     )
