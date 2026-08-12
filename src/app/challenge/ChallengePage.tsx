@@ -37,7 +37,13 @@ import { ChallengeComparison } from './ChallengeComparison'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { TraceRunnerPuzzle } from '../trace/TraceRunner'
 import '../tokens.css'
-import './challengePage.css'
+
+// 2b.0: was `.challenge-page` (challengePage.css, max-width breakpoint
+// matches Tailwind's `lg` exactly). Not test-asserted (grep-verified).
+const PAGE_SHELL_CLASS =
+  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-4'
+const CTA_CLASS =
+  'inline-flex self-start items-center min-h-11 py-2 px-3 rounded-sm border border-border bg-surface-1 text-accent font-semibold no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
 /** Pure, props-driven inner component — exported so tests can drive it directly against a raw fragment without a Router wrapper. */
 export interface ChallengePageForHashProps {
@@ -50,12 +56,12 @@ export function ChallengePageForHash({ hash }: ChallengePageForHashProps) {
 
   if (session.status === 'broken') {
     return (
-      <div className="challenge-page app-shell__main">
-        <p className="challenge-page__status">
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">
           This challenge link is broken — it may have been copied incorrectly, or one of its puzzles
           was removed.
         </p>
-        <Link href="/practice" className="challenge-page__cta">
+        <Link href="/practice" className={CTA_CLASS}>
           Go to Practice
         </Link>
       </div>
@@ -64,7 +70,7 @@ export function ChallengePageForHash({ hash }: ChallengePageForHashProps) {
 
   if (session.status === 'done' && session.payload) {
     return (
-      <div className="challenge-page app-shell__main">
+      <div className={PAGE_SHELL_CLASS}>
         <ChallengeComparison theirs={session.payload} yours={session.results} />
       </div>
     )
@@ -74,7 +80,7 @@ export function ChallengePageForHash({ hash }: ChallengePageForHashProps) {
   if (!puzzle) return null
 
   return (
-    <div className="challenge-page app-shell__main">
+    <div className={PAGE_SHELL_CLASS}>
       {puzzle.interaction === 'scrubber' ? (
         // Keyed by puzzleIndex (position), not puzzle.id: a challenge
         // payload can legally repeat the same id back-to-back (see

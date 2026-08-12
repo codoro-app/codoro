@@ -64,22 +64,25 @@ export function ChallengeComparison({ theirs, yours }: ChallengeComparisonProps)
     })
   }
 
+  const ctaClass =
+    'inline-flex items-center min-h-11 py-2 px-3 rounded-sm border border-border bg-surface-1 text-accent font-semibold no-underline text-[0.9375rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+
   return (
-    <div className="challenge-comparison">
-      <p className="challenge-comparison__verdict">{verdictCopy(outcome)}</p>
-      <p className="challenge-comparison__line">
+    <div className="flex flex-col gap-3 text-center py-4">
+      <p className="text-text-1 font-bold text-[1.125rem] m-0">{verdictCopy(outcome)}</p>
+      <p className="text-text-2 m-0">
         You got {yoursCorrect}/{yours.length} in {formatSeconds(yoursTotalMs)} — they got{' '}
         {theirsCorrect}/{theirs.ids.length} in {formatSeconds(theirs.totalMs)}
       </p>
-      <div className="challenge-comparison__actions">
+      <div className="flex flex-wrap gap-3 justify-center mt-2">
         <button
           type="button"
-          className="challenge-comparison__button"
+          className={`${ctaClass} active:scale-[0.98]`}
           onClick={handleCounterChallenge}
         >
           {copied ? 'Link copied!' : 'Copy counter-challenge link'}
         </button>
-        <Link href="/practice" className="challenge-comparison__link">
+        <Link href="/practice" className={ctaClass}>
           Practice more like this
         </Link>
       </div>

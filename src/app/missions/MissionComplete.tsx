@@ -58,15 +58,18 @@ export function MissionComplete({ missionSession }: MissionCompleteProps) {
         </div>
       </div>
 
-      <ul className="mission-complete__recap">
+      <ul className="flex flex-col gap-3 list-none m-0 p-0">
         {completedStages.map((summary) => {
           const meta = MISSION_STAGE_META[summary.stats.stageId]
           const Icon = meta.Icon
           return (
-            <li key={summary.stats.stageId} className="mission-complete__recap-item">
+            <li
+              key={summary.stats.stageId}
+              className="flex items-center gap-3 p-3 rounded-md border border-border bg-surface-1 text-text-0"
+            >
               <Icon size={20} />
-              <span className="mission-complete__recap-label">{meta.label}</span>
-              <span className="mission-complete__recap-detail">{recapDetail(summary.stats)}</span>
+              <span className="font-semibold flex-1">{meta.label}</span>
+              <span className="text-text-1 text-sm">{recapDetail(summary.stats)}</span>
             </li>
           )
         })}
