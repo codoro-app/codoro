@@ -33,13 +33,27 @@
  * pattern: a "Best depth {n}" chip appears only once `profile.bossStats` is
  * non-null. `.home__cards-secondary`'s grid (home.css) was re-tuned for 4
  * tracks, not 3, at the same time — see that file's own comment.
+ *
+ * Missions' card (v3 Phase 2) follows the same badge pattern once more: a
+ * "{n} completed" chip appears only once `profile.missionStats` is
+ * non-null (decision 4's "no invented rating number" constraint applies to
+ * this chip too — completions is a plain count, not a rating/Elo delta).
+ * `.home__cards-secondary`'s grid was re-tuned again, for a 5th track.
  */
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'wouter'
 import { loadProfile } from '../storage'
 import type { UserProfile } from '../storage'
 import { getDailyNumber } from '../engine'
-import { BossIcon, DailyIcon, PracticeIcon, RushIcon, StreakIcon, TraceIcon } from './Icons'
+import {
+  BossIcon,
+  DailyIcon,
+  MissionIcon,
+  PracticeIcon,
+  RushIcon,
+  StreakIcon,
+  TraceIcon,
+} from './Icons'
 import { ROUTES } from './routes'
 import './home.css'
 
@@ -150,6 +164,19 @@ export function Home() {
             {profile.bossStats && (
               <span className="pattern-picker__badge pattern-picker__badge--mastered">
                 Best depth {profile.bossStats.bestDepth}
+              </span>
+            )}
+          </Link>
+
+          <Link href={ROUTES.missions.path} className="home__card">
+            <span className="home__card-icon">
+              <MissionIcon size={20} />
+            </span>
+            <span className="home__card-title">Missions</span>
+            <span className="home__card-desc">Three modes, one directed run</span>
+            {profile.missionStats && (
+              <span className="pattern-picker__badge pattern-picker__badge--mastered">
+                {profile.missionStats.completions} completed
               </span>
             )}
           </Link>

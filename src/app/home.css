@@ -108,26 +108,26 @@
   .home__cards-secondary {
     display: grid;
     /* auto-fit/minmax rather than a fixed 1fr 1fr: Daily+Rush filled two
-       even columns, and Trace/Boss (a third and fourth card, same tier)
-       need to join that row evenly rather than wrapping alone into a
-       half-empty row.
-       The minmax floor has to actually fit 4 tracks in the narrowest band
+       even columns, and Trace/Boss/Missions (a third, fourth, and fifth
+       card, same tier) need to join that row evenly rather than wrapping
+       alone into a half-empty row.
+       The minmax floor has to actually fit 5 tracks in the narrowest band
        this rule applies to (640-1023px, where `.home`'s max-width is still
        --content-width-mobile, not --content-width-desktop): container is
        480px (--content-width-mobile) minus 2x16px (--space-4 left/right
-       padding) = 448px available, minus 3x12px (--space-3) column gaps =
-       412px for the 4 tracks themselves, i.e. ~103px/track. Re-tuned from
-       the original 3-track floor (130px, added when Trace joined Daily+
-       Rush) when Boss became this row's 4th card: 130px no longer fits
-       4 tracks (needs 130*4 + 12*3 = 556px > 448px, so auto-fit would
-       silently collapse to 3 tracks there and Boss would wrap alone —
-       exactly the bug this comment already describes fixing once for
-       Trace). 95px does (95*4 + 12*3 = 416px <= 448px, ~32px of slack for
-       rounding), proportionate to the original floor's own slack margin.
+       padding) = 448px available, minus 4x12px (--space-3) column gaps =
+       400px for the 5 tracks themselves, i.e. 80px/track. Re-tuned from
+       the prior 4-track floor (95px, added when Boss joined Daily+Rush+
+       Trace) when Missions became this row's 5th card: 95px no longer fits
+       5 tracks (needs 95*5 + 12*4 = 523px > 448px, so auto-fit would
+       silently collapse to 4 tracks there and Missions would wrap alone —
+       exactly the bug this comment already describes fixing twice before).
+       75px does (75*5 + 12*4 = 423px <= 448px, ~25px of slack for
+       rounding), proportionate to the prior floors' own slack margin.
        At >=1024px (--content-width-desktop, 640px max-width, 608px
-       available) 4 tracks still fit and grow evenly via `1fr` regardless
+       available) 5 tracks still fit and grow evenly via `1fr` regardless
        of this floor, same as before. */
-    grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(75px, 1fr));
   }
 }
 

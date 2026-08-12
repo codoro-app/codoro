@@ -1,0 +1,186 @@
+/*
+ * Missions-page-level chrome: page layout, the checkpoint screen, and the
+ * payoff screen's arc-recap list. Same mobile-first, page-max-width
+ * convention as rushPage.css/bossPage.css. The end-of-run hero card and
+ * "Run it back" button reuse .daily-hero/.share-card__button verbatim
+ * (dailyPage.css, already global) — see MissionComplete.tsx's own doc
+ * comment. TraceStage/SpeedStage/BossStage bring their own modes' chrome
+ * with them (scrubber.css, rushPage.css, bossPage.css) via their own
+ * component imports, not duplicated here.
+ */
+
+.missions-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--content-width-mobile);
+  margin: 0 auto;
+  padding: calc(var(--space-4) + env(safe-area-inset-top)) var(--space-4) var(--space-4);
+  box-sizing: border-box;
+}
+
+@media (min-width: 1024px) {
+  .missions-page {
+    max-width: var(--content-width-desktop);
+  }
+}
+
+.missions-page__status {
+  text-align: center;
+  color: var(--text-1);
+  padding: 2rem 0;
+}
+
+/* --- checkpoint screen -------------------------------------------------- */
+
+.mission-checkpoint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  text-align: center;
+  padding: var(--space-6) 0;
+}
+
+.mission-checkpoint__completed {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mission-checkpoint__completed-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: var(--space-1-5) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  font-size: var(--font-size-sm);
+}
+
+.mission-checkpoint__next {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mission-checkpoint__next-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.mission-checkpoint__next-label {
+  font-size: var(--font-size-2xl);
+  font-weight: 600;
+  color: var(--text-0);
+  margin: 0;
+}
+
+.mission-checkpoint__next-duration {
+  color: var(--text-1);
+  margin: 0;
+}
+
+.mission-checkpoint__start {
+  min-height: 44px;
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mission-checkpoint__exit-link {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: none;
+  color: var(--text-2);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.mission-checkpoint__exit-confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-1);
+}
+
+.mission-checkpoint__exit-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.mission-checkpoint__exit-cancel,
+.mission-checkpoint__exit-confirm-button {
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.mission-checkpoint__exit-cancel {
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-0);
+}
+
+.mission-checkpoint__exit-confirm-button {
+  border: 1px solid var(--danger);
+  background: var(--danger-dim);
+  color: var(--danger);
+}
+
+/* --- payoff screen arc recap -------------------------------------------- */
+
+.mission-complete__recap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mission-complete__recap-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-0);
+}
+
+.mission-complete__recap-label {
+  font-weight: 600;
+  flex: 1;
+}
+
+.mission-complete__recap-detail {
+  color: var(--text-1);
+  font-size: var(--font-size-sm);
+}

@@ -21,6 +21,8 @@ function baseProfile(): UserProfile {
     rushStats: null,
     bestRunStreak: 0,
     bossStats: null,
+    missionProgress: null,
+    missionStats: null,
     anonId: 'test-anon-id',
   }
 }

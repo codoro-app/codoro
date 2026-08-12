@@ -13,7 +13,7 @@ import { DYNAMIC_ROUTES, labelForPath, ROUTE_META } from './routes'
 // finding: this constant alone caught nothing, since every test here only
 // ever asserted against itself).
 const SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN =
-  /^\/(?!(?:practice|daily|rush|boss|browse|legal|trace|challenge|settings|puzzle\/[^/?]+)?(?:\?|$))/
+  /^\/(?!(?:practice|daily|rush|boss|browse|legal|trace|missions|challenge|settings|puzzle\/[^/?]+)?(?:\?|$))/
 
 describe('labelForPath', () => {
   it('labels the known routes', () => {

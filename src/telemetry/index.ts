@@ -22,9 +22,17 @@ export {
   trackChallengeCreate,
   trackChallengeLinkView,
   trackChallengeLinkComplete,
+  trackMissionStart,
+  trackMissionStageComplete,
+  trackMissionAbandoned,
+  trackMissionFinished,
   trackError,
 } from './events'
 export type {
+  MissionStartPayload,
+  MissionStageCompletePayload,
+  MissionAbandonedPayload,
+  MissionFinishedPayload,
   AttemptEventPayload,
   RushAttemptContext,
   RushRunEndPayload,

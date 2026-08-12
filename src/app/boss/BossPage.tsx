@@ -12,10 +12,9 @@
  * challenge cards this phase (not in Phase 1's build item list — a
  * deliberate scope decision, see the same plan).
  */
-import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { BossIcon } from '../Icons'
-import { BOSS_STRIKE_LIMIT } from '../../engine'
 import { useBossSession } from './useBossSession'
+import { BossActivePlay } from './BossActivePlay'
 import { buildBossGhostPaceText } from './ghostPace'
 import './bossPage.css'
 
@@ -28,11 +27,6 @@ export function BossPage() {
         previousBestSplits: session.runSummary.previousBestSplits,
       })
     : null
-  // Health-bar fill: 100% at 0 strikes, draining to 0% once
-  // BOSS_STRIKE_LIMIT lands (100% -> ~66% -> ~33% -> 0% at the default
-  // limit of 3) — reads session.strikes/BOSS_STRIKE_LIMIT only, the same
-  // data the old dot-slot indicator used, no new state.
-  const healthPercent = ((BOSS_STRIKE_LIMIT - session.strikes) / BOSS_STRIKE_LIMIT) * 100
 
   if (session.status === 'error') {
     return (
@@ -63,29 +57,7 @@ export function BossPage() {
 
   return (
     <div className="boss-page app-shell__main">
-      {session.phase === 'playing' && (
-        <div className="boss-header">
-          <div
-            className="boss-strikes"
-            role="status"
-            aria-label={`${String(session.strikes)} of ${String(BOSS_STRIKE_LIMIT)} strikes`}
-          >
-            {/* key={session.strikes}: forces a remount on every strike so
-                the CSS hit-reaction animation (bossPage.css) restarts each
-                time, without any new component state — see that file's
-                own doc comment. */}
-            <div
-              key={session.strikes}
-              className={`boss-strikes__fill${session.strikes > 0 ? ' boss-strikes__fill--hit' : ''}`}
-              style={{ width: `${String(healthPercent)}%` }}
-              aria-hidden="true"
-            />
-          </div>
-          <span className="boss-progress">
-            Puzzle {session.position} of {session.totalPuzzles}
-          </span>
-        </div>
-      )}
+      {session.phase === 'playing' && <BossActivePlay session={session} />}
 
       {session.phase === 'ended' && session.runSummary && (
         <>
@@ -120,16 +92,6 @@ export function BossPage() {
             Run it back
           </button>
         </>
-      )}
-
-      {session.phase === 'playing' && session.puzzle && (
-        <PuzzleCardShell
-          key={session.puzzle.id}
-          puzzle={session.puzzle}
-          ratingDelta={null}
-          onAnswered={session.handleAnswered}
-          onContinue={session.handleContinue}
-        />
       )}
     </div>
   )

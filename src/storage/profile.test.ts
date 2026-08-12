@@ -61,6 +61,8 @@ describe('loadProfile', () => {
       rushStats: null,
       bestRunStreak: 0,
       bossStats: null,
+      missionProgress: null,
+      missionStats: null,
       anonId: 'test-anon-id',
     }
     await saveProfile(profile)
@@ -171,6 +173,8 @@ describe('schema migration on load', () => {
       rushStats: null,
       bestRunStreak: 0,
       bossStats: null,
+      missionProgress: null,
+      missionStats: null,
     })
 
     // loadProfile now writes the migrated shape back to disk immediately

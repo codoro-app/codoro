@@ -21,7 +21,7 @@ import { generateAnonId } from './anonId'
  * migrated through migrations.ts — see AttemptSchema's own doc comment for
  * why `checkpoint_results` (the v4 addition) doesn't go through this chain.
  */
-export const CURRENT_SCHEMA_VERSION = 8
+export const CURRENT_SCHEMA_VERSION = 9
 
 /** Mirrors engine's StreakState shape. */
 export const StreakStateSchema = z.object({
@@ -110,6 +110,109 @@ export interface BossStats {
   bestRunSplits: number[] | null
 }
 
+/**
+ * v3 Phase 2: the mission chain's three stages, in play order. Exported as a
+ * const tuple (not just the union) so useMissionSession's orchestrator can
+ * iterate/index it directly rather than hand-maintaining a parallel array —
+ * see docs/design/click-meaningfulness.md §3 for the chain itself.
+ */
+export const MISSION_STAGE_ORDER = ['trace', 'speed', 'boss'] as const
+export type MissionStageId = (typeof MISSION_STAGE_ORDER)[number]
+
+/**
+ * One stage's own result, shaped per-stage (discriminated on `stageId`)
+ * because each mode tracks a different "how did it go" — Trace has no
+ * native end condition so its shape is just a tally, while Speed/Boss
+ * mirror the fields their own standalone summaries already report
+ * (RushRunSummary.solvedCount/bestStreakThisRun, BossRunSummary's
+ * depthReached/cleared) rather than inventing a new vocabulary.
+ */
+export const MissionStageStatsSchema = z.discriminatedUnion('stageId', [
+  z.object({
+    stageId: z.literal('trace'),
+    puzzlesCompleted: z.number().int().nonnegative(),
+    solvedCount: z.number().int().nonnegative(),
+  }),
+  z.object({
+    stageId: z.literal('speed'),
+    solvedCount: z.number().int().nonnegative(),
+    bestStreakThisRun: z.number().int().nonnegative(),
+  }),
+  z.object({
+    stageId: z.literal('boss'),
+    depthReached: z.number().int().nonnegative(),
+    cleared: z.boolean(),
+  }),
+])
+
+export type MissionStageStats =
+  | { stageId: 'trace'; puzzlesCompleted: number; solvedCount: number }
+  | { stageId: 'speed'; solvedCount: number; bestStreakThisRun: number }
+  | { stageId: 'boss'; depthReached: number; cleared: boolean }
+
+/**
+ * `endedReason` records which of Missions' two stage-end conditions
+ * actually fired (see the design doc's §3) — `'native'` only when the
+ * mode's own real end condition (Rush's 3 strikes, Boss's 3
+ * strikes/depth-10) beat the shared 60s clock; `'timer'` otherwise
+ * (always `'timer'` for the Trace stage, which has no native end at all).
+ */
+export const MissionStageSummarySchema = z.object({
+  stats: MissionStageStatsSchema,
+  endedReason: z.enum(['timer', 'native']),
+  completedAt: z.string().min(1),
+})
+
+export interface MissionStageSummary {
+  stats: MissionStageStats
+  endedReason: 'timer' | 'native'
+  completedAt: string
+}
+
+/**
+ * A mission run's live progress — written to storage ONLY at stage
+ * boundaries, never mid-stage (see the design doc's §3 resume/abandon
+ * mechanism: this write-timing discipline, not a separate detector, is
+ * what makes a bare tab close silently resumable while an explicit "Exit
+ * mission" tap is the only path that clears this early). `null` when no
+ * mission is in progress. `completedStages` holds 0-2 entries during an
+ * active run — a 3rd would mean the run finished, at which point this
+ * resets to `null` and `missionStats` records the completion instead.
+ */
+export const MissionProgressSchema = z.object({
+  runId: z.string().min(1),
+  currentStage: z.enum(['trace', 'speed', 'boss']),
+  completedStages: z.array(MissionStageSummarySchema),
+  startedAt: z.string().min(1),
+})
+
+export interface MissionProgress {
+  runId: string
+  currentStage: MissionStageId
+  completedStages: MissionStageSummary[]
+  startedAt: string
+}
+
+/**
+ * Cross-run mission stats — mirrors RushStats'/BossStats' null-until-first-
+ * completion convention. Deliberately minimal: no composite "best arc"
+ * scalar — a single number combining three stages' different units would
+ * itself be exactly the kind of invented-number mechanic the design doc's
+ * payoff decision (§3) bans. Richer cross-run stats are a stated fast-follow
+ * candidate, not silently dropped — see the implementation plan.
+ */
+export const MissionStatsSchema = z.object({
+  completions: z.number().int().nonnegative(),
+  lastRunAt: z.string().nullable(),
+  lastCompletedAt: z.string().nullable(),
+})
+
+export interface MissionStats {
+  completions: number
+  lastRunAt: string | null
+  lastCompletedAt: string | null
+}
+
 export const UserProfileSchema = z.object({
   // z.literal, not z.number(): reaching full validation implies migration has
   // already brought the record onto the current version.
@@ -124,6 +227,10 @@ export const UserProfileSchema = z.object({
   bestRunStreak: z.number().int().nonnegative(),
   /** Non-null once at least one Boss run has completed — see BossStatsSchema's doc comment. */
   bossStats: BossStatsSchema.nullable(),
+  /** Non-null only while a mission run is actively in progress — see MissionProgressSchema's doc comment. */
+  missionProgress: MissionProgressSchema.nullable(),
+  /** Non-null once at least one mission has ever completed — see MissionStatsSchema's doc comment. */
+  missionStats: MissionStatsSchema.nullable(),
   // Phase 7 Item 6: app-generated, contains no personal information — see
   // migrations.ts's migrateV5ToV6 doc comment for the full context. Exists
   // to let telemetry count returning visits (retention) without knowing
@@ -150,6 +257,10 @@ export interface UserProfile {
   bestRunStreak: number
   /** Non-null once at least one Boss run has completed — see BossStats's doc comment. */
   bossStats: BossStats | null
+  /** Non-null only while a mission run is actively in progress — see MissionProgress's doc comment. */
+  missionProgress: MissionProgress | null
+  /** Non-null once at least one mission has ever completed — see MissionStats's doc comment. */
+  missionStats: MissionStats | null
   /** Stable anonymous ID (Phase 7 Item 6) — see UserProfileSchema's own doc comment on this field. */
   anonId: string
 }
@@ -244,6 +355,8 @@ export function createDefaultProfile(): UserProfile {
     rushStats: null,
     bestRunStreak: 0,
     bossStats: null,
+    missionProgress: null,
+    missionStats: null,
     anonId: generateAnonId(),
   }
 }

@@ -17,6 +17,8 @@ const validProfile = {
   rushStats: null,
   bestRunStreak: 0,
   bossStats: null,
+  missionProgress: null,
+  missionStats: null,
   anonId: 'test-anon-id-1',
 }
 
@@ -106,6 +108,92 @@ describe('UserProfileSchema', () => {
       UserProfileSchema.parse({
         ...validProfile,
         rushStats: { bestScore: -1, bestStreak: 0, runs: 1, lastRunAt: null },
+      }),
+    ).toThrow()
+  })
+
+  it('accepts a non-null missionProgress with a mix of stage-shaped completedStages', () => {
+    const parsed = UserProfileSchema.parse({
+      ...validProfile,
+      missionProgress: {
+        runId: 'mission-run-1',
+        currentStage: 'boss',
+        completedStages: [
+          {
+            stats: { stageId: 'trace', puzzlesCompleted: 3, solvedCount: 2 },
+            endedReason: 'timer',
+            completedAt: '2026-08-11T18:00:00.000Z',
+          },
+          {
+            stats: { stageId: 'speed', solvedCount: 4, bestStreakThisRun: 3 },
+            endedReason: 'native',
+            completedAt: '2026-08-11T18:01:00.000Z',
+          },
+        ],
+        startedAt: '2026-08-11T17:58:00.000Z',
+      },
+    })
+    expect(parsed.missionProgress?.currentStage).toBe('boss')
+    expect(parsed.missionProgress?.completedStages).toHaveLength(2)
+  })
+
+  it('rejects a missionProgress with an unknown currentStage', () => {
+    expect(() =>
+      UserProfileSchema.parse({
+        ...validProfile,
+        missionProgress: {
+          runId: 'mission-run-1',
+          currentStage: 'bonus',
+          completedStages: [],
+          startedAt: '2026-08-11T17:58:00.000Z',
+        },
+      }),
+    ).toThrow()
+  })
+
+  it('rejects a mission stage stats object mixing fields from two different stages', () => {
+    expect(() =>
+      UserProfileSchema.parse({
+        ...validProfile,
+        missionProgress: {
+          runId: 'mission-run-1',
+          currentStage: 'trace',
+          completedStages: [
+            {
+              // 'boss' stageId but Trace's fields — the discriminated union
+              // must reject this, not silently accept the wrong shape.
+              stats: { stageId: 'boss', puzzlesCompleted: 3, solvedCount: 2 },
+              endedReason: 'timer',
+              completedAt: '2026-08-11T18:00:00.000Z',
+            },
+          ],
+          startedAt: '2026-08-11T17:58:00.000Z',
+        },
+      }),
+    ).toThrow()
+  })
+
+  it('accepts a non-null missionStats', () => {
+    const parsed = UserProfileSchema.parse({
+      ...validProfile,
+      missionStats: {
+        completions: 3,
+        lastRunAt: '2026-08-11T18:01:00.000Z',
+        lastCompletedAt: '2026-08-10T12:00:00.000Z',
+      },
+    })
+    expect(parsed.missionStats).toEqual({
+      completions: 3,
+      lastRunAt: '2026-08-11T18:01:00.000Z',
+      lastCompletedAt: '2026-08-10T12:00:00.000Z',
+    })
+  })
+
+  it('rejects a missionStats with a negative completions', () => {
+    expect(() =>
+      UserProfileSchema.parse({
+        ...validProfile,
+        missionStats: { completions: -1, lastRunAt: null, lastCompletedAt: null },
       }),
     ).toThrow()
   })

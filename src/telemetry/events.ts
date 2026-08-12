@@ -226,6 +226,77 @@ export function trackChallengeLinkComplete(payload: ChallengeLinkCompletePayload
 }
 
 /**
+ * Fired once a mission run actually begins (the checkpoint screen's "Start"
+ * tap for a brand-new run — not fired again on resume-after-close, since
+ * that's continuing an already-started run, not starting one). v3 Phase 2
+ * Missions. Not part of the locked `attempt` schema — a new, additive event.
+ */
+export interface MissionStartPayload {
+  run_id: string
+}
+
+export function trackMissionStart(payload: MissionStartPayload): void {
+  safeCapture('mission_start', payload)
+}
+
+/**
+ * Fired once per stage ending (Trace/Speed/Boss), independent of the
+ * per-puzzle `attempt` events those stages already emit unmodified —
+ * see docs/design/click-meaningfulness.md §3 for the state machine.
+ * `ended_reason` names which of Missions' two stage-end conditions fired:
+ * `'native'` only when the mode's own real end condition (Rush's 3 strikes,
+ * Boss's 3 strikes/depth-10) beat the shared 60s clock; `'timer'` otherwise
+ * (always `'timer'` for the Trace stage, which has no native end at all).
+ * `stats` mirrors the discriminated MissionStageStats shape persisted in
+ * storage (src/storage/schema.ts) so the analytics record and the stored
+ * record never drift into two different vocabularies for the same stage.
+ */
+export interface MissionStageCompletePayload {
+  run_id: string
+  stage: 'trace' | 'speed' | 'boss'
+  ended_reason: 'timer' | 'native'
+  stats:
+    | { stage_id: 'trace'; puzzles_completed: number; solved_count: number }
+    | { stage_id: 'speed'; solved_count: number; best_streak_this_run: number }
+    | { stage_id: 'boss'; depth_reached: number; cleared: boolean }
+}
+
+export function trackMissionStageComplete(payload: MissionStageCompletePayload): void {
+  safeCapture('mission_stage_complete', payload)
+}
+
+/**
+ * Fired only for the explicit "Exit mission" action (never for a bare tab
+ * close, which is silently resumable by design — see the design doc's §3
+ * abandon/resume mechanism). `completed_stage_count` records how far the
+ * run got before it was abandoned.
+ */
+export interface MissionAbandonedPayload {
+  run_id: string
+  stage: 'trace' | 'speed' | 'boss'
+  completed_stage_count: number
+}
+
+export function trackMissionAbandoned(payload: MissionAbandonedPayload): void {
+  safeCapture('mission_abandoned', payload)
+}
+
+/**
+ * Fired once a mission run completes all three stages (the payoff/
+ * celebration screen). `completions` is the profile's new all-time total
+ * after this run, mirroring rush_run_end's/boss_run_end's own
+ * is_new_best-style "post-update" convention rather than a pre-update count.
+ */
+export interface MissionFinishedPayload {
+  run_id: string
+  completions: number
+}
+
+export function trackMissionFinished(payload: MissionFinishedPayload): void {
+  safeCapture('mission_finished', payload)
+}
+
+/**
  * Lightweight error-tracking event, not part of the locked schema above —
  * this is our call for V1: PostHog's own error capture is enough for now,
  * we're not pulling in Sentry (see the PR description for the reasoning).
