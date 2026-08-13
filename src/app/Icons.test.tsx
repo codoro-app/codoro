@@ -4,6 +4,7 @@ import {
   BossIcon,
   CloseIcon,
   CollapseIcon,
+  CopyIcon,
   DailyIcon,
   PracticeIcon,
   RatingIcon,
@@ -25,6 +26,7 @@ describe('Icons', () => {
     ['RatingIcon', RatingIcon],
     ['StreakIcon', StreakIcon],
     ['ShareIcon', ShareIcon],
+    ['CopyIcon', CopyIcon],
   ])('%s renders an aria-hidden svg sized by the size prop', (_name, Icon) => {
     const { container } = render(<Icon size={32} />)
     const svg = container.querySelector('svg')

@@ -59,8 +59,9 @@ export function ChallengeComparison({ theirs, yours }: ChallengeComparisonProps)
   const shareActions: ShareAction[] = [
     {
       id: 'counter-challenge',
-      label: 'Copy counter-challenge link',
+      label: 'Share counter-challenge',
       copiedLabel: 'Link copied!',
+      copyAriaLabel: 'Copy counter-challenge link',
       text: buildChallengeUrl(buildChallengePayload([...yours])),
       onShared: () => {
         trackChallengeCreate({ surface: 'challenge', puzzle_count: yours.length })

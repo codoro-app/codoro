@@ -254,6 +254,7 @@ export function PracticePage() {
           id: 'puzzle',
           label: 'Share puzzle',
           copiedLabel: 'Copied!',
+          copyAriaLabel: 'Copy puzzle link',
           text: buildPracticeShareText({ puzzleId: answer.puzzleId, correct: answer.correct }),
           onShared: () => {
             trackShareClick({ surface: 'practice', puzzle_id: answer.puzzleId })
@@ -265,6 +266,7 @@ export function PracticePage() {
                 id: 'challenge',
                 label: 'Share challenge',
                 copiedLabel: 'Link copied!',
+                copyAriaLabel: 'Copy challenge link',
                 text: buildPracticeChallengeText({ attempts: session.streakAttempts }),
                 onShared: () => {
                   trackChallengeCreate({

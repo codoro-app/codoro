@@ -1,25 +1,42 @@
 /**
- * Consolidated share/challenge affordance (v3 Phase 2b.4) — replaces the
- * per-mode ShareCard/ChallengeCard pairs (Daily/Practice/Rush) and
+ * Consolidated share/challenge affordance (v3 Phase 2b.4; icon-copy split
+ * added same phase per design-review follow-up) — replaces the per-mode
+ * ShareCard/ChallengeCard pairs (Daily/Practice/Rush) and
  * ChallengeComparison's inline counter-challenge button with one component.
- * Degrades to a single plain button when only one action applies (no menu
- * chrome); with two actions, a compact "Share" trigger opens a small
- * popover listing both. Native share (mobile Web Share API) is tried first
- * per action; a rejection other than the user cancelling falls back to
- * clipboard-copy, confirmed via an inline label swap to `copiedLabel`.
+ * Degrades to a single inline action row when only one action applies (no
+ * menu chrome); with two actions, a compact "Share" trigger opens a small
+ * popover listing both.
+ *
+ * Every action renders as [label button][copy-icon button]. The label
+ * tries native share first (mobile Web Share API), falling back to
+ * clipboard-copy on any rejection other than the user cancelling. The
+ * copy-icon button always force-copies to the clipboard — desktop browsers
+ * can still expose `navigator.share` (e.g. Windows' Chrome/Edge share
+ * flyout), so this gives desktop users an explicit, guaranteed "just copy
+ * the link" path that doesn't depend on what the OS share sheet offers.
+ * Both paths confirm the same way: the label swaps to `copiedLabel`.
+ *
+ * Positioning note: the two-action wrapper carries `self-start`. Without
+ * it, a `flex flex-col` page shell (every caller's actual layout) stretches
+ * the wrapper to the full column width via cross-axis `stretch`, and the
+ * popover's `right-0` then resolves against that stretched box's edge
+ * instead of the trigger's — visually anchoring the menu far from the
+ * button it belongs to. `self-start` opts the wrapper out of that stretch.
  */
 import { useEffect, useRef, useState } from 'react'
-import { ShareIcon } from './Icons'
+import { CopyIcon, ShareIcon } from './Icons'
 
 export interface ShareAction {
   /** Stable identity for this action within one ShareMenu instance (e.g. 'puzzle' | 'challenge'). */
   id: string
   label: string
-  /** Shown in place of `label` once a clipboard-fallback copy has succeeded. */
+  /** Shown in place of `label` once either path (native share or a copy) has completed. */
   copiedLabel: string
-  /** The full share/challenge string — passed to both navigator.share and clipboard.writeText. */
+  /** Accessible name for this action's dedicated copy-icon button (e.g. "Copy puzzle link"). */
+  copyAriaLabel: string
+  /** The full share/challenge string — passed to navigator.share, and to clipboard.writeText on both paths. */
   text: string
-  /** Caller's telemetry hook — fired synchronously on click, before the share/copy resolves (matches the pre-2b.4 cards' fire-on-click convention). */
+  /** Caller's telemetry hook — fired synchronously on click (either button), before the share/copy resolves (matches the pre-2b.4 cards' fire-on-click convention). */
   onShared: () => void
 }
 
@@ -30,8 +47,11 @@ export interface ShareMenuProps {
 const TRIGGER_CLASS =
   'inline-flex items-center gap-1.5 min-h-11 py-2 px-3 rounded-sm border border-border bg-surface-1 text-accent font-semibold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
-const ITEM_CLASS =
-  'min-h-11 w-full text-left py-2 px-3 border-0 bg-transparent text-text-0 font-semibold cursor-pointer rounded-sm hover:bg-surface-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+const LABEL_BUTTON_CLASS =
+  'min-h-11 flex-1 text-left py-2 px-3 border-0 bg-transparent text-text-0 font-semibold cursor-pointer rounded-sm hover:bg-surface-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+
+const COPY_BUTTON_CLASS =
+  'flex items-center justify-center shrink-0 w-11 h-11 border-0 bg-transparent text-text-2 hover:text-text-0 hover:bg-surface-2 rounded-sm cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
 type ActivateResult = 'shared' | 'copied'
 
@@ -49,6 +69,58 @@ async function activate(action: ShareAction): Promise<ActivateResult> {
   }
   await navigator.clipboard.writeText(action.text)
   return 'copied'
+}
+
+async function copyDirectly(action: ShareAction): Promise<void> {
+  action.onShared()
+  await navigator.clipboard.writeText(action.text)
+}
+
+interface ActionRowProps {
+  action: ShareAction
+  copied: boolean
+  /** True inside the popover — gives both buttons `role="menuitem"`. */
+  menuItem: boolean
+  /** True for the single-action (no popover) case — keeps this row from stretching to the page shell's full width. */
+  alignSelfStart: boolean
+  onActivated: (result: ActivateResult) => void
+  onCopied: () => void
+}
+
+function ActionRow({
+  action,
+  copied,
+  menuItem,
+  alignSelfStart,
+  onActivated,
+  onCopied,
+}: ActionRowProps) {
+  const role = menuItem ? 'menuitem' : undefined
+  return (
+    <div className={`flex items-stretch gap-0.5${alignSelfStart ? ' self-start' : ''}`}>
+      <button
+        type="button"
+        role={role}
+        className={LABEL_BUTTON_CLASS}
+        onClick={() => {
+          void activate(action).then(onActivated)
+        }}
+      >
+        {copied ? action.copiedLabel : action.label}
+      </button>
+      <button
+        type="button"
+        role={role}
+        aria-label={action.copyAriaLabel}
+        className={COPY_BUTTON_CLASS}
+        onClick={() => {
+          void copyDirectly(action).then(onCopied)
+        }}
+      >
+        <CopyIcon size={16} />
+      </button>
+    </div>
+  )
 }
 
 export function ShareMenu({ actions }: ShareMenuProps) {
@@ -77,24 +149,24 @@ export function ShareMenu({ actions }: ShareMenuProps) {
   if (actions.length === 1) {
     const [action] = actions
     if (!action) return null
-    const isCopied = copiedId === action.id
     return (
-      <button
-        type="button"
-        className={TRIGGER_CLASS}
-        onClick={() => {
-          void activate(action).then((result) => {
-            if (result === 'copied') setCopiedId(action.id)
-          })
+      <ActionRow
+        action={action}
+        copied={copiedId === action.id}
+        menuItem={false}
+        alignSelfStart
+        onActivated={(result) => {
+          if (result === 'copied') setCopiedId(action.id)
         }}
-      >
-        {isCopied ? action.copiedLabel : action.label}
-      </button>
+        onCopied={() => {
+          setCopiedId(action.id)
+        }}
+      />
     )
   }
 
   return (
-    <div className="relative inline-block" ref={containerRef}>
+    <div className="relative inline-block self-start" ref={containerRef}>
       <button
         type="button"
         className={TRIGGER_CLASS}
@@ -111,30 +183,27 @@ export function ShareMenu({ actions }: ShareMenuProps) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 mt-1 min-w-[10rem] flex flex-col gap-0.5 p-1 rounded-lg bg-surface-1 border border-border shadow-lg z-10"
+          className="absolute right-0 mt-1 min-w-[13rem] flex flex-col gap-0.5 p-1 rounded-lg bg-surface-1 border border-border shadow-lg z-10"
         >
-          {actions.map((action) => {
-            const isCopied = copiedId === action.id
-            return (
-              <button
-                key={action.id}
-                type="button"
-                role="menuitem"
-                className={ITEM_CLASS}
-                onClick={() => {
-                  void activate(action).then((result) => {
-                    if (result === 'copied') {
-                      setCopiedId(action.id)
-                    } else {
-                      setOpen(false)
-                    }
-                  })
-                }}
-              >
-                {isCopied ? action.copiedLabel : action.label}
-              </button>
-            )
-          })}
+          {actions.map((action) => (
+            <ActionRow
+              key={action.id}
+              action={action}
+              copied={copiedId === action.id}
+              menuItem
+              alignSelfStart={false}
+              onActivated={(result) => {
+                if (result === 'copied') {
+                  setCopiedId(action.id)
+                } else {
+                  setOpen(false)
+                }
+              }}
+              onCopied={() => {
+                setCopiedId(action.id)
+              }}
+            />
+          ))}
         </div>
       )}
     </div>

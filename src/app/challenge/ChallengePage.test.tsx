@@ -255,7 +255,8 @@ describe('ChallengePageForHash — comparison screen + counter-challenge', () =>
       screen.getByText(/You beat the challenge|friend beat you|it.s a tie/i),
     ).toBeInTheDocument()
     expect(screen.getByText(/they got/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /copy counter-challenge link/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Share counter-challenge' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copy counter-challenge link' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /practice more like this/i })).toHaveAttribute(
       'href',
       '/practice',
@@ -268,7 +269,7 @@ describe('ChallengePageForHash — comparison screen + counter-challenge', () =>
     render(<ChallengePageForHash hash={twoPuzzleHash()} />)
     await solveTwoPuzzleRun(user)
 
-    await user.click(screen.getByRole('button', { name: /copy counter-challenge link/i }))
+    await user.click(screen.getByRole('button', { name: 'Copy counter-challenge link' }))
     await screen.findByRole('button', { name: 'Link copied!' })
 
     expect(trackChallengeCreate).toHaveBeenCalledWith({ surface: 'challenge', puzzle_count: 2 })

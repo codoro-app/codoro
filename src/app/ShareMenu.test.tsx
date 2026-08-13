@@ -9,6 +9,7 @@ function makeAction(overrides: Partial<ShareAction> = {}): ShareAction {
     id: 'puzzle',
     label: 'Share puzzle',
     copiedLabel: 'Copied!',
+    copyAriaLabel: 'Copy puzzle link',
     text: 'share text',
     onShared: vi.fn(),
     ...overrides,
@@ -233,5 +234,88 @@ describe('ShareMenu', () => {
     } finally {
       Reflect.deleteProperty(navigator, 'share')
     }
+  })
+
+  it('renders a dedicated copy-icon button next to a single action', () => {
+    render(<ShareMenu actions={[makeAction()]} />)
+    expect(screen.getByRole('button', { name: 'Share puzzle' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Copy puzzle link' })).toBeInTheDocument()
+  })
+
+  it('the copy-icon button always copies to the clipboard, even when navigator.share is available', async () => {
+    const user = userEvent.setup()
+    const onShared = vi.fn()
+    const shareSpy = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'share', {
+      value: shareSpy,
+      configurable: true,
+    })
+    const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
+    try {
+      render(<ShareMenu actions={[makeAction({ onShared, text: 'hello world' })]} />)
+
+      await user.click(screen.getByRole('button', { name: 'Copy puzzle link' }))
+
+      expect(shareSpy).not.toHaveBeenCalled()
+      expect(writeTextSpy).toHaveBeenCalledWith('hello world')
+      expect(onShared).toHaveBeenCalledTimes(1)
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument()
+      })
+    } finally {
+      Reflect.deleteProperty(navigator, 'share')
+    }
+  })
+
+  it("a menu item's copy-icon button always copies, even with navigator.share available, and keeps the menu open", async () => {
+    const user = userEvent.setup()
+    const shareSpy = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'share', {
+      value: shareSpy,
+      configurable: true,
+    })
+    const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
+    try {
+      render(
+        <ShareMenu
+          actions={[
+            makeAction(),
+            makeAction({
+              id: 'challenge',
+              label: 'Share challenge',
+              copiedLabel: 'Link copied!',
+              copyAriaLabel: 'Copy challenge link',
+              text: 'challenge text',
+            }),
+          ]}
+        />,
+      )
+
+      await user.click(screen.getByRole('button', { name: 'Share' }))
+      await user.click(screen.getByRole('menuitem', { name: 'Copy challenge link' }))
+
+      expect(shareSpy).not.toHaveBeenCalled()
+      expect(writeTextSpy).toHaveBeenCalledWith('challenge text')
+      await waitFor(() => {
+        expect(screen.getByRole('menuitem', { name: 'Link copied!' })).toBeInTheDocument()
+      })
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+    } finally {
+      Reflect.deleteProperty(navigator, 'share')
+    }
+  })
+
+  it('the two-action trigger opts out of flex-column stretch, so the popover anchors to it rather than a stretched ancestor (regression guard for the mispositioned-popover bug)', () => {
+    render(
+      <ShareMenu
+        actions={[makeAction(), makeAction({ id: 'challenge', label: 'Share challenge' })]}
+      />,
+    )
+    const trigger = screen.getByRole('button', { name: 'Share' })
+    // The trigger's own positioned wrapper (relative + absolute popover
+    // child) must not stretch to fill a `flex flex-col` ancestor's width —
+    // that stretch is exactly what disconnected the popover from the
+    // trigger. `self-start` opts the wrapper out of cross-axis stretch.
+    expect(trigger.parentElement).toHaveClass('self-start')
   })
 })
