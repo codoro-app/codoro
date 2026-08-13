@@ -49,8 +49,8 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'wouter'
-import { loadProfile } from '../storage'
-import type { UserProfile } from '../storage'
+import { loadProfile, listAttempts } from '../storage'
+import type { UserProfile, Attempt } from '../storage'
 import { getDailyNumber } from '../engine'
 import {
   BossIcon,
@@ -63,6 +63,17 @@ import {
 } from './Icons'
 import { PageShell } from './PageShell'
 import { ROUTES } from './routes'
+import { getRecentActivity, getRatingTrend } from './homeActivity'
+
+// 2b.5: mode -> display label for the recent-activity recap. Kept local to
+// Home rather than added to AttemptMode itself — this is presentation-only,
+// the same reasoning as CARD_BASE/BADGE_MASTERED below.
+const MODE_LABELS: Record<string, string> = {
+  practice: 'Practice',
+  daily: 'Daily',
+  rush: 'Rush',
+  boss: 'Boss',
+}
 
 function todayDateString(date = new Date()): string {
   const year = date.getFullYear()
@@ -103,14 +114,16 @@ const TITLE_PRIMARY = 'home__card-title text-xl font-bold'
 
 export function Home() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [attempts, setAttempts] = useState<Attempt[]>([])
   const cancelledRef = useRef(false)
 
   useEffect(() => {
     cancelledRef.current = false
     void (async () => {
-      const loaded = await loadProfile()
+      const [loadedProfile, loadedAttempts] = await Promise.all([loadProfile(), listAttempts()])
       if (cancelledRef.current) return
-      setProfile(loaded)
+      setProfile(loadedProfile)
+      setAttempts(loadedAttempts)
     })()
     return () => {
       cancelledRef.current = true
@@ -146,6 +159,22 @@ export function Home() {
   const dayNumber = getDailyNumber(today)
   const doneToday = profile.dailyCompletion?.date === today
   const streakActive = profile.streak.currentStreak > 0
+  const recentActivity = getRecentActivity(attempts)
+  const ratingTrend = getRatingTrend(attempts, new Date().toISOString())
+  // Elo-style updates are rarely whole numbers — round for display the same
+  // way the header's own Rating figure already does (Math.round(profile.rating)
+  // above), not raw float noise like "-8.559766727818669".
+  const roundedTrend = ratingTrend === null ? null : Math.round(ratingTrend)
+  const ratingTrendText =
+    roundedTrend === null
+      ? null
+      : `${roundedTrend >= 0 ? '▲' : '▼'} ${roundedTrend >= 0 ? '+' : ''}${String(roundedTrend)} this week`
+  const roundedActivityDelta =
+    recentActivity === null ? null : Math.round(recentActivity.ratingDelta)
+  const recentActivityText =
+    recentActivity === null || roundedActivityDelta === null
+      ? null
+      : `${MODE_LABELS[recentActivity.mode] ?? recentActivity.mode} · ${String(recentActivity.correct)}/${String(recentActivity.total)} correct · ${roundedActivityDelta >= 0 ? '+' : ''}${String(roundedActivityDelta)} rating`
 
   return (
     <PageShell
@@ -160,6 +189,13 @@ export function Home() {
               <span className="text-4xl font-bold text-text-0 leading-none tabular-nums">
                 {Math.round(profile.rating)}
               </span>
+              {ratingTrendText !== null && (
+                <span
+                  className={`text-xs font-bold font-mono ${roundedTrend !== null && roundedTrend >= 0 ? 'text-accent' : 'text-danger'}`}
+                >
+                  {ratingTrendText}
+                </span>
+              )}
             </div>
             <div
               className={`flex items-center gap-1.5 text-md font-bold ${streakActive ? 'text-warn' : 'text-text-2'}`}
@@ -180,6 +216,10 @@ export function Home() {
         </div>
       }
     >
+      {recentActivityText !== null && (
+        <p className="m-0 font-mono text-sm font-bold text-text-1">{recentActivityText}</p>
+      )}
+
       <p className="m-0 text-xs font-bold text-text-2 uppercase tracking-[0.04em]">Modes</p>
 
       {/* 2b.0: was `.home__cards-secondary` — grid only kicks in >=640px
