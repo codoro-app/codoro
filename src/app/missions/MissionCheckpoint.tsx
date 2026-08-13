@@ -33,27 +33,6 @@ export function MissionCheckpoint({ missionSession }: MissionCheckpointProps) {
 
   return (
     <div className="flex flex-col items-center gap-4 text-center py-6">
-      {isResume && (
-        <ul
-          className="flex flex-wrap justify-center gap-2 list-none m-0 p-0"
-          aria-label="Completed stages"
-        >
-          {missionSession.completedStages.map((summary) => {
-            const meta = MISSION_STAGE_META[summary.stats.stageId]
-            const Icon = meta.Icon
-            return (
-              <li
-                key={summary.stats.stageId}
-                className="flex items-center gap-1.5 py-1.5 px-3 rounded-full bg-surface-1 border border-border text-text-1 text-sm"
-              >
-                <Icon size={16} />
-                <span>{meta.label}</span>
-              </li>
-            )
-          })}
-        </ul>
-      )}
-
       <div className="flex flex-col items-center gap-2">
         <span
           className="flex items-center justify-center w-14 h-14 rounded-full bg-accent-dim text-accent"
@@ -62,6 +41,11 @@ export function MissionCheckpoint({ missionSession }: MissionCheckpointProps) {
           <NextIcon size={28} />
         </span>
         <p className="text-2xl font-semibold text-text-0 m-0">{nextMeta.label}</p>
+        {/* 2b.3: what this stage actually involves, not just its name — see
+            MISSION_STAGE_META's own doc comment. */}
+        <p className="text-text-1 m-0 max-w-[var(--content-width-mobile)]">
+          {nextMeta.description}
+        </p>
         <p className="text-text-1 m-0">{MISSION_STAGE_DURATION_SECONDS} seconds</p>
       </div>
 

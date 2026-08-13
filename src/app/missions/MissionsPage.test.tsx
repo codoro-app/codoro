@@ -66,6 +66,19 @@ describe('MissionsPage phase routing', () => {
     expect(screen.getByRole('button', { name: 'Start mission' })).toBeInTheDocument()
   })
 
+  // 2b.3: MissionCheckpoint used to be icon + label + duration only — a
+  // first-time player had no way to know what a stage actually involves
+  // before starting it. Every stage now frames what's about to happen.
+  it('previews what each stage actually involves, not just its name', () => {
+    useMissionSessionMock.mockReturnValue(
+      makeMissionSession({ phase: 'checkpoint', currentStage: 'speed' }),
+    )
+    render(<MissionsPage />)
+    expect(
+      screen.getByText('Answer as many puzzles as you can before the clock runs out.'),
+    ).toBeInTheDocument()
+  })
+
   it('renders TraceStage for phase "trace"', () => {
     useMissionSessionMock.mockReturnValue(makeMissionSession({ phase: 'trace' }))
     render(<MissionsPage />)

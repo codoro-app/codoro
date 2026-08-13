@@ -12,9 +12,11 @@
 import { useMissionSession } from './useMissionSession'
 import { MissionCheckpoint } from './MissionCheckpoint'
 import { MissionComplete } from './MissionComplete'
+import { StageTracker } from './StageTracker'
 import { TraceStage } from './TraceStage'
 import { SpeedStage } from './SpeedStage'
 import { BossStage } from './BossStage'
+import { useMediaQuery } from '../useMediaQuery'
 // 2b.0: was `.missions-page` in missionsPage.css (max-width breakpoint
 // matches Tailwind's `lg` exactly). Not test-asserted (grep-verified).
 const PAGE_SHELL_CLASS =
@@ -22,6 +24,12 @@ const PAGE_SHELL_CLASS =
 
 export function MissionsPage() {
   const missionSession = useMissionSession()
+  // 2b.3: desktop places StageTracker in `.app-shell__sidebar` (a different
+  // grid area than the mobile copy's inline spot below) — same isDesktop
+  // split PracticePage.tsx/DailyPage.tsx already use for their own desktop
+  // sidebars. See StageTracker.tsx's own doc comment for why this lives
+  // here rather than inside StageTracker itself.
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
 
   if (missionSession.status === 'error') {
     return (
@@ -48,15 +56,39 @@ export function MissionsPage() {
     )
   }
 
+  // Tracked throughout the run, not just at checkpoints (2b.3 build item
+  // 1) — every phase except 'complete', since MissionComplete already
+  // recaps every stage and a tracker there would just repeat it.
+  const showStageTracker = missionSession.phase !== 'complete'
+
   return (
-    <div className={PAGE_SHELL_CLASS}>
-      {missionSession.phase === 'checkpoint' && (
-        <MissionCheckpoint missionSession={missionSession} />
+    <>
+      <div className={PAGE_SHELL_CLASS}>
+        {showStageTracker && !isDesktop && (
+          <StageTracker
+            currentStage={missionSession.currentStage}
+            completedStages={missionSession.completedStages}
+            variant="mobile"
+          />
+        )}
+        {missionSession.phase === 'checkpoint' && (
+          <MissionCheckpoint missionSession={missionSession} />
+        )}
+        {missionSession.phase === 'trace' && <TraceStage missionSession={missionSession} />}
+        {missionSession.phase === 'speed' && <SpeedStage missionSession={missionSession} />}
+        {missionSession.phase === 'boss' && <BossStage missionSession={missionSession} />}
+        {missionSession.phase === 'complete' && <MissionComplete missionSession={missionSession} />}
+      </div>
+
+      {showStageTracker && isDesktop && (
+        <aside className="app-shell__sidebar flex flex-col gap-4 py-6 px-4 border-l border-border self-start">
+          <StageTracker
+            currentStage={missionSession.currentStage}
+            completedStages={missionSession.completedStages}
+            variant="desktop"
+          />
+        </aside>
       )}
-      {missionSession.phase === 'trace' && <TraceStage missionSession={missionSession} />}
-      {missionSession.phase === 'speed' && <SpeedStage missionSession={missionSession} />}
-      {missionSession.phase === 'boss' && <BossStage missionSession={missionSession} />}
-      {missionSession.phase === 'complete' && <MissionComplete missionSession={missionSession} />}
-    </div>
+    </>
   )
 }

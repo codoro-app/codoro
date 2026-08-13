@@ -13,9 +13,25 @@ import type { MissionStageId } from '../../storage'
 
 export const MISSION_STAGE_META: Record<
   MissionStageId,
-  { label: string; Icon: (props: IconProps) => React.JSX.Element }
+  // `description` (2b.3): what the stage actually involves, one sentence —
+  // shown on MissionCheckpoint's pre-stage preview and StageTracker's
+  // expanded mobile view, so a first-time player can tell what's about to
+  // happen from the name alone. `label`/`Icon` predate this phase.
+  { label: string; description: string; Icon: (props: IconProps) => React.JSX.Element }
 > = {
-  trace: { label: 'Trace', Icon: TraceIcon },
-  speed: { label: 'Speed Round', Icon: RushIcon },
-  boss: { label: 'Boss', Icon: BossIcon },
+  trace: {
+    label: 'Trace',
+    description: 'Scrub through code step-by-step and predict what happens next.',
+    Icon: TraceIcon,
+  },
+  speed: {
+    label: 'Speed Round',
+    description: 'Answer as many puzzles as you can before the clock runs out.',
+    Icon: RushIcon,
+  },
+  boss: {
+    label: 'Boss',
+    description: 'Survive three wrong answers — how deep can you get?',
+    Icon: BossIcon,
+  },
 }
