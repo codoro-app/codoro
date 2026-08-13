@@ -212,4 +212,13 @@
 body {
   margin: 0;
   min-height: 100dvh;
+  /* v3 2b.2 follow-up: nothing else in the app set an explicit background,
+   * so the page canvas fell back to the browser's own implicit dark UA
+   * color (from `color-scheme: dark` above) instead of this token — the
+   * exact one PuzzleCardShell/TraceRunner's sticky Continue bar and
+   * PageShell's header/stickyAction bars paint explicitly. The mismatch
+   * between the real page background and that explicit fill read as a
+   * visible "block of darker color" seam wherever a sticky bar sat (see
+   * index.css.test.ts). */
+  background: var(--surface-0);
 }

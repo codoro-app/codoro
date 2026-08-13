@@ -196,6 +196,49 @@ describe('PuzzleCardShell', () => {
     expect(container.querySelector('.feedback-panel')?.contains(continueButton)).toBe(false)
   })
 
+  // Bug report (2026-08-12): the sticky bottom bar's solid bg-surface-0 read
+  // as a "block of darker color than the background" and, on a tall
+  // feedback panel, overlapped its scrolled-past text. Desktop has room to
+  // avoid both problems outright — Continue moves inline, above the
+  // feedback panel, non-sticky. Mobile keeps the sticky bar (thumb-reach,
+  // covered by the test above); index.css.test.ts covers the background
+  // fix that makes the mobile bar itself blend in instead of block.
+  it('click-meaningfulness: on desktop (>=1024px) Continue renders inline above the feedback panel, not the sticky bottom bar', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query === '(min-width: 1024px)',
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    )
+    const user = userEvent.setup()
+    const { container } = render(
+      <PuzzleCardShell
+        puzzle={mcqPuzzle}
+        ratingDelta={null}
+        onAnswered={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+
+    const continueButton = screen.getByRole('button', { name: 'Next puzzle' })
+    expect(continueButton.closest('.sticky.bottom-0')).toBeNull()
+
+    const feedbackPanel = container.querySelector('.feedback-panel')
+    if (feedbackPanel === null) {
+      throw new Error('Expected a .feedback-panel to be present')
+    }
+    // "Above" the feedback panel: precedes it in document order.
+    expect(
+      continueButton.compareDocumentPosition(feedbackPanel) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    vi.unstubAllGlobals()
+  })
+
   it('click-meaningfulness: continueDestination="results" previews "See results" instead of the default', async () => {
     const user = userEvent.setup()
     render(

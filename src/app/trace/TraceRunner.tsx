@@ -82,6 +82,7 @@ import { hapticTick } from '../practice/haptics'
 import type { CheckpointResult } from '../../engine'
 import type { ScrubberPuzzle } from '../../content'
 import { StreakPause } from '../StreakPause'
+import { useMediaQuery } from '../useMediaQuery'
 import '../tokens.css'
 
 // 2b.0: was `.feedback-panel--correct`/`--wrong` + descendant color
@@ -105,7 +106,15 @@ const FEEDBACK_CONTINUE_CLASS =
 // CONTINUE_BAR_CLASS (duplicated, not imported — matches this file's own
 // established convention of duplicating rather than cross-importing
 // route-chunk-specific styling, per its module doc comment).
+//
+// 2b.2 follow-up (bug report, 2026-08-12): mobile-only as of this pass —
+// see `isDesktop` below and PuzzleCardShell.tsx's identical constant for
+// the full rationale (duplicated, same convention as above).
 const CONTINUE_BAR_CLASS = 'sticky bottom-0 z-10 pt-3 pb-3 bg-surface-0 border-t border-border'
+
+// Desktop's inline placement — see PuzzleCardShell.tsx's identical constant.
+const DESKTOP_CONTINUE_CLASS =
+  'flex items-center justify-center gap-2 min-h-11 py-3 px-6 border-0 rounded-md bg-accent text-accent-ink text-base font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
 /** Trace's Continue always means "next puzzle" — Trace has no native end (docs/design/click-meaningfulness.md §3), so unlike PuzzleCardShell's Rush/Boss callers this never branches to a "results" preview. */
 function ContinueIcon() {
@@ -124,6 +133,16 @@ function ContinueIcon() {
       <line x1="5" y1="12" x2="19" y2="12" />
       <polyline points="12 5 19 12 12 19" />
     </svg>
+  )
+}
+
+/** The Continue button itself — shared by both of its placements below, same reasoning as PuzzleCardShell.tsx's identical ContinueCta. */
+function ContinueCta({ className, onContinue }: { className: string; onContinue: () => void }) {
+  return (
+    <button type="button" className={className} onClick={onContinue}>
+      Next puzzle
+      <ContinueIcon />
+    </button>
   )
 }
 
@@ -215,6 +234,9 @@ export function TraceRunnerPuzzle({
 }: TraceRunnerPuzzleProps) {
   const [stepIndex, setStepIndex] = useState(0)
   const [remainingMs, setRemainingMs] = useState(TRACE_CHECKPOINT_TIME_LIMIT_MS)
+  // Continue-button placement switch — see PuzzleCardShell.tsx's identical
+  // `isDesktop` for the full rationale.
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
 
   const checkpoints = puzzle.checkpoints
   const answeredCount = checkpointResults.length
@@ -384,6 +406,12 @@ export function TraceRunnerPuzzle({
           </>
         )}
 
+        {isComplete && isDesktop && (
+          <div className="flex justify-end">
+            <ContinueCta className={DESKTOP_CONTINUE_CLASS} onContinue={onContinue} />
+          </div>
+        )}
+
         {isComplete && (
           <div className={feedbackPanelClass(solved ?? false)} role="status">
             <div className="flex items-center gap-2">
@@ -438,13 +466,10 @@ export function TraceRunnerPuzzle({
         )}
       </div>
 
-      {isComplete && (
+      {isComplete && !isDesktop && (
         <div className={CONTINUE_BAR_CLASS}>
           <div className="w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto px-4">
-            <button type="button" className={FEEDBACK_CONTINUE_CLASS} onClick={onContinue}>
-              Next puzzle
-              <ContinueIcon />
-            </button>
+            <ContinueCta className={FEEDBACK_CONTINUE_CLASS} onContinue={onContinue} />
           </div>
         </div>
       )}
