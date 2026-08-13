@@ -46,7 +46,7 @@ export interface DailySession {
   profile: UserProfile | null
   puzzle: ContentPuzzle | null
   dayNumber: number
-  /** True once today's puzzle has a recorded first (rated) attempt — drives the ShareCard. */
+  /** True once today's puzzle has a recorded first (rated) attempt — drives the ShareMenu. */
   completedToday: boolean
   /** Rating delta for the most recent attempt; null for an unrated retry. */
   ratingDelta: number | null
@@ -54,7 +54,7 @@ export interface DailySession {
   attemptNonce: number
   /** Bumped on every recorded attempt (first-of-day or retry) — MasteryView takes this as a prop so it can refetch attempts instead of only reading them once on mount. */
   attemptVersion: number
-  /** The day's first (rated) attempt, for a challenge link. Session-only (no schema migration, Phase 5c locked decision) and set exactly once — unrated retries never overwrite it, the same "no re-taking for a better share" rule as the ShareCard. Null until the first attempt of the day. */
+  /** The day's first (rated) attempt, for a challenge link. Session-only (no schema migration, Phase 5c locked decision) and set exactly once — unrated retries never overwrite it, the same "no re-taking for a better share" rule as the ShareMenu. Null until the first attempt of the day. */
   challengeAttempt: ChallengeAttemptInput | null
   handleAnswered: (payload: CommitPayload) => void
   handleRetry: () => void
@@ -174,7 +174,7 @@ export function useDailySession(): DailySession {
       // The day's first attempt seeds the challenge link. Session-only and set
       // exactly once — an unrated retry (isFirstAttemptOfDay false) never
       // overwrites it, the same "no re-taking for a better share" rule as the
-      // ShareCard.
+      // ShareMenu.
       if (isFirstAttemptOfDay) {
         setChallengeAttempt({ puzzleId: puzzle.id, correct: payload.correct, time_ms: timeMs })
       }

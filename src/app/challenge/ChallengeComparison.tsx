@@ -7,21 +7,23 @@
  * two CTAs.
  *
  * CTA 1, counter-challenge: re-encodes the recipient's own run as a fresh
- * challenge link (`buildChallengeUrl(buildChallengePayload(yours))`) and
- * copies it to the clipboard — the same copy-button pattern as the surfaces'
- * ShareCards, and fires `challenge_create` with `surface: 'challenge'` since
- * the counter-challenge is its own calling mode. CTA 2, "practice more like
- * this": a plain /practice link — a challenge spans up to five puzzles
- * across potentially different patterns, so there's no single pattern to
- * filter on (unlike /puzzle/:id's per-puzzle CTA).
+ * challenge link (`buildChallengeUrl(buildChallengePayload(yours))`) via the
+ * shared `ShareMenu` (v3 Phase 2b.4) in its single-action form — native
+ * share on mobile, clipboard-copy fallback on desktop — and fires
+ * `challenge_create` with `surface: 'challenge'` since the counter-challenge
+ * is its own calling mode. CTA 2, "practice more like this": a plain
+ * /practice link — a challenge spans up to five puzzles across potentially
+ * different patterns, so there's no single pattern to filter on (unlike
+ * /puzzle/:id's per-puzzle CTA).
  */
-import { useState } from 'react'
 import { Link } from 'wouter'
 import { buildChallengePayload, buildChallengeUrl } from '../../challenge'
 import type { ChallengeAttemptInput, ChallengePayload } from '../../challenge'
 import { trackChallengeCreate } from '../../telemetry'
 import { resolveChallengeOutcome } from './challengeOutcome'
 import type { ChallengeOutcome } from './challengeOutcome'
+import { ShareMenu } from '../ShareMenu'
+import type { ShareAction } from '../ShareMenu'
 
 function formatSeconds(totalMs: number): string {
   return `${String(Math.round(totalMs / 1000))}s`
@@ -46,8 +48,6 @@ export interface ChallengeComparisonProps {
 }
 
 export function ChallengeComparison({ theirs, yours }: ChallengeComparisonProps) {
-  const [copied, setCopied] = useState(false)
-
   const yoursCorrect = yours.filter((result) => result.correct).length
   const theirsCorrect = theirs.results.filter((result) => result.correct).length
   const yoursTotalMs = yours.reduce((sum, result) => sum + result.time_ms, 0)
@@ -56,13 +56,18 @@ export function ChallengeComparison({ theirs, yours }: ChallengeComparisonProps)
     { correct: theirsCorrect, totalMs: theirs.totalMs },
   )
 
-  const handleCounterChallenge = () => {
-    const counterUrl = buildChallengeUrl(buildChallengePayload([...yours]))
-    trackChallengeCreate({ surface: 'challenge', puzzle_count: yours.length })
-    void navigator.clipboard.writeText(counterUrl).then(() => {
-      setCopied(true)
-    })
-  }
+  const shareActions: ShareAction[] = [
+    {
+      id: 'counter-challenge',
+      label: 'Share counter-challenge',
+      copiedLabel: 'Link copied!',
+      copyAriaLabel: 'Copy counter-challenge link',
+      text: buildChallengeUrl(buildChallengePayload([...yours])),
+      onShared: () => {
+        trackChallengeCreate({ surface: 'challenge', puzzle_count: yours.length })
+      },
+    },
+  ]
 
   const ctaClass =
     'inline-flex items-center min-h-11 py-2 px-3 rounded-sm border border-border bg-surface-1 text-accent font-semibold no-underline text-[0.9375rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
@@ -75,13 +80,7 @@ export function ChallengeComparison({ theirs, yours }: ChallengeComparisonProps)
         {theirsCorrect}/{theirs.ids.length} in {formatSeconds(theirs.totalMs)}
       </p>
       <div className="flex flex-wrap gap-3 justify-center mt-2">
-        <button
-          type="button"
-          className={`${ctaClass} active:scale-[0.98]`}
-          onClick={handleCounterChallenge}
-        >
-          {copied ? 'Link copied!' : 'Copy counter-challenge link'}
-        </button>
+        <ShareMenu actions={shareActions} />
         <Link href="/practice" className={ctaClass}>
           Practice more like this
         </Link>

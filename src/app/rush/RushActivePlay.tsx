@@ -3,9 +3,9 @@
  * `PuzzleCardShell`), extracted verbatim from `RushPage.tsx` — pure
  * extraction, zero behavior change (v3 Phase 2 build item 1: Missions'
  * `SpeedStage` reuses this directly rather than forking Rush's own
- * presentation). `RushPage.tsx` still owns the `'ended'` branch
- * (`RushShareCard`/`RushChallengeCard` are Rush-standalone-specific and
- * don't belong inside a mission's own stage-transition screen — see
+ * presentation). `RushPage.tsx` still owns the `'ended'` branch (its
+ * `ShareMenu` usage is Rush-standalone-specific and doesn't belong inside a
+ * mission's own stage-transition screen — see
  * `docs/superpowers/plans/2026-08-11-missions-definition-and-plan.md`).
  *
  * `onContinue` is overridable so a mission's stage wrapper can intercept it
