@@ -132,7 +132,7 @@ describe('PracticePage', () => {
     expect(trackShareClick).toHaveBeenCalledTimes(1)
     expect(trackShareClick).toHaveBeenCalledWith(expect.objectContaining({ surface: 'practice' }))
 
-    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await user.click(screen.getByRole('button', { name: 'Next puzzle' }))
     await waitFor(() => {
       expect(screen.queryByText(/Copy share text/i)).not.toBeInTheDocument()
     })
@@ -189,7 +189,7 @@ describe('PracticePage', () => {
       expect(screen.getByRole('button', { name: 'Challenge a friend' })).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await user.click(screen.getByRole('button', { name: 'Next puzzle' }))
     await waitFor(() => {
       expect(
         screen.queryByRole('button', { name: /Challenge a friend|Link copied!/ }),
@@ -408,7 +408,7 @@ describe('PracticePage', () => {
 
     // Solve one puzzle first, so solvedThisSession is non-zero before filtering.
     await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
-    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await user.click(screen.getByRole('button', { name: 'Next puzzle' }))
     await waitFor(() => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })
@@ -493,7 +493,7 @@ describe('PracticePage', () => {
     await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
     expect(screen.getByRole('status')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await user.click(screen.getByRole('button', { name: 'Next puzzle' }))
     // AnimatePresence keeps the outgoing (answered) card mounted until its
     // exit transition finishes — real wall-clock time, not a synchronous
     // state flush — so wait for it to actually leave the DOM.
@@ -520,7 +520,7 @@ describe('PracticePage', () => {
     scrollToSpy.mockClear()
 
     await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
-    await user.click(screen.getByRole('button', { name: 'Continue' }))
+    await user.click(screen.getByRole('button', { name: 'Next puzzle' }))
     await waitFor(() => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })

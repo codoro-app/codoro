@@ -22,6 +22,45 @@ export interface BossActivePlayProps {
   onContinue?: () => void
 }
 
+/**
+ * Boss's fixed identity (2b.2 game-feel pass, direct user decision: one
+ * character reused across every run/set — not one per BOSS_SETS entry).
+ * No commissioned art: a simple reactive SVG icon, styled like the rest of
+ * `../Icons.tsx`'s icon set but kept local since it's single-use here.
+ */
+const BOSS_NAME = 'Glitch'
+
+function BossCharacterIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="28"
+      height="28"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="4" y="6" width="16" height="14" rx="3" />
+      <path d="M9 2l1.5 4M15 2l-1.5 4" />
+      <circle cx="9" cy="12" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="12" r="1.2" fill="currentColor" stroke="none" />
+      <path d="M9 16.5c1-1 5-1 6 0" />
+    </svg>
+  )
+}
+
+/** `--hit` on a correct answer (landed a hit), `--struck` on a wrong one — mirrors the health bar's own `key`-remount trick (see the fill's own comment below) so each answer replays its reaction from scratch. */
+function characterReactionClass(lastAnswerCorrect: boolean | null): string {
+  const base =
+    'boss-character__icon flex items-center justify-center w-11 h-11 rounded-full bg-accent-dim text-accent'
+  if (lastAnswerCorrect === true) return `${base} boss-character__icon--hit`
+  if (lastAnswerCorrect === false) return `${base} boss-character__icon--struck`
+  return base
+}
+
 export function BossActivePlay({ session, onContinue }: BossActivePlayProps) {
   // Health-bar fill: 100% at 0 strikes, draining to 0% once BOSS_STRIKE_LIMIT
   // lands — same math as BossPage.tsx's own original inline computation.
@@ -29,6 +68,16 @@ export function BossActivePlay({ session, onContinue }: BossActivePlayProps) {
 
   return (
     <>
+      <div className="boss-character flex items-center gap-2" aria-hidden="true">
+        <span
+          key={session.answerNonce}
+          className={characterReactionClass(session.lastAnswerCorrect)}
+        >
+          <BossCharacterIcon />
+        </span>
+        <span className="text-sm font-bold text-text-0">{BOSS_NAME}</span>
+      </div>
+
       <div className="flex items-center justify-between gap-4">
         <div
           className="flex-1 h-1.5 rounded-full bg-surface-2 overflow-hidden"
@@ -53,6 +102,18 @@ export function BossActivePlay({ session, onContinue }: BossActivePlayProps) {
         </span>
       </div>
 
+      {/* Segmented pip-style progress (2b.2): the plain "Puzzle X of Y"
+          text above stays (kept as the accessible/exact readout — several
+          tests assert on its exact wording), but the pips are the primary
+          at-a-glance visual now. */}
+      <div className="flex gap-1" aria-hidden="true">
+        {Array.from({ length: session.totalPuzzles }, (_, i) => {
+          const state =
+            i < session.position - 1 ? 'done' : i === session.position - 1 ? 'current' : 'upcoming'
+          return <span key={i} className={`boss-progress__pip boss-progress__pip--${state}`} />
+        })}
+      </div>
+
       {session.puzzle && (
         <PuzzleCardShell
           key={session.puzzle.id}
@@ -60,6 +121,7 @@ export function BossActivePlay({ session, onContinue }: BossActivePlayProps) {
           ratingDelta={null}
           onAnswered={session.handleAnswered}
           onContinue={onContinue ?? session.handleContinue}
+          continueDestination={session.willEndOnContinue ? 'results' : 'next-puzzle'}
         />
       )}
     </>

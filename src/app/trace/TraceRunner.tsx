@@ -99,7 +99,33 @@ function feedbackAccentClass(correct: boolean): string {
   return correct ? 'text-accent' : 'text-danger'
 }
 const FEEDBACK_CONTINUE_CLASS =
-  'min-h-11 w-full py-3.5 px-4 border-0 rounded-md bg-accent text-accent-ink text-base font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+  'flex items-center justify-center gap-2 min-h-11 w-full py-3.5 px-4 border-0 rounded-md bg-accent text-accent-ink text-base font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+
+// 2b.2 (click-meaningfulness): same shape as PuzzleCardShell.tsx's own
+// CONTINUE_BAR_CLASS (duplicated, not imported — matches this file's own
+// established convention of duplicating rather than cross-importing
+// route-chunk-specific styling, per its module doc comment).
+const CONTINUE_BAR_CLASS = 'sticky bottom-0 z-10 pt-3 pb-3 bg-surface-0 border-t border-border'
+
+/** Trace's Continue always means "next puzzle" — Trace has no native end (docs/design/click-meaningfulness.md §3), so unlike PuzzleCardShell's Rush/Boss callers this never branches to a "results" preview. */
+function ContinueIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="5" y1="12" x2="19" y2="12" />
+      <polyline points="12 5 19 12 12 19" />
+    </svg>
+  )
+}
 
 /**
  * Untuned — no production telemetry has ever fired (docs/v2-backlog.md), so
@@ -322,95 +348,107 @@ export function TraceRunnerPuzzle({
   }
 
   return (
-    <div className="trace-runner flex flex-col gap-4">
-      <p className="m-0 text-text-0 text-md font-semibold">{puzzle.prompt}</p>
+    <>
+      <div className="trace-runner flex flex-col gap-4">
+        <p className="m-0 text-text-0 text-md font-semibold">{puzzle.prompt}</p>
 
-      <Scrubber
-        snippet={puzzle.snippet}
-        language={puzzle.language}
-        steps={puzzle.steps}
-        stepIndex={stepIndex}
-        onScrub={setStepIndex}
-        maxAllowedIndex={maxAllowedIndex}
-        maskOutput={maskOutput}
-        {...(maskedVarNames !== undefined ? { maskedVarNames } : {})}
-      />
+        <Scrubber
+          snippet={puzzle.snippet}
+          language={puzzle.language}
+          steps={puzzle.steps}
+          stepIndex={stepIndex}
+          onScrub={setStepIndex}
+          maxAllowedIndex={maxAllowedIndex}
+          maskOutput={maskOutput}
+          {...(maskedVarNames !== undefined ? { maskedVarNames } : {})}
+        />
 
-      {checkpointAtStep && (
-        <>
-          {pendingActive && (
-            // No aria-live role: a countdown ticking every
-            // TRACE_TIMER_TICK_MS would spam a screen reader with constant
-            // announcements — a purely visual supplement, not the kind of
-            // status change that needs narrating.
-            <p className="m-0 self-end font-mono text-sm text-text-1" aria-hidden="true">
-              {Math.ceil(remainingMs / 1000)}s
-            </p>
-          )}
-          <CheckpointPanel
-            key={checkpointAtStep.afterStep}
-            checkpoint={checkpointAtStep}
-            steps={puzzle.steps}
-            result={resultAtStep}
-            onAnswer={handleAnswer}
-          />
-        </>
-      )}
+        {checkpointAtStep && (
+          <>
+            {pendingActive && (
+              // No aria-live role: a countdown ticking every
+              // TRACE_TIMER_TICK_MS would spam a screen reader with constant
+              // announcements — a purely visual supplement, not the kind of
+              // status change that needs narrating.
+              <p className="m-0 self-end font-mono text-sm text-text-1" aria-hidden="true">
+                {Math.ceil(remainingMs / 1000)}s
+              </p>
+            )}
+            <CheckpointPanel
+              key={checkpointAtStep.afterStep}
+              checkpoint={checkpointAtStep}
+              steps={puzzle.steps}
+              result={resultAtStep}
+              onAnswer={handleAnswer}
+            />
+          </>
+        )}
+
+        {isComplete && (
+          <div className={feedbackPanelClass(solved ?? false)} role="status">
+            <div className="flex items-center gap-2">
+              <span
+                className={`flex items-center ${feedbackAccentClass(solved ?? false)}`}
+                aria-hidden="true"
+              >
+                {solved ? (
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="var(--accent)"
+                    strokeWidth="2.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="var(--danger)"
+                    strokeWidth="2.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                )}
+              </span>
+              <span
+                className={`flex-1 font-bold text-base ${feedbackAccentClass(solved ?? false)}`}
+              >
+                {solved ? 'Nice — fully traced' : 'Not quite'}
+              </span>
+              {ratingDelta !== null && (
+                <span
+                  className={`feedback-panel__delta font-mono font-bold tabular-nums ${feedbackAccentClass(solved ?? false)}`}
+                >
+                  {ratingDelta > 0 ? `+${String(ratingDelta)}` : String(ratingDelta)}
+                </span>
+              )}
+            </div>
+            <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">{puzzle.explanation}</p>
+          </div>
+        )}
+      </div>
 
       {isComplete && (
-        <div className={feedbackPanelClass(solved ?? false)} role="status">
-          <div className="flex items-center gap-2">
-            <span
-              className={`flex items-center ${feedbackAccentClass(solved ?? false)}`}
-              aria-hidden="true"
-            >
-              {solved ? (
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="var(--accent)"
-                  strokeWidth="2.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              ) : (
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="var(--danger)"
-                  strokeWidth="2.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              )}
-            </span>
-            <span className={`flex-1 font-bold text-base ${feedbackAccentClass(solved ?? false)}`}>
-              {solved ? 'Nice — fully traced' : 'Not quite'}
-            </span>
-            {ratingDelta !== null && (
-              <span
-                className={`feedback-panel__delta font-mono font-bold tabular-nums ${feedbackAccentClass(solved ?? false)}`}
-              >
-                {ratingDelta > 0 ? `+${String(ratingDelta)}` : String(ratingDelta)}
-              </span>
-            )}
+        <div className={CONTINUE_BAR_CLASS}>
+          <div className="w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto px-4">
+            <button type="button" className={FEEDBACK_CONTINUE_CLASS} onClick={onContinue}>
+              Next puzzle
+              <ContinueIcon />
+            </button>
           </div>
-          <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">{puzzle.explanation}</p>
-          <button type="button" className={FEEDBACK_CONTINUE_CLASS} onClick={onContinue}>
-            Continue
-          </button>
         </div>
       )}
-    </div>
+    </>
   )
 }
 

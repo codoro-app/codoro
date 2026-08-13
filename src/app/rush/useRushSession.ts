@@ -122,6 +122,15 @@ export interface RushSession {
   forcedCommit: CommitPayload | undefined
   /** Every attempt of the current run, in play order (correct and incorrect alike) — feeds the end-of-run challenge link. Reset by startRun. */
   runAttempts: readonly ChallengeAttemptInput[]
+  /**
+   * True once the just-answered puzzle's outcome means the NEXT Continue tap
+   * ends the run (3rd strike) rather than serving another puzzle — mirrors
+   * `pendingEndRef`'s own decision (2b.2 click-meaningfulness fix), exposed
+   * as real state so the Continue button can preview "See results" instead
+   * of "Next puzzle" before the tap. False while `phase !== 'playing'` or no
+   * puzzle has been answered yet.
+   */
+  willEndOnContinue: boolean
   handleAnswered: (payload: CommitPayload) => void
   handleContinue: () => void
   handleRunItBack: () => void
@@ -142,6 +151,7 @@ export function useRushSession(): RushSession {
   const [remainingMs, setRemainingMs] = useState(RUSH_PUZZLE_TIME_LIMIT_MS)
   const [forcedCommit, setForcedCommit] = useState<CommitPayload | undefined>(undefined)
   const [runAttempts, setRunAttempts] = useState<ChallengeAttemptInput[]>([])
+  const [willEndOnContinue, setWillEndOnContinue] = useState(false)
 
   const runIdRef = useRef(crypto.randomUUID())
   const positionRef = useRef(0)
@@ -192,6 +202,7 @@ export function useRushSession(): RushSession {
     answeredRef.current = false
     setRemainingMs(RUSH_PUZZLE_TIME_LIMIT_MS)
     setForcedCommit(undefined)
+    setWillEndOnContinue(false)
     setStatus('ready')
   }, [])
 
@@ -383,7 +394,9 @@ export function useRushSession(): RushSession {
         { puzzleId: puzzle.id, correct: payload.correct, time_ms: timeMs },
       ])
 
-      pendingEndRef.current = newStrikes >= RUSH_STRIKE_LIMIT
+      const willEnd = newStrikes >= RUSH_STRIKE_LIMIT
+      pendingEndRef.current = willEnd
+      setWillEndOnContinue(willEnd)
       pendingDifficultyRef.current = payload.correct ? stepDifficulty(difficulty) : difficulty
     },
     [profile, puzzle, phase, solvedCount, currentStreak, bestStreakThisRun, strikes, difficulty],
@@ -451,6 +464,7 @@ export function useRushSession(): RushSession {
     remainingMs,
     forcedCommit,
     runAttempts,
+    willEndOnContinue,
     handleAnswered,
     handleContinue,
     handleRunItBack,

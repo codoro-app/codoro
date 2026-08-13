@@ -119,6 +119,19 @@ export interface BossSession {
   totalPuzzles: number
   /** Populated once phase === 'ended'. */
   runSummary: BossRunSummary | null
+  /** True once the just-answered puzzle's outcome means the NEXT Continue tap ends the run (3rd strike, or the set's last puzzle) — see useRushSession.ts's identical field for the full rationale (2b.2 click-meaningfulness fix). */
+  willEndOnContinue: boolean
+  /**
+   * Whether the CURRENT puzzle's answer was correct — undefined/null until
+   * answered, reset to null once a new puzzle is served (2b.2 Boss
+   * game-feel pass: drives the correct-answer "landed a hit" beat, the
+   * counterpart to the wrong-answer hit-reaction the health bar already
+   * had). `strikes` alone can't drive this: it only changes on a MISS, so a
+   * correct answer needs its own signal.
+   */
+  lastAnswerCorrect: boolean | null
+  /** Bumped once per handleAnswered call — a remount key so the character reaction (keyed off it) replays its CSS animation on every answer, correct or wrong, the same `key={strikes}` trick the health bar's own hit-reaction already uses. */
+  answerNonce: number
   handleAnswered: (payload: CommitPayload) => void
   handleContinue: () => void
   handleRunItBack: () => void
@@ -138,6 +151,9 @@ export function useBossSession(): BossSession {
   // strikes/position, from the same activeSet startRun just resolved.
   const [totalPuzzles, setTotalPuzzles] = useState(() => resolveActiveBossSet(0).length)
   const [runSummary, setRunSummary] = useState<BossRunSummary | null>(null)
+  const [willEndOnContinue, setWillEndOnContinue] = useState(false)
+  const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null)
+  const [answerNonce, setAnswerNonce] = useState(0)
 
   const runIdRef = useRef(crypto.randomUUID())
   const servedAtRef = useRef(0)
@@ -161,6 +177,8 @@ export function useBossSession(): BossSession {
   const contentById = useRef(new Map(quizPool.map((p) => [p.id, p])))
 
   const serveAt = useCallback((index: number) => {
+    setWillEndOnContinue(false)
+    setLastAnswerCorrect(null)
     // Dev-stub swap (see devPuzzleMode.ts's own doc comment): the curated
     // BOSS_SETS ids don't exist in DEV_STUB_PUZZLES, so — unlike
     // useRushSession's resolvePool(quizPool), which swaps the whole pool —
@@ -350,9 +368,13 @@ export function useBossSession(): BossSession {
 
       const newStrikes = payload.correct ? strikes : strikes + 1
       setStrikes(newStrikes)
+      setLastAnswerCorrect(payload.correct)
+      setAnswerNonce((n) => n + 1)
 
       const reachedEnd = position >= activeSetRef.current.length
-      pendingEndRef.current = newStrikes >= BOSS_STRIKE_LIMIT || reachedEnd
+      const willEnd = newStrikes >= BOSS_STRIKE_LIMIT || reachedEnd
+      pendingEndRef.current = willEnd
+      setWillEndOnContinue(willEnd)
       pendingNextIndexRef.current = position
     },
     [profile, puzzle, phase, strikes, position],
@@ -381,6 +403,9 @@ export function useBossSession(): BossSession {
     position,
     totalPuzzles,
     runSummary,
+    willEndOnContinue,
+    lastAnswerCorrect,
+    answerNonce,
     handleAnswered,
     handleContinue,
     handleRunItBack,

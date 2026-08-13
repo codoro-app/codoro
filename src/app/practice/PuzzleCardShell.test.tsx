@@ -146,7 +146,7 @@ describe('PuzzleCardShell', () => {
       />,
     )
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Next puzzle' })).not.toBeInTheDocument()
   })
 
   it('mcq: commit -> calls onAnswered once, shows feedback with delta + explanation, Continue calls onContinue', async () => {
@@ -171,9 +171,59 @@ describe('PuzzleCardShell', () => {
     expect(screen.getByText('+12')).toBeInTheDocument()
     expect(screen.getByText(mcqPuzzle.explanation)).toBeInTheDocument()
 
-    const continueButton = screen.getByRole('button', { name: 'Continue' })
+    const continueButton = screen.getByRole('button', { name: 'Next puzzle' })
     await user.click(continueButton)
     expect(onContinue).toHaveBeenCalledTimes(1)
+  })
+
+  it('click-meaningfulness: defaults to a "Next puzzle" preview label, pinned in a sticky bottom bar', async () => {
+    const user = userEvent.setup()
+    const { container } = render(
+      <PuzzleCardShell
+        puzzle={mcqPuzzle}
+        ratingDelta={null}
+        onAnswered={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+
+    const continueButton = screen.getByRole('button', { name: 'Next puzzle' })
+    expect(continueButton.closest('.sticky.bottom-0')).not.toBeNull()
+    // The button previews its destination outside the bordered feedback
+    // card, not nested inside it (a sticky element inside a rounded/bordered
+    // card would visually detach from that card's chrome once pinned).
+    expect(container.querySelector('.feedback-panel')?.contains(continueButton)).toBe(false)
+  })
+
+  it('click-meaningfulness: continueDestination="results" previews "See results" instead of the default', async () => {
+    const user = userEvent.setup()
+    render(
+      <PuzzleCardShell
+        puzzle={mcqPuzzle}
+        ratingDelta={null}
+        onAnswered={vi.fn()}
+        onContinue={vi.fn()}
+        continueDestination="results"
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+    expect(screen.getByRole('button', { name: 'See results' })).toBeInTheDocument()
+  })
+
+  it('click-meaningfulness: continueDestination="retry" previews "Try again" instead of the default', async () => {
+    const user = userEvent.setup()
+    render(
+      <PuzzleCardShell
+        puzzle={mcqPuzzle}
+        ratingDelta={null}
+        onAnswered={vi.fn()}
+        onContinue={vi.fn()}
+        continueDestination="retry"
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 
   it('mcq: wrong answer shows "Not quite" and a negative delta', async () => {

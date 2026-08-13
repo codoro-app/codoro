@@ -90,10 +90,10 @@ async function solveTwoPuzzleRun(user: ReturnType<typeof userEvent.setup>) {
   const [firstChoice] = await screen.findAllByRole('button')
   if (!firstChoice) throw new Error('expected at least one choice button')
   await user.click(firstChoice)
-  await user.click(await screen.findByRole('button', { name: 'Continue' }))
+  await user.click(await screen.findByRole('button', { name: 'Next puzzle' }))
 
   await solveScrubberToCompletion(user)
-  await user.click(await screen.findByRole('button', { name: 'Continue' }))
+  await user.click(await screen.findByRole('button', { name: 'Next puzzle' }))
 }
 
 beforeEach(() => {
@@ -225,7 +225,7 @@ describe('ChallengePageForHash — duplicate puzzle id regression', () => {
     const [firstChoice] = await screen.findAllByRole('button')
     if (!firstChoice) throw new Error('expected at least one choice button')
     await user.click(firstChoice)
-    await user.click(await screen.findByRole('button', { name: 'Continue' }))
+    await user.click(await screen.findByRole('button', { name: 'Next puzzle' }))
 
     // The second occurrence must render fresh — no feedback panel until it
     // is actually answered. Under the bug this was already present, stale,
@@ -236,7 +236,7 @@ describe('ChallengePageForHash — duplicate puzzle id regression', () => {
     if (!secondChoice)
       throw new Error('expected at least one choice button on the second occurrence')
     await user.click(secondChoice)
-    await user.click(await screen.findByRole('button', { name: 'Continue' }))
+    await user.click(await screen.findByRole('button', { name: 'Next puzzle' }))
 
     // Reaches the done state with both results recorded — the concrete
     // symptom of the softlock was never getting here.

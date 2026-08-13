@@ -101,6 +101,7 @@ export function RushActivePlay({ session, onContinue }: RushActivePlayProps) {
           onAnswered={session.handleAnswered}
           onContinue={onContinue ?? session.handleContinue}
           forcedCommit={session.forcedCommit}
+          continueDestination={session.willEndOnContinue ? 'results' : 'next-puzzle'}
         />
       )}
     </>

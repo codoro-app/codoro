@@ -62,6 +62,24 @@ import '../tokens.css'
 /** Rendered in place of a masked variable value or output string. */
 const MASK_MARKER = '?'
 
+// 2b.2 (Trace arrow mis-click fix): the variable panel below grows a new
+// row whenever a step introduces a variable the previous step didn't have
+// (a real, common shape — most traced puzzles initialize variables partway
+// through, not all at step 0). Without a reserved height, that growth
+// pushes the Prev/Next tap targets further down the page mid-tap: a player
+// speed-tapping Next lands their next tap wherever the arrow USED to be,
+// which is no longer the arrow once a row was added. Reserving height for
+// the puzzle's own max var count (computed once, not per-step) keeps the
+// panel — and everything below it — at a fixed position regardless of
+// which step is on screen. Values are the panel's own Tailwind classes
+// (`p-3` = 0.75rem top+bottom, `gap-1` = 0.25rem between rows) plus one
+// `text-base` row's own line-height, kept as named constants here so a
+// future change to either doesn't silently desync this math from the
+// className strings below.
+const VARS_ROW_HEIGHT_REM = 1.5
+const VARS_ROW_GAP_REM = 0.25
+const VARS_PANEL_PADDING_REM = 1.5
+
 export interface ScrubberProps {
   /** Puzzle source, passed straight to highlightSnippet (same convention as CodeSnippet's caller). */
   snippet: string
@@ -96,6 +114,19 @@ export function Scrubber({
   // leave this render having called a different set of hooks than the last
   // successful one.
   const lines = useMemo(() => highlightSnippet(snippet, language), [snippet, language])
+  // See VARS_ROW_HEIGHT_REM's own doc comment. Computed over the whole
+  // puzzle's `steps` (not just the current one) so the reserved height
+  // covers every step this stepIndex could scrub to, not just the one on
+  // screen right now.
+  const maxVarCount = useMemo(
+    () => Math.max(1, ...steps.map((s) => Object.keys(s.vars).length)),
+    [steps],
+  )
+  const varsPanelMinHeight = `${String(
+    maxVarCount * VARS_ROW_HEIGHT_REM +
+      (maxVarCount - 1) * VARS_ROW_GAP_REM +
+      VARS_PANEL_PADDING_REM,
+  )}rem`
   const trackRef = useRef<HTMLDivElement | null>(null)
   const dragStartIndexRef = useRef(stepIndex)
 
@@ -206,6 +237,7 @@ export function Scrubber({
       <dl
         className="flex flex-col gap-1 m-0 p-3 bg-surface-1 border border-border rounded-md"
         aria-label="Variables"
+        style={{ minHeight: varsPanelMinHeight }}
       >
         {Object.entries(step.vars).map(([name, value]) => (
           <div

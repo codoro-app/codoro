@@ -86,6 +86,51 @@ describe('Scrubber', () => {
     expect(readVarRows(container).map(([name]) => name)).toEqual(['total', 'i'])
   })
 
+  it('reserves stable height on the variable panel so the Prev/Next arrows never move as the var count grows across steps', () => {
+    const { container, rerender } = render(
+      <Scrubber
+        snippet={snippet}
+        language="javascript"
+        steps={steps}
+        stepIndex={0}
+        onScrub={vi.fn()}
+        maxAllowedIndex={4}
+      />,
+    )
+    // steps[0].vars has 1 row; steps[1].vars has 2 — a real growth across
+    // this puzzle's own steps (the repro: speed-tapping Next while a step
+    // introduces a new variable pushes the arrow row below it down).
+    // Reads the element's own inline style (not getComputedStyle, which
+    // jsdom resolves to CSS-spec defaults like 'auto' regardless of what's
+    // actually rendered — useless for proving a real fix here).
+    const panelAtOneRow = container.querySelector('[aria-label="Variables"]')
+    if (!(panelAtOneRow instanceof HTMLElement)) {
+      throw new Error('Variables panel not found')
+    }
+    const minHeightAtOneRow = panelAtOneRow.style.minHeight
+    // Must reserve real height for the puzzle's max row count (2, from
+    // steps[1]/[2]/[3]/[4]) even while only 1 row is actually rendered — an
+    // empty inline style means "reserves nothing", the exact bug this fix
+    // closes (the panel grows a row and pushes the arrows below it down).
+    expect(minHeightAtOneRow).not.toBe('')
+
+    rerender(
+      <Scrubber
+        snippet={snippet}
+        language="javascript"
+        steps={steps}
+        stepIndex={1}
+        onScrub={vi.fn()}
+        maxAllowedIndex={4}
+      />,
+    )
+    const panelAtTwoRows = container.querySelector('[aria-label="Variables"]')
+    if (!(panelAtTwoRows instanceof HTMLElement)) {
+      throw new Error('Variables panel not found')
+    }
+    expect(panelAtTwoRows.style.minHeight).toBe(minHeightAtOneRow)
+  })
+
   it('renders output since the previous step only when the current step produced one', () => {
     const { container, rerender } = render(
       <Scrubber
