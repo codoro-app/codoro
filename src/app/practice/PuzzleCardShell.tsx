@@ -22,6 +22,7 @@ import { Mcq } from './interactions/Mcq'
 import { SwipeBinary } from './interactions/SwipeBinary'
 import { TapLine } from './interactions/TapLine'
 import { DragOrder } from './interactions/DragOrder'
+import { useMediaQuery } from '../useMediaQuery'
 import '../tokens.css'
 import './practice.css'
 
@@ -88,7 +89,23 @@ const FEEDBACK_CONTINUE_CLASS =
 // own `stickyAction` slot treatment (PageShell.tsx) for the same reason:
 // this is functionally that same pinned-CTA pattern, kept local to this
 // component instead of threading every caller through PageShell explicitly.
+//
+// 2b.2 follow-up (bug report, 2026-08-12): mobile-only as of this pass —
+// see `isDesktop` below. Desktop dropped the sticky bar entirely rather
+// than just re-coloring it: the bar's solid bg-surface-0 (even now that it
+// matches the true page background, index.css.test.ts) still had to sit
+// directly over a long feedback panel's scrolled-past text once the panel
+// grew taller than the viewport, since `position: sticky` pins it to the
+// viewport edge regardless of content height. Desktop has the width to
+// avoid that outright instead of just re-coloring the same overlap.
 const CONTINUE_BAR_CLASS = 'sticky bottom-0 z-10 pt-3 pb-3 bg-surface-0 border-t border-border'
+
+// Desktop's inline placement (see `isDesktop` below): same button, not
+// full-width (it sits beside the feedback panel's own width, right-aligned,
+// not spanning a dedicated bar) and never sticky (it's positioned above the
+// feedback panel in normal flow, so there's nothing for it to overlap).
+const DESKTOP_CONTINUE_CLASS =
+  'flex items-center justify-center gap-2 min-h-11 py-3 px-6 border-0 rounded-md bg-accent text-accent-ink text-base font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
 /**
  * What pressing Continue actually does next — the gating-tap fix
@@ -161,6 +178,24 @@ function continueLabel(destination: ContinueDestination): string {
   return 'Next puzzle'
 }
 
+/** The Continue button itself — shared by both of its placements below (mobile's sticky bar, desktop's inline slot) so the two stay in sync instead of drifting as two hand-copied buttons. */
+function ContinueCta({
+  className,
+  destination,
+  onContinue,
+}: {
+  className: string
+  destination: ContinueDestination
+  onContinue: () => void
+}) {
+  return (
+    <button type="button" className={className} onClick={onContinue}>
+      {continueLabel(destination)}
+      <ContinueIcon destination={destination} />
+    </button>
+  )
+}
+
 /**
  * Tracks committed state as `{ puzzleId, payload }` rather than plain
  * `payload` state, and compares `commit.puzzleId === puzzle.id` to decide
@@ -180,6 +215,11 @@ export function PuzzleCardShell({
   continueDestination = 'next-puzzle',
 }: PuzzleCardShellProps) {
   const [commit, setCommit] = useState<CommitState | null>(null)
+  // Purely a Continue-button placement switch (bug report, 2026-08-12) — see
+  // CONTINUE_BAR_CLASS's doc comment above for why this needs an actual
+  // structural move (a different parent, sticky vs. not) rather than a pure
+  // CSS reorder within one shared container.
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
 
   const committed = commit !== null && commit.puzzleId === puzzle.id
   const committedPayload = committed ? commit.payload : undefined
@@ -304,6 +344,16 @@ export function PuzzleCardShell({
 
         <div className="flex flex-col">{interactionBody}</div>
 
+        {committed && committedPayload && isDesktop && (
+          <div className="flex justify-end">
+            <ContinueCta
+              className={DESKTOP_CONTINUE_CLASS}
+              destination={continueDestination}
+              onContinue={onContinue}
+            />
+          </div>
+        )}
+
         {committed && committedPayload && (
           <div className={feedbackPanelClass(committedPayload.correct)} role="status">
             <div className="flex items-center gap-2">
@@ -358,13 +408,14 @@ export function PuzzleCardShell({
         )}
       </div>
 
-      {committed && committedPayload && (
+      {committed && committedPayload && !isDesktop && (
         <div className={CONTINUE_BAR_CLASS}>
           <div className="w-full max-w-[var(--content-width-mobile)] mx-auto px-4">
-            <button type="button" className={FEEDBACK_CONTINUE_CLASS} onClick={onContinue}>
-              {continueLabel(continueDestination)}
-              <ContinueIcon destination={continueDestination} />
-            </button>
+            <ContinueCta
+              className={FEEDBACK_CONTINUE_CLASS}
+              destination={continueDestination}
+              onContinue={onContinue}
+            />
           </div>
         </div>
       )}

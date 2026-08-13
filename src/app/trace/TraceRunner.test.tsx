@@ -295,6 +295,46 @@ describe('TraceRunner solve screen', () => {
     expect(handleContinue).toHaveBeenCalledTimes(1)
   })
 
+  // Same fix as PuzzleCardShell.test.tsx's identically-named test — see that
+  // file's comment for the full bug report / rationale.
+  it('on desktop (>=1024px) Continue renders inline above the feedback panel, not the sticky bottom bar', () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query === '(min-width: 1024px)',
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    )
+    useTraceSessionMock.mockReturnValue(
+      makeSession({
+        checkpointResults: [
+          { correct: true, choiceIndex: 1 },
+          { correct: true, choiceIndex: 0 },
+          { correct: true, choiceIndex: 1 },
+        ],
+        isComplete: true,
+        solved: true,
+        ratingDelta: 15,
+      }),
+    )
+    const { container } = render(<TraceRunner />)
+
+    const continueButton = screen.getByRole('button', { name: 'Next puzzle' })
+    expect(continueButton.closest('.sticky.bottom-0')).toBeNull()
+
+    const feedbackPanel = container.querySelector('.feedback-panel')
+    if (feedbackPanel === null) {
+      throw new Error('Expected a .feedback-panel to be present')
+    }
+    expect(
+      continueButton.compareDocumentPosition(feedbackPanel) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    vi.unstubAllGlobals()
+  })
+
   it('shows the wrong-verdict feedback panel when the attempt was not fully correct', () => {
     useTraceSessionMock.mockReturnValue(
       makeSession({
