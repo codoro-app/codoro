@@ -8,6 +8,7 @@ import {
   PracticeIcon,
   RatingIcon,
   RushIcon,
+  ShareIcon,
   StreakIcon,
   TraceIcon,
 } from './Icons'
@@ -23,6 +24,7 @@ describe('Icons', () => {
     ['CloseIcon', CloseIcon],
     ['RatingIcon', RatingIcon],
     ['StreakIcon', StreakIcon],
+    ['ShareIcon', ShareIcon],
   ])('%s renders an aria-hidden svg sized by the size prop', (_name, Icon) => {
     const { container } = render(<Icon size={32} />)
     const svg = container.querySelector('svg')

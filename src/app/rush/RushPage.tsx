@@ -9,12 +9,13 @@
  *
  * - The end-of-run card reuses DailyPage's `.daily-hero`/`.daily-hero__stats`
  *   treatment (the boldest existing "result card" pattern in the app —
- *   appropriate for a share/retention moment) and ShareCard's `.share-card`
- *   clipboard mechanism verbatim (see RushShareCard.tsx). Both class sets
- *   live in dailyPage.css but are global, already loaded by the bundle
- *   whenever DailyPage is reachable — the same reuse convention DailyPage
- *   itself relies on for `.status-bar`, which actually lives in
- *   practicePage.css, not dailyPage.css.
+ *   appropriate for a share/retention moment); its class set lives in
+ *   dailyPage.css but is global, already loaded by the bundle whenever
+ *   DailyPage is reachable — the same reuse convention DailyPage itself
+ *   relies on for `.status-bar`, which actually lives in practicePage.css,
+ *   not dailyPage.css. Sharing itself (v3 Phase 2b.4) is the shared
+ *   `ShareMenu` component (`src/app/ShareMenu.tsx`), not mode-specific
+ *   markup.
  * - The running "solved" count and in-run streak badge reuse
  *   `.status-bar`/`.status-bar__solved`/`.status-bar__combo` (practicePage.css)
  *   verbatim.
@@ -30,8 +31,11 @@
 import { RushIcon } from '../Icons'
 import { useRushSession } from './useRushSession'
 import { RushActivePlay } from './RushActivePlay'
-import { RushShareCard } from './RushShareCard'
-import { RushChallengeCard } from './RushChallengeCard'
+import { buildRushShareText, buildRushChallengeText } from './shareText'
+import { ShareMenu } from '../ShareMenu'
+import type { ShareAction } from '../ShareMenu'
+import { trackShareClick, trackChallengeCreate } from '../../telemetry'
+import { truncateToChallengeLimit } from '../../challenge'
 // 2b.0: was `.rush-page` in rushPage.css (max-width breakpoint matches
 // Tailwind's `lg` exactly). Not test-asserted (grep-verified).
 const PAGE_SHELL_CLASS =
@@ -72,6 +76,50 @@ export function RushPage() {
       </div>
     )
   }
+
+  // 2b.4: was separate RushShareCard/RushChallengeCard components (deleted)
+  // — one ShareMenu now covers both. `runSummary`/`puzzle` are captured
+  // locally so narrowing survives into the onShared closures below.
+  const runSummary = session.runSummary
+  const puzzle = session.puzzle
+  const shareActions: ShareAction[] =
+    session.phase === 'ended' && runSummary
+      ? [
+          ...(puzzle
+            ? [
+                {
+                  id: 'puzzle',
+                  label: 'Share puzzle',
+                  copiedLabel: 'Copied!',
+                  text: buildRushShareText({
+                    solvedCount: runSummary.solvedCount,
+                    bestStreakThisRun: runSummary.bestStreakThisRun,
+                    puzzleId: puzzle.id,
+                  }),
+                  onShared: () => {
+                    trackShareClick({ surface: 'rush', puzzle_id: puzzle.id })
+                  },
+                },
+              ]
+            : []),
+          {
+            id: 'challenge',
+            label: 'Share challenge',
+            copiedLabel: 'Link copied!',
+            text: buildRushChallengeText({
+              solvedCount: runSummary.solvedCount,
+              bestStreakThisRun: runSummary.bestStreakThisRun,
+              attempts: session.runAttempts,
+            }),
+            onShared: () => {
+              trackChallengeCreate({
+                surface: 'rush',
+                puzzle_count: truncateToChallengeLimit([...session.runAttempts]).length,
+              })
+            },
+          },
+        ]
+      : []
 
   return (
     <div className={PAGE_SHELL_CLASS}>
@@ -125,19 +173,7 @@ export function RushPage() {
             </div>
           </div>
 
-          {session.puzzle && (
-            <RushShareCard
-              solvedCount={session.runSummary.solvedCount}
-              bestStreakThisRun={session.runSummary.bestStreakThisRun}
-              puzzleId={session.puzzle.id}
-            />
-          )}
-
-          <RushChallengeCard
-            solvedCount={session.runSummary.solvedCount}
-            bestStreakThisRun={session.runSummary.bestStreakThisRun}
-            attempts={session.runAttempts}
-          />
+          <ShareMenu actions={shareActions} />
 
           <button
             type="button"

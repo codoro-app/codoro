@@ -144,9 +144,10 @@ export function trackPuzzleLinkAttempt(payload: PuzzleLinkAttemptPayload): void 
 }
 
 /**
- * Fired whenever a share affordance is used — Daily and Rush's existing
- * post-solve ShareCard/RushShareCard, and Practice's new solve-state share
- * button (Phase 1b). `surface` names the calling mode.
+ * Fired whenever a share affordance is used — Daily/Rush/Practice's
+ * post-solve `ShareMenu` "Share puzzle" action (v3 Phase 2b.4; originally
+ * per-mode ShareCard/RushShareCard components, Phase 1b). `surface` names
+ * the calling mode.
  */
 export interface ShareClickPayload {
   surface: 'daily' | 'rush' | 'practice'

@@ -57,14 +57,17 @@ import { PuzzleCardShell } from './PuzzleCardShell'
 import { StatusBar } from './StatusBar'
 import { PatternPicker } from './PatternPicker'
 import { MasteryView } from './MasteryView'
-import { PracticeShareCard } from './PracticeShareCard'
-import { PracticeChallengeCard } from './PracticeChallengeCard'
+import { buildPracticeShareText, buildPracticeChallengeText } from './shareText'
 import { usePracticeSession } from './usePracticeSession'
 import { useMediaQuery } from '../useMediaQuery'
 import { StreakPause } from '../StreakPause'
 import { PATTERN_LABELS, PATTERN_SLUGS } from '../../content'
 import type { PatternSlug } from '../../content'
 import { CloseIcon } from '../Icons'
+import { ShareMenu } from '../ShareMenu'
+import type { ShareAction } from '../ShareMenu'
+import { trackShareClick, trackChallengeCreate } from '../../telemetry'
+import { truncateToChallengeLimit } from '../../challenge'
 import { useEffect, useRef, useState } from 'react'
 import type { CommitPayload } from './interactionTypes'
 import { QUIZ_INTERACTIONS, QUIZ_INTERACTION_LABELS } from './interactionTypes'
@@ -241,6 +244,40 @@ export function PracticePage() {
     session.patternFilter ? PATTERN_LABELS[session.patternFilter] : null,
   ].filter((label): label is string => label !== null)
 
+  // 2b.4: was separate PracticeShareCard/PracticeChallengeCard components
+  // (deleted) — one ShareMenu now covers both, empty until `answer` matches
+  // the currently displayed puzzle, same gate the old cards shared.
+  const answer = lastAnswer && lastAnswer.puzzleId === session.puzzle?.id ? lastAnswer : null
+  const shareActions: ShareAction[] = answer
+    ? [
+        {
+          id: 'puzzle',
+          label: 'Share puzzle',
+          copiedLabel: 'Copied!',
+          text: buildPracticeShareText({ puzzleId: answer.puzzleId, correct: answer.correct }),
+          onShared: () => {
+            trackShareClick({ surface: 'practice', puzzle_id: answer.puzzleId })
+          },
+        },
+        ...(session.streakAttempts.length > 0
+          ? [
+              {
+                id: 'challenge',
+                label: 'Share challenge',
+                copiedLabel: 'Link copied!',
+                text: buildPracticeChallengeText({ attempts: session.streakAttempts }),
+                onShared: () => {
+                  trackChallengeCreate({
+                    surface: 'practice',
+                    puzzle_count: truncateToChallengeLimit([...session.streakAttempts]).length,
+                  })
+                },
+              },
+            ]
+          : []),
+      ]
+    : []
+
   return (
     <>
       {session.streakPause && (
@@ -371,15 +408,7 @@ export function PracticePage() {
           </AnimatePresence>
         )}
 
-        {lastAnswer && lastAnswer.puzzleId === session.puzzle?.id && (
-          <PracticeShareCard puzzleId={lastAnswer.puzzleId} correct={lastAnswer.correct} />
-        )}
-
-        {session.streakAttempts.length > 0 &&
-          lastAnswer &&
-          lastAnswer.puzzleId === session.puzzle?.id && (
-            <PracticeChallengeCard attempts={session.streakAttempts} />
-          )}
+        <ShareMenu actions={shareActions} />
       </div>
 
       {isDesktop && (

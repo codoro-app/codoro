@@ -15,8 +15,10 @@ import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { MasteryView } from '../practice/MasteryView'
 import { useDailySession } from './useDailySession'
 import { useMediaQuery } from '../useMediaQuery'
-import { ShareCard } from './ShareCard'
-import { ChallengeCard } from './ChallengeCard'
+import { ShareMenu } from '../ShareMenu'
+import type { ShareAction } from '../ShareMenu'
+import { buildShareText, buildDailyChallengeText } from './shareText'
+import { trackShareClick, trackChallengeCreate } from '../../telemetry'
 
 // 2b.0: was `.daily-page` in dailyPage.css (max-width breakpoint matches
 // Tailwind's `lg` exactly). None of `.daily-page*`/`.daily-hero*` are
@@ -75,6 +77,47 @@ export function DailyPage() {
       </div>
     )
   }
+
+  // 2b.4: was separate ShareCard/ChallengeCard components (deleted) — one
+  // ShareMenu now covers both, degrading to a single button when the
+  // challenge attempt isn't ready yet, same conditional this list replaces.
+  // `puzzleId` is captured locally because TS doesn't retain narrowing of
+  // `session.puzzle` across the closures below.
+  const puzzleId = session.puzzle.id
+  const shareActions: ShareAction[] = session.completedToday
+    ? [
+        {
+          id: 'puzzle',
+          label: 'Share puzzle',
+          copiedLabel: 'Copied!',
+          text: buildShareText({
+            dayNumber: session.dayNumber,
+            correct: session.profile.dailyCompletion?.correct ?? false,
+            streak: session.profile.streak.currentStreak,
+            puzzleId,
+          }),
+          onShared: () => {
+            trackShareClick({ surface: 'daily', puzzle_id: puzzleId })
+          },
+        },
+        ...(session.challengeAttempt
+          ? [
+              {
+                id: 'challenge',
+                label: 'Share challenge',
+                copiedLabel: 'Link copied!',
+                text: buildDailyChallengeText({
+                  dayNumber: session.dayNumber,
+                  attempt: session.challengeAttempt,
+                }),
+                onShared: () => {
+                  trackChallengeCreate({ surface: 'daily', puzzle_count: 1 })
+                },
+              },
+            ]
+          : []),
+      ]
+    : []
 
   return (
     <>
@@ -214,16 +257,7 @@ export function DailyPage() {
               </div>
             </div>
 
-            <ShareCard
-              dayNumber={session.dayNumber}
-              correct={session.profile.dailyCompletion?.correct ?? false}
-              streak={session.profile.streak.currentStreak}
-              puzzleId={session.puzzle.id}
-            />
-
-            {session.challengeAttempt && (
-              <ChallengeCard dayNumber={session.dayNumber} attempt={session.challengeAttempt} />
-            )}
+            <ShareMenu actions={shareActions} />
           </>
         )}
 

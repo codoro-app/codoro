@@ -111,22 +111,23 @@ describe('PracticePage', () => {
     expect(screen.getByText('1200')).toBeInTheDocument()
   })
 
-  it('reveals a share card after answering, firing share_click on copy, then hides it once Continue serves a new puzzle', async () => {
+  it('reveals a share menu after answering, firing share_click on copy, then hides it once Continue serves a new puzzle', async () => {
     const user = userEvent.setup()
     render(<PracticePage />)
     await waitFor(() => {
       expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
     })
 
-    expect(screen.queryByText(/Copy share text/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument()
 
     await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
     await waitFor(() => {
-      expect(screen.getByText(/Copy share text/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
     })
+    await user.click(screen.getByRole('button', { name: 'Share' }))
 
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
-    await user.click(screen.getByText(/Copy share text/i))
+    await user.click(screen.getByRole('menuitem', { name: 'Share puzzle' }))
     expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('Codoro Practice —'))
     expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('getcodoro.com/puzzle/'))
     expect(trackShareClick).toHaveBeenCalledTimes(1)
@@ -134,31 +135,32 @@ describe('PracticePage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Next puzzle' }))
     await waitFor(() => {
-      expect(screen.queryByText(/Copy share text/i)).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument()
     })
   })
 
-  it('shows the challenge card after a correct answer, with a working copy button that re-encodes the streak', async () => {
+  it('shows a working "Share challenge" action after a correct answer that re-encodes the streak', async () => {
     const user = userEvent.setup()
     render(<PracticePage />)
     await waitFor(() => {
       expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
     })
 
-    expect(screen.queryByRole('button', { name: 'Challenge a friend' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument()
 
     await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Challenge a friend' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
     })
+    await user.click(screen.getByRole('button', { name: 'Share' }))
 
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
     // This file's beforeEach has no vi.clearAllMocks(), so a spy placed in
-    // an earlier test (the share-card test's "Copy share text" click) may
+    // an earlier test (the share-menu test's "Share puzzle" click) may
     // still be the same accumulated spy — clear it so calls[0] is this
     // test's own write, not a leftover.
     writeTextSpy.mockClear()
-    await user.click(screen.getByRole('button', { name: 'Challenge a friend' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Share challenge' }))
 
     expect(trackChallengeCreate).toHaveBeenCalledTimes(1)
     expect(trackChallengeCreate).toHaveBeenCalledWith({ surface: 'practice', puzzle_count: 1 })
@@ -173,11 +175,11 @@ describe('PracticePage', () => {
     expect(decoded?.ids).toHaveLength(1)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Link copied!' })).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: 'Link copied!' })).toBeInTheDocument()
     })
   })
 
-  it('clears the challenge card on Continue — it must not persist under the next, unanswered puzzle', async () => {
+  it('clears the share menu on Continue — it must not persist under the next, unanswered puzzle', async () => {
     const user = userEvent.setup()
     render(<PracticePage />)
     await waitFor(() => {
@@ -186,14 +188,12 @@ describe('PracticePage', () => {
 
     await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Challenge a friend' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
     })
 
     await user.click(screen.getByRole('button', { name: 'Next puzzle' }))
     await waitFor(() => {
-      expect(
-        screen.queryByRole('button', { name: /Challenge a friend|Link copied!/ }),
-      ).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument()
     })
   })
 

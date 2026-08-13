@@ -63,13 +63,14 @@ describe('DailyPage', () => {
     vi.mocked(listAttempts).mockResolvedValue([])
   })
 
-  it("renders today's puzzle without a share card before any attempt", async () => {
+  it("renders today's puzzle without a share menu before any attempt", async () => {
     render(<DailyPage />)
 
     await waitFor(() => {
       expect(screen.getByText(/Codoro Daily #/)).toBeInTheDocument()
     })
-    expect(screen.queryByText(/Copy share text/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Share puzzle' })).not.toBeInTheDocument()
   })
 
   it("never renders the puzzle's rating before an attempt is committed (Phase 5 Item 3 — anchoring)", async () => {
@@ -122,7 +123,7 @@ describe('DailyPage', () => {
     expect(screen.getByText(String(servedPuzzle.difficulty_rating))).toBeInTheDocument()
   })
 
-  it('reveals the share card after the first attempt, with a working copy button', async () => {
+  it('reveals the share menu after the first attempt, with a working "Share puzzle" action', async () => {
     const user = userEvent.setup()
     render(<DailyPage />)
 
@@ -136,22 +137,23 @@ describe('DailyPage', () => {
     await user.click(firstChoice)
 
     await waitFor(() => {
-      expect(screen.getByText(/Copy share text/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
     })
+    await user.click(screen.getByRole('button', { name: 'Share' }))
 
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
-    await user.click(screen.getByText(/Copy share text/i))
+    await user.click(screen.getByRole('menuitem', { name: 'Share puzzle' }))
 
     expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('Codoro Daily #'))
     expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('getcodoro.com/puzzle/'))
     expect(trackShareClick).toHaveBeenCalledTimes(1)
     expect(trackShareClick).toHaveBeenCalledWith(expect.objectContaining({ surface: 'daily' }))
     await waitFor(() => {
-      expect(screen.getByText(/Copied!/i)).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: 'Copied!' })).toBeInTheDocument()
     })
   })
 
-  it('shows the challenge card after the first attempt, with a working copy button that re-encodes the served puzzle', async () => {
+  it('shows a working "Share challenge" action after the first attempt that re-encodes the served puzzle', async () => {
     const user = userEvent.setup()
     render(<DailyPage />)
 
@@ -170,11 +172,12 @@ describe('DailyPage', () => {
     if (!servedPuzzle) throw new Error('could not identify which fixture puzzle was served')
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Challenge a friend' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
     })
+    await user.click(screen.getByRole('button', { name: 'Share' }))
 
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
-    await user.click(screen.getByRole('button', { name: 'Challenge a friend' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Share challenge' }))
 
     expect(trackChallengeCreate).toHaveBeenCalledTimes(1)
     expect(trackChallengeCreate).toHaveBeenCalledWith({ surface: 'daily', puzzle_count: 1 })
@@ -190,7 +193,7 @@ describe('DailyPage', () => {
     expect(decoded?.ids).toEqual([servedPuzzle.id])
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Link copied!' })).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: 'Link copied!' })).toBeInTheDocument()
     })
   })
 

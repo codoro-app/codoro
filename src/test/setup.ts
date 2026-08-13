@@ -67,10 +67,11 @@ window.matchMedia = (query: string) => ({
   dispatchEvent: () => false,
 })
 
-// jsdom doesn't implement navigator.clipboard — ShareCard (Daily mode) calls
-// writeText on copy. Stubbed as a resolving no-op, same pattern as the
-// pointer-capture/scrollTo/matchMedia stubs above; tests that assert the
-// copy behavior spy on this via vi.spyOn(navigator.clipboard, 'writeText').
+// jsdom doesn't implement navigator.clipboard — ShareMenu's clipboard
+// fallback calls writeText on copy. Stubbed as a resolving no-op, same
+// pattern as the pointer-capture/scrollTo/matchMedia stubs above; tests
+// that assert the copy behavior spy on this via
+// vi.spyOn(navigator.clipboard, 'writeText').
 Object.defineProperty(navigator, 'clipboard', {
   value: { writeText: () => Promise.resolve() },
   writable: true,

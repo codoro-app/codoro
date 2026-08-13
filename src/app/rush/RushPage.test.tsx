@@ -95,7 +95,7 @@ describe('RushPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Run complete')).toBeInTheDocument()
     })
-    expect(screen.getByText(/Copy share text/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Run it back' })).toBeInTheDocument()
   })
 
@@ -121,7 +121,7 @@ describe('RushPage', () => {
     expect(screen.queryByText('Run complete')).not.toBeInTheDocument()
   })
 
-  it('copies the share text to the clipboard', async () => {
+  it('copies the puzzle share text to the clipboard', async () => {
     const user = userEvent.setup()
     render(<RushPage />)
     await waitFor(() => {
@@ -132,22 +132,23 @@ describe('RushPage', () => {
     await answerAndContinue(user, false)
     await answerAndContinue(user, false)
     await waitFor(() => {
-      expect(screen.getByText(/Copy share text/i)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
     })
+    await user.click(screen.getByRole('button', { name: 'Share' }))
 
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
-    await user.click(screen.getByText(/Copy share text/i))
+    await user.click(screen.getByRole('menuitem', { name: 'Share puzzle' }))
 
     expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('Codoro Rush —'))
     expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('getcodoro.com/puzzle/'))
     expect(trackShareClick).toHaveBeenCalledTimes(1)
     expect(trackShareClick).toHaveBeenCalledWith(expect.objectContaining({ surface: 'rush' }))
     await waitFor(() => {
-      expect(screen.getByText(/Copied!/i)).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: 'Copied!' })).toBeInTheDocument()
     })
   })
 
-  it('shows the challenge card after a run ends, with a working copy button that re-encodes the run', async () => {
+  it('shows a working "Share challenge" action after a run ends that re-encodes the run', async () => {
     const user = userEvent.setup()
     render(<RushPage />)
     await waitFor(() => {
@@ -158,11 +159,12 @@ describe('RushPage', () => {
     await answerAndContinue(user, false)
     await answerAndContinue(user, false)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Challenge a friend' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
     })
+    await user.click(screen.getByRole('button', { name: 'Share' }))
 
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
-    await user.click(screen.getByRole('button', { name: 'Challenge a friend' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Share challenge' }))
 
     expect(trackChallengeCreate).toHaveBeenCalledTimes(1)
     // All three run attempts (none correct here) are encoded — puzzle_count
@@ -180,7 +182,7 @@ describe('RushPage', () => {
     expect(decoded?.results.every((result) => !result.correct)).toBe(true)
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Link copied!' })).toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: 'Link copied!' })).toBeInTheDocument()
     })
   })
 })
