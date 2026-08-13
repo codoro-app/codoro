@@ -225,7 +225,7 @@ describe('PuzzlePageForId — Continue button navigates (Phase 5 Item 1)', () =>
     if (!firstChoice) throw new Error('expected at least one choice button')
     await user.click(firstChoice)
 
-    const continueButton = await screen.findByRole('button', { name: 'Continue' })
+    const continueButton = await screen.findByRole('button', { name: 'Next puzzle' })
     await user.click(continueButton)
 
     await waitFor(() => {
@@ -242,7 +242,7 @@ describe('PuzzlePageForId — Continue button navigates (Phase 5 Item 1)', () =>
     render(<PuzzlePageForId id="tc-009" />)
     await solveScrubberToCompletion(user)
 
-    const continueButton = await screen.findByRole('button', { name: 'Continue' })
+    const continueButton = await screen.findByRole('button', { name: 'Next puzzle' })
     await user.click(continueButton)
 
     await waitFor(() => {

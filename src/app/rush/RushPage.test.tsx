@@ -50,7 +50,7 @@ const { RushPage } = await import('./RushPage')
 /** correct_choice is always 0 -> choice text 'a'; 'b' is always wrong. */
 async function answerAndContinue(user: ReturnType<typeof userEvent.setup>, correct: boolean) {
   await user.click(await screen.findByRole('button', { name: correct ? 'a' : 'b' }))
-  await user.click(await screen.findByRole('button', { name: 'Continue' }))
+  await user.click(await screen.findByRole('button', { name: /next puzzle|see results/i }))
 }
 
 describe('RushPage', () => {

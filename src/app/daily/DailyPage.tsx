@@ -233,6 +233,7 @@ export function DailyPage() {
           ratingDelta={session.ratingDelta}
           onAnswered={session.handleAnswered}
           onContinue={session.handleRetry}
+          continueDestination="retry"
         />
       </div>
 

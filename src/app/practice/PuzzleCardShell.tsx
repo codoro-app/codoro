@@ -41,6 +41,8 @@ export interface PuzzleCardShellProps {
    * the player never had to interact. Undefined outside a timed mode.
    */
   forcedCommit?: CommitPayload | undefined
+  /** What pressing Continue does next — previewed on the button itself (icon + label). Defaults to `'next-puzzle'`. See `ContinueDestination`'s own doc comment. */
+  continueDestination?: ContinueDestination
 }
 
 interface CommitState {
@@ -76,7 +78,88 @@ function feedbackAccentClass(correct: boolean): string {
   return correct ? 'text-accent' : 'text-danger'
 }
 const FEEDBACK_CONTINUE_CLASS =
-  'min-h-11 w-full py-3.5 px-4 border-0 rounded-md bg-accent text-accent-ink text-base font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+  'flex items-center justify-center gap-2 min-h-11 w-full py-3.5 px-4 border-0 rounded-md bg-accent text-accent-ink text-base font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+
+// 2b.2 (click-meaningfulness): pinned in its own sticky bar, OUTSIDE the
+// bordered feedback-panel card above — a sticky element nested inside a
+// rounded/bordered card would visually detach from that card's chrome once
+// pinned to the viewport edge, since the card's own background/border don't
+// scroll with it. `bg-surface-0 border-t border-border` matches PageShell's
+// own `stickyAction` slot treatment (PageShell.tsx) for the same reason:
+// this is functionally that same pinned-CTA pattern, kept local to this
+// component instead of threading every caller through PageShell explicitly.
+const CONTINUE_BAR_CLASS = 'sticky bottom-0 z-10 pt-3 pb-3 bg-surface-0 border-t border-border'
+
+/**
+ * What pressing Continue actually does next — the gating-tap fix
+ * (docs/design/click-meaningfulness.md §2): a bare "Continue" previews
+ * nothing, so every caller now states its destination explicitly instead of
+ * leaving the tap a blind advance. `'next-puzzle'` is the default because
+ * it's every mode's common case (Practice/Trace never end; Rush/Boss are
+ * `'next-puzzle'` on every puzzle except the one that ends the run).
+ */
+export type ContinueDestination = 'next-puzzle' | 'results' | 'retry'
+
+function ContinueIcon({ destination }: { destination: ContinueDestination }) {
+  if (destination === 'results') {
+    return (
+      <svg
+        aria-hidden="true"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M5 3v18" />
+        <path d="M5 4h11l-2.5 3.5L16 11H5" />
+      </svg>
+    )
+  }
+  if (destination === 'retry') {
+    return (
+      <svg
+        aria-hidden="true"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M3 12a9 9 0 1 1 2.64 6.36" />
+        <polyline points="3 20 3 14 9 14" />
+      </svg>
+    )
+  }
+  return (
+    <svg
+      aria-hidden="true"
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="5" y1="12" x2="19" y2="12" />
+      <polyline points="12 5 19 12 12 19" />
+    </svg>
+  )
+}
+
+function continueLabel(destination: ContinueDestination): string {
+  if (destination === 'results') return 'See results'
+  if (destination === 'retry') return 'Try again'
+  return 'Next puzzle'
+}
 
 /**
  * Tracks committed state as `{ puzzleId, payload }` rather than plain
@@ -94,6 +177,7 @@ export function PuzzleCardShell({
   onAnswered,
   onContinue,
   forcedCommit,
+  continueDestination = 'next-puzzle',
 }: PuzzleCardShellProps) {
   const [commit, setCommit] = useState<CommitState | null>(null)
 
@@ -208,71 +292,82 @@ export function PuzzleCardShell({
   }
 
   return (
-    // `puzzle-card` stays literal (no styling of its own now) — App.test.tsx/
-    // ChallengePage.test.tsx/PuzzlePage.test.tsx all use it as a root-marker
-    // selector to confirm the quiz shell (vs. Trace's `.trace-runner`) mounted.
-    <div className="puzzle-card flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto p-4">
-      <p className="m-0 text-center text-xl font-semibold text-text-0">{puzzle.prompt}</p>
+    <>
+      {/* `puzzle-card` stays literal (no styling of its own now) — App.test.tsx/
+          ChallengePage.test.tsx/PuzzlePage.test.tsx all use it as a
+          root-marker selector to confirm the quiz shell (vs. Trace's
+          `.trace-runner`) mounted. */}
+      <div className="puzzle-card flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto p-4">
+        <p className="m-0 text-center text-xl font-semibold text-text-0">{puzzle.prompt}</p>
 
-      {staticLines && <CodeSnippet lines={staticLines} />}
+        {staticLines && <CodeSnippet lines={staticLines} />}
 
-      <div className="flex flex-col">{interactionBody}</div>
+        <div className="flex flex-col">{interactionBody}</div>
+
+        {committed && committedPayload && (
+          <div className={feedbackPanelClass(committedPayload.correct)} role="status">
+            <div className="flex items-center gap-2">
+              <span
+                className={`flex items-center ${feedbackAccentClass(committedPayload.correct)}`}
+                aria-hidden="true"
+              >
+                {committedPayload.correct ? (
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="var(--accent)"
+                    strokeWidth="2.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="var(--danger)"
+                    strokeWidth="2.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                )}
+              </span>
+              <span
+                className={`flex-1 font-bold text-base ${feedbackAccentClass(committedPayload.correct)}`}
+              >
+                {committedPayload.correct ? 'Nice — correct' : 'Not quite'}
+              </span>
+              {ratingDelta !== null && (
+                <span
+                  className={`feedback-panel__delta font-mono font-bold tabular-nums ${feedbackAccentClass(committedPayload.correct)}`}
+                >
+                  {ratingDelta > 0 ? `+${String(ratingDelta)}` : String(ratingDelta)}
+                </span>
+              )}
+            </div>
+            <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">{puzzle.explanation}</p>
+          </div>
+        )}
+      </div>
 
       {committed && committedPayload && (
-        <div className={feedbackPanelClass(committedPayload.correct)} role="status">
-          <div className="flex items-center gap-2">
-            <span
-              className={`flex items-center ${feedbackAccentClass(committedPayload.correct)}`}
-              aria-hidden="true"
-            >
-              {committedPayload.correct ? (
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="var(--accent)"
-                  strokeWidth="2.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              ) : (
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="var(--danger)"
-                  strokeWidth="2.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              )}
-            </span>
-            <span
-              className={`flex-1 font-bold text-base ${feedbackAccentClass(committedPayload.correct)}`}
-            >
-              {committedPayload.correct ? 'Nice — correct' : 'Not quite'}
-            </span>
-            {ratingDelta !== null && (
-              <span
-                className={`feedback-panel__delta font-mono font-bold tabular-nums ${feedbackAccentClass(committedPayload.correct)}`}
-              >
-                {ratingDelta > 0 ? `+${String(ratingDelta)}` : String(ratingDelta)}
-              </span>
-            )}
+        <div className={CONTINUE_BAR_CLASS}>
+          <div className="w-full max-w-[var(--content-width-mobile)] mx-auto px-4">
+            <button type="button" className={FEEDBACK_CONTINUE_CLASS} onClick={onContinue}>
+              {continueLabel(continueDestination)}
+              <ContinueIcon destination={continueDestination} />
+            </button>
           </div>
-          <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">{puzzle.explanation}</p>
-          <button type="button" className={FEEDBACK_CONTINUE_CLASS} onClick={onContinue}>
-            Continue
-          </button>
         </div>
       )}
-    </div>
+    </>
   )
 }

@@ -90,7 +90,7 @@ describe('TraceStage', () => {
     const missionSession = makeMissionSession({ stageDeadlineMs: Date.now() + 60_000 })
     render(<TraceStage missionSession={missionSession} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next puzzle' }))
 
     expect(traceSession.handleContinue).toHaveBeenCalledTimes(1)
     expect(missionSession.handleStageComplete).not.toHaveBeenCalled()
@@ -102,7 +102,7 @@ describe('TraceStage', () => {
     const missionSession = makeMissionSession({ stageDeadlineMs: Date.now() - 1_000 })
     render(<TraceStage missionSession={missionSession} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next puzzle' }))
 
     expect(missionSession.handleStageComplete).toHaveBeenCalledWith(
       { stageId: 'trace', puzzlesCompleted: 1, solvedCount: 1 },
@@ -117,7 +117,7 @@ describe('TraceStage', () => {
     const missionSession = makeMissionSession({ stageDeadlineMs: Date.now() - 1_000 })
     render(<TraceStage missionSession={missionSession} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next puzzle' }))
 
     expect(missionSession.handleStageComplete).toHaveBeenCalledWith(
       { stageId: 'trace', puzzlesCompleted: 1, solvedCount: 0 },

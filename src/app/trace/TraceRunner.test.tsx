@@ -289,7 +289,9 @@ describe('TraceRunner solve screen', () => {
     expect(screen.getByText('+15')).toBeInTheDocument()
     expect(screen.getByText(puzzle.explanation)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    const continueButton = screen.getByRole('button', { name: 'Next puzzle' })
+    expect(continueButton.closest('.sticky.bottom-0')).not.toBeNull()
+    fireEvent.click(continueButton)
     expect(handleContinue).toHaveBeenCalledTimes(1)
   })
 

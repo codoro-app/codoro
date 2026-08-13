@@ -1,29 +1,108 @@
 /*
  * 2b.0 Tailwind migration: layout, the health bar's own styling, and page
  * chrome all moved to utility classes (see BossPage.tsx/BossActivePlay.tsx).
- * What's left is the one thing utility classes can't express — the hit
- * reaction's custom `@keyframes`, triggered by `.boss-strikes__fill--hit`.
+ * What's left is what utility classes can't express — custom `@keyframes`.
+ *
+ * 2b.2 game-feel pass: escalated `boss-strikes-hit` (was a 3px/plain-shake
+ * flinch — bigger amplitude + a red flash now reads as an actual impact,
+ * not a twitch) and added two new reactions this phase introduces: a
+ * correct-answer "landed a hit" beat (`.boss-character__icon--hit`, there
+ * was previously ZERO feedback on a correct answer) and its counterpart,
+ * an escalated character recoil on a miss (`--struck`, alongside the
+ * health bar's own escalated shake so the reaction reads on both the
+ * boss's health AND its character, not just one).
  */
 
 .boss-strikes__fill--hit {
-  animation: boss-strikes-hit 0.25s ease-out;
+  animation: boss-strikes-hit 0.32s ease-out;
 }
 
 @keyframes boss-strikes-hit {
   0%,
   100% {
     transform: translateX(0);
+    filter: brightness(1);
+  }
+  15% {
+    transform: translateX(-6px);
+    filter: brightness(1.6);
+  }
+  35% {
+    transform: translateX(6px);
+  }
+  55% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+  90% {
+    transform: translateX(-1px);
+  }
+}
+
+.boss-character__icon--hit {
+  animation: boss-character-hit 0.35s ease-out;
+}
+
+@keyframes boss-character-hit {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.22);
+    box-shadow: 0 0 0 6px var(--ok-dim);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.boss-character__icon--struck {
+  animation: boss-character-struck 0.35s ease-out;
+}
+
+@keyframes boss-character-struck {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
   }
   20% {
-    transform: translateX(-3px);
+    transform: translateX(-5px) rotate(-6deg);
+    box-shadow: 0 0 0 6px var(--danger-dim);
   }
-  40% {
-    transform: translateX(3px);
+  45% {
+    transform: translateX(5px) rotate(5deg);
   }
-  60% {
-    transform: translateX(-2px);
+  70% {
+    transform: translateX(-3px) rotate(-2deg);
   }
-  80% {
-    transform: translateX(2px);
+}
+
+.boss-progress__pip {
+  display: block;
+  flex: 1 1 0%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.boss-progress__pip--done {
+  background: var(--accent);
+}
+
+.boss-progress__pip--current {
+  background: var(--accent);
+  animation: boss-progress-current-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes boss-progress-current-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
   }
 }

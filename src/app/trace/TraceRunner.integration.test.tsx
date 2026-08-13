@@ -122,7 +122,7 @@ describe('TraceRunner + useTraceSession integration', () => {
 
     // Continue serves the next puzzle — deterministically puzzle B, since
     // puzzle A is now the sole entry in the (window-1) recent-ids exclusion.
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next puzzle' }))
 
     await waitFor(() => {
       expect(screen.getByText('Trace puzzle B')).toBeInTheDocument()

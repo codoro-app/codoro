@@ -142,6 +142,40 @@ describe('useBossSession', () => {
     expect(result.current.puzzle?.id).toBe('b1')
   })
 
+  it('click-meaningfulness: sets lastAnswerCorrect + bumps answerNonce on a correct answer, resets on the next puzzle', async () => {
+    const { result } = renderHook(() => useBossSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+    expect(result.current.lastAnswerCorrect).toBeNull()
+    const nonceBefore = result.current.answerNonce
+
+    act(() => {
+      result.current.handleAnswered({ correct: true, choiceIndex: 0 })
+    })
+    expect(result.current.lastAnswerCorrect).toBe(true)
+    expect(result.current.answerNonce).toBe(nonceBefore + 1)
+
+    act(() => {
+      result.current.handleContinue()
+    })
+    await waitFor(() => {
+      expect(result.current.puzzle?.id).toBe('b1')
+    })
+    expect(result.current.lastAnswerCorrect).toBeNull()
+  })
+
+  it('click-meaningfulness: sets lastAnswerCorrect to false on a wrong answer', async () => {
+    const { result } = renderHook(() => useBossSession())
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready')
+    })
+    act(() => {
+      result.current.handleAnswered({ correct: false, choiceIndex: 1 })
+    })
+    expect(result.current.lastAnswerCorrect).toBe(false)
+  })
+
   it('ends the run on the 3rd strike, reporting depthReached and cleared: false', async () => {
     const { result } = renderHook(() => useBossSession())
     await waitFor(() => {

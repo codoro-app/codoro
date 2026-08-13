@@ -57,7 +57,7 @@ const { BossPage } = await import('./BossPage')
 
 async function answerAndContinue(user: ReturnType<typeof userEvent.setup>, correct: boolean) {
   await user.click(await screen.findByRole('button', { name: correct ? 'a' : 'b' }))
-  await user.click(await screen.findByRole('button', { name: 'Continue' }))
+  await user.click(await screen.findByRole('button', { name: /next puzzle|see results/i }))
 }
 
 describe('BossPage', () => {
@@ -75,6 +75,44 @@ describe('BossPage', () => {
     })
     expect(screen.getByText(/puzzle 1 of 10/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'a' })).toBeInTheDocument()
+  })
+
+  it('click-meaningfulness: shows a segmented pip progress indicator alongside the puzzle counter', async () => {
+    render(<BossPage />)
+    await waitFor(() => screen.getByRole('button', { name: 'a' }))
+    const pips = document.querySelectorAll('.boss-progress__pip')
+    expect(pips).toHaveLength(10)
+    expect(document.querySelectorAll('.boss-progress__pip--current')).toHaveLength(1)
+    expect(document.querySelectorAll('.boss-progress__pip--done')).toHaveLength(0)
+  })
+
+  it('click-meaningfulness: shows the boss character', async () => {
+    render(<BossPage />)
+    await waitFor(() => screen.getByRole('button', { name: 'a' }))
+    expect(document.querySelector('.boss-character')).not.toBeNull()
+  })
+
+  it('click-meaningfulness: reacts with a "hit landed" beat on a correct answer', async () => {
+    const user = userEvent.setup()
+    render(<BossPage />)
+    await waitFor(() => screen.getByRole('button', { name: 'a' }))
+
+    expect(document.querySelector('.boss-character__icon--hit')).toBeNull()
+    await user.click(screen.getByRole('button', { name: 'a' }))
+    await waitFor(() => {
+      expect(document.querySelector('.boss-character__icon--hit')).not.toBeNull()
+    })
+  })
+
+  it('click-meaningfulness: reacts with a "struck" beat on a wrong answer', async () => {
+    const user = userEvent.setup()
+    render(<BossPage />)
+    await waitFor(() => screen.getByRole('button', { name: 'a' }))
+
+    await user.click(screen.getByRole('button', { name: 'b' }))
+    await waitFor(() => {
+      expect(document.querySelector('.boss-character__icon--struck')).not.toBeNull()
+    })
   })
 
   it('renders the health bar full at 0 strikes, with no hit-reaction class', async () => {

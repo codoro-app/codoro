@@ -47,6 +47,7 @@ function makeRushSession(overrides: Partial<RushSession> = {}): RushSession {
     remainingMs: 15_000,
     forcedCommit: undefined,
     runAttempts: [],
+    willEndOnContinue: false,
     handleAnswered: vi.fn(),
     handleContinue: vi.fn(),
     handleRunItBack: vi.fn(),
@@ -76,7 +77,7 @@ function makeMissionSession(overrides: Partial<MissionSession> = {}): MissionSes
 
 async function answerAndContinue(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('button', { name: 'b' }))
-  await user.click(await screen.findByRole('button', { name: 'Continue' }))
+  await user.click(await screen.findByRole('button', { name: /next puzzle|see results/i }))
 }
 
 describe('SpeedStage', () => {

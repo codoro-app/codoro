@@ -227,10 +227,10 @@ Sits between Phase 2 (Missions, merged as PR #57) and Phase 3 (Launch-readiness)
 
 **DoD:**
 
-- [ ] Every mode's Continue action previews what's next before the tap.
-- [ ] Trace's checkpoint arrow never moves under an already-in-flight tap.
-- [ ] Boss shows a distinct, escalated reaction on wrong answers and a new, visible reaction on correct answers.
-- [ ] Existing test suite green; Boss's `role="status"`/`aria-label` strikes announcement preserved (still true post-2b.0 — verified in that phase's own test run).
+- [x] Every mode's Continue action previews what's next before the tap. `PuzzleCardShell`/`TraceRunner` now render an icon + contextual label ("Next puzzle" / "See results" / "Try again") pinned in a sticky bottom bar (same position on every screen, no scroll needed) instead of a blind "Continue". Rush/Boss compute the "will this end the run" signal (`willEndOnContinue`) the instant an answer commits, same moment `pendingEndRef` already decided it internally.
+- [x] Trace's checkpoint arrow never moves under an already-in-flight tap. Root cause confirmed live: the Scrubber's variable panel grows a row whenever a step introduces a new variable, pushing the Prev/Next arrows (rendered below it) down mid-tap. Fixed by reserving stable height on the panel sized to the puzzle's max variable count.
+- [x] Boss shows a distinct, escalated reaction on wrong answers and a new, visible reaction on correct answers. Escalated the wrong-answer shake (bigger amplitude + a red flash) and added a new correct-answer "landed a hit" beat on a fixed boss character ("Glitch") that reacts on both. The plain "Puzzle X of Y" text stays as the accessible readout; a segmented pip row is now the primary at-a-glance visual next to it. Direct user decision: single fixed character, not one per BOSS_SETS.
+- [x] Existing test suite green; Boss's `role="status"`/`aria-label` strikes announcement preserved. 1773/1774 tests pass (the one failure, an OD-4 pool test, is a known timeout-under-parallel-load flake — confirmed passing in isolation, unrelated to this phase's changes).
 
 ### 2b.3 — Missions staging + clarity pass (1 session)
 
