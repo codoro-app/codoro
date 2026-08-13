@@ -37,7 +37,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            minHeight: '100vh',
+            minHeight: '100dvh',
             textAlign: 'center',
             gap: '0.5rem',
           }}
