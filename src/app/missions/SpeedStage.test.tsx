@@ -47,6 +47,7 @@ function makeRushSession(overrides: Partial<RushSession> = {}): RushSession {
     remainingMs: 15_000,
     forcedCommit: undefined,
     runAttempts: [],
+    willEndOnContinue: false,
     handleAnswered: vi.fn(),
     handleContinue: vi.fn(),
     handleRunItBack: vi.fn(),
