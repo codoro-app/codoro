@@ -285,11 +285,18 @@
   border-radius: var(--radius-xs);
   background: var(--surface-2);
   color: var(--text-1);
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: var(--font-size-sm);
   cursor: grab;
   touch-action: none;
+}
+
+/* v3 Phase 2b.6: the handle renders a GripIcon (Icons.tsx) sized at 24px —
+ * near the top of the house icon-size convention — so it visually fills
+ * most of the 44px box instead of the small centered digit this replaced.
+ * OD-5's own disposition (docs/v2-build-plan.md) found the handle already
+ * functionally correct at 44px; the complaint was perceptual, so this is a
+ * visual-affordance fix, not a hitbox change — the box above is untouched. */
+.drag-order__handle svg {
+  display: block;
 }
 
 .drag-order__row--dragging .drag-order__handle {

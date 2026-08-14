@@ -379,6 +379,16 @@ describe('DragOrder', () => {
     rectSpy.mockRestore()
   })
 
+  it('renders a grip icon in the handle instead of a position digit (v3 Phase 2b.6)', () => {
+    const { container } = render(<Harness />)
+    const handles = Array.from(container.querySelectorAll('.drag-order__handle'))
+    expect(handles).toHaveLength(3)
+    for (const handle of handles) {
+      expect(handle.querySelector('svg')).not.toBeNull()
+      expect(handle.textContent).toBe('')
+    }
+  })
+
   it('selects a row on focus, and arrow-key reordering keeps the selection', () => {
     const { container } = render(<Harness />)
     const rows = Array.from(container.querySelectorAll('.drag-order__row'))
