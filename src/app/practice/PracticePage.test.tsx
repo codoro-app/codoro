@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event'
 import { decodeChallengePayload } from '../../challenge'
 import { PATTERN_LABELS } from '../../content'
 import { nth } from '../../test/nth'
-import type { UserProfile } from '../../storage'
+import type { Attempt, UserProfile } from '../../storage'
 
 // Counts real selectNext calls — the "puzzle actually served" churn that a
 // runaway pattern-filter effect (v2 Phase 1b corrective, Finding 1) would
@@ -582,6 +582,94 @@ describe('PracticePage', () => {
     const link = await screen.findByRole('link', { name: /view full stats/i })
     expect(link).toHaveAttribute('href', '/stats')
     expect(screen.getAllByText('1200').length).toBeGreaterThan(0)
+
+    vi.unstubAllGlobals()
+  })
+
+  it('regression: the sidebar mastery teaser updates after an answer, no refresh (MasteryTeaser refetches on refreshKey change)', async () => {
+    // Stateful storage stand-in: appendAttempt records into the same array
+    // listAttempts reads back from, so a real refetch (and only a real
+    // refetch) can observe the new attempt — this is what distinguishes a
+    // regression in MasteryTeaser's `refreshKey` wiring (session.attemptVersion
+    // never reaching it, or reaching it as a hardcoded constant) from
+    // correct wiring. Both fixture patterns are seeded to exactly one
+    // attempt short of MIN_ATTEMPTS_FOR_MASTERY (4), so whichever pattern
+    // the next served puzzle happens to belong to (selectNext uses a real,
+    // unmocked rng), answering it crosses that pattern's threshold and
+    // flips its accuracy from null to a real percentage — a change that can
+    // only appear in the DOM via a genuine refetch.
+    function makeAttempt(puzzleId: string): Attempt {
+      return {
+        id: `${puzzleId}-${String(Math.random())}`,
+        puzzleId,
+        puzzleRating: 1200,
+        mode: 'practice',
+        correct: true,
+        time_ms: 1000,
+        choice_index: null,
+        checkpoint_results: null,
+        userRatingBefore: 1200,
+        userRatingAfter: 1200,
+        localDateString: '2026-07-17',
+        createdAt: '2026-07-17T00:00:00.000Z',
+      }
+    }
+
+    // p0 (off-by-one) and p1 (null-undefined) each get 4 attempts — one
+    // short of the threshold for their respective pattern.
+    const attemptsStore: Attempt[] = [
+      makeAttempt('p0'),
+      makeAttempt('p0'),
+      makeAttempt('p0'),
+      makeAttempt('p0'),
+      makeAttempt('p1'),
+      makeAttempt('p1'),
+      makeAttempt('p1'),
+      makeAttempt('p1'),
+    ]
+    vi.mocked(appendAttempt).mockImplementation((attempt) => {
+      attemptsStore.push(attempt)
+      return Promise.resolve()
+    })
+    vi.mocked(listAttempts).mockImplementation(() => Promise.resolve([...attemptsStore]))
+
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({
+        matches: true,
+        media: '(min-width: 1024px)',
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    )
+
+    const user = userEvent.setup()
+    render(<PracticePage />)
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+
+    // Before answering: every pattern is at or below 4 attempts, so no
+    // pattern has a computable accuracy yet — the teaser shows its no-data
+    // fallback, not a weakest-pattern line.
+    await waitFor(() => {
+      expect(
+        screen.getByText(/solve a few puzzles to see your weakest pattern/i),
+      ).toBeInTheDocument()
+    })
+
+    // Fixture puzzles all have `correct_choice: 0` ('a'), so this is always
+    // a correct answer regardless of which puzzle got served.
+    await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
+
+    // After answering: whichever pattern was served just crossed the
+    // threshold, so the teaser now shows a real weakest-pattern line.
+    await waitFor(() => {
+      expect(screen.getByText(/weakest:/i)).toBeInTheDocument()
+    })
+    expect(
+      screen.queryByText(/solve a few puzzles to see your weakest pattern/i),
+    ).not.toBeInTheDocument()
 
     vi.unstubAllGlobals()
   })
