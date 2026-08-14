@@ -786,7 +786,7 @@ it('names the lowest-accuracy pattern with enough data in the weakest-pattern ca
     attempt({
       id: `strong-${String(i)}`,
       localDateString: '2026-08-10',
-      puzzleId: 'off-by-one-puzzle',
+      puzzleId: 'oob-001',
       correct: true,
     }),
   )
@@ -794,7 +794,7 @@ it('names the lowest-accuracy pattern with enough data in the weakest-pattern ca
     attempt({
       id: `weak-${String(i)}`,
       localDateString: '2026-08-10',
-      puzzleId: 'concurrency-puzzle',
+      puzzleId: 'con-001',
       correct: i < 1,
     }),
   )
@@ -811,7 +811,7 @@ it('names the lowest-accuracy pattern with enough data in the weakest-pattern ca
 })
 ```
 
-Note: this test relies on `puzzlePool` (imported by `computeMastery`'s caller) resolving `puzzleId`s `'off-by-one-puzzle'`/`'concurrency-puzzle'` to their patterns — **before writing the implementation**, grep `src/content` for how `MasteryView.test.tsx`/`PatternPicker.test.tsx` mock or stub pattern resolution for their own tests (they solve the identical problem) and mirror whichever approach they use, rather than inventing a third.
+Note: `oob-001` and `con-001` are real puzzle IDs from `src/content/puzzles/off-by-one/oob-001.json` and `src/content/puzzles/concurrency/con-001.json` (pre-flight-confirmed, 2026-08-14) — `computeMastery` resolves patterns via the real, unmocked `puzzlePool`, not a stub, matching `MasteryView.test.tsx`'s own `makeAttempt('oob-001', ...)` convention exactly. Do not substitute fabricated puzzle IDs — `computeMastery` silently skips any `puzzleId` that doesn't resolve to a real pool entry (see its own doc comment), which would make these fixtures produce zero mastery data instead of the intended pattern-specific accuracy.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
