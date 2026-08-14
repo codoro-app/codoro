@@ -58,23 +58,21 @@ import { Link, useLocation, useSearch } from 'wouter'
 import { PuzzleCardShell } from './PuzzleCardShell'
 import { StatusBar } from './StatusBar'
 import { PatternPicker } from './PatternPicker'
+import { MasteryTeaser } from './MasteryTeaser'
 import { buildPracticeShareText, buildPracticeChallengeText } from './shareText'
 import { usePracticeSession } from './usePracticeSession'
 import { useMediaQuery } from '../useMediaQuery'
 import { StreakPause } from '../StreakPause'
-import { PATTERN_LABELS, PATTERN_SLUGS, puzzlePool } from '../../content'
+import { PATTERN_LABELS, PATTERN_SLUGS } from '../../content'
 import type { PatternSlug } from '../../content'
 import { CloseIcon } from '../Icons'
 import { ShareMenu } from '../ShareMenu'
 import type { ShareAction } from '../ShareMenu'
 import { trackShareClick, trackChallengeCreate } from '../../telemetry'
 import { truncateToChallengeLimit } from '../../challenge'
-import { listAttempts } from '../../storage'
-import type { Attempt } from '../../storage'
 import { useEffect, useRef, useState } from 'react'
 import type { CommitPayload } from './interactionTypes'
 import { QUIZ_INTERACTIONS, QUIZ_INTERACTION_LABELS } from './interactionTypes'
-import { computeMastery } from './mastery'
 import './practicePage.css'
 
 type View = 'practice' | 'mastery'
@@ -98,59 +96,6 @@ const PAGE_SHELL_CLASS =
 // MasteryView.tsx/PatternPicker.tsx's "← Back" buttons).
 const LINK_CLASS =
   'min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer'
-
-/**
- * 2b.7: replaces the full MasteryView list in both of this page's
- * MasteryView call sites (desktop sidebar, mobile "Mastery" nav view) — the
- * per-pattern list itself now lives on /stats. This teaser keeps ambient
- * mastery visibility mid-session (the thing that would otherwise be lost)
- * without duplicating the full list here.
- *
- * Fetches its own attempts (mirrors MasteryView's mount + refreshKey-driven
- * refetch) rather than reading them off `session` — usePracticeSession's
- * `PracticeSession` type doesn't expose a raw attempts array, only
- * `attemptVersion` (a bump counter meant for exactly this: driving a
- * refetch elsewhere in the tree), so this component takes that counter as
- * `refreshKey` the same way MasteryView did.
- */
-function MasteryTeaser({ refreshKey }: { refreshKey: number }) {
-  const [rows, setRows] = useState<ReturnType<typeof computeMastery> | null>(null)
-
-  // A ref, not a plain `let` closure var — see usePracticeSession.ts's
-  // identical pattern (also used by MasteryView) for why.
-  const cancelledRef = useRef(false)
-  useEffect(() => {
-    cancelledRef.current = false
-    void (async () => {
-      const attempts: Attempt[] = await listAttempts()
-      if (cancelledRef.current) return
-      setRows(computeMastery(attempts, puzzlePool))
-    })()
-    return () => {
-      cancelledRef.current = true
-    }
-  }, [refreshKey])
-
-  const weakest = rows
-    ?.filter((row) => row.accuracy !== null)
-    .sort((a, b) => (a.accuracy ?? 0) - (b.accuracy ?? 0))[0]
-
-  return (
-    <div className="flex flex-col gap-2">
-      {weakest ? (
-        <p className="m-0 text-sm text-text-1">
-          Weakest: <span className="font-bold text-text-0">{PATTERN_LABELS[weakest.pattern]}</span>{' '}
-          · {Math.round((weakest.accuracy ?? 0) * 100)}%
-        </p>
-      ) : (
-        <p className="m-0 text-sm text-text-1">Solve a few puzzles to see your weakest pattern.</p>
-      )}
-      <Link href="/stats" className="text-sm font-bold text-accent no-underline">
-        View full stats →
-      </Link>
-    </div>
-  )
-}
 
 export function PracticePage() {
   const [location, navigate] = useLocation()

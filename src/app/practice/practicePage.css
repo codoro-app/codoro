@@ -1,39 +1,15 @@
 /*
  * 2b.0 Tailwind migration: practice-page chrome, status bar, pattern
  * picker, and mastery view moved to utility classes on their elements (see
- * PracticePage.tsx/StatusBar.tsx/PatternPicker.tsx/MasteryView.tsx). What's
- * deliberately kept here, and why:
+ * PracticePage.tsx/StatusBar.tsx/PatternPicker.tsx). What's deliberately
+ * kept here, and why:
  *
- *  - `.mastery-row`/`.mastery-row.mastery-row--weak`/`button.mastery-row`:
- *    a compound-selector cascade (a two-class selector out-specificities a
- *    tag+class one to win the `border` property; the tag+class rule resets
- *    browser `<button>` defaults only when the row is interactive) — the
- *    comments on these rules explicitly describe the specificity relied on.
- *    Reproducing that in Tailwind utility strings risks getting the
- *    override order wrong in a way no visual diff at rest would catch (only
- *    the weak+interactive combination would look wrong). `mastery-row`
- *    itself is also test-asserted (PracticePage.test.tsx:
- *    `expect(row).toHaveClass('mastery-row')`), so it has to stay literal
- *    regardless.
  *  - `.status-bar__combo`'s `combo-badge-pop` `@keyframes` + its
  *    `animation` declaration: custom keyframes have no Tailwind utility
  *    equivalent without also hand-authoring the keyframes in CSS anyway
  *    (same reasoning as routeSkeleton.css's shimmer) — the rest of
  *    `.status-bar__combo`'s rules (layout/color) moved to utilities.
  */
-
-.mastery-row.mastery-row--weak {
-  background: var(--danger-dim);
-  border-color: var(--danger);
-}
-
-button.mastery-row {
-  border: 1px solid transparent;
-  font: inherit;
-  text-align: left;
-  color: inherit;
-  cursor: pointer;
-}
 
 .status-bar__combo {
   animation: combo-badge-pop 0.18s ease-out;

@@ -263,7 +263,7 @@ Sits between Phase 2 (Missions, merged as PR #57) and Phase 3 (Launch-readiness)
 
 ### 2b.7 — Stats page (1 session)
 
-**Build:** `/stats`, reachable via a Home card only (direct user decision, 2026-08-14 — not a NavRail/ModeSwitcher slot). Five sections, all derived from existing local attempt history, zero new persisted data: windowed (7d/30d/all) rating-history graph, a weakest-pattern callout, a per-pattern accuracy heatmap (absorbs `MasteryView`'s per-pattern list — deleted this phase), a GitHub-style activity calendar, and a lifetime-totals stat row. Design record: `docs/superpowers/plans/2026-08-14-phase-2b7-stats-page-design.md`.
+**Build:** `/stats`, reachable via a Home card only (direct user decision, 2026-08-14 — not a NavRail/ModeSwitcher slot). Five sections, all derived from existing local attempt history, zero new persisted data: windowed (7d/30d/all) rating-history graph, a weakest-pattern callout, a per-pattern accuracy heatmap (absorbs `MasteryView`'s per-pattern list — deleted this phase), an 84-day activity density grid (more filled = more active), and a lifetime-totals stat row. Design record: `docs/superpowers/plans/2026-08-14-phase-2b7-stats-page-design.md`.
 
 **DoD:**
 
