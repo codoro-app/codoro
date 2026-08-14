@@ -1,13 +1,33 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { Home } from './Home'
-import { loadProfile } from '../storage'
-import type { UserProfile } from '../storage'
+import { loadProfile, listAttempts } from '../storage'
+import type { UserProfile, Attempt } from '../storage'
 
 vi.mock('../storage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../storage')>()
-  return { ...actual, loadProfile: vi.fn() }
+  return { ...actual, loadProfile: vi.fn(), listAttempts: vi.fn() }
 })
+
+function attempt(overrides: Partial<Attempt> & Pick<Attempt, 'id' | 'createdAt'>): Attempt {
+  return {
+    puzzleId: `puzzle-${overrides.id}`,
+    puzzleRating: 1200,
+    mode: 'practice',
+    correct: true,
+    time_ms: 4000,
+    choice_index: null,
+    checkpoint_results: null,
+    userRatingBefore: 1200,
+    userRatingAfter: 1210,
+    localDateString: overrides.createdAt.slice(0, 10),
+    ...overrides,
+  }
+}
+
+function daysAgoIso(days: number): string {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+}
 
 function baseProfile(): UserProfile {
   return {
@@ -30,6 +50,11 @@ function baseProfile(): UserProfile {
 describe('Home', () => {
   beforeEach(() => {
     vi.mocked(loadProfile).mockReset()
+    vi.mocked(listAttempts).mockReset()
+    // Default: no attempt history — most tests aren't exercising the
+    // recent-activity/rating-trend elements, so they get the "no data yet"
+    // (element absent) branch unless a test overrides this explicitly.
+    vi.mocked(listAttempts).mockResolvedValue([])
   })
 
   it('shows rating and streak once the profile loads', async () => {
@@ -157,5 +182,86 @@ describe('Home', () => {
     // in the scrollable body.
     const modesLabel = screen.getByText('Modes')
     expect(stickyHeader?.contains(modesLabel)).toBe(false)
+  })
+
+  it('shows no recent-activity recap when there are no attempts yet', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    render(<Home />)
+
+    await screen.findByText('1250')
+    expect(screen.queryByText(/correct/)).not.toBeInTheDocument()
+  })
+
+  it('shows a recent-activity recap once attempts exist', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    vi.mocked(listAttempts).mockResolvedValue([
+      attempt({
+        id: '1',
+        mode: 'practice',
+        correct: true,
+        userRatingBefore: 1200,
+        userRatingAfter: 1210,
+        createdAt: daysAgoIso(0),
+      }),
+      attempt({
+        id: '2',
+        mode: 'practice',
+        correct: false,
+        userRatingBefore: 1210,
+        userRatingAfter: 1205,
+        createdAt: daysAgoIso(0),
+      }),
+    ])
+    render(<Home />)
+
+    expect(await screen.findByText('Practice · 1/2 correct · +5 rating')).toBeInTheDocument()
+  })
+
+  it('shows no rating-trend chip when there is no activity in the last 7 days', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    vi.mocked(listAttempts).mockResolvedValue([
+      attempt({
+        id: '1',
+        userRatingBefore: 1100,
+        userRatingAfter: 1120,
+        createdAt: daysAgoIso(10),
+      }),
+    ])
+    render(<Home />)
+
+    await screen.findByText('1250')
+    expect(screen.queryByText(/this week/)).not.toBeInTheDocument()
+  })
+
+  it('shows a rating-trend chip summarizing the last 7 days', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    vi.mocked(listAttempts).mockResolvedValue([
+      attempt({ id: '1', userRatingBefore: 1150, userRatingAfter: 1182, createdAt: daysAgoIso(2) }),
+    ])
+    render(<Home />)
+
+    expect(await screen.findByText('▲ +32 this week')).toBeInTheDocument()
+  })
+
+  // Elo-style rating updates are rarely whole numbers (e.g. 1191.440233...);
+  // both new elements must round for display the same way the header's own
+  // Rating figure already does (Math.round(profile.rating)), not print raw
+  // float noise.
+  it('rounds fractional rating deltas for display', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    vi.mocked(listAttempts).mockResolvedValue([
+      attempt({
+        id: '1',
+        mode: 'practice',
+        correct: false,
+        userRatingBefore: 1200,
+        userRatingAfter: 1191.440233,
+        createdAt: daysAgoIso(0),
+      }),
+    ])
+    render(<Home />)
+
+    expect(await screen.findByText('Practice · 0/1 correct · -9 rating')).toBeInTheDocument()
+    expect(await screen.findByText('▼ -9 this week')).toBeInTheDocument()
   })
 })
