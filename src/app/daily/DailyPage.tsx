@@ -8,17 +8,24 @@
  *
  * Desktop (>=1024px) sidebar: rating/streak pills (reusing status-bar's
  * pill classes directly, not the StatusBar component — StatusBar requires
- * combo/solvedThisSession props Daily has no equivalent of) plus a backless
- * MasteryView, gated on useMediaQuery so mobile mounts neither.
+ * combo/solvedThisSession props Daily has no equivalent of) plus a
+ * MasteryTeaser (2b.7: weakest pattern + a link to the full /stats page —
+ * the per-pattern list that used to live here now lives there), gated on
+ * useMediaQuery so mobile mounts neither.
  */
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'wouter'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
-import { MasteryView } from '../practice/MasteryView'
+import { computeMastery } from '../practice/mastery'
 import { useDailySession } from './useDailySession'
 import { useMediaQuery } from '../useMediaQuery'
 import { ShareMenu } from '../ShareMenu'
 import type { ShareAction } from '../ShareMenu'
 import { buildShareText, buildDailyChallengeText } from './shareText'
 import { trackShareClick, trackChallengeCreate } from '../../telemetry'
+import { PATTERN_LABELS, puzzlePool } from '../../content'
+import { listAttempts } from '../../storage'
+import type { Attempt } from '../../storage'
 
 // 2b.0: was `.daily-page` in dailyPage.css (max-width breakpoint matches
 // Tailwind's `lg` exactly). None of `.daily-page*`/`.daily-hero*` are
@@ -43,6 +50,61 @@ function heroClass(correct: boolean): string {
 function heroIconClass(correct: boolean): string {
   const BASE = 'flex items-center justify-center shrink-0 w-11 h-11 rounded-md'
   return correct ? `${BASE} bg-accent` : `${BASE} bg-danger`
+}
+
+/**
+ * 2b.7: replaces the full MasteryView list in this page's desktop sidebar —
+ * the per-pattern list itself now lives on /stats. This teaser keeps
+ * ambient mastery visibility mid-session without duplicating the full list
+ * here. Own copy, not imported from PracticePage.tsx — matches this repo's
+ * established per-file `todayDateString`/`masteryState` duplication
+ * convention rather than introducing a new shared component for two call
+ * sites.
+ *
+ * Fetches its own attempts (mirrors MasteryView's mount + refreshKey-driven
+ * refetch) rather than reading them off `session` — useDailySession's
+ * `DailySession` type doesn't expose a raw attempts array, only
+ * `attemptVersion` (a bump counter meant for exactly this: driving a
+ * refetch elsewhere in the tree), so this component takes that counter as
+ * `refreshKey` the same way MasteryView did.
+ */
+function MasteryTeaser({ refreshKey }: { refreshKey: number }) {
+  const [rows, setRows] = useState<ReturnType<typeof computeMastery> | null>(null)
+
+  // A ref, not a plain `let` closure var — see usePracticeSession.ts's
+  // identical pattern (also used by MasteryView) for why.
+  const cancelledRef = useRef(false)
+  useEffect(() => {
+    cancelledRef.current = false
+    void (async () => {
+      const attempts: Attempt[] = await listAttempts()
+      if (cancelledRef.current) return
+      setRows(computeMastery(attempts, puzzlePool))
+    })()
+    return () => {
+      cancelledRef.current = true
+    }
+  }, [refreshKey])
+
+  const weakest = rows
+    ?.filter((row) => row.accuracy !== null)
+    .sort((a, b) => (a.accuracy ?? 0) - (b.accuracy ?? 0))[0]
+
+  return (
+    <div className="flex flex-col gap-2">
+      {weakest ? (
+        <p className="m-0 text-sm text-text-1">
+          Weakest: <span className="font-bold text-text-0">{PATTERN_LABELS[weakest.pattern]}</span>{' '}
+          · {Math.round((weakest.accuracy ?? 0) * 100)}%
+        </p>
+      ) : (
+        <p className="m-0 text-sm text-text-1">Solve a few puzzles to see your weakest pattern.</p>
+      )}
+      <Link href="/stats" className="text-sm font-bold text-accent no-underline">
+        View full stats →
+      </Link>
+    </div>
+  )
 }
 
 export function DailyPage() {
@@ -321,7 +383,7 @@ export function DailyPage() {
               <span>{session.profile.streak.currentStreak}</span>
             </div>
           </div>
-          <MasteryView refreshKey={session.attemptVersion} />
+          <MasteryTeaser refreshKey={session.attemptVersion} />
         </aside>
       )}
     </>
