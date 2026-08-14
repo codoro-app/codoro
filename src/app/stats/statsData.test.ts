@@ -87,6 +87,33 @@ describe('getRatingHistory', () => {
       { date: '2025-01-01', rating: 1000 },
     ])
   })
+
+  it('7-day window correctly uses calendar dates for cutoff, not timestamps', () => {
+    // Validates that cutoff is calculated as a calendar date string and compared
+    // lexicographically, not parsed as a UTC timestamp. This prevents timezone-
+    // dependent boundary errors where new Date('YYYY-MM-DD') reinterprets the
+    // date-only string as UTC midnight rather than local midnight.
+    // NOW_ISO is 2026-08-14T12:00:00.000Z, so 7 days back is 2026-08-07.
+    const attempts = [
+      attempt({ id: '1', localDateString: '2026-08-07', userRatingAfter: 1200 }), // exactly 7 days back, included
+      attempt({ id: '2', localDateString: '2026-08-06', userRatingAfter: 1190 }), // 8 days back, excluded
+    ]
+    const result = getRatingHistory(attempts, 7, NOW_ISO)
+    expect(result).toEqual([{ date: '2026-08-07', rating: 1200 }])
+    expect(result).toHaveLength(1)
+  })
+
+  it('a 30-day window filters correctly', () => {
+    const attempts = [
+      attempt({ id: '1', localDateString: '2026-07-14', userRatingAfter: 1180 }), // 31 days back, excluded
+      attempt({ id: '2', localDateString: '2026-07-15', userRatingAfter: 1185 }), // 30 days back, included
+      attempt({ id: '3', localDateString: '2026-08-10', userRatingAfter: 1210 }), // 4 days back, included
+    ]
+    expect(getRatingHistory(attempts, 30, NOW_ISO)).toEqual([
+      { date: '2026-07-15', rating: 1185 },
+      { date: '2026-08-10', rating: 1210 },
+    ])
+  })
 })
 
 describe('getActivityCalendar', () => {

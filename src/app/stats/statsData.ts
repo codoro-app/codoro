@@ -36,7 +36,8 @@ export type RatingWindowDays = 7 | 30 | null
  * chronological (oldest-first) order, matching `listAttempts()`'s contract
  * (the same assumption `mastery.ts`'s `computeMastery` makes) — this
  * function does not re-sort its input. Returned points are sorted ascending
- * by date.
+ * by date. Cutoff is compared as a calendar-date string, not a timestamp, to
+ * avoid the UTC/local-midnight parsing gap in `new Date('YYYY-MM-DD')`.
  */
 export function getRatingHistory(
   attempts: readonly Attempt[],
@@ -48,12 +49,14 @@ export function getRatingHistory(
     dailyClose.set(a.localDateString, a.userRatingAfter)
   }
 
-  const cutoff =
-    windowDays === null ? null : new Date(nowIso).getTime() - windowDays * 24 * 60 * 60 * 1000
+  const cutoffDate =
+    windowDays === null
+      ? null
+      : dateString(new Date(new Date(nowIso).getTime() - windowDays * 24 * 60 * 60 * 1000))
 
   return Array.from(dailyClose.entries())
     .map(([date, rating]) => ({ date, rating }))
-    .filter((point) => cutoff === null || new Date(point.date).getTime() >= cutoff)
+    .filter((point) => cutoffDate === null || point.date >= cutoffDate)
     .sort((a, b) => a.date.localeCompare(b.date))
 }
 
