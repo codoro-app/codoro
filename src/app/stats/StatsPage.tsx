@@ -13,8 +13,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'wouter'
 import { loadProfile, listAttempts } from '../../storage'
 import type { UserProfile, Attempt } from '../../storage'
-import { getRatingHistory } from './statsData'
-import type { RatingWindowDays, RatingHistoryPoint } from './statsData'
+import { getRatingHistory, getActivityCalendar, getLifetimeTotals } from './statsData'
+import type { RatingWindowDays, RatingHistoryPoint, ActivityDay } from './statsData'
 import { computeMastery, MIN_ATTEMPTS_FOR_MASTERY } from '../practice/mastery'
 import type { PatternMastery } from '../practice/mastery'
 import { PATTERN_LABELS, puzzlePool } from '../../content'
@@ -86,6 +86,12 @@ function heatCellClass(state: MasteryState): string {
   return `${BASE} bg-surface-2`
 }
 
+function activityCellClass(active: boolean): string {
+  return active
+    ? 'aspect-square rounded-[2px] bg-accent'
+    : 'aspect-square rounded-[2px] bg-surface-2'
+}
+
 export function StatsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [attempts, setAttempts] = useState<Attempt[]>([])
@@ -127,6 +133,9 @@ export function StatsPage() {
   const weakest = masteryRows
     .filter((row) => row.accuracy !== null)
     .sort((a, b) => (a.accuracy ?? 0) - (b.accuracy ?? 0))[0]
+
+  const activityDays = getActivityCalendar(attempts, nowIso)
+  const totals = getLifetimeTotals(attempts, profile)
 
   return (
     <div className={PAGE_SHELL_CLASS}>
@@ -213,26 +222,66 @@ export function StatsPage() {
         </Link>
       )}
 
-      <div className="flex flex-col gap-2 p-4 rounded-md border border-border bg-surface-1">
-        <p className="m-0 text-base font-bold">Mastery by pattern</p>
-        <div className="grid grid-cols-5 gap-1.5">
-          {masteryRows.map((row) => {
-            const state = masteryState(row)
-            return (
-              <Link
-                key={row.pattern}
-                href={`/practice?pattern=${row.pattern}`}
-                className={heatCellClass(state)}
-                title={`${PATTERN_LABELS[row.pattern]}: ${
-                  row.accuracy === null
-                    ? `not enough data (${String(row.attemptCount)}/${String(MIN_ATTEMPTS_FOR_MASTERY)})`
-                    : `${String(Math.round(row.accuracy * 100))}%`
-                }`}
-              >
-                <span className="sr-only">{PATTERN_LABELS[row.pattern]}</span>
-              </Link>
-            )
-          })}
+      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4">
+        <div className="flex flex-col gap-2 p-4 rounded-md border border-border bg-surface-1">
+          <p className="m-0 text-base font-bold">Mastery by pattern</p>
+          <div className="grid grid-cols-5 gap-1.5">
+            {masteryRows.map((row) => {
+              const state = masteryState(row)
+              return (
+                <Link
+                  key={row.pattern}
+                  href={`/practice?pattern=${row.pattern}`}
+                  className={heatCellClass(state)}
+                  title={`${PATTERN_LABELS[row.pattern]}: ${
+                    row.accuracy === null
+                      ? `not enough data (${String(row.attemptCount)}/${String(MIN_ATTEMPTS_FOR_MASTERY)})`
+                      : `${String(Math.round(row.accuracy * 100))}%`
+                  }`}
+                >
+                  <span className="sr-only">{PATTERN_LABELS[row.pattern]}</span>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 p-4 rounded-md border border-border bg-surface-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="m-0 text-base font-bold">Activity</p>
+            <span className="font-mono text-xs font-bold text-warn">
+              🔥 {profile.streak.currentStreak} day streak
+            </span>
+          </div>
+          <div
+            className="grid grid-cols-[repeat(12,1fr)] gap-1"
+            role="img"
+            aria-label="Activity calendar — the last 12 weeks"
+          >
+            {activityDays.map((day: ActivityDay) => (
+              <div key={day.date} className={activityCellClass(day.active)} title={day.date} />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-4 gap-2 p-4 rounded-md border border-border bg-surface-1">
+        <div className="flex flex-col gap-0.5">
+          <span className="font-mono text-lg font-bold tabular-nums">{totals.solved}</span>
+          <span className="text-[10px] text-text-2">Solved</span>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <span className="font-mono text-lg font-bold tabular-nums">{totals.bestStreak}</span>
+          <span className="text-[10px] text-text-2">Best streak</span>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <span className="font-mono text-lg font-bold tabular-nums">
+            {Math.round(totals.totalTimeMs / 3_600_000)}h
+          </span>
+          <span className="text-[10px] text-text-2">Practiced</span>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <span className="font-mono text-lg font-bold tabular-nums">{totals.modesPlayed}</span>
+          <span className="text-[10px] text-text-2">Modes</span>
         </div>
       </div>
     </div>

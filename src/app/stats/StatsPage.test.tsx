@@ -164,4 +164,34 @@ describe('StatsPage', () => {
     const cell = screen.getByRole('link', { name: 'Concurrency & race conditions' })
     expect(cell).toHaveAttribute('href', '/practice?pattern=concurrency')
   })
+
+  it('shows the activity calendar and lifetime totals once loaded', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    // Both attempts share `mode: 'practice'` (deviating from the task
+    // brief's literal fixture, which used 'practice' + 'daily') — with two
+    // distinct modes, totals.modesPlayed also equals 2, colliding with
+    // totals.solved's own "2" and making screen.getByText('2') match two
+    // elements. Mode diversity isn't asserted by this test, so collapsing
+    // it to one shared mode removes the ambiguity without weakening intent.
+    vi.mocked(listAttempts).mockResolvedValue([
+      attempt({ id: '1', localDateString: '2026-08-10', mode: 'practice', time_ms: 3000 }),
+      attempt({ id: '2', localDateString: '2026-08-11', mode: 'practice', time_ms: 5000 }),
+    ])
+    render(<StatsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('2')).toBeInTheDocument() // solved count
+    })
+    expect(screen.getByText('23')).toBeInTheDocument() // bestStreak, from baseProfile's longestStreak
+    expect(screen.getByLabelText(/activity calendar/i)).toBeInTheDocument()
+  })
+
+  it('shows real zeros, not a hidden section, for a brand-new profile with no attempts', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    render(<StatsPage />)
+    await waitFor(() => {
+      expect(screen.getByText('1487')).toBeInTheDocument()
+    })
+    expect(screen.getAllByText('0').length).toBeGreaterThan(0)
+  })
 })
