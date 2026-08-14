@@ -47,12 +47,20 @@ function buildGraphPoints(
   const ratings = points.map((p) => p.rating)
   const min = Math.min(...ratings)
   const max = Math.max(...ratings)
+  // A lone point or a flat stretch (every point sharing the same rating)
+  // has no variance for the min/span formula below to distribute across —
+  // it would divide out to 0 for every point and pin them all to the very
+  // bottom of the chart instead of reading as "flat," so it's centered
+  // vertically here as an explicit special case.
+  const isFlat = max === min
   const span = max - min || 1
   const usableHeight = height - padding * 2
 
   return points.map((p, i) => {
     const x = points.length === 1 ? width / 2 : (i / (points.length - 1)) * width
-    const y = padding + usableHeight - ((p.rating - min) / span) * usableHeight
+    const y = isFlat
+      ? padding + usableHeight / 2
+      : padding + usableHeight - ((p.rating - min) / span) * usableHeight
     return { x, y, rating: p.rating, date: p.date }
   })
 }

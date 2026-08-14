@@ -26,6 +26,16 @@ function attempt(overrides: Partial<Attempt> & Pick<Attempt, 'id' | 'localDateSt
   }
 }
 
+// Local calendar date (not toISOString(), which is UTC and can disagree
+// with the local date near a day boundary) — same convention as
+// Home.test.tsx's own `today` helper, so an attempt dated "today" reliably
+// falls inside the component's default 7-day window regardless of the
+// machine's timezone.
+function todayDateString(): string {
+  const now = new Date()
+  return `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
 function baseProfile(): UserProfile {
   return {
     schema_version: 9,
@@ -84,5 +94,31 @@ describe('StatsPage', () => {
     await user.click(screen.getByRole('button', { name: 'All' }))
     expect(screen.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: '7d' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  // Regression test for a bug in the min/span mapping formula: with a
+  // single history point (or a flat stretch of equal-rating points), max
+  // === min, so the formula's (rating - min) / span term degenerates to 0
+  // for every point and pins them all to the chart's bottom edge instead of
+  // vertically centering — the correct rendering for "no variance to show."
+  it('vertically centers a lone rating-history point instead of pinning it to the bottom', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    vi.mocked(listAttempts).mockResolvedValue([
+      attempt({ id: '1', localDateString: todayDateString(), userRatingAfter: 1487 }),
+    ])
+    const { container } = render(<StatsPage />)
+
+    // Matches buildGraphPoints' own defaults (width=300, height=70,
+    // padding=6): usableHeight = 70 - 6*2 = 58, so a vertically centered
+    // point sits at y = 6 + 58/2 = 35 — computed explicitly here, not just
+    // asserted "not at the bottom" (which the pre-fix y of 64 would also
+    // fail to be equal to, but for the wrong reason).
+    const expectedCenteredY = '35'
+
+    await waitFor(() => {
+      const circle = container.querySelector('circle')
+      expect(circle).not.toBeNull()
+      expect(circle).toHaveAttribute('cy', expectedCenteredY)
+    })
   })
 })
