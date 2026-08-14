@@ -139,6 +139,20 @@ export function StatsPage() {
 
   return (
     <div className={PAGE_SHELL_CLASS}>
+      {attempts.length === 0 && (
+        <div className="flex items-center justify-between gap-3 p-4 rounded-md border border-accent bg-accent-dim">
+          <p className="m-0 text-sm text-text-0">
+            You haven't solved any puzzles yet — your stats will start filling in as soon as you do.
+          </p>
+          <Link
+            href="/practice"
+            className="shrink-0 flex items-center min-h-11 py-1.5 px-3 rounded-full text-sm font-bold bg-accent text-accent-ink no-underline"
+          >
+            Start practicing
+          </Link>
+        </div>
+      )}
+
       <div className="flex flex-col gap-1">
         <span className="text-sm font-bold text-text-1 uppercase tracking-[0.04em]">Rating</span>
         <span className="text-4xl font-bold text-text-0 leading-none tabular-nums">
@@ -204,7 +218,7 @@ export function StatsPage() {
         )}
       </div>
 
-      {weakest && (
+      {weakest ? (
         <Link
           href={`/practice?pattern=${weakest.pattern}`}
           className="flex items-center gap-3 p-4 rounded-md border border-danger bg-danger-dim no-underline text-text-0"
@@ -220,11 +234,32 @@ export function StatsPage() {
             </span>
           </span>
         </Link>
+      ) : (
+        // No pattern has cleared MIN_ATTEMPTS_FOR_MASTERY yet — keep this
+        // card slot occupied rather than letting the section vanish, so a
+        // new user gets a next action instead of a gap in the layout.
+        <Link
+          href="/practice"
+          className="flex items-center gap-3 p-4 rounded-md border border-border bg-surface-1 no-underline text-text-0"
+        >
+          <span aria-hidden="true" className="text-xl">
+            🎯
+          </span>
+          <span className="flex flex-col gap-0.5">
+            <span className="text-sm font-bold">Practice a pattern</span>
+            <span className="text-xs text-text-1">
+              Solve a few puzzles and your weakest pattern will show up here.
+            </span>
+          </span>
+        </Link>
       )}
 
       <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4">
         <div className="flex flex-col gap-2 p-4 rounded-md border border-border bg-surface-1">
           <p className="m-0 text-base font-bold">Mastery by pattern</p>
+          <p className="m-0 text-xs text-text-2">
+            Gray = not enough data yet. Solve puzzles to fill this in.
+          </p>
           <div className="grid grid-cols-5 gap-1.5">
             {masteryRows.map((row) => {
               const state = masteryState(row)
@@ -249,7 +284,9 @@ export function StatsPage() {
           <div className="flex items-center justify-between gap-2">
             <p className="m-0 text-base font-bold">Activity</p>
             <span className="font-mono text-xs font-bold text-warn">
-              🔥 {profile.streak.currentStreak} day streak
+              {profile.streak.currentStreak > 0
+                ? `🔥 ${String(profile.streak.currentStreak)} day streak`
+                : 'Start your streak today'}
             </span>
           </div>
           <div

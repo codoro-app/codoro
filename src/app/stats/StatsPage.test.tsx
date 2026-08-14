@@ -122,13 +122,18 @@ describe('StatsPage', () => {
     })
   })
 
-  it('shows no weakest-pattern callout when no pattern has enough data yet', async () => {
+  it('shows a getting-started callout, not the weakest-pattern one, when no pattern has enough data yet', async () => {
     vi.mocked(loadProfile).mockResolvedValue(baseProfile())
     render(<StatsPage />)
     await waitFor(() => {
       expect(screen.getByText('1487')).toBeInTheDocument()
     })
     expect(screen.queryByText(/practice this next/i)).not.toBeInTheDocument()
+    // The card slot itself is never empty — a fresh profile gets a
+    // getting-started link to /practice in its place instead of the
+    // section vanishing outright.
+    const fallback = screen.getByRole('link', { name: /practice a pattern/i })
+    expect(fallback).toHaveAttribute('href', '/practice')
   })
 
   it('names the lowest-accuracy pattern with enough data in the weakest-pattern callout, and links its heatmap cell to practice that pattern', async () => {
@@ -193,5 +198,50 @@ describe('StatsPage', () => {
       expect(screen.getByText('1487')).toBeInTheDocument()
     })
     expect(screen.getAllByText('0').length).toBeGreaterThan(0)
+  })
+
+  it('shows a first-timer banner with a practice CTA only when there are zero attempts', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    render(<StatsPage />)
+    await waitFor(() => {
+      expect(screen.getByText('1487')).toBeInTheDocument()
+    })
+    expect(screen.getByText(/haven't solved any puzzles yet/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /start practicing/i })).toHaveAttribute(
+      'href',
+      '/practice',
+    )
+  })
+
+  it('hides the first-timer banner once the profile has at least one attempt', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    vi.mocked(listAttempts).mockResolvedValue([attempt({ id: '1', localDateString: '2026-08-10' })])
+    render(<StatsPage />)
+    await waitFor(() => {
+      expect(screen.getByText('1487')).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/haven't solved any puzzles yet/i)).not.toBeInTheDocument()
+  })
+
+  it('shows an explanatory caption under the pattern heatmap', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    render(<StatsPage />)
+    await waitFor(() => {
+      expect(screen.getByText('1487')).toBeInTheDocument()
+    })
+    expect(screen.getByText(/not enough data yet/i)).toBeInTheDocument()
+  })
+
+  it('swaps the zero-day streak label to an encouragement instead of "🔥 0 day streak"', async () => {
+    vi.mocked(loadProfile).mockResolvedValue({
+      ...baseProfile(),
+      streak: { currentStreak: 0, longestStreak: 23, lastActiveDate: null },
+    })
+    render(<StatsPage />)
+    await waitFor(() => {
+      expect(screen.getByText('1487')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Start your streak today')).toBeInTheDocument()
+    expect(screen.queryByText(/day streak/)).not.toBeInTheDocument()
   })
 })
