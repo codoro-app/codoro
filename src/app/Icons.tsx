@@ -248,6 +248,36 @@ export function ShareIcon({ size = 20 }: IconProps) {
   )
 }
 
+// Authored for DragOrder's handle (v3 Phase 2b.6): the conventional 6-dot
+// vertical grip (Lucide `grip-vertical`) — two columns of three dots reads
+// as "drag me along this axis," matching the list's actual reorder
+// direction. Replaces a plain position-number glyph that OD-5's own
+// write-up (docs/v2-build-plan.md) named as the real complaint behind
+// "drag never starts": the handle worked, it just didn't visually read as
+// a grabbable control.
+export function GripIcon({ size = 20 }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="9" cy="5" r="1" />
+      <circle cx="9" cy="12" r="1" />
+      <circle cx="9" cy="19" r="1" />
+      <circle cx="15" cy="5" r="1" />
+      <circle cx="15" cy="12" r="1" />
+      <circle cx="15" cy="19" r="1" />
+    </svg>
+  )
+}
+
 export function CopyIcon({ size = 20 }: IconProps) {
   return (
     <svg

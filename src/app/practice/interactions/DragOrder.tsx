@@ -3,6 +3,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerE
 import type { InteractionBodyProps } from '../interactionTypes'
 import type { DragOrderPuzzle } from '../../../content'
 import type { AnswerState } from '../answerState'
+import { GripIcon } from '../../Icons'
 import {
   computeTranslateYs,
   identityOrder,
@@ -363,7 +364,7 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
               onLostPointerCapture={handleLostPointerCapture}
             >
               <span className="drag-order__handle" aria-hidden="true">
-                {position + 1}
+                <GripIcon size={24} />
               </span>
               <span className="drag-order__row-text">{text}</span>
             </div>
