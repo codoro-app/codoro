@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event'
 import { decodeChallengePayload } from '../../challenge'
 import { PATTERN_LABELS } from '../../content'
 import { nth } from '../../test/nth'
-import type { Attempt, UserProfile } from '../../storage'
+import type { UserProfile } from '../../storage'
 
 // Counts real selectNext calls — the "puzzle actually served" churn that a
 // runaway pattern-filter effect (v2 Phase 1b corrective, Finding 1) would
@@ -431,7 +431,11 @@ describe('PracticePage', () => {
     expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
   })
 
-  it('while filtered, selecting a different mastery row switches the filter rather than stacking', async () => {
+  it('while filtered, selecting a different pattern from Browse switches the filter rather than stacking', async () => {
+    // Was previously exercised via a mastery-row click (a second, now-retired
+    // entry point into setPatternFilter); Browse is the only pattern-picking
+    // UI left on mobile after 2b.7's MasteryTeaser swap, so this asserts the
+    // same underlying "replace, don't stack" filter behavior through it.
     const user = userEvent.setup()
     render(<PracticePage />)
     await waitFor(() => {
@@ -446,13 +450,8 @@ describe('PracticePage', () => {
       ).toBeInTheDocument()
     })
 
-    await user.click(screen.getByRole('button', { name: /^mastery$/i }))
-    await waitFor(() => {
-      expect(screen.getByText(/mastery by pattern/i)).toBeInTheDocument()
-    })
-    const otherRow = screen.getByText(PATTERN_LABELS['off-by-one']).closest('button')
-    expect(otherRow).not.toBeNull()
-    await user.click(otherRow as HTMLElement)
+    await user.click(screen.getByRole('link', { name: /^browse patterns/i }))
+    await user.click(screen.getByText(PATTERN_LABELS['off-by-one']))
 
     await waitFor(() => {
       expect(
@@ -463,24 +462,6 @@ describe('PracticePage', () => {
     expect(
       screen.queryByText(new RegExp(`filtering: ${PATTERN_LABELS['null-undefined']}`, 'i')),
     ).not.toBeInTheDocument()
-  })
-
-  it('mastery view is reachable and has a way back to practice', async () => {
-    const user = userEvent.setup()
-    render(<PracticePage />)
-    await waitFor(() => {
-      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
-    })
-
-    await user.click(screen.getByRole('button', { name: /^mastery$/i }))
-    await waitFor(() => {
-      expect(screen.getByText(/mastery by pattern/i)).toBeInTheDocument()
-    })
-
-    await user.click(screen.getByRole('button', { name: /back/i }))
-    await waitFor(() => {
-      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
-    })
   })
 
   it('answering and continuing serves a fresh, unanswered card', async () => {
@@ -564,108 +545,23 @@ describe('PracticePage', () => {
     })
   })
 
-  it('regression: mastery panel and session counter update immediately after an answer, no refresh (desktop sidebar)', async () => {
-    // Stateful storage stand-in: appendAttempt records into the same array
-    // listAttempts reads back from, so a real refetch (and only a real
-    // refetch) can observe the new attempt — this is what distinguishes the
-    // bug (MasteryView fetches once on mount and never again) from a fix.
-    const attemptsStore: Attempt[] = []
-    vi.mocked(appendAttempt).mockImplementation((attempt) => {
-      attemptsStore.push(attempt)
-      return Promise.resolve()
-    })
-    vi.mocked(listAttempts).mockImplementation(() => Promise.resolve([...attemptsStore]))
-
-    vi.stubGlobal(
-      'matchMedia',
-      vi.fn(() => ({
-        matches: true,
-        media: '(min-width: 1024px)',
-        addEventListener: () => undefined,
-        removeEventListener: () => undefined,
-      })),
-    )
-
+  it('mobile "Mastery" nav view shows the same teaser and a link to /stats', async () => {
     const user = userEvent.setup()
     render(<PracticePage />)
     await waitFor(() => {
       expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
     })
 
-    // Sums every mastery row's "N attempts" count — pattern-agnostic since
-    // selectNext serves from a real (unmocked) rng, so which pattern the
-    // served puzzle belongs to isn't fixed across runs.
-    const totalMasteryAttempts = () =>
-      Array.from(document.querySelectorAll('.mastery-row__count')).reduce((sum, el) => {
-        const match = /\d+/.exec(el.textContent)
-        return sum + (match ? Number(match[0]) : 0)
-      }, 0)
+    await user.click(screen.getByRole('button', { name: 'Mastery' }))
 
-    // Before answering: sidebar shows 0 solved and no attempts recorded yet.
-    expect(screen.getAllByText(/0 solved this session/i).length).toBeGreaterThan(0)
-    await waitFor(() => {
-      expect(screen.queryByText(/loading mastery/i)).not.toBeInTheDocument()
-    })
-    expect(totalMasteryAttempts()).toBe(0)
+    const link = await screen.findByRole('link', { name: /view full stats/i })
+    expect(link).toHaveAttribute('href', '/stats')
 
-    await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
-
-    await waitFor(() => {
-      expect(screen.getAllByText(/1 solved this session/i).length).toBeGreaterThan(0)
-    })
-    await waitFor(() => {
-      expect(totalMasteryAttempts()).toBe(1)
-    })
-
-    vi.unstubAllGlobals()
+    await user.click(screen.getByRole('button', { name: /back/i }))
+    expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
   })
 
-  it('clicking a mastery row starts practicing that pattern (mobile "Mastery" view)', async () => {
-    const user = userEvent.setup()
-    render(<PracticePage />)
-    await waitFor(() => {
-      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
-    })
-
-    await user.click(screen.getByRole('button', { name: /^mastery$/i }))
-    await waitFor(() => {
-      expect(screen.getByText(/mastery by pattern/i)).toBeInTheDocument()
-    })
-
-    const row = screen.getByText(PATTERN_LABELS['null-undefined']).closest('button')
-    expect(row).not.toBeNull()
-    await user.click(row as HTMLElement)
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(new RegExp(`filtering: ${PATTERN_LABELS['null-undefined']}`, 'i')),
-      ).toBeInTheDocument()
-    })
-    // Back on the practice view, not stuck on the mastery view.
-    expect(screen.queryByText(/mastery by pattern/i)).not.toBeInTheDocument()
-  })
-
-  it('an interactive mastery row is a real <button> (keyboard-focusable, carries the tap-target-min sizing class)', async () => {
-    const user = userEvent.setup()
-    render(<PracticePage />)
-    await waitFor(() => {
-      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
-    })
-
-    await user.click(screen.getByRole('button', { name: /^mastery$/i }))
-    await waitFor(() => {
-      expect(screen.getByText(/mastery by pattern/i)).toBeInTheDocument()
-    })
-
-    const row = screen.getByText(PATTERN_LABELS['off-by-one']).closest('button')
-    expect(row).not.toBeNull()
-    expect(row?.tagName).toBe('BUTTON')
-    expect(row).toHaveClass('mastery-row')
-    row?.focus()
-    expect(row).toHaveFocus()
-  })
-
-  it('shows a desktop sidebar (rating + mastery) alongside the practice view at >=1024px, without any click', async () => {
+  it('shows a desktop sidebar (rating + mastery teaser) alongside the practice view at >=1024px, without any click', async () => {
     // Same mockMatchMedia shape as useMediaQuery.test.ts — reports a match
     // for every query, standing in for a >=1024px viewport.
     vi.stubGlobal(
@@ -683,7 +579,8 @@ describe('PracticePage', () => {
       expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
     })
 
-    expect(screen.getByText('Mastery by pattern')).toBeInTheDocument()
+    const link = await screen.findByRole('link', { name: /view full stats/i })
+    expect(link).toHaveAttribute('href', '/stats')
     expect(screen.getAllByText('1200').length).toBeGreaterThan(0)
 
     vi.unstubAllGlobals()
@@ -705,6 +602,20 @@ describe('PracticePage', () => {
         })),
       )
     }
+
+    it('desktop sidebar shows a weakest-pattern teaser (not the full mastery list) linking to /stats', async () => {
+      stubDesktop()
+      render(<PracticePage />)
+      await waitFor(() => {
+        expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+      })
+
+      expect(screen.queryByText('Mastery by pattern')).not.toBeInTheDocument()
+      const link = await screen.findByRole('link', { name: /view full stats/i })
+      expect(link).toHaveAttribute('href', '/stats')
+
+      vi.unstubAllGlobals()
+    })
 
     it('clicking "Browse patterns" swaps the sidebar to the pattern picker without unmounting the puzzle in main', async () => {
       stubDesktop()
@@ -748,7 +659,7 @@ describe('PracticePage', () => {
       })
       expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
       // Sidebar is back to its normal Mastery content, not stuck on the picker.
-      expect(screen.getByText('Mastery by pattern')).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /view full stats/i })).toBeInTheDocument()
       expect(screen.queryByText('Practice by pattern')).not.toBeInTheDocument()
 
       vi.unstubAllGlobals()
@@ -767,7 +678,7 @@ describe('PracticePage', () => {
 
       await user.click(screen.getByRole('button', { name: /back/i }))
 
-      expect(screen.getByText('Mastery by pattern')).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /view full stats/i })).toBeInTheDocument()
       expect(screen.queryByText(/filtering: /i)).not.toBeInTheDocument()
 
       vi.unstubAllGlobals()
