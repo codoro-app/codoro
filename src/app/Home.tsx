@@ -58,6 +58,7 @@ import {
   MissionIcon,
   PracticeIcon,
   RushIcon,
+  StatsIcon,
   StreakIcon,
   TraceIcon,
 } from './Icons'
@@ -223,16 +224,18 @@ export function Home() {
       <p className="m-0 text-xs font-bold text-text-2 uppercase tracking-[0.04em]">Modes</p>
 
       {/* 2b.0: was `.home__cards-secondary` — grid only kicks in >=640px
-       * (Tailwind `sm`, exact match), auto-fit/minmax(75px,1fr) so
-       * Daily/Rush/Trace/Boss/Missions (5 same-tier cards) share one row
-       * evenly instead of a fixed 2-column split. The 75px floor is tuned
-       * to this card's own container: 480px (--content-width-mobile) minus
-       * 2x16px (px-4) padding = 448px, minus 4x12px (gap-3) column gaps =
-       * 400px for 5 tracks, i.e. 80px/track — 75px leaves ~25px slack for
-       * rounding. Re-derive this number if a 6th mode card is ever added;
-       * at >=1024px (--content-width-desktop, 608px available) 5 tracks
-       * still fit and grow evenly via `1fr` regardless of this floor. */}
-      <div className="flex flex-col gap-3 sm:grid sm:grid-cols-[repeat(auto-fit,minmax(75px,1fr))]">
+       * (Tailwind `sm`, exact match), auto-fit/minmax(60px,1fr) so
+       * Daily/Rush/Trace/Boss/Missions/Stats (6 same-tier cards, 2b.7 added
+       * Stats) share one row evenly instead of a fixed 2-column split. The
+       * 60px floor is tuned to this card's own container: 480px
+       * (--content-width-mobile) minus 2x16px (px-4) padding = 448px, minus
+       * 5x12px (gap-3) column gaps = 388px for 6 tracks, i.e. ~64.7px/track
+       * — 60px leaves ~28px slack for rounding (same convention the
+       * original 5-track 75px floor used). Re-derive this number again if a
+       * 7th mode card is ever added; at >=1024px (--content-width-desktop,
+       * 608px available) 6 tracks still fit and grow evenly via `1fr`
+       * regardless of this floor. */}
+      <div className="flex flex-col gap-3 sm:grid sm:grid-cols-[repeat(auto-fit,minmax(60px,1fr))]">
         <Link href={ROUTES.daily.path} className={CARD_SECONDARY}>
           <span className={ICON_SECONDARY}>
             <DailyIcon size={20} />
@@ -289,6 +292,16 @@ export function Home() {
           {profile.missionStats && (
             <span className={BADGE_MASTERED}>{profile.missionStats.completions} completed</span>
           )}
+        </Link>
+
+        <Link href={ROUTES.stats.path} className={CARD_SECONDARY}>
+          <span className={ICON_SECONDARY}>
+            <StatsIcon size={20} />
+          </span>
+          <span className={TITLE_SECONDARY}>Stats</span>
+          <span className="text-sm text-inherit opacity-85">
+            Rating history and pattern accuracy
+          </span>
         </Link>
       </div>
     </PageShell>

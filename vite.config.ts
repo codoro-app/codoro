@@ -195,8 +195,11 @@ export default defineConfig({
         //
         // v2 Phase 7 adds /settings, another plain static route (same
         // treatment as /legal) — the export/import UI.
+        //
+        // v3 Phase 2b.7 adds /stats, another plain static route (same
+        // treatment as /missions) — the rating-history/pattern-accuracy page.
         navigateFallbackDenylist: [
-          /^\/(?!(?:practice|daily|rush|boss|browse|legal|trace|missions|challenge|settings|puzzle\/[^/?]+)?(?:\?|$))/,
+          /^\/(?!(?:practice|daily|rush|boss|browse|legal|trace|missions|stats|challenge|settings|puzzle\/[^/?]+)?(?:\?|$))/,
         ],
         cleanupOutdatedCaches: true,
       },
