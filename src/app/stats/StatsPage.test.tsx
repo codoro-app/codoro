@@ -121,4 +121,47 @@ describe('StatsPage', () => {
       expect(circle).toHaveAttribute('cy', expectedCenteredY)
     })
   })
+
+  it('shows no weakest-pattern callout when no pattern has enough data yet', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    render(<StatsPage />)
+    await waitFor(() => {
+      expect(screen.getByText('1487')).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/practice this next/i)).not.toBeInTheDocument()
+  })
+
+  it('names the lowest-accuracy pattern with enough data in the weakest-pattern callout, and links its heatmap cell to practice that pattern', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    const strongAttempts = Array.from({ length: 5 }, (_, i) =>
+      attempt({
+        id: `strong-${String(i)}`,
+        localDateString: '2026-08-10',
+        puzzleId: 'oob-001',
+        correct: true,
+      }),
+    )
+    const weakAttempts = Array.from({ length: 5 }, (_, i) =>
+      attempt({
+        id: `weak-${String(i)}`,
+        localDateString: '2026-08-10',
+        puzzleId: 'con-001',
+        correct: i < 1,
+      }),
+    )
+    vi.mocked(listAttempts).mockResolvedValue([...strongAttempts, ...weakAttempts])
+    render(<StatsPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/practice this next/i)).toBeInTheDocument()
+    })
+    // Scoped to the callout link itself (rather than a bare screen.getByText),
+    // because the heatmap cell below also carries an accessible "Concurrency"
+    // label — an unscoped query would match both and throw.
+    const callout = screen.getByRole('link', { name: /practice this next/i })
+    expect(callout).toHaveTextContent(/concurrency/i)
+
+    const cell = screen.getByRole('link', { name: 'Concurrency & race conditions' })
+    expect(cell).toHaveAttribute('href', '/practice?pattern=concurrency')
+  })
 })

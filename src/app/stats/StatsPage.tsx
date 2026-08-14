@@ -10,10 +10,14 @@
  * docs/superpowers/plans/2026-08-14-phase-2b7-stats-page-design.md
  */
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'wouter'
 import { loadProfile, listAttempts } from '../../storage'
 import type { UserProfile, Attempt } from '../../storage'
 import { getRatingHistory } from './statsData'
 import type { RatingWindowDays, RatingHistoryPoint } from './statsData'
+import { computeMastery, MIN_ATTEMPTS_FOR_MASTERY } from '../practice/mastery'
+import type { PatternMastery } from '../practice/mastery'
+import { PATTERN_LABELS, puzzlePool } from '../../content'
 
 const PAGE_SHELL_CLASS =
   'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-4'
@@ -65,6 +69,23 @@ function buildGraphPoints(
   })
 }
 
+type MasteryState = 'new' | 'mastered' | 'learning' | 'weak'
+
+function masteryState(row: PatternMastery): MasteryState {
+  if (row.accuracy === null) return 'new'
+  if (row.accuracy >= 0.8) return 'mastered'
+  if (row.accuracy >= 0.4) return 'learning'
+  return 'weak'
+}
+
+function heatCellClass(state: MasteryState): string {
+  const BASE = 'aspect-square rounded-md flex items-center justify-center no-underline'
+  if (state === 'mastered') return `${BASE} bg-accent-dim`
+  if (state === 'learning') return `${BASE} bg-warn-dim`
+  if (state === 'weak') return `${BASE} bg-danger-dim`
+  return `${BASE} bg-surface-2`
+}
+
 export function StatsPage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [attempts, setAttempts] = useState<Attempt[]>([])
@@ -101,6 +122,11 @@ export function StatsPage() {
   const first = historyPoints[0]
   const last = historyPoints[historyPoints.length - 1]
   const delta = first && last ? Math.round(last.rating - first.rating) : null
+
+  const masteryRows = computeMastery(attempts, puzzlePool)
+  const weakest = masteryRows
+    .filter((row) => row.accuracy !== null)
+    .sort((a, b) => (a.accuracy ?? 0) - (b.accuracy ?? 0))[0]
 
   return (
     <div className={PAGE_SHELL_CLASS}>
@@ -167,6 +193,47 @@ export function StatsPage() {
             ))}
           </svg>
         )}
+      </div>
+
+      {weakest && (
+        <Link
+          href={`/practice?pattern=${weakest.pattern}`}
+          className="flex items-center gap-3 p-4 rounded-md border border-danger bg-danger-dim no-underline text-text-0"
+        >
+          <span aria-hidden="true" className="text-xl">
+            🎯
+          </span>
+          <span className="flex flex-col gap-0.5">
+            <span className="text-sm font-bold">Practice this next</span>
+            <span className="text-xs text-text-1">
+              {PATTERN_LABELS[weakest.pattern]} · {Math.round((weakest.accuracy ?? 0) * 100)}%
+              accuracy
+            </span>
+          </span>
+        </Link>
+      )}
+
+      <div className="flex flex-col gap-2 p-4 rounded-md border border-border bg-surface-1">
+        <p className="m-0 text-base font-bold">Mastery by pattern</p>
+        <div className="grid grid-cols-5 gap-1.5">
+          {masteryRows.map((row) => {
+            const state = masteryState(row)
+            return (
+              <Link
+                key={row.pattern}
+                href={`/practice?pattern=${row.pattern}`}
+                className={heatCellClass(state)}
+                title={`${PATTERN_LABELS[row.pattern]}: ${
+                  row.accuracy === null
+                    ? `not enough data (${String(row.attemptCount)}/${String(MIN_ATTEMPTS_FOR_MASTERY)})`
+                    : `${String(Math.round(row.accuracy * 100))}%`
+                }`}
+              >
+                <span className="sr-only">{PATTERN_LABELS[row.pattern]}</span>
+              </Link>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
