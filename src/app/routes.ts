@@ -11,6 +11,7 @@ export const ROUTES = {
   boss: { path: '/boss', label: 'Boss' },
   trace: { path: '/trace', label: 'Trace' },
   missions: { path: '/missions', label: 'Missions' },
+  stats: { path: '/stats', label: 'Stats' },
   legal: { path: '/legal', label: 'Legal' },
   // Phase 7: same treatment as `legal` above — a real ROUTES entry (so
   // AppShell can reference ROUTES.settings.path type-safely) but, like
@@ -112,6 +113,10 @@ export const ROUTE_META: Record<string, RouteMetaEntry> = {
   '/missions': {
     title: 'Missions — Codoro',
     description: 'Trace, Speed, and Boss chained into one directed run, ending in a payoff screen.',
+  },
+  '/stats': {
+    title: 'Stats — Codoro',
+    description: 'Your rating history, pattern accuracy, and activity — all in one place.',
   },
   '/browse': {
     title: 'Browse patterns — Codoro',

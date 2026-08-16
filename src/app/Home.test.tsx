@@ -264,4 +264,11 @@ describe('Home', () => {
     expect(await screen.findByText('Practice · 0/1 correct · -9 rating')).toBeInTheDocument()
     expect(await screen.findByText('▼ -9 this week')).toBeInTheDocument()
   })
+
+  it('links to /stats via a Stats card', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    render(<Home />)
+    const link = await screen.findByRole('link', { name: /stats/i })
+    expect(link).toHaveAttribute('href', '/stats')
+  })
 })

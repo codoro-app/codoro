@@ -197,7 +197,7 @@ describe('DailyPage', () => {
     })
   })
 
-  it('shows a desktop sidebar (rating/streak pills + mastery) at >=1024px, without navigating', async () => {
+  it('shows a desktop sidebar (rating/streak pills + mastery teaser) at >=1024px, without navigating', async () => {
     // Same mockMatchMedia shape as useMediaQuery.test.ts — reports a match
     // for every query, standing in for a >=1024px viewport.
     vi.stubGlobal(
@@ -215,7 +215,9 @@ describe('DailyPage', () => {
       expect(screen.getByText(/Codoro Daily #/)).toBeInTheDocument()
     })
 
-    expect(screen.getByText('Mastery by pattern')).toBeInTheDocument()
+    expect(screen.queryByText('Mastery by pattern')).not.toBeInTheDocument()
+    const link = await screen.findByRole('link', { name: /view full stats/i })
+    expect(link).toHaveAttribute('href', '/stats')
     expect(screen.getAllByText('1200').length).toBeGreaterThan(0)
     expect(screen.getAllByText('0').length).toBeGreaterThan(0)
 

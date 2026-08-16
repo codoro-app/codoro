@@ -296,3 +296,28 @@ export function CopyIcon({ size = 20 }: IconProps) {
     </svg>
   )
 }
+
+// Authored fresh for Stats (v3 Phase 2b.7): a simple ascending bar chart —
+// reads as "progress/analytics" at a glance, distinct from RatingIcon
+// (a trophy/cup shape, already used for the rating pill elsewhere) so the
+// two aren't confused on the same Home screen.
+export function StatsIcon({ size = 20 }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="4" y1="20" x2="20" y2="20" />
+      <rect x="6" y="14" width="3" height="6" />
+      <rect x="11" y="9" width="3" height="11" />
+      <rect x="16" y="4" width="3" height="16" />
+    </svg>
+  )
+}

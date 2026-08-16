@@ -261,9 +261,16 @@ Sits between Phase 2 (Missions, merged as PR #57) and Phase 3 (Launch-readiness)
 
 **Build:** hit target stays at 44px (already at Apple HIG minimum — confirmed functionally sound via the OD-5 investigation, closed "works as designed"). Fix the _visual_ affordance instead: the rendered grip icon should visually read as large as the actual tappable zone, so the size complaint is a perception fix, not a hitbox inflation.
 
-### 2b.7 — Mastery/stats page (not sized — scope decision needed first)
+### 2b.7 — Stats page (1 session)
 
-Fully buildable off existing local IndexedDB history, not blocked on the Phase 4 backend. **Blocking question before this gets a session**: permanent nav slot (core-loop surface) or a secondary view nested under Settings? Starter directions once scope is picked: per-pattern accuracy heatmap, rating/streak history graph, a "weakest pattern" callout.
+**Build:** `/stats`, reachable via a Home card only (direct user decision, 2026-08-14 — not a NavRail/ModeSwitcher slot). Five sections, all derived from existing local attempt history, zero new persisted data: windowed (7d/30d/all) rating-history graph, a weakest-pattern callout, a per-pattern accuracy heatmap (absorbs `MasteryView`'s per-pattern list — deleted this phase), an 84-day activity density grid (more filled = more active), and a lifetime-totals stat row. Design record: `docs/superpowers/plans/2026-08-14-phase-2b7-stats-page-design.md`.
+
+**DoD:**
+
+- [x] `/stats` is reachable from a Home card and shows rating history (7d/30d/all toggle), a per-pattern accuracy heatmap, a weakest-pattern callout, an activity calendar, and lifetime totals — all derived from existing attempt history with zero new persisted fields.
+- [x] Tapping a pattern-heatmap cell (or the weakest-pattern callout) starts practicing that pattern, via the existing `/practice?pattern=<slug>` deep link.
+- [x] `MasteryView` is fully retired — Practice's desktop sidebar + mobile "Mastery" view and Daily's desktop sidebar now show a compact teaser (weakest pattern + "View full stats →") instead of the full per-pattern list; `MasteryView.tsx`/`MasteryView.test.tsx` deleted.
+- [x] Existing test suite green (`pnpm validate`).
 
 ### 2b.8 — QA pass (1 session)
 
@@ -273,7 +280,6 @@ Batched screenshot review across all touched screens + a Lighthouse re-check (Ph
 
 - Boss: character (name + reactive portrait) vs. abstract-but-punchier feedback only (2b.2).
 - Mission staging rail's mobile treatment: top stepper vs. bottom pips vs. collapsible dots (2b.3).
-- Mastery/stats page: nav-level surface vs. Settings-nested (2b.7) — blocks sizing that phase at all.
 
 ## Phase 3 — Launch-readiness (1–2 sessions + Thomas verification passes)
 

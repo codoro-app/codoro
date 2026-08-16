@@ -73,6 +73,7 @@ const rushImporter = () => import('./rush/RushPage')
 const bossImporter = () => import('./boss/BossPage')
 const traceImporter = () => import('./trace/TracePage')
 const missionsImporter = () => import('./missions/MissionsPage')
+const statsImporter = () => import('./stats/StatsPage')
 const homeImporter = () => import('./Home')
 const legalImporter = () => import('./legal/LegalPage')
 const puzzleImporter = () => import('./puzzle/PuzzlePage')
@@ -85,6 +86,7 @@ const RushPage = lazy(async () => ({ default: (await rushImporter()).RushPage })
 const BossPage = lazy(async () => ({ default: (await bossImporter()).BossPage }))
 const TracePage = lazy(async () => ({ default: (await traceImporter()).TracePage }))
 const MissionsPage = lazy(async () => ({ default: (await missionsImporter()).MissionsPage }))
+const StatsPage = lazy(async () => ({ default: (await statsImporter()).StatsPage }))
 const Home = lazy(async () => ({ default: (await homeImporter()).Home }))
 const LegalPage = lazy(async () => ({ default: (await legalImporter()).LegalPage }))
 const PuzzlePage = lazy(async () => ({ default: (await puzzleImporter()).PuzzlePage }))
@@ -232,6 +234,9 @@ export function App() {
             </Route>
             <Route path="/missions">
               <MissionsPage />
+            </Route>
+            <Route path="/stats">
+              <StatsPage />
             </Route>
             <Route path="/legal">
               <LegalPage />

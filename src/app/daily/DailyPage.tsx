@@ -8,11 +8,13 @@
  *
  * Desktop (>=1024px) sidebar: rating/streak pills (reusing status-bar's
  * pill classes directly, not the StatusBar component — StatusBar requires
- * combo/solvedThisSession props Daily has no equivalent of) plus a backless
- * MasteryView, gated on useMediaQuery so mobile mounts neither.
+ * combo/solvedThisSession props Daily has no equivalent of) plus a
+ * MasteryTeaser (2b.7: weakest pattern + a link to the full /stats page —
+ * the per-pattern list that used to live here now lives there), gated on
+ * useMediaQuery so mobile mounts neither.
  */
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
-import { MasteryView } from '../practice/MasteryView'
+import { MasteryTeaser } from '../practice/MasteryTeaser'
 import { useDailySession } from './useDailySession'
 import { useMediaQuery } from '../useMediaQuery'
 import { ShareMenu } from '../ShareMenu'
@@ -321,7 +323,7 @@ export function DailyPage() {
               <span>{session.profile.streak.currentStreak}</span>
             </div>
           </div>
-          <MasteryView refreshKey={session.attemptVersion} />
+          <MasteryTeaser refreshKey={session.attemptVersion} />
         </aside>
       )}
     </>

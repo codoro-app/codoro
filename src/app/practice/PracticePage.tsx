@@ -18,11 +18,13 @@
  *
  * Desktop (>=1024px) sidebar: the main practice view (not the loading/error/
  * mastery-view branches) additionally renders `.app-shell__sidebar` with
- * StatusBar + a backless MasteryView, gated on useMediaQuery so mobile
- * mounts neither (no extra MasteryView attempt-fetch on phones). The mobile
- * "Mastery" nav link is hidden at desktop widths since the sidebar already
- * shows it persistently — a deliberate scope call for this phase (see the
- * Phase 6.5 plan's Task 1 notes); it stays fully functional on mobile.
+ * StatusBar + a `MasteryTeaser` (2b.7: weakest pattern + a link to the full
+ * /stats page — the per-pattern list that used to live here now lives
+ * there), gated on useMediaQuery so mobile mounts neither (no extra
+ * attempt-fetch on phones). The mobile "Mastery" nav link is hidden at
+ * desktop widths since the sidebar already shows it persistently — a
+ * deliberate scope call for this phase (see the Phase 6.5 plan's Task 1
+ * notes); it stays fully functional on mobile.
  *
  * Desktop Browse (Phase 0 fix, routed in Phase 1a): a full-page takeover
  * used to fire unconditionally — on desktop that unmounted both
@@ -30,7 +32,7 @@
  * on the right" to reflect a selection into (the reported bug). The early
  * return below is mobile-only (`&& !isDesktop`); on desktop, the sidebar's
  * own content instead swaps between PatternPicker and the normal
- * StatusBar+MasteryView pairing, so the puzzle in `.app-shell__main` is
+ * StatusBar+MasteryTeaser pairing, so the puzzle in `.app-shell__main` is
  * never unmounted and stays interactive throughout. `usePracticeSession`'s
  * `setPatternFilter` already re-serves a puzzle synchronously on selection,
  * so no extra wiring was needed for "selecting a pattern immediately serves
@@ -56,7 +58,7 @@ import { Link, useLocation, useSearch } from 'wouter'
 import { PuzzleCardShell } from './PuzzleCardShell'
 import { StatusBar } from './StatusBar'
 import { PatternPicker } from './PatternPicker'
-import { MasteryView } from './MasteryView'
+import { MasteryTeaser } from './MasteryTeaser'
 import { buildPracticeShareText, buildPracticeChallengeText } from './shareText'
 import { usePracticeSession } from './usePracticeSession'
 import { useMediaQuery } from '../useMediaQuery'
@@ -223,16 +225,19 @@ export function PracticePage() {
   if (view === 'mastery') {
     return (
       <div className={PAGE_SHELL_CLASS}>
-        <MasteryView
-          onBack={() => {
-            setView('practice')
-          }}
-          refreshKey={session.attemptVersion}
-          onSelectPattern={(pattern) => {
-            session.setPatternFilter(pattern)
-            setView('practice')
-          }}
-        />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className={LINK_CLASS}
+            onClick={() => {
+              setView('practice')
+            }}
+          >
+            ← Back
+          </button>
+          <h2 className="m-0 text-xl">Mastery</h2>
+        </div>
+        <MasteryTeaser refreshKey={session.attemptVersion} />
       </div>
     )
   }
@@ -437,12 +442,7 @@ export function PracticePage() {
                 combo={session.combo}
                 solvedThisSession={session.solvedThisSession}
               />
-              <MasteryView
-                refreshKey={session.attemptVersion}
-                onSelectPattern={(pattern) => {
-                  session.setPatternFilter(pattern)
-                }}
-              />
+              <MasteryTeaser refreshKey={session.attemptVersion} />
             </>
           )}
         </aside>
