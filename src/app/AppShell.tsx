@@ -28,6 +28,11 @@
  * adding it to the tab order; `aria-label` names the active page for
  * screen-reader users landing there, since not every page has its own
  * visible `<h1>` (only LegalPage does) to move focus to instead.
+ * `focus:outline-none` suppresses the browser's default focus ring on
+ * `<main>` — safe only because it's never in the sighted tab order, so a
+ * keyboard user tabbing through the page can never land here and lose their
+ * visible focus indicator. Without it, every route change briefly shows a
+ * stray outline line under the mobile nav bar as `<main>` receives focus.
  */
 import { useRef, type ReactNode } from 'react'
 import { Link, useLocation } from 'wouter'
@@ -71,7 +76,7 @@ export function AppShell({ children }: AppShellProps) {
         <NavRail />
       </div>
       <main
-        className="app-shell__content"
+        className="app-shell__content focus:outline-none"
         ref={mainRef}
         tabIndex={-1}
         aria-label={labelForPath(location)}

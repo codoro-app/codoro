@@ -70,6 +70,22 @@ describe('AppShell', () => {
     expect(screen.getByRole('link', { name: 'Legal' })).toHaveAttribute('href', '/legal')
   })
 
+  // Regression test: <main> gets a programmatic .focus() on every route
+  // change (see useRouteFocusAndScroll above) with tabIndex={-1}, so it's
+  // never in the sighted tab order — but with no outline suppression, the
+  // browser's default focus ring still renders as a stray line under the
+  // mobile nav bar on every route change. jsdom doesn't compute Tailwind's
+  // CSS, so this asserts the suppressing utility class is present rather
+  // than the resulting computed style.
+  it('suppresses the default focus ring on <main> (it is never in the sighted tab order)', () => {
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    )
+    expect(screen.getByRole('main')).toHaveClass('focus:outline-none')
+  })
+
   it('labels the main landmark with the active route, and does not steal focus on initial render', () => {
     render(
       <AppShell>
