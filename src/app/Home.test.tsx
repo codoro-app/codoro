@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { Home } from './Home'
 import { loadProfile, listAttempts } from '../storage'
@@ -70,6 +70,14 @@ describe('Home', () => {
     render(<Home />)
 
     expect(await screen.findByText('Not done yet')).toBeInTheDocument()
+  })
+
+  it('keeps the Daily badge neutral (not warn-colored) at mobile widths', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    render(<Home />)
+
+    const badge = await screen.findByText('Not done yet')
+    expect(badge.className).not.toContain('text-warn')
   })
 
   it('shows "Done today" when dailyCompletion matches today', async () => {
@@ -270,5 +278,102 @@ describe('Home', () => {
     render(<Home />)
     const link = await screen.findByRole('link', { name: /stats/i })
     expect(link).toHaveAttribute('href', '/stats')
+  })
+
+  describe('desktop (>=1024px)', () => {
+    // Same mockMatchMedia shape as DailyPage.test.tsx/useMediaQuery.test.ts
+    // — reports a match for every query, standing in for a >=1024px viewport.
+    function stubDesktopViewport() {
+      vi.stubGlobal(
+        'matchMedia',
+        vi.fn(() => ({
+          matches: true,
+          media: '(min-width: 1024px)',
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+        })),
+      )
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it('shows a sidebar with the mastery teaser and an activity grid', async () => {
+      stubDesktopViewport()
+      vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+      render(<Home />)
+
+      await screen.findByText('1250')
+      const link = await screen.findByRole('link', { name: /view full stats/i })
+      expect(link).toHaveAttribute('href', '/stats')
+      expect(screen.getByRole('img', { name: /activity/i })).toBeInTheDocument()
+    })
+
+    it('has no sidebar at mobile widths', async () => {
+      // No matchMedia stub here — jsdom's default matchMedia (or the lack of
+      // one) resolves useMediaQuery's query to false, the same as a real
+      // <1024px viewport.
+      vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+      render(<Home />)
+
+      await screen.findByText('1250')
+      expect(screen.queryByRole('link', { name: /view full stats/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('img', { name: /activity/i })).not.toBeInTheDocument()
+    })
+
+    it('shows a getting-started recommendation when no pattern has enough data yet', async () => {
+      stubDesktopViewport()
+      vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+      render(<Home />)
+
+      const fallback = await screen.findByRole('link', { name: /practice a pattern/i })
+      expect(fallback).toHaveAttribute('href', '/practice')
+      expect(screen.queryByText(/practice this next/i)).not.toBeInTheDocument()
+    })
+
+    it('names the lowest-accuracy pattern with enough data in the recommendation card', async () => {
+      stubDesktopViewport()
+      vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+      const strongAttempts = Array.from({ length: 5 }, (_, i) =>
+        attempt({
+          id: `strong-${String(i)}`,
+          puzzleId: 'oob-001',
+          correct: true,
+          createdAt: daysAgoIso(0),
+        }),
+      )
+      const weakAttempts = Array.from({ length: 5 }, (_, i) =>
+        attempt({
+          id: `weak-${String(i)}`,
+          puzzleId: 'con-001',
+          correct: i < 1,
+          createdAt: daysAgoIso(0),
+        }),
+      )
+      vi.mocked(listAttempts).mockResolvedValue([...strongAttempts, ...weakAttempts])
+      render(<Home />)
+
+      const callout = await screen.findByRole('link', { name: /practice this next/i })
+      expect(callout).toHaveTextContent(/concurrency/i)
+      expect(callout).toHaveAttribute('href', '/practice?pattern=concurrency')
+    })
+
+    it('has no recommendation card at mobile widths', async () => {
+      vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+      render(<Home />)
+
+      await screen.findByText('1250')
+      expect(screen.queryByRole('link', { name: /practice a pattern/i })).not.toBeInTheDocument()
+    })
+
+    it('gives the Daily badge warn styling when not done today', async () => {
+      stubDesktopViewport()
+      vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+      render(<Home />)
+
+      const badge = await screen.findByText('Not done yet')
+      expect(badge.className).toContain('text-warn')
+    })
   })
 })
