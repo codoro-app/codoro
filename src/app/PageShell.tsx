@@ -40,7 +40,7 @@ export function PageShell({ header, stickyAction, children, className }: PageShe
       )}
       {children}
       {stickyAction !== undefined && (
-        <div className="sticky bottom-0 z-10 pt-3 bg-surface-0 border-t border-border">
+        <div className="sticky bottom-[var(--bottom-nav-height)] lg:bottom-0 z-10 pt-3 bg-surface-0 border-t border-border">
           {stickyAction}
         </div>
       )}

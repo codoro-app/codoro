@@ -321,3 +321,25 @@ export function StatsIcon({ size = 20 }: IconProps) {
     </svg>
   )
 }
+
+// v3 Phase 2b.8 (mobile bottom nav): a house glyph, Lucide's `home` path
+// verbatim — BottomNav.tsx's Home tab, the one bottom-nav icon with no
+// existing equivalent among the mode icons above.
+export function HomeIcon({ size = 20 }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+      <path d="M9 22V12h6v10" />
+    </svg>
+  )
+}

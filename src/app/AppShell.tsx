@@ -1,20 +1,22 @@
 /**
- * Top-level responsive shell. <1024px: single column, current behavior —
- * ModeSwitcher's horizontal tab strip on top, then whatever page is active,
- * full width. >=1024px: chess.com-style three-region grid — a fixed left
- * NavRail, and a content region where the active page itself decides (via
- * `useMediaQuery` + its own markup) whether to render a right-hand sidebar
- * alongside its main column; see PracticePage.tsx/DailyPage.tsx.
+ * Top-level responsive shell. <1024px: single column — a slim logo-only top
+ * bar, whatever page is active full width, and BottomNav fixed to the
+ * viewport bottom (v3 Phase 2b.8; replaced ModeSwitcher's old top tab
+ * strip — see BottomNav.tsx's own doc comment for why). >=1024px:
+ * chess.com-style three-region grid — a fixed left NavRail, and a content
+ * region where the active page itself decides (via `useMediaQuery` + its
+ * own markup) whether to render a right-hand sidebar alongside its main
+ * column; see PracticePage.tsx/DailyPage.tsx.
  *
- * Both ModeSwitcher and NavRail are always mounted — neither has side
- * effects, so there is no cost to rendering both and letting app.css's
- * media queries decide which is visible at a given width. This keeps nav
+ * Both BottomNav and NavRail are always mounted — neither has side effects,
+ * so there is no cost to rendering both and letting Tailwind's `lg:`
+ * breakpoint decide which is visible at a given width. This keeps nav
  * visibility pure-CSS, consistent with the "CSS grid + media queries, no
  * JS breakpoint logic" rule for layout — the one place this shell *does*
  * use a JS breakpoint check (`useMediaQuery`) is reserved for gating
  * components with real side effects (data fetches), not for positioning.
  *
- * No mode/onModeChange props (v2 Phase 1a): NavRail/ModeSwitcher read the
+ * No mode/onModeChange props (v2 Phase 1a): NavRail/BottomNav read the
  * active route themselves via wouter's useLocation, and the brand button /
  * footer legal link below are real `<Link>`s rather than callbacks into a
  * parent-owned mode state.
@@ -32,11 +34,12 @@
  * `<main>` — safe only because it's never in the sighted tab order, so a
  * keyboard user tabbing through the page can never land here and lose their
  * visible focus indicator. Without it, every route change briefly shows a
- * stray outline line under the mobile nav bar as `<main>` receives focus.
+ * stray outline line at the top of `<main>` (originally observed right
+ * under the old top mobile nav bar) as `<main>` receives focus.
  */
 import { useRef, type ReactNode } from 'react'
 import { Link, useLocation } from 'wouter'
-import { ModeSwitcher } from './ModeSwitcher'
+import { BottomNav } from './BottomNav'
 import { NavRail } from './NavRail'
 import { DevPuzzleToggle } from './devTools/DevPuzzleToggle'
 import { ROUTES, labelForPath } from './routes'
@@ -54,7 +57,10 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div className="app-shell">
-      {/* 2b.0: was `.app-shell__mobile-nav` (app.css) — display toggle now inline. */}
+      {/* 2b.0: was `.app-shell__mobile-nav` (app.css) — display toggle now
+       * inline. 2b.8: slimmed to just the brand link — the old ModeSwitcher
+       * tab strip that lived here moved to BottomNav, fixed at the viewport
+       * bottom (see below and BottomNav.tsx's own doc comment). */}
       <div className="block lg:hidden pt-[calc(var(--space-2)+env(safe-area-inset-top))] px-4">
         <Link
           href="/"
@@ -69,12 +75,12 @@ export function AppShell({ children }: AppShellProps) {
           </div>
           <span className="text-xl font-bold text-text-0">Codoro</span>
         </Link>
-        <ModeSwitcher />
       </div>
       {/* 2b.0: was `.app-shell__rail` (app.css) — display toggle now inline. */}
       <div className="hidden lg:block">
         <NavRail />
       </div>
+      <BottomNav />
       <main
         className="app-shell__content focus:outline-none"
         ref={mainRef}
@@ -83,7 +89,13 @@ export function AppShell({ children }: AppShellProps) {
       >
         {children}
       </main>
-      <footer className="flex justify-center p-4 border-t border-border lg:col-span-full">
+      {/* 2b.8: bottom padding clears the fixed BottomNav (mobile only) —
+       * without it, the footer's Settings/Legal links (and whatever
+       * content sits just above them) end up hidden behind the bar once
+       * scrolled to the end of the page. --bottom-nav-height is BottomNav's
+       * own height; env(safe-area-inset-bottom) matches the same safe-area
+       * padding BottomNav itself adds beneath that. */}
+      <footer className="flex justify-center p-4 pb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom)+var(--space-4))] lg:pb-4 border-t border-border lg:col-span-full">
         <Link
           href={ROUTES.settings.path}
           className="min-h-11 px-3 py-2 bg-transparent text-text-2 text-sm no-underline cursor-pointer inline-flex items-center"

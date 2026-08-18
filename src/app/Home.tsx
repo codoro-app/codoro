@@ -307,16 +307,21 @@ export function Home() {
 
         <p className="m-0 text-xs font-bold text-text-2 uppercase tracking-[0.04em]">Modes</p>
 
-        {/* 2b.0: was `.home__cards-secondary` — grid only kicks in >=640px
-         * (Tailwind `sm`, exact match), auto-fit/minmax(60px,1fr) so
-         * Daily/Rush/Trace/Boss/Missions/Stats (6 same-tier cards, 2b.7 added
-         * Stats) share one row evenly instead of a fixed 2-column split. The
-         * 60px floor is tuned to this card's own container: 480px
-         * (--content-width-mobile) minus 2x16px (px-4) padding = 448px, minus
-         * 5x12px (gap-3) column gaps = 388px for 6 tracks, i.e. ~64.7px/track
-         * — 60px leaves ~28px slack for rounding (same convention the
-         * original 5-track 75px floor used). Re-derive this number again if a
-         * 7th mode card is ever added.
+        {/* 2b.0/2b.8: was `.home__cards-secondary`. 2b.8 (mobile redesign):
+         * default is now a 2-column grid, not a single-column flex stack —
+         * with BottomNav taking mobile navigation out of the old top strip,
+         * halving scroll depth here is the other half of "more of the six
+         * cards visible without scrolling" on the page users see first.
+         *
+         * >=640px (Tailwind `sm`, exact match) overrides to
+         * auto-fit/minmax(60px,1fr) so Daily/Rush/Trace/Boss/Missions/Stats
+         * (6 same-tier cards, 2b.7 added Stats) share one row evenly instead
+         * of a fixed 2-column split. The 60px floor is tuned to this card's
+         * own container: 480px (--content-width-mobile) minus 2x16px (px-4)
+         * padding = 448px, minus 5x12px (gap-3) column gaps = 388px for 6
+         * tracks, i.e. ~64.7px/track — 60px leaves ~28px slack for rounding
+         * (same convention the original 5-track 75px floor used). Re-derive
+         * this number again if a 7th mode card is ever added.
          *
          * >=1024px (Tailwind `lg`) overrides to a fixed 3-column/2-row
          * layout instead of letting auto-fit keep 6 cards in one row: at
@@ -325,7 +330,7 @@ export function Home() {
          * card to ~90-100px — description text (e.g. Rush's "Escalating
          * puzzles — 3 strikes and you're out") wraps awkwardly at that
          * width. 3 columns gives each card roughly double the room. */}
-        <div className="flex flex-col gap-3 sm:grid sm:grid-cols-[repeat(auto-fit,minmax(60px,1fr))] lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fit,minmax(60px,1fr))] lg:grid-cols-3">
           <Link href={ROUTES.daily.path} className={CARD_SECONDARY}>
             <span className={ICON_SECONDARY}>
               <DailyIcon size={20} />

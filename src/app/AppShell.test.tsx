@@ -9,22 +9,26 @@ describe('AppShell', () => {
     window.history.pushState({}, '', '/practice')
   })
 
-  it('renders both the mobile ModeSwitcher and the desktop NavRail (visibility is CSS-only)', () => {
+  it('renders both the mobile BottomNav and the desktop NavRail (visibility is CSS-only)', () => {
     render(
       <AppShell>
         <p>page content</p>
       </AppShell>,
     )
-    // `hidden: true` on both queries below: both navs are always mounted —
-    // only CSS (media queries) decides which is visible at a given
-    // viewport — and jsdom's own default viewport width happens to sit
-    // exactly on this shell's 1024px breakpoint, making CSS-computed
-    // accessibility-tree visibility here nondeterministic across runs.
-    // These assertions are about DOM structure ("both navs exist"), not
-    // about which one a real browser would currently show, so they
-    // deliberately opt out of visibility filtering instead of depending on
-    // that timing.
-    expect(screen.getAllByRole('navigation', { name: 'Mode', hidden: true }).length).toBe(2)
+    // `hidden: true` below: both navs are always mounted — only CSS (media
+    // queries) decides which is visible at a given viewport — and jsdom's
+    // own default viewport width happens to sit exactly on this shell's
+    // 1024px breakpoint, making CSS-computed accessibility-tree visibility
+    // here nondeterministic across runs. These assertions are about DOM
+    // structure ("both navs exist"), not about which one a real browser
+    // would currently show, so they deliberately opt out of visibility
+    // filtering instead of depending on that timing.
+    //
+    // BottomNav (mobile) is named "Primary", not "Mode" — it includes Home
+    // and Stats alongside the mode routes, so "Mode" would undersell it.
+    // NavRail (desktop) keeps its existing "Mode" label unchanged.
+    expect(screen.getByRole('navigation', { name: 'Primary', hidden: true })).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: 'Mode', hidden: true })).toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: 'Practice', hidden: true }).length).toBe(2)
   })
 
@@ -48,14 +52,16 @@ describe('AppShell', () => {
     expect(window.location.pathname).toBe('/daily')
   })
 
-  it('the logo/brand links home from either the mobile bar or the desktop rail', () => {
+  it('the logo/brand links home from the mobile bar, the bottom nav, and the desktop rail', () => {
     render(
       <AppShell>
         <p>page content</p>
       </AppShell>,
     )
+    // Three now, not two: the slim mobile top bar's logo, BottomNav's own
+    // Home tab, and NavRail's logo — all real hrefs to '/'.
     const homeLinks = screen.getAllByRole('link', { name: 'Home', hidden: true })
-    expect(homeLinks.length).toBe(2)
+    expect(homeLinks.length).toBe(3)
     homeLinks.forEach((link) => {
       expect(link).toHaveAttribute('href', '/')
     })
@@ -73,10 +79,12 @@ describe('AppShell', () => {
   // Regression test: <main> gets a programmatic .focus() on every route
   // change (see useRouteFocusAndScroll above) with tabIndex={-1}, so it's
   // never in the sighted tab order — but with no outline suppression, the
-  // browser's default focus ring still renders as a stray line under the
-  // mobile nav bar on every route change. jsdom doesn't compute Tailwind's
-  // CSS, so this asserts the suppressing utility class is present rather
-  // than the resulting computed style.
+  // browser's default focus ring still renders as a stray line at the top
+  // of <main> (originally observed right under the old top mobile nav bar;
+  // BottomNav's move to the bottom doesn't change this — <main> itself is
+  // still the element receiving focus) on every route change. jsdom doesn't
+  // compute Tailwind's CSS, so this asserts the suppressing utility class is
+  // present rather than the resulting computed style.
   it('suppresses the default focus ring on <main> (it is never in the sighted tab order)', () => {
     render(
       <AppShell>

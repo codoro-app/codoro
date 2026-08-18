@@ -198,6 +198,12 @@
   --sidebar-width: 296px;
   --content-width-mobile: 480px;
   --content-width-desktop: 640px;
+  /* v3 Phase 2b.8: BottomNav.tsx's own rendered height (icon+label row +
+   * vertical padding), excluding env(safe-area-inset-bottom) — that's added
+   * on top by BottomNav itself and by anything (PageShell's stickyAction,
+   * AppShell's footer) that needs to clear the bar on a device with a home
+   * indicator. Bump this if BottomNav's padding/type size ever changes. */
+  --bottom-nav-height: 60px;
 }
 
 :root {
