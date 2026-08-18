@@ -189,7 +189,12 @@ describe('PuzzleCardShell', () => {
     await user.click(screen.getByRole('button', { name: 'Missing break after gold' }))
 
     const continueButton = screen.getByRole('button', { name: 'Next puzzle' })
-    expect(continueButton.closest('.sticky.bottom-0')).not.toBeNull()
+    const stickyBar = continueButton.closest('.sticky')
+    expect(stickyBar).not.toBeNull()
+    // Offset by --bottom-nav-height (not flush bottom-0) — this bar is
+    // mobile-only, and AppShell now renders a fixed BottomNav at the
+    // viewport bottom on mobile; flush bottom-0 would sit directly under it.
+    expect(stickyBar).toHaveClass('bottom-[var(--bottom-nav-height)]')
     // The button previews its destination outside the bordered feedback
     // card, not nested inside it (a sticky element inside a rounded/bordered
     // card would visually detach from that card's chrome once pinned).
@@ -225,7 +230,7 @@ describe('PuzzleCardShell', () => {
     await user.click(screen.getByRole('button', { name: 'Missing break after gold' }))
 
     const continueButton = screen.getByRole('button', { name: 'Next puzzle' })
-    expect(continueButton.closest('.sticky.bottom-0')).toBeNull()
+    expect(continueButton.closest('.sticky')).toBeNull()
 
     const feedbackPanel = container.querySelector('.feedback-panel')
     if (feedbackPanel === null) {

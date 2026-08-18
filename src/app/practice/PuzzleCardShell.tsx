@@ -98,7 +98,15 @@ const FEEDBACK_CONTINUE_CLASS =
 // grew taller than the viewport, since `position: sticky` pins it to the
 // viewport edge regardless of content height. Desktop has the width to
 // avoid that outright instead of just re-coloring the same overlap.
-const CONTINUE_BAR_CLASS = 'sticky bottom-0 z-10 pt-3 pb-3 bg-surface-0 border-t border-border'
+//
+// 2b.8: offset `bottom-[var(--bottom-nav-height)]`, not flush `bottom-0` —
+// AppShell.tsx now renders a fixed BottomNav at the viewport bottom on
+// mobile (this bar's only rendered width), and a flush offset would sit
+// this bar directly underneath it. No `lg:` fallback needed: this bar
+// never renders on desktop at all (see `isDesktop` below), unlike
+// PageShell.tsx's `stickyAction` slot which does.
+const CONTINUE_BAR_CLASS =
+  'sticky bottom-[var(--bottom-nav-height)] z-10 pt-3 pb-3 bg-surface-0 border-t border-border'
 
 // Desktop's inline placement (see `isDesktop` below): same button, not
 // full-width (it sits beside the feedback panel's own width, right-aligned,
