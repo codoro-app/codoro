@@ -719,6 +719,36 @@ describe('SwipeBinary', () => {
       expect(onCommit).toHaveBeenCalledWith({ correct: true, choiceIndex: null })
     })
 
+    it('survives setPointerCapture throwing NotFoundError instead of losing the rest of the drag (live-caught, 2026-08-19)', () => {
+      // jsdom has no setPointerCapture at all (feature-detected away — see
+      // setPointerCaptureIfSupported's doc comment), so this installs one
+      // that reproduces the actual live failure mode caught in this app's
+      // own console: a real browser throws NotFoundError if `pointerId`
+      // doesn't match a pointer it currently considers "active" at the
+      // moment of the call. Uncaught, this used to abort the rest of
+      // handlePointerMove — including x.set(dx) — for the remainder of the
+      // gesture. `vi.spyOn` can't target this (jsdom has no existing method
+      // to spy on), so it's a plain assignment, cleaned up manually since
+      // `installMockClock`'s `vi.restoreAllMocks()` only undoes real spies.
+      HTMLElement.prototype.setPointerCapture = () => {
+        throw new DOMException('No active pointer with the given id is found.', 'NotFoundError')
+      }
+      try {
+        const onCommit = vi.fn()
+        const { container } = render(<Harness onCommit={onCommit} />)
+        const card = getCard(container)
+        pointerDown(card, 0, 0)
+        advanceClock(175)
+        pointerMove(card, 30, 0) // resolves horizontal -> setPointerCapture throws here
+        advanceClock(175)
+        pointerMove(card, 180, 0)
+        pointerUp(card, 180, 0)
+        expect(onCommit).toHaveBeenCalledWith({ correct: true, choiceIndex: null })
+      } finally {
+        delete (HTMLElement.prototype as { setPointerCapture?: unknown }).setPointerCapture
+      }
+    })
+
     it('a touch-typed pointer event never drives the mouse path (touch is fully owned by the native listeners)', () => {
       const onCommit = vi.fn()
       const { container } = render(<Harness onCommit={onCommit} />)

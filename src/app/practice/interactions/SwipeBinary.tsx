@@ -110,10 +110,30 @@ type AxisResolution = 'ambiguous' | 'horizontal' | 'vertical'
  * `@typescript-eslint/no-unnecessary-condition` rejects the latter against
  * lib.dom's always-present typing. Mouse/pen only now — see OD-5 below for
  * why touch never uses this.
+ *
+ * Also swallows `setPointerCapture`'s own `NotFoundError` — live-caught via
+ * this exact app's console (2026-08-19): the browser throws it if `pointerId`
+ * doesn't match a pointer it currently considers "active" at the moment of
+ * the call, and it's uncaught here would silently abort the rest of
+ * `handlePointerMove` for that event, INCLUDING the `x.set(dx)` below it —
+ * meaning the card would stop following the drag entirely, with no visual
+ * error, for the rest of that gesture (subsequent moves keep hitting the
+ * same throw, since `capturedRef.current` never gets set past the throwing
+ * line either). `releasePointerCaptureIfSupported` below already documents
+ * this exact exception type for the release side; this is the equivalent
+ * guard for the acquire side, so a capture race can no longer break a
+ * gesture whether it happens on `setPointerCapture` or
+ * `releasePointerCapture`.
  */
 function setPointerCaptureIfSupported(el: HTMLElement, pointerId: number): void {
-  if (typeof el.setPointerCapture === 'function') {
+  if (typeof el.setPointerCapture !== 'function') return
+  try {
     el.setPointerCapture(pointerId)
+  } catch {
+    // Not fatal — the drag continues via `x.set(dx)` without an OS-level
+    // capture; worst case is losing pointer events if the cursor leaves the
+    // card mid-drag (rare — `axisRef`/`activePointerIdRef` still make the
+    // eventual pointerup/pointercancel resolve correctly on their own).
   }
 }
 
