@@ -570,14 +570,46 @@ describe('SwipeBinary', () => {
       return event
     }
 
-    it('does not call preventDefault on a touchstart that originates on a fallback button', () => {
+    function touchEndOnButton(button: HTMLElement, x: number, y: number) {
+      const event = createEvent.touchEnd(button, {
+        changedTouches: [{ identifier: TOUCH_ID, clientX: x, clientY: y, target: button }],
+      })
+      fireEvent(button, event)
+      return event
+    }
+
+    it('commits directly on touchstart+touchend on a button, with no click event ever dispatched (second real-device report, 2026-08-19)', () => {
+      // The first fix (skip preventDefault so native click reaches the
+      // button) turned out insufficient on a real device — see
+      // buttonTouchIdRef's doc comment in SwipeBinary.tsx. This is the
+      // regression test for the actual fix: the component now owns the tap
+      // itself in JS and must commit WITHOUT any `click` event firing at
+      // all, unlike every 'tap fallback' test above which dispatches click
+      // directly.
+      const onCommit = vi.fn()
+      render(<Harness onCommit={onCommit} />)
+      const button = screen.getByText('Race condition')
+      touchStartOnButton(button, 0, 0)
+      advanceClock(80)
+      touchEndOnButton(button, 0, 0)
+      expect(onCommit).toHaveBeenCalledWith({ correct: true, choiceIndex: null })
+    })
+
+    it('commits incorrect on tapping the wrong-side button via touch', () => {
+      const onCommit = vi.fn()
+      render(<Harness onCommit={onCommit} />)
+      const button = screen.getByText('Thread-safe')
+      touchStartOnButton(button, 0, 0)
+      advanceClock(80)
+      touchEndOnButton(button, 0, 0)
+      expect(onCommit).toHaveBeenCalledWith({ correct: false, choiceIndex: null })
+    })
+
+    it('calls preventDefault on a button-origin touchstart, to suppress native click synthesis and avoid a double-commit', () => {
       render(<Harness />)
       const button = screen.getByText('Race condition')
       const down = touchStartOnButton(button, 0, 0)
-      // A prevented touchstart suppresses the browser's synthesized click for
-      // that touch (spec behavior) — this is the actual mechanism that was
-      // silently eating every mobile tap on these buttons.
-      expect(down.defaultPrevented).toBe(false)
+      expect(down.defaultPrevented).toBe(true)
     })
 
     it('does not claim the touch for card-dragging when it originates on a button', () => {
@@ -589,6 +621,38 @@ describe('SwipeBinary', () => {
       // helpers) — if the card had claimed this touch id, this would move it.
       touchMove(getCard(container), 80, 0)
       expect(screen.getByText('Race condition').className).not.toContain('--previewing')
+    })
+
+    it('cancels the tap (does not commit) when the touch drags away from the button before lifting', () => {
+      const onCommit = vi.fn()
+      render(<Harness onCommit={onCommit} />)
+      const button = screen.getByText('Race condition')
+      touchStartOnButton(button, 0, 0)
+      advanceClock(50)
+      // Moved past AXIS_TOLERANCE — this is no longer a tap, and per
+      // fallbackButtonAncestor's contract it must not become a card drag
+      // either.
+      fireEvent(
+        button,
+        createEvent.touchMove(button, {
+          cancelable: true,
+          touches: [{ identifier: TOUCH_ID, clientX: 30, clientY: 0, target: button }],
+        }),
+      )
+      touchEndOnButton(button, 30, 0)
+      expect(onCommit).not.toHaveBeenCalled()
+    })
+
+    it('does not commit a button tap once already committed', () => {
+      const onCommit = vi.fn()
+      render(<Harness onCommit={onCommit} />)
+      fireEvent.click(screen.getByText('Race condition'))
+      onCommit.mockClear()
+      const button = screen.getByText('Thread-safe')
+      touchStartOnButton(button, 0, 0)
+      advanceClock(50)
+      touchEndOnButton(button, 0, 0)
+      expect(onCommit).not.toHaveBeenCalled()
     })
   })
 

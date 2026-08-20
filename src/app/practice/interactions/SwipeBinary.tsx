@@ -211,13 +211,15 @@ function scrollableSnippetAncestor(target: EventTarget | null): HTMLElement | nu
  * `touchStart` directly on the card element, so `event.target` was always
  * `card`, never a button.
  *
- * Fix: a button-origin touch skips the card's claim entirely (see its use in
- * `onTouchStart`) — no `preventDefault()`, no `activeTouchIdRef` — so the
- * browser's normal touch-to-click synthesis reaches the button unobstructed.
- * This makes the buttons tap-only, matching how they already behave for
- * mouse/pen (a mouse press on a button was never treated as a drag-start
- * either): starting a touch on a button and then dragging elsewhere on the
- * card does not swipe it.
+ * First fix attempt: a button-origin touch skipped the card's claim
+ * entirely — no `preventDefault()`, no `activeTouchIdRef` — banking on the
+ * browser's normal touch-to-click synthesis reaching the button
+ * unobstructed. A second real-device report (2026-08-19, same day) showed
+ * that wasn't enough — see `buttonTouchIdRef`'s doc comment for why (the
+ * card's own `touch-action: none` likely still suppresses it) and for the
+ * actual fix, which owns the tap in JS instead of depending on native
+ * click synthesis at all. This helper is now used only to detect the
+ * button, not to decide whether to skip it.
  */
 function fallbackButtonAncestor(target: EventTarget | null): HTMLElement | null {
   if (!(target instanceof Element)) return null
@@ -467,6 +469,30 @@ export function SwipeBinary({
   const activePointerIdRef = useRef<number | null>(null)
   const capturedRef = useRef(false)
 
+  // Touch-only: tracks a touch that started on one of the two fallback
+  // buttons (`.swipe-fallback__button`) as its own, isolated tap gesture —
+  // entirely separate from activeTouchIdRef's card-drag tracking, and never
+  // promoted into one (fallbackButtonAncestor's doc comment: a
+  // button-origin touch is tap-only, even if it later drags).
+  //
+  // Mobile bug report, 2026-08-19 (second round): the original fix
+  // (skipping preventDefault so the browser's own touch-to-click synthesis
+  // would reach the button) turned out insufficient on a real device.
+  // scrollableSnippetAncestor's doc comment already establishes that a
+  // descendant can't loosen an ancestor's `touch-action: none` (CSS Touch
+  // Action's intersection rule) — this card sets exactly that on itself —
+  // and the same restriction appears to suppress native tap-to-click
+  // synthesis for a button underneath it too, not just scrolling. Rather
+  // than depend further on exactly which touch-action side effect is
+  // responsible, this owns the tap entirely in JS instead (matching OD-5's
+  // "claim 100% of touch, don't rely on the browser's default handling"
+  // approach for the rest of the card) and calls `preventDefault()` on the
+  // button's touchstart to guarantee the browser's own click synthesis
+  // never ALSO fires — which would otherwise risk a double-commit.
+  const buttonTouchIdRef = useRef<number | null>(null)
+  const buttonTapElRef = useRef<HTMLElement | null>(null)
+  const buttonTapStartRef = useRef<{ x: number; y: number } | null>(null)
+
   // See GESTURE_WATCHDOG_MS's doc comment. Shared across touch and mouse —
   // only one input drives a gesture at a time, so only one timer is ever
   // live.
@@ -577,12 +603,30 @@ export function SwipeBinary({
 
     const onTouchStart = (event: TouchEvent) => {
       if (committedRef.current) return
-      if (activeTouchIdRef.current !== null) return
-      // Mobile bug report, 2026-08-19 — see fallbackButtonAncestor's doc
-      // comment: a button-origin touch is never claimed, so the browser's
-      // native tap-to-click reaches it instead of being swallowed by this
-      // card's unconditional preventDefault() below.
-      if (fallbackButtonAncestor(event.target)) return
+      if (activeTouchIdRef.current !== null || buttonTouchIdRef.current !== null) return
+      // See buttonTouchIdRef's doc comment: a button-origin touch is
+      // tracked and owned as its own isolated tap gesture, never claimed
+      // for card-dragging.
+      const button = fallbackButtonAncestor(event.target)
+      if (button) {
+        const touch = event.touches[0]
+        if (!touch) return
+        buttonTouchIdRef.current = touch.identifier
+        buttonTapElRef.current = button
+        buttonTapStartRef.current = { x: touch.clientX, y: touch.clientY }
+        const prevented = event.cancelable
+        if (prevented) event.preventDefault()
+        debug.log({
+          type: 'down',
+          x: touch.clientX,
+          y: touch.clientY,
+          cancelable: event.cancelable,
+          axis: 'ambiguous',
+          prevented,
+          note: 'button-tap',
+        })
+        return
+      }
       const touch = event.touches[0]
       if (!touch) return
       activeTouchIdRef.current = touch.identifier
@@ -619,6 +663,36 @@ export function SwipeBinary({
 
     const onTouchMove = (event: TouchEvent) => {
       if (committedRef.current) return
+      const buttonId = buttonTouchIdRef.current
+      if (buttonId !== null) {
+        const touch = findTouchById(event.touches, buttonId)
+        if (!touch) return
+        const prevented = event.cancelable
+        if (prevented) event.preventDefault()
+        const start = buttonTapStartRef.current
+        const dx = start ? touch.clientX - start.x : 0
+        const dy = start ? touch.clientY - start.y : 0
+        // A real tap barely moves; drifting past the same tolerance the
+        // card's own axis arbitration uses means the finger left the
+        // button — cancel the tap rather than commit it OR hand off to a
+        // card drag (fallbackButtonAncestor's doc comment: button-origin
+        // touches are tap-only, even if they later drag).
+        if (Math.abs(dx) >= AXIS_TOLERANCE || Math.abs(dy) >= AXIS_TOLERANCE) {
+          buttonTouchIdRef.current = null
+          buttonTapElRef.current = null
+          buttonTapStartRef.current = null
+          debug.log({
+            type: 'cancel',
+            x: touch.clientX,
+            y: touch.clientY,
+            cancelable: event.cancelable,
+            axis: 'ambiguous',
+            prevented: false,
+            note: 'button-tap cancelled — moved too far to be a tap',
+          })
+        }
+        return
+      }
       const id = activeTouchIdRef.current
       if (id === null) return
       const touch = findTouchById(event.touches, id)
@@ -708,6 +782,30 @@ export function SwipeBinary({
     }
 
     const onTouchEnd = (event: TouchEvent) => {
+      const buttonId = buttonTouchIdRef.current
+      if (buttonId !== null) {
+        const touch = findTouchById(event.changedTouches, buttonId)
+        const button = buttonTapElRef.current
+        buttonTouchIdRef.current = null
+        buttonTapElRef.current = null
+        buttonTapStartRef.current = null
+        if (!touch || !button || committedRef.current) return
+        const direction =
+          button.dataset.swipeDirection === 'left' || button.dataset.swipeDirection === 'right'
+            ? button.dataset.swipeDirection
+            : null
+        debug.log({
+          type: 'up',
+          x: touch.clientX,
+          y: touch.clientY,
+          cancelable: event.cancelable,
+          axis: 'ambiguous',
+          prevented: false,
+          note: direction ? `button-tap -> ${direction}` : 'button-tap (no direction?!)',
+        })
+        if (direction) handlePickRef.current(direction)
+        return
+      }
       const id = activeTouchIdRef.current
       if (id === null) return
       const touch = findTouchById(event.changedTouches, id)
@@ -771,6 +869,21 @@ export function SwipeBinary({
 
     /** A gesture the OS took away (a system gesture interrupted it — rare, now that touchstart claims the touch upfront): drop everything and settle the card back to center — never leave it stuck off-center. */
     const onTouchCancel = (event: TouchEvent) => {
+      if (buttonTouchIdRef.current !== null) {
+        buttonTouchIdRef.current = null
+        buttonTapElRef.current = null
+        buttonTapStartRef.current = null
+        debug.log({
+          type: 'cancel',
+          x: 0,
+          y: 0,
+          cancelable: event.cancelable,
+          axis: 'ambiguous',
+          prevented: false,
+          note: 'button-tap cancelled (touchcancel)',
+        })
+        return
+      }
       const id = activeTouchIdRef.current
       if (id === null) return
       const touch = findTouchById(event.changedTouches, id)
@@ -939,6 +1052,7 @@ export function SwipeBinary({
           <button
             type="button"
             className={classFor('left')}
+            data-swipe-direction="left"
             onClick={() => {
               handlePick('left')
             }}
@@ -949,6 +1063,7 @@ export function SwipeBinary({
           <button
             type="button"
             className={classFor('right')}
+            data-swipe-direction="right"
             onClick={() => {
               handlePick('right')
             }}

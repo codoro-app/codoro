@@ -51,13 +51,26 @@ export type SwipeCommitDirection = 'left' | 'right' | null
  *   feel light rather than requiring a near-full-width drag every time,
  *   while still being far enough past accidental-scroll/mis-tap noise
  *   (usually well under 20px) to be an unambiguous "the user meant this".
- * - `minVelocity: 0.3` px/ms — inside the 0.2-0.5 px/ms range cited as a
- *   starting point. A deliberate swipe that covers `minDistance` (120px)
- *   in a natural, unhurried ~300-400ms already produces ~0.3-0.4 px/ms, so
- *   this floor sits right at what a normal complete drag produces rather
- *   than demanding a rushed flick — while still being well above the
- *   near-zero velocity of a finger that's resting/creeping (idle drift is
- *   typically under 0.05 px/ms).
+ * - `minVelocity: 0.08` px/ms — revised down from an original 0.3 (mobile
+ *   bug report, 2026-08-19: "swipe fast works, swipe slow doesn't"). 0.3
+ *   was chosen assuming a "natural, unhurried" swipe takes ~300-400ms
+ *   start-to-finish; real usage showed that's a flick-speed assumption, not
+ *   an unhurried one — `velocityX` here is `signedVelocityFromGesture`'s
+ *   average over the WHOLE gesture (touchstart to release), so 0.3 px/ms
+ *   required the entire drag, including any initial hesitation, to finish
+ *   in under `minDistance / 0.3` ≈ 400ms. Plenty of genuinely deliberate,
+ *   complete 120px+ drags take noticeably longer than that (a real finger
+ *   often eases in, or pauses mid-drag) and were silently failing to commit
+ *   even though the card visually reached full tilt. Once `minDistance` is
+ *   already satisfied, the "short-but-fast accidental flick" this gate
+ *   guards against (see module doc) is by definition already excluded by
+ *   distance — a short flick can't also be a 120px+ drag — so the
+ *   velocity gate's real remaining job past that point is only to rule out
+ *   slow idle drift (typically under 0.05 px/ms, per the note below), not
+ *   to demand a hurried release. 0.08 keeps a real margin above that drift
+ *   ceiling (a 120px drift would need to sustain ~0.08 px/ms for a full
+ *   1500ms+ to falsely qualify, which idle motion doesn't do) while letting
+ *   a full-distance drag take up to ~1500ms and still commit.
  *
  * Both conditions must hold simultaneously (see module doc), so these two
  * numbers work together: `minDistance` alone rules out mis-taps and short
@@ -67,7 +80,7 @@ export type SwipeCommitDirection = 'left' | 'right' | null
  */
 export const DEFAULT_SWIPE_THRESHOLD: SwipeThresholdConfig = {
   minDistance: 120,
-  minVelocity: 0.3,
+  minVelocity: 0.08,
 }
 
 /**

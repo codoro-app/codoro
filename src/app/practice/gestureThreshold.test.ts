@@ -91,11 +91,38 @@ describe('resolveSwipeCommit', () => {
     expect(DEFAULT_SWIPE_THRESHOLD.minDistance).toBeGreaterThan(0)
     expect(DEFAULT_SWIPE_THRESHOLD.minVelocity).toBeGreaterThan(0)
     // Sanity-check the defaults land in the ranges the brief calls out for a
-    // ~300-400px-wide card: 30-50% of container width, 0.2-0.5 px/ms floor.
+    // ~300-400px-wide card: 30-50% of container width for distance.
+    // minVelocity's range was revised down (mobile bug report, 2026-08-19,
+    // see DEFAULT_SWIPE_THRESHOLD's own doc comment): comfortably above the
+    // ~0.05 px/ms idle-drift ceiling, comfortably below the old 0.3 that
+    // required a full drag to finish in under ~400ms.
     expect(DEFAULT_SWIPE_THRESHOLD.minDistance).toBeGreaterThanOrEqual(90)
     expect(DEFAULT_SWIPE_THRESHOLD.minDistance).toBeLessThanOrEqual(200)
-    expect(DEFAULT_SWIPE_THRESHOLD.minVelocity).toBeGreaterThanOrEqual(0.2)
-    expect(DEFAULT_SWIPE_THRESHOLD.minVelocity).toBeLessThanOrEqual(0.5)
+    expect(DEFAULT_SWIPE_THRESHOLD.minVelocity).toBeGreaterThanOrEqual(0.06)
+    expect(DEFAULT_SWIPE_THRESHOLD.minVelocity).toBeLessThanOrEqual(0.15)
+  })
+
+  it('commits a slow, deliberate full-distance drag against the DEFAULT threshold (mobile bug report, 2026-08-19)', () => {
+    // A calm, unhurried swipe — 130px over 900ms total, well past
+    // minDistance but nowhere near flick-speed — is a completed, deliberate
+    // gesture a real user expects to commit. Under the OLD 0.3 px/ms
+    // default this failed (130/900 ≈ 0.144 < 0.3): only near-flick-speed
+    // swipes committed, matching the live report ("swipe fast works, swipe
+    // slow doesn't").
+    const sample: SwipeSample = {
+      dx: 130,
+      velocityX: signedVelocityFromGesture({ movement: 130, elapsedTime: 900 }),
+    }
+    expect(resolveSwipeCommit(sample, DEFAULT_SWIPE_THRESHOLD)).toBe('right')
+  })
+
+  it('still does not commit idle drift under the lowered DEFAULT threshold', () => {
+    // Below the new 0.08 floor, matching the drift ceiling this constant's
+    // doc comment documents (~0.05 px/ms) — the lowered threshold still has
+    // real margin above idle creep, even though it now accepts far slower
+    // deliberate drags than the old 0.3 did.
+    const sample: SwipeSample = { dx: 130, velocityX: 0.04 }
+    expect(resolveSwipeCommit(sample, DEFAULT_SWIPE_THRESHOLD)).toBeNull()
   })
 })
 
