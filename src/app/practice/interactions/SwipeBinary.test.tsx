@@ -81,6 +81,25 @@ function getCard(container: HTMLElement): HTMLElement {
   return card
 }
 
+function getSnippet(container: HTMLElement): HTMLElement {
+  const snippet = container.querySelector<HTMLElement>('.code-snippet')
+  if (!snippet) throw new Error('missing .code-snippet')
+  return snippet
+}
+
+/**
+ * jsdom never lays out real content, so scrollWidth/clientWidth default to
+ * 0 — stub them on Element.prototype for the duration of one test so the
+ * nested CodeSnippet's own auto-shrink measurement reports a real,
+ * `code-snippet--scrollable` overflow. Same technique as
+ * CodeSnippet.test.tsx's own stubMeasurements. Restored via afterEach
+ * (installMockClock already does this via vi.restoreAllMocks).
+ */
+function stubExtremeSnippetOverflow() {
+  vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(1000)
+  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(100)
+}
+
 const TOUCH_ID = 7
 
 interface TouchOpts {
@@ -353,6 +372,130 @@ describe('SwipeBinary', () => {
     })
   })
 
+  describe('reveal opacity (fly-off then invisible reset, not a jump-cut)', () => {
+    installMockClock()
+
+    it("binds the card's opacity to a motion value so the post-commit reset can fade instead of teleporting visibly", () => {
+      // framer-motion writes a MotionValue bound via `style={{ ... }}` as a
+      // real inline style synchronously on mount — this is a structural
+      // smoke test (the binding exists) rather than an assertion on the
+      // exact interpolated value mid-tween, which framer-motion's rAF-driven
+      // `animate()` calls aren't meaningfully readable from jsdom/RTL
+      // without a fake-timer + rAF-polyfill setup this file doesn't have.
+      const { container } = render(<Harness />)
+      const card = getCard(container)
+      expect(card.style.opacity).not.toBe('')
+    })
+  })
+
+  describe("scrollable snippet scroll forwarding (does not swallow the snippet's own horizontal scroll)", () => {
+    installMockClock()
+
+    it("forwards a touch starting on a scrollable snippet to the snippet's own scroll, not the card's drag", () => {
+      stubExtremeSnippetOverflow()
+      const { container } = render(<Harness />)
+      const snippet = getSnippet(container)
+      expect(snippet.className).toContain('code-snippet--scrollable')
+
+      touchStart(snippet, 0, 0)
+      advanceClock(50)
+      touchMove(snippet, 30, 0) // resolves the axis horizontal
+      touchMove(snippet, 80, 0) // well past the 60px preview-halfway point
+
+      // The card's own `x` motion value was never set — no drag preview,
+      // even though 80px would normally be well past the halfway point
+      // (framer-motion's own style writes are rAF-batched and don't flush
+      // synchronously in jsdom, so `--previewing`, driven by a
+      // `useMotionValueEvent` subscriber -> React state, is the reliable
+      // synchronous signal here, not `card.style.transform`).
+      expect(screen.getByText('Race condition').className).not.toContain('--previewing')
+      // ...the snippet's own scroll position moved instead.
+      expect(snippet.scrollLeft).not.toBe(0)
+    })
+
+    it('still calls preventDefault on a snippet-origin touchstart (forwarding still claims the touch, it does not skip preventDefault)', () => {
+      stubExtremeSnippetOverflow()
+      const { container } = render(<Harness />)
+      const snippet = getSnippet(container)
+
+      const down = touchStart(snippet, 0, 0)
+      expect(down.defaultPrevented).toBe(true)
+    })
+
+    it('does not forward when the snippet fits (not scrollable) — a touch there still drags the card normally', () => {
+      // No stubExtremeSnippetOverflow here: scrollWidth/clientWidth default
+      // to 0 in jsdom, i.e. no overflow, so CodeSnippet never marks itself
+      // scrollable.
+      const { container } = render(<Harness />)
+      const snippet = getSnippet(container)
+      expect(snippet.className).not.toContain('code-snippet--scrollable')
+
+      touchStart(snippet, 0, 0)
+      advanceClock(50)
+      touchMove(snippet, 30, 0)
+      touchMove(snippet, 80, 0)
+
+      expect(screen.getByText('Race condition').className).toContain('--previewing')
+    })
+
+    it('a touch starting elsewhere on the card (not the snippet) still drags the card normally, even with a scrollable snippet present', () => {
+      stubExtremeSnippetOverflow()
+      const { container } = render(<Harness />)
+      const card = getCard(container)
+
+      // Dispatched on the card itself, not the snippet — e.g. the buttons
+      // row / padding area, matching every other swipe test in this file.
+      touchStart(card, 0, 0)
+      advanceClock(50)
+      touchMove(card, 30, 0)
+      touchMove(card, 80, 0)
+
+      expect(screen.getByText('Race condition').className).toContain('--previewing')
+    })
+  })
+
+  describe('button-origin touch (mobile tap-fallback bug, 2026-08-19)', () => {
+    installMockClock()
+
+    /**
+     * Unlike every other touch test in this file, this dispatches on the
+     * button itself (not `card`) so the event bubbles up to the card's
+     * listener with `event.target` actually set to the button — matching a
+     * real on-device tap. Every other helper here (`touchStart` et al.)
+     * dispatches directly on `card`, which is exactly why this bug had no
+     * coverage: `event.target` was always `card`, never a button.
+     */
+    function touchStartOnButton(button: HTMLElement, x: number, y: number) {
+      const event = createEvent.touchStart(button, {
+        cancelable: true,
+        touches: [{ identifier: TOUCH_ID, clientX: x, clientY: y, target: button }],
+      })
+      fireEvent(button, event)
+      return event
+    }
+
+    it('does not call preventDefault on a touchstart that originates on a fallback button', () => {
+      render(<Harness />)
+      const button = screen.getByText('Race condition')
+      const down = touchStartOnButton(button, 0, 0)
+      // A prevented touchstart suppresses the browser's synthesized click for
+      // that touch (spec behavior) — this is the actual mechanism that was
+      // silently eating every mobile tap on these buttons.
+      expect(down.defaultPrevented).toBe(false)
+    })
+
+    it('does not claim the touch for card-dragging when it originates on a button', () => {
+      const { container } = render(<Harness />)
+      const button = screen.getByText('Race condition')
+      touchStartOnButton(button, 0, 0)
+      advanceClock(50)
+      // Fired on the card directly (matching every other test's move/end
+      // helpers) — if the card had claimed this touch id, this would move it.
+      touchMove(getCard(container), 80, 0)
+      expect(screen.getByText('Race condition').className).not.toContain('--previewing')
+    })
+  })
+
   describe('static touch-action', () => {
     installMockClock()
 
@@ -375,6 +518,44 @@ describe('SwipeBinary', () => {
       touchMove(card, 6, 40)
       touchCancel(card, 6, 40)
       expect(card.style.touchAction).toBe('none')
+    })
+  })
+
+  describe('preview highlight (tilt threshold tracks the real commit distance)', () => {
+    installMockClock()
+
+    it('does not preview a side before half the commit distance', () => {
+      const { container } = render(<Harness />)
+      const card = getCard(container)
+      touchStart(card, 0, 0)
+      advanceClock(50)
+      touchMove(card, 30, 0) // resolves the axis horizontal
+      touchMove(card, 50, 0) // still below half of the 120px commit distance (60px)
+
+      expect(screen.getByText('Race condition').className).not.toContain('--previewing')
+      expect(screen.getByText('Thread-safe').className).not.toContain('--previewing')
+    })
+
+    it('previews the dragged-toward side once past half the commit distance', () => {
+      const { container } = render(<Harness />)
+      const card = getCard(container)
+      touchStart(card, 0, 0)
+      advanceClock(50)
+      touchMove(card, 30, 0)
+      touchMove(card, 61, 0) // just past half of 120px
+
+      expect(screen.getByText('Race condition').className).toContain('--previewing')
+    })
+
+    it('keeps previewing all the way out to the real commit distance, not just partway there', () => {
+      const { container } = render(<Harness />)
+      const card = getCard(container)
+      touchStart(card, 0, 0)
+      advanceClock(50)
+      touchMove(card, 30, 0)
+      touchMove(card, 120, 0) // exactly the real commit distance
+
+      expect(screen.getByText('Race condition').className).toContain('--previewing')
     })
   })
 

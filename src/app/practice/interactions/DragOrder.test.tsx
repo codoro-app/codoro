@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
@@ -63,6 +63,38 @@ function mockRowGeometry(heights: readonly number[] = [SLOT_PITCH, SLOT_PITCH, S
   })
 }
 
+/**
+ * jsdom never lays out real content, so scrollWidth/clientWidth default to
+ * 0 — stub them on Element.prototype for the duration of one test, keyed by
+ * `.drag-order__row-text`'s own text content (block text is unique per test
+ * fixture here), so DragOrder's row-text shrink measurement has real
+ * overflow to react to. Restored via afterEach so other test files'
+ * unrelated renders aren't affected — same technique as
+ * CodeSnippet.test.tsx's own stubMeasurements, generalized to multiple rows.
+ */
+function stubTextMeasurements(
+  byText: Record<string, { scrollWidth: number; clientWidth: number }>,
+) {
+  // `textContent`'s getter is typed `string` (non-nullable) on HTMLElement
+  // in this project's TS lib (getter/setter split types) — no `?? ''`
+  // needed here, unlike the `element?.textContent ?? ''` pattern elsewhere
+  // in this codebase, which guards a possibly-null querySelector RESULT,
+  // not textContent itself.
+  const lookup = new Map(Object.entries(byText))
+  vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    if (!this.classList.contains('drag-order__row-text')) return 0
+    return lookup.get(this.textContent)?.scrollWidth ?? 0
+  })
+  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    if (!this.classList.contains('drag-order__row-text')) return 0
+    return lookup.get(this.textContent)?.clientWidth ?? 0
+  })
+}
+
 function Harness({ onCommit }: { onCommit?: (p: CommitPayload) => void }) {
   const [committed, setCommitted] = useState(false)
   const [payload, setPayload] = useState<CommitPayload | undefined>(undefined)
@@ -110,6 +142,10 @@ function dragBlockCToFrontViaRow(container: HTMLElement) {
 }
 
 describe('DragOrder', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('renders one row per block, in authored display order — no runtime shuffling on mount', () => {
     const { container } = render(<Harness />)
     const rows = container.querySelectorAll('.drag-order__row')
@@ -401,5 +437,60 @@ describe('DragOrder', () => {
 
     expect(blockARow.className).toContain('drag-order__row--selected')
     expect(blockARow.getAttribute('aria-label')).toContain('position 2 of 3')
+  })
+
+  it('does not shrink row text or mark any row scrollable when every block already fits', () => {
+    stubTextMeasurements({
+      'Block A': { scrollWidth: 100, clientWidth: 200 },
+      'Block B': { scrollWidth: 100, clientWidth: 200 },
+      'Block C': { scrollWidth: 100, clientWidth: 200 },
+    })
+
+    const { container } = render(<Harness />)
+    const list = container.querySelector<HTMLElement>('.drag-order__list')
+    if (!list) throw new Error('Expected a rendered .drag-order__list element')
+
+    expect(list.style.getPropertyValue('--drag-order-font-scale')).toBe('1')
+    expect(container.querySelectorAll('.drag-order__row-text--scrollable')).toHaveLength(0)
+  })
+
+  it('shrinks every row to the same, minimum, scale when one block overflows more than the others', () => {
+    // Block B needs the most shrink (200/250 = 0.8 required, still above
+    // the 0.7 floor); Block A and Block C fit on their own (scrollWidth <=
+    // clientWidth). Every row must end up at Block B's required scale, not
+    // just Block B's own row.
+    stubTextMeasurements({
+      'Block A': { scrollWidth: 90, clientWidth: 150 },
+      'Block B': { scrollWidth: 250, clientWidth: 200 },
+      'Block C': { scrollWidth: 80, clientWidth: 90 },
+    })
+
+    const { container } = render(<Harness />)
+    const list = container.querySelector<HTMLElement>('.drag-order__list')
+    if (!list) throw new Error('Expected a rendered .drag-order__list element')
+
+    const scale = Number(list.style.getPropertyValue('--drag-order-font-scale'))
+    expect(scale).toBeCloseTo(200 / 250, 5)
+    expect(container.querySelectorAll('.drag-order__row-text--scrollable')).toHaveLength(0)
+  })
+
+  it('floors the shared scale and marks only the still-overflowing row(s) scrollable for extreme overflow', () => {
+    // Block B alone requires a scale (0.1) far under the 0.7 floor — the
+    // shared scale floors at 0.7 for every row, but only Block B's own row
+    // still can't fit at that floor and gets the scroll affordance.
+    stubTextMeasurements({
+      'Block A': { scrollWidth: 90, clientWidth: 150 },
+      'Block B': { scrollWidth: 1000, clientWidth: 100 },
+      'Block C': { scrollWidth: 80, clientWidth: 90 },
+    })
+
+    const { container } = render(<Harness />)
+    const list = container.querySelector<HTMLElement>('.drag-order__list')
+    if (!list) throw new Error('Expected a rendered .drag-order__list element')
+
+    expect(list.style.getPropertyValue('--drag-order-font-scale')).toBe('0.7')
+    const scrollableRows = container.querySelectorAll('.drag-order__row-text--scrollable')
+    expect(scrollableRows).toHaveLength(1)
+    expect(scrollableRows[0]?.textContent).toBe('Block B')
   })
 })

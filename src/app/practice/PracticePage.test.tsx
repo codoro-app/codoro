@@ -483,8 +483,19 @@ describe('PracticePage', () => {
     })
   })
 
-  it('scrolls to the top when a new puzzle is served (Continue and pattern-filter switch)', async () => {
+  it('scrolls the puzzle card into view when a new puzzle is served (Continue and pattern-filter switch)', async () => {
     const user = userEvent.setup()
+    // The question can sit well below the page top on mobile (StatusBar +
+    // Browse-patterns/Mastery links + filter chips all render above the
+    // card) — a bare `window.scrollTo({ top: 0 })` still leaves it below the
+    // fold, so the puzzle card itself, not the page top, is the real scroll
+    // target. jsdom (this project's version) doesn't implement
+    // `scrollIntoView` at all — `vi.spyOn` requires the property to already
+    // exist, so assign a plain mock function directly instead. `window.
+    // scrollTo` stays mocked too: it's still the fallback for when the card
+    // ref isn't available (loading/error/empty states).
+    const scrollIntoViewSpy = vi.fn()
+    HTMLElement.prototype.scrollIntoView = scrollIntoViewSpy
     const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
 
     render(<PracticePage />)
@@ -496,9 +507,9 @@ describe('PracticePage', () => {
     // renders the prompt text, so it can flush a tick later — wait for the
     // spy directly rather than assuming it landed by the time the text did.
     await waitFor(() => {
-      expect(scrollToSpy).toHaveBeenCalledWith({ top: 0 })
+      expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: 'start' })
     })
-    scrollToSpy.mockClear()
+    scrollIntoViewSpy.mockClear()
 
     await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
     await user.click(screen.getByRole('button', { name: 'Next puzzle' }))
@@ -507,9 +518,9 @@ describe('PracticePage', () => {
     })
 
     await waitFor(() => {
-      expect(scrollToSpy).toHaveBeenCalledWith({ top: 0 })
+      expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: 'start' })
     })
-    scrollToSpy.mockClear()
+    scrollIntoViewSpy.mockClear()
 
     await user.click(screen.getByRole('link', { name: /browse patterns/i }))
     await user.click(screen.getByText(PATTERN_LABELS['null-undefined']))
@@ -520,9 +531,12 @@ describe('PracticePage', () => {
     })
 
     await waitFor(() => {
-      expect(scrollToSpy).toHaveBeenCalledWith({ top: 0 })
+      expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: 'start' })
     })
 
+    // @ts-expect-error -- deleting the mock so other test files see jsdom's
+    // real (missing) scrollIntoView again, not this one's mock leaking out.
+    delete HTMLElement.prototype.scrollIntoView
     scrollToSpy.mockRestore()
   })
 

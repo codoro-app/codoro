@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { Scrubber } from './Scrubber'
 import type { ScrubberPuzzle } from '../../content'
@@ -21,7 +21,31 @@ function readVarRows(container: HTMLElement): [string, string][] {
   ])
 }
 
+/**
+ * jsdom never lays out real content, so scrollWidth/clientWidth default to
+ * 0 — stub them on Element.prototype for the duration of one test so the
+ * code pane's useAutoShrinkFontScale measurement has real overflow to react
+ * to. Restored via afterEach so other test files' unrelated renders aren't
+ * affected. Same technique as CodeSnippet.test.tsx's own stubMeasurements.
+ */
+function stubMeasurements(scrollWidth: number, clientWidth: number) {
+  vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(scrollWidth)
+  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(clientWidth)
+}
+
+function getCodePaneElement(container: HTMLElement): HTMLElement {
+  const pane = container.querySelector<HTMLElement>('.scrubber__code')
+  if (!pane) {
+    throw new Error('Expected a rendered .scrubber__code element')
+  }
+  return pane
+}
+
 describe('Scrubber', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('highlights the current step’s line and no other', () => {
     const { container } = render(
       <Scrubber
@@ -322,5 +346,69 @@ describe('Scrubber', () => {
       ),
     ).toThrow(/stepIndex 99 out of range/)
     consoleError.mockRestore()
+  })
+
+  it('does not shrink or mark scrollable when every code line already fits', () => {
+    stubMeasurements(300, 400)
+
+    const { container } = render(
+      <Scrubber
+        snippet={snippet}
+        language="javascript"
+        steps={steps}
+        stepIndex={0}
+        onScrub={vi.fn()}
+        maxAllowedIndex={4}
+      />,
+    )
+    const pane = getCodePaneElement(container)
+
+    expect(pane.className).not.toContain('scrubber__code--scrollable')
+    expect(pane.style.getPropertyValue('--scrubber-font-scale')).toBe('1')
+  })
+
+  it('shrinks the code pane font to fit when the widest line moderately overflows', () => {
+    // clientWidth 300 / scrollWidth 360 -> scale 300/360 = 0.8333..., above
+    // the 0.7 floor, so this should fit at a shrunk (not floored) scale and
+    // not need the scroll affordance.
+    stubMeasurements(360, 300)
+
+    const { container } = render(
+      <Scrubber
+        snippet={snippet}
+        language="javascript"
+        steps={steps}
+        stepIndex={0}
+        onScrub={vi.fn()}
+        maxAllowedIndex={4}
+      />,
+    )
+    const pane = getCodePaneElement(container)
+
+    const scale = Number(pane.style.getPropertyValue('--scrubber-font-scale'))
+    expect(scale).toBeCloseTo(300 / 360, 5)
+    expect(pane.className).not.toContain('scrubber__code--scrollable')
+  })
+
+  it('floors the code pane shrink and falls back to a scrollable affordance for extreme overflow', () => {
+    // clientWidth 100 / scrollWidth 1000 would compute scale 0.1, well
+    // under the 0.7 floor — must clamp to the floor and mark scrollable
+    // rather than shrinking text to the point of illegibility.
+    stubMeasurements(1000, 100)
+
+    const { container } = render(
+      <Scrubber
+        snippet={snippet}
+        language="javascript"
+        steps={steps}
+        stepIndex={0}
+        onScrub={vi.fn()}
+        maxAllowedIndex={4}
+      />,
+    )
+    const pane = getCodePaneElement(container)
+
+    expect(pane.style.getPropertyValue('--scrubber-font-scale')).toBe('0.7')
+    expect(pane.className).toContain('scrubber__code--scrollable')
   })
 })

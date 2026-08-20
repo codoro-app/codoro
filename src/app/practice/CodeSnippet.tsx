@@ -1,6 +1,7 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import type { CSSProperties } from 'react'
 import type { HighlightedLine } from './highlightSnippet'
 import type { AnswerState } from './answerState'
+import { useAutoShrinkFontScale } from './useAutoShrinkFontScale'
 
 export interface CodeSnippetProps {
   lines: HighlightedLine[]
@@ -11,14 +12,6 @@ export interface CodeSnippetProps {
 }
 
 /**
- * Floor for the auto-shrink below. Below this, text reads as illegible on a
- * 375px-wide card, so a snippet that still doesn't fit at this scale falls
- * back to horizontal scroll (with the `code-snippet--scrollable` right-edge
- * fade below) instead of shrinking further.
- */
-const MIN_FONT_SCALE = 0.7
-
-/**
  * Shared syntax-highlighted snippet renderer. PuzzleCardShell uses it
  * read-only for mcq puzzles; TapLine and SwipeBinary reuse it as their own
  * interactive/draggable surface.
@@ -27,64 +20,22 @@ const MIN_FONT_SCALE = 0.7
  * card with only a bare horizontal scrollbar as the affordance — on a
  * thumb-driven, quick-glance interaction the bug-relevant trailing tokens
  * (closing generics, method args) were invisible without scrolling first.
- * This measures the widest line against the available width on mount and
- * on resize, shrinking the font (down to MIN_FONT_SCALE) so most snippets
- * fit without scrolling at all; a snippet that still doesn't fit at the
- * floor scale keeps native horizontal scroll but gets a visible
- * `code-snippet--scrollable` right-edge fade (practice.css) so the
+ * `useAutoShrinkFontScale` measures the widest line against the available
+ * width on mount and on resize, shrinking the font (down to its own floor)
+ * so most snippets fit without scrolling at all; a snippet that still
+ * doesn't fit at the floor scale keeps native horizontal scroll but gets a
+ * visible `code-snippet--scrollable` right-edge fade (practice.css) so the
  * affordance is obvious rather than a scrollbar easy to miss on a
- * quick glance.
+ * quick glance. Scrubber.tsx and DragOrder.tsx reuse the same hook for the
+ * same shrink-then-scroll behavior, so code text is sized consistently
+ * across every surface that renders it, not just this one.
  */
 export function CodeSnippet({ lines, onLineClick, lineState }: CodeSnippetProps) {
   const interactive = onLineClick !== undefined
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [fontScale, setFontScale] = useState(1)
-  const [scrollable, setScrollable] = useState(false)
-
-  useLayoutEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-
-    const measure = () => {
-      // Reset to the unscaled baseline before measuring: scrollWidth scales
-      // with the current font-size, so re-measuring without this would
-      // compound a previous shrink (or under-correct after the container
-      // grows, e.g. a viewport resize) instead of computing a fresh scale
-      // from the real content width every time.
-      el.style.setProperty('--code-snippet-font-scale', '1')
-      const overflow = el.scrollWidth - el.clientWidth
-      if (overflow <= 0) {
-        el.style.setProperty('--code-snippet-font-scale', '1')
-        setFontScale(1)
-        setScrollable(false)
-        return
-      }
-      // The scale that would exactly eliminate the overflow, before
-      // clamping to the floor — used directly to decide `scrollable`
-      // rather than re-reading scrollWidth after applying the scale: a
-      // requiredScale at or above the floor means shrinking fully fixed
-      // the fit (no scroll needed), one below the floor means it can't be
-      // fully fixed by shrinking alone and the scroll affordance is still
-      // needed.
-      const requiredScale = el.clientWidth / el.scrollWidth
-      const scale = Math.max(MIN_FONT_SCALE, requiredScale)
-      el.style.setProperty('--code-snippet-font-scale', String(scale))
-      setFontScale(scale)
-      setScrollable(requiredScale < MIN_FONT_SCALE)
-    }
-
-    measure()
-
-    // Guarded for jsdom (no ResizeObserver) and any environment where it's
-    // genuinely unavailable — the initial measure() above still runs either
-    // way, so a missing observer just means no re-measure on resize.
-    if (typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    return () => {
-      observer.disconnect()
-    }
-  }, [lines])
+  const { containerRef, fontScale, scrollable } = useAutoShrinkFontScale({
+    cssProperty: '--code-snippet-font-scale',
+    deps: [lines],
+  })
 
   // 2b.0: `code-snippet`/`code-snippet__line` stay literal (test-asserted —
   // CodeSnippet.test.tsx/PuzzleCardShell.test.tsx/TapLine.test.tsx all
@@ -93,7 +44,7 @@ export function CodeSnippet({ lines, onLineClick, lineState }: CodeSnippetProps)
   // utility class) — everything else here is Tailwind utilities.
   const className = [
     'code-snippet relative bg-surface-code border border-border rounded-md py-2.5 overflow-x-auto',
-    "font-[ui-monospace,SFMono-Regular,Consolas,'Liberation_Mono',Menlo,monospace]",
+    'font-mono',
     'text-[calc(var(--font-size-sm)*var(--code-snippet-font-scale,1))] leading-[1.5]',
     scrollable && 'code-snippet--scrollable',
   ]

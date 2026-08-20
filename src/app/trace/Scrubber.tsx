@@ -52,12 +52,14 @@
  * tick to plain step navigation here would fire it on scrubbing alone,
  * which is not what Task 3's "on checkpoint result" trigger means.
  */
-import { useMemo, useRef, type KeyboardEvent } from 'react'
+import { useMemo, useRef, type CSSProperties, type KeyboardEvent } from 'react'
 import { useDrag } from '@use-gesture/react'
 import type { ScrubberPuzzle } from '../../content'
 import { highlightSnippet } from '../practice/highlightSnippet'
+import { useAutoShrinkFontScale } from '../practice/useAutoShrinkFontScale'
 import { mapDragToStepIndex } from './mapDragToStepIndex'
 import '../tokens.css'
+import './scrubber.css'
 
 /** Rendered in place of a masked variable value or output string. */
 const MASK_MARKER = '?'
@@ -114,6 +116,14 @@ export function Scrubber({
   // leave this render having called a different set of hooks than the last
   // successful one.
   const lines = useMemo(() => highlightSnippet(snippet, language), [snippet, language])
+  // Same shrink-then-scroll behavior CodeSnippet.tsx uses for Practice mode
+  // — kept in sync via the shared hook so code text is sized consistently
+  // whether it's rendered here or there.
+  const {
+    containerRef: codePaneRef,
+    fontScale: codeFontScale,
+    scrollable: codeScrollable,
+  } = useAutoShrinkFontScale({ cssProperty: '--scrubber-font-scale', deps: [lines] })
   // See VARS_ROW_HEIGHT_REM's own doc comment. Computed over the whole
   // puzzle's `steps` (not just the current one) so the reserved height
   // covers every step this stepIndex could scrub to, not just the one on
@@ -208,7 +218,15 @@ export function Scrubber({
   return (
     <div className="flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto">
       <div
-        className="bg-surface-code border border-border rounded-md py-2.5 overflow-x-auto font-mono text-sm leading-[1.5]"
+        ref={codePaneRef}
+        className={[
+          'scrubber__code bg-surface-code border border-border rounded-md py-2.5 overflow-x-auto font-mono leading-[1.5]',
+          'text-[calc(var(--font-size-sm)*var(--scrubber-font-scale,1))]',
+          codeScrollable && 'scrubber__code--scrollable',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        style={{ '--scrubber-font-scale': codeFontScale } as CSSProperties}
         aria-label="Code"
       >
         {lines.map((line, i) => (

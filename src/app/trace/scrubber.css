@@ -1,0 +1,24 @@
+/*
+ * Trace's own copy of CodeSnippet's `code-snippet--scrollable::after` fade —
+ * deliberately duplicated, not cross-chunk-imported. Trace is its own
+ * lazy-loaded route chunk (App.tsx) and doesn't otherwise pull in
+ * practice.css (see tokens.css's own doc comment for why this codebase
+ * duplicates small shared-looking rules per chunk instead of cross-chunk
+ * importing). Keep in sync by hand with practice.css's
+ * `.code-snippet--scrollable::after` if that rule ever changes.
+ */
+.scrubber__code--scrollable {
+  position: relative;
+}
+
+.scrubber__code--scrollable::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--space-6);
+  background: linear-gradient(to right, transparent, var(--surface-code));
+  pointer-events: none;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { animate, motion, useMotionValue, useMotionValueEvent, useTransform } from 'framer-motion'
+import type { MotionValue } from 'framer-motion'
 import type { InteractionBodyProps } from '../interactionTypes'
 import type { SwipeBinaryPuzzle } from '../../../content'
 import type { AnswerState } from '../answerState'
@@ -29,15 +30,24 @@ import { useGestureDebugOverlay } from './useGestureDebugOverlay'
 const FLY_OUT_DISTANCE = 600
 
 /**
- * Drag distance (px) over which the card fully tilts and the "about to
- * pick this side" preview kicks in. Deliberately smaller than
- * `DEFAULT_SWIPE_THRESHOLD.minDistance` so the card visibly leans toward a
- * side well before the drag would actually satisfy the commit threshold —
- * this is live feedback ("if you let go around here, roughly this"), not
- * the commit decision itself, which is entirely `gestureThreshold.ts`'s
- * job and only runs once, at drag-end.
+ * Drag distance (px) over which the card tilts and the "about to pick this
+ * side" preview kicks in — locked to `DEFAULT_SWIPE_THRESHOLD.minDistance`
+ * (gestureThreshold.ts), the actual commit distance, as a single source of
+ * truth. Was a smaller, independent constant (90px) that let the card reach
+ * full tilt and full preview color a full 30px before the real 120px
+ * commit threshold — a user who watched the card visually "finish leaning"
+ * and released there got no additional feedback for the remaining ~25% of
+ * the required drag, and often no commit at all (mobile bug report,
+ * 2026-08-18). Tying the two together means full tilt now coincides with
+ * the point a release would actually satisfy the distance half of
+ * `resolveSwipeCommit` — this is still a distance-only approximation
+ * (velocity is unknowable until release), so a slow drag that reaches full
+ * tilt can still fail to commit if released too slowly; that's a
+ * pre-existing limitation of any distance-based preview, not new here. The
+ * commit decision itself is still entirely `gestureThreshold.ts`'s job and
+ * only runs once, at drag-end — this constant only drives the live visual.
  */
-const PREVIEW_RANGE = 90
+const PREVIEW_RANGE = DEFAULT_SWIPE_THRESHOLD.minDistance
 const MAX_TILT_DEG = 10
 
 /**
@@ -98,6 +108,89 @@ function findTouchById(list: TouchList, id: number): Touch | null {
     if (touch?.identifier === id) return touch
   }
   return null
+}
+
+/**
+ * The nearest `.code-snippet` ancestor of `target` (inclusive), but ONLY
+ * when it's currently in `code-snippet--scrollable` state — i.e. its own
+ * auto-shrink already hit the floor and it still doesn't fit, so it has a
+ * real competing horizontal scroll to protect. Returns `null` for a touch
+ * anywhere else on the card, or on a snippet that isn't overflowing (the
+ * common case — most snippets fit; see the component doc comment's touch
+ * scroll-forwarding note below for why this is gated, not unconditional).
+ *
+ * Mobile bug report, 2026-08-18: without this, a long code line inside a
+ * swipe-binary card shows CodeSnippet's own "scrollable" fade cue but a
+ * touch there can never actually scroll it — the card's whole-surface
+ * `touch-action: none` + unconditional `preventDefault()` (OD-5, below)
+ * makes the snippet's effective touch-action `none` too (CSS Touch Action's
+ * ancestor/descendant restrictions compose — a descendant can't loosen an
+ * ancestor's `none`), so simply skipping `preventDefault()` for a
+ * snippet-origin touch would NOT hand it back to native scroll; it would
+ * just go dead. The fix is JS-driven manual forwarding (see
+ * `onTouchMove`'s `snippetElRef` branch below), not a CSS/touch-action
+ * change.
+ */
+function scrollableSnippetAncestor(target: EventTarget | null): HTMLElement | null {
+  if (!(target instanceof Element)) return null
+  const snippet = target.closest('.code-snippet')
+  if (!(snippet instanceof HTMLElement)) return null
+  return snippet.classList.contains('code-snippet--scrollable') ? snippet : null
+}
+
+/**
+ * Whether `target` is (or is inside) one of the two `.swipe-fallback__button`
+ * tap-fallback buttons rendered inside the drag surface.
+ *
+ * Mobile bug report, 2026-08-19: `onTouchStart` below calls
+ * `preventDefault()` unconditionally on every touch anywhere on the card,
+ * buttons included (OD-5's whole point — see the component doc comment). Per
+ * spec, a `touchstart` whose default is prevented suppresses the browser's
+ * synthesized `click` for that touch, so on a real touch device tapping
+ * either button fired no `click` and `handlePick` never ran — the buttons
+ * rendered and looked tappable but silently did nothing. Neither existing
+ * test suite caught it: SwipeBinary.test.tsx's tap-fallback tests dispatch
+ * `click` directly (never touch), and every touch test dispatches
+ * `touchStart` directly on the card element, so `event.target` was always
+ * `card`, never a button.
+ *
+ * Fix: a button-origin touch skips the card's claim entirely (see its use in
+ * `onTouchStart`) — no `preventDefault()`, no `activeTouchIdRef` — so the
+ * browser's normal touch-to-click synthesis reaches the button unobstructed.
+ * This makes the buttons tap-only, matching how they already behave for
+ * mouse/pen (a mouse press on a button was never treated as a drag-start
+ * either): starting a touch on a button and then dragging elsewhere on the
+ * card does not swipe it.
+ */
+function fallbackButtonAncestor(target: EventTarget | null): HTMLElement | null {
+  if (!(target instanceof Element)) return null
+  const button = target.closest('.swipe-fallback__button')
+  return button instanceof HTMLElement ? button : null
+}
+
+/**
+ * Shared tail of both commit paths (touch's `onTouchEnd`, mouse's
+ * `handlePointerUp`) — flies the card offscreen, then resets its position
+ * once safely invisible instead of teleporting it back to center in full
+ * view (the mobile "jump-cut" bug report, 2026-08-18: the old reset was a
+ * bare `x.set(0)` with no transition at all, landing on the same frame the
+ * feedback panel/sticky CTA mount below it). `opacity` fades out over the
+ * SAME 0.22s/easeIn as the fly-off, reaching ~0 right as `x` reaches
+ * `FLY_OUT_DISTANCE`, so the position reset happens while the card is
+ * already transparent — then fades back in over a short 0.15s, reading as a
+ * deliberate settle rather than an abrupt reappearance.
+ */
+function commitFlyOff(
+  x: MotionValue<number>,
+  opacity: MotionValue<number>,
+  direction: 'left' | 'right',
+): void {
+  const distance = direction === 'right' ? FLY_OUT_DISTANCE : -FLY_OUT_DISTANCE
+  void animate(opacity, 0, { duration: 0.22, ease: 'easeIn' })
+  void animate(x, distance, { duration: 0.22, ease: 'easeIn' }).then(() => {
+    x.set(0)
+    void animate(opacity, 1, { duration: 0.15, ease: 'easeOut' })
+  })
 }
 
 /**
@@ -268,6 +361,11 @@ export function SwipeBinary({
   }
 
   const x = useMotionValue(0)
+  // Fades in step with the fly-off (see commitFlyOff below) so the
+  // subsequent `x.set(0)` position reset lands while the card is already
+  // invisible instead of visibly teleporting back to center — the mobile
+  // "jump-cut" bug report, 2026-08-18.
+  const opacity = useMotionValue(1)
   const rotate = useTransform(x, [-PREVIEW_RANGE, PREVIEW_RANGE], [-MAX_TILT_DEG, MAX_TILT_DEG], {
     clamp: true,
   })
@@ -297,6 +395,16 @@ export function SwipeBinary({
   // Touch-only: the identifier of the single active touch, or null.
   const activeTouchIdRef = useRef<number | null>(null)
 
+  // Touch-only, set at touchstart when the touch began on a scrollable
+  // snippet (scrollableSnippetAncestor) — non-null for the rest of that
+  // gesture means onTouchMove forwards movement to the snippet's own
+  // scroll/the page's vertical scroll instead of the card's drag. See
+  // scrollableSnippetAncestor's own doc comment for why this is JS
+  // forwarding, not a touch-action/preventDefault change.
+  const snippetElRef = useRef<HTMLElement | null>(null)
+  const snippetStartScrollLeftRef = useRef(0)
+  const snippetStartWindowScrollYRef = useRef(0)
+
   // Mouse/pen-only (Pointer Events): pointerId + whether this component
   // holds an explicit capture on it.
   const activePointerIdRef = useRef<number | null>(null)
@@ -325,11 +433,17 @@ export function SwipeBinary({
     const resetTouch = () => {
       activeTouchIdRef.current = null
       axisRef.current = 'ambiguous'
+      snippetElRef.current = null
     }
 
     const onTouchStart = (event: TouchEvent) => {
       if (committedRef.current) return
       if (activeTouchIdRef.current !== null) return
+      // Mobile bug report, 2026-08-19 — see fallbackButtonAncestor's doc
+      // comment: a button-origin touch is never claimed, so the browser's
+      // native tap-to-click reaches it instead of being swallowed by this
+      // card's unconditional preventDefault() below.
+      if (fallbackButtonAncestor(event.target)) return
       const touch = event.touches[0]
       if (!touch) return
       activeTouchIdRef.current = touch.identifier
@@ -337,9 +451,19 @@ export function SwipeBinary({
       startYRef.current = touch.clientY
       startTimeRef.current = performance.now()
       axisRef.current = 'ambiguous'
+      const snippetEl = scrollableSnippetAncestor(event.target)
+      snippetElRef.current = snippetEl
+      if (snippetEl) {
+        snippetStartScrollLeftRef.current = snippetEl.scrollLeft
+        snippetStartWindowScrollYRef.current = window.scrollY
+      }
       // OD-5: declare intent HERE, unconditionally, before the browser's
       // own gesture recognizer can commit to anything — see the component
-      // doc comment.
+      // doc comment. Still true for a snippet-origin touch (`snippetEl`
+      // set above): this component still claims the touch and forwards its
+      // movement manually (see onTouchMove below) rather than releasing it
+      // back to the browser — see scrollableSnippetAncestor's doc comment
+      // for why a native handoff can't work here.
       const prevented = event.cancelable
       if (prevented) event.preventDefault()
       debug.log({
@@ -349,6 +473,7 @@ export function SwipeBinary({
         cancelable: event.cancelable,
         axis: 'ambiguous',
         prevented,
+        note: snippetEl ? 'snippet-scroll-forward' : undefined,
       })
     }
 
@@ -381,10 +506,21 @@ export function SwipeBinary({
       }
 
       if (axisRef.current === 'vertical') {
-        // OD-5: no scroll-passthrough — see the component doc comment.
-        // Nothing to forward to: preventDefault already fired at
-        // touchstart, so there is no native scroll happening underneath
-        // this gesture to yield to. The card simply doesn't move.
+        // OD-5: no scroll-passthrough for the card itself — see the
+        // component doc comment. A snippet-origin touch is the one
+        // exception: it gets real page-vertical passthrough back, restoring
+        // the scroll the ancestor card's own touch-action:none/
+        // preventDefault would otherwise still be blocking for it (see
+        // scrollableSnippetAncestor's doc comment) — sign convention
+        // (`- dy`) matches natural touch-scroll semantics (finger moves
+        // down -> content follows the finger down -> the page scrolls
+        // toward its top, i.e. scrollY decreases), flagged in the plan as
+        // needing on-device confirmation like every other gesture change
+        // here.
+        const snippetEl = snippetElRef.current
+        if (snippetEl) {
+          window.scrollTo(window.scrollX, snippetStartWindowScrollYRef.current - dy)
+        }
         debug.log({
           type: 'move',
           x: touch.clientX,
@@ -392,6 +528,25 @@ export function SwipeBinary({
           cancelable: event.cancelable,
           axis: 'vertical',
           prevented,
+          note: snippetEl ? 'snippet-scroll-forward' : undefined,
+        })
+        return
+      }
+
+      const snippetEl = snippetElRef.current
+      if (snippetEl) {
+        // Forwarded to the snippet's own horizontal scroll instead of the
+        // card's drag — same sign convention/on-device-verification note as
+        // the vertical branch above.
+        snippetEl.scrollLeft = snippetStartScrollLeftRef.current - dx
+        debug.log({
+          type: 'move',
+          x: touch.clientX,
+          y: touch.clientY,
+          cancelable: event.cancelable,
+          axis: 'horizontal',
+          prevented,
+          note: `snippet-scroll-forward dx=${String(Math.round(dx))}`,
         })
         return
       }
@@ -417,9 +572,17 @@ export function SwipeBinary({
       const axis = axisRef.current
       const dx = touch.clientX - startXRef.current
       const elapsedTime = performance.now() - startTimeRef.current
+      // Captured before resetTouch() clears it below — a gesture that spent
+      // its whole life forwarding to the snippet's own scroll never moved
+      // the card at all, so its dx/velocity must not be run through
+      // resolveSwipeCommit: without this guard, a fast/long snippet-scroll
+      // touch could accidentally satisfy the commit threshold and fly the
+      // card off / fire onCommit for an answer the user never actually
+      // dragged toward.
+      const wasSnippetForward = snippetElRef.current !== null
       resetTouch()
 
-      if (committedRef.current || axis !== 'horizontal') {
+      if (committedRef.current || axis !== 'horizontal' || wasSnippetForward) {
         debug.log({
           type: 'up',
           x: touch.clientX,
@@ -427,7 +590,9 @@ export function SwipeBinary({
           cancelable: event.cancelable,
           axis,
           prevented: false,
-          note: 'no commit (gesture never resolved horizontal, or already committed)',
+          note: wasSnippetForward
+            ? 'no commit (forwarded to snippet scroll, not a card drag)'
+            : 'no commit (gesture never resolved horizontal, or already committed)',
         })
         return
       }
@@ -454,12 +619,7 @@ export function SwipeBinary({
 
       if (commitDirection) {
         handlePickRef.current(commitDirection)
-        void animate(x, commitDirection === 'right' ? FLY_OUT_DISTANCE : -FLY_OUT_DISTANCE, {
-          duration: 0.22,
-          ease: 'easeIn',
-        }).then(() => {
-          x.set(0)
-        })
+        commitFlyOff(x, opacity, commitDirection)
       } else {
         void animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 })
       }
@@ -565,12 +725,7 @@ export function SwipeBinary({
 
     if (commitDirection) {
       handlePick(commitDirection)
-      void animate(x, commitDirection === 'right' ? FLY_OUT_DISTANCE : -FLY_OUT_DISTANCE, {
-        duration: 0.22,
-        ease: 'easeIn',
-      }).then(() => {
-        x.set(0)
-      })
+      commitFlyOff(x, opacity, commitDirection)
     } else {
       void animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 })
     }
@@ -617,7 +772,7 @@ export function SwipeBinary({
         // `.swipe-fallback__card { touch-action: none }` because jsdom only
         // reflects inline styles, so this copy is the one the test suite can
         // actually assert on; keep the two in sync by hand.
-        style={{ x, rotate, touchAction: 'none' }}
+        style={{ x, rotate, opacity, touchAction: 'none' }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

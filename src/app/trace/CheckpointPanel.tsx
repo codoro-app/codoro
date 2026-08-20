@@ -181,7 +181,7 @@ function StateDiff({
 // (test-asserted: CheckpointPanel.test.tsx/.pool.test.tsx,
 // TraceRunner.test.tsx's `querySelectorAll('.checkpoint-choice')`).
 const CHOICE_BASE =
-  'checkpoint-choice flex items-start gap-3 min-h-11 w-full py-3 px-4 rounded-md border text-md font-mono text-left cursor-pointer disabled:cursor-default'
+  'checkpoint-choice flex items-start gap-3 min-h-11 w-full py-3 px-4 rounded-md border text-sm font-mono text-left cursor-pointer disabled:cursor-default'
 function choiceClass(committed: boolean, state: AnswerState): string {
   if (state === 'correct' || state === 'reveal-correct') {
     return `${CHOICE_BASE} checkpoint-choice--${state} border-[1.5px] border-accent bg-ok-dim text-text-0`
