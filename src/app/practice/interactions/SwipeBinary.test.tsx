@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createEvent, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, createEvent, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import type { SwipeBinaryPuzzle } from '../../../content'
 import type { CommitPayload } from '../interactionTypes'
@@ -451,6 +451,102 @@ describe('SwipeBinary', () => {
       touchMove(card, 80, 0)
 
       expect(screen.getByText('Race condition').className).toContain('--previewing')
+    })
+  })
+
+  describe('gesture watchdog (mobile stuck-tilted bug, 2026-08-19)', () => {
+    /**
+     * Live-reproduced against the deployed app (desktop Chrome, synthetic
+     * PointerEvents): a claimed gesture that never receives its terminating
+     * event (touchend/touchcancel here, pointerup/pointercancel/
+     * lostpointercapture for mouse) freezes the card at its last tilt
+     * forever AND silently blackholes every later gesture attempt, since the
+     * claiming ref never clears. See GESTURE_WATCHDOG_MS's doc comment in
+     * SwipeBinary.tsx for the full writeup. `vi.useFakeTimers()` is local to
+     * this block so `vi.advanceTimersByTime` can fast-forward the watchdog's
+     * `setTimeout` without needing to actually wait 2s.
+     *
+     * Registered BEFORE `installMockClock()` below, deliberately:
+     * `vi.useFakeTimers()` silently replaces `performance.now` too (confirmed
+     * directly — a pre-existing `vi.spyOn(performance, 'now')` returns a
+     * frozen 0 once fake timers are enabled afterward), so it must run
+     * first, with `installMockClock`'s spy layered on top of it, or every
+     * `elapsedTime`/velocity computation in this block silently breaks.
+     */
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+    installMockClock()
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('springs the card back to center on its own if no terminating touch event ever arrives', () => {
+      const { container } = render(<Harness />)
+      const card = getCard(container)
+
+      touchStart(card, 0, 0)
+      advanceClock(50)
+      touchMove(card, 40, 0) // resolves horizontal
+      touchMove(card, 150, 0) // well past PREVIEW_RANGE — card tilts hard right
+      // Deliberately no touchEnd/touchCancel — the exact drop this guards.
+      expect(screen.getByText('Race condition').className).toContain('--previewing')
+
+      // The watchdog's setState (setPreviewDirection) fires from a raw
+      // setTimeout callback, outside any fireEvent-wrapped act() — wrap the
+      // advance itself so the resulting update is flushed before we assert.
+      act(() => {
+        vi.advanceTimersByTime(2100)
+      })
+
+      expect(screen.getByText('Race condition').className).not.toContain('--previewing')
+    })
+
+    it('accepts a brand-new gesture again after the watchdog recovers an abandoned one', () => {
+      const onCommit = vi.fn()
+      const { container } = render(<Harness onCommit={onCommit} />)
+      const card = getCard(container)
+
+      touchStart(card, 0, 0)
+      advanceClock(50)
+      touchMove(card, 150, 0)
+      // Without the watchdog, activeTouchIdRef stays claimed forever and
+      // every event below would be silently ignored.
+      act(() => {
+        vi.advanceTimersByTime(2100)
+      })
+
+      // A completely fresh, otherwise-normal swipe should work again.
+      swipe(card, 180, 350)
+      expect(onCommit).toHaveBeenCalledWith({ correct: true, choiceIndex: null })
+    })
+
+    it('does not fire while a gesture is still actively moving (rearmed per-move, not a flat ceiling from gesture start)', () => {
+      const onCommit = vi.fn()
+      const { container } = render(<Harness onCommit={onCommit} />)
+      const card = getCard(container)
+
+      touchStart(card, 0, 0)
+      touchMove(card, 70, 0) // past PREVIEW_RANGE/2 (60px) — previewing right
+      // Three 1000ms gaps (3000ms total, well past GESTURE_WATCHDOG_MS) but
+      // each followed by a real move, which should keep rearming the
+      // watchdog rather than letting it accumulate toward the ceiling.
+      for (let i = 0; i < 3; i++) {
+        act(() => {
+          vi.advanceTimersByTime(1000)
+        })
+        advanceClock(1000)
+        touchMove(card, 70 + (i + 1) * 10, 0)
+      }
+      expect(screen.getByText('Race condition').className).toContain('--previewing')
+
+      touchEnd(card, 180, 0)
+      // The ~3s elapsed since touchstart makes this too slow to clear the
+      // velocity threshold (not the point of this test) — what matters is
+      // that the gesture was still live and resolved through the normal
+      // touchEnd path rather than being force-reset out from under it.
+      expect(onCommit).not.toHaveBeenCalled()
+      expect(screen.getByText('Race condition').className).not.toContain('--previewing')
     })
   })
 

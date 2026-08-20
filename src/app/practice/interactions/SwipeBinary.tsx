@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { animate, motion, useMotionValue, useMotionValueEvent, useTransform } from 'framer-motion'
 import type { MotionValue } from 'framer-motion'
@@ -62,6 +62,43 @@ const MAX_TILT_DEG = 10
  * to be unambiguous, while still being small enough to feel immediate.
  */
 const AXIS_TOLERANCE = 20
+
+/**
+ * Longest gap (ms) a claimed gesture is allowed to go without a terminating
+ * `touchend`/`touchcancel`/`pointerup`/`pointercancel`/`lostpointercapture`
+ * before `forceResetGesture` below assumes the browser dropped it and
+ * recovers on its own. Re-armed on every accepted move, so this is measured
+ * from the LAST move, not gesture start — a genuinely slow, deliberate drag
+ * that's still actively moving never trips it.
+ *
+ * Mobile bug report, 2026-08-19: live-reproduced (desktop Chrome, synthetic
+ * PointerEvents: pointerdown + a few pointermoves past the tilt threshold,
+ * then withholding pointerup entirely) that this component's gesture state
+ * machine has no recovery path if the terminating event never arrives — the
+ * card freezes at whatever tilt it last reached, `translateX`/`rotate`
+ * inline styles stuck, and EVERY subsequent gesture attempt is silently
+ * ignored forever (the claiming ref — `activeTouchIdRef`/
+ * `activePointerIdRef` — never clears), because `onTouchStart`/
+ * `handlePointerDown` both bail out early while a ref is still claimed. This
+ * matches the reported symptom exactly ("pauses and stays tilted, doesn't
+ * snap back or confirm") and needs no on-device capture to confirm: it's a
+ * structural gap, not a specific browser quirk — the whole state machine
+ * assumes a terminating event always eventually arrives, which is exactly
+ * the assumption OD-1 through OD-5 (this file's own doc comment) found five
+ * separate real ways to be false for touch specifically. This ceiling is a
+ * safety net that makes "permanently stuck" impossible regardless of WHY a
+ * terminating event went missing — dropped by a WebKit gesture-recognizer
+ * race (OD-1..OD-5's territory), the app losing focus/being backgrounded
+ * mid-drag (also handled instantly, not via this timeout — see the
+ * `visibilitychange`/`blur` listeners below), or any other cause — without
+ * needing to identify the exact mechanism first.
+ *
+ * 2000ms: generously past the ~300-500ms a real complete gesture takes in
+ * this file's own tests (including the deliberate-pause-before-release
+ * regression, which pauses 200ms) so it never fires mid-legitimate-drag, while
+ * still recovering well within what would otherwise read as "broken".
+ */
+const GESTURE_WATCHDOG_MS = 2000
 
 /** Whether this gesture has been decided to be a horizontal card drag, a vertical one (ignored — see OD-5), or is still too small to call. */
 type AxisResolution = 'ambiguous' | 'horizontal' | 'vertical'
@@ -410,6 +447,87 @@ export function SwipeBinary({
   const activePointerIdRef = useRef<number | null>(null)
   const capturedRef = useRef(false)
 
+  // See GESTURE_WATCHDOG_MS's doc comment. Shared across touch and mouse —
+  // only one input drives a gesture at a time, so only one timer is ever
+  // live.
+  const watchdogTimerRef = useRef<number | null>(null)
+
+  const clearWatchdog = useCallback(() => {
+    if (watchdogTimerRef.current !== null) {
+      window.clearTimeout(watchdogTimerRef.current)
+      watchdogTimerRef.current = null
+    }
+  }, [])
+
+  /**
+   * Recovers a gesture the browser abandoned mid-flight (see
+   * GESTURE_WATCHDOG_MS's doc comment for the live repro) — clears BOTH
+   * touch's and mouse's claim refs unconditionally (only one is ever
+   * actually set, but clearing both is simpler than branching on which
+   * input was active) and springs the card back to center, exactly like a
+   * normal `touchcancel`/`pointercancel` would. Deliberately does not call
+   * `releasePointerCaptureIfSupported` — same reasoning as
+   * `handleLostPointerCapture`: a capture the browser already reclaimed
+   * (which is exactly the scenario this exists for) throws `NotFoundError`
+   * on an explicit release attempt.
+   *
+   * Stable across renders (every value it closes over — the refs, `x`, and
+   * `setPreviewDirection` — has stable identity for the component's
+   * lifetime), so the mount-only touch effect below can reference it
+   * directly without the ref-indirection `committedRef`/`handlePickRef` use.
+   */
+  const forceResetGesture = useCallback(
+    (reason: 'watchdog-timeout' | 'visibility' | 'blur') => {
+      clearWatchdog()
+      const wasActive = activeTouchIdRef.current !== null || activePointerIdRef.current !== null
+      activeTouchIdRef.current = null
+      activePointerIdRef.current = null
+      axisRef.current = 'ambiguous'
+      snippetElRef.current = null
+      capturedRef.current = false
+      if (!wasActive) return
+      debug.log({
+        type: 'cancel',
+        x: 0,
+        y: 0,
+        cancelable: false,
+        axis: 'ambiguous',
+        prevented: false,
+        note: `force-reset (${reason}) — gesture abandoned mid-flight, recovered`,
+      })
+      setPreviewDirection(null)
+      void animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 })
+    },
+    [clearWatchdog, debug, x],
+  )
+
+  const armWatchdog = useCallback(() => {
+    clearWatchdog()
+    watchdogTimerRef.current = window.setTimeout(() => {
+      forceResetGesture('watchdog-timeout')
+    }, GESTURE_WATCHDOG_MS)
+  }, [clearWatchdog, forceResetGesture])
+
+  // Instant recovery for the most common real-world "terminating event never
+  // arrives" cause — the app loses focus or is backgrounded mid-drag (a
+  // notification, an app switch, the OS's own edge gesture) — rather than
+  // waiting out the full GESTURE_WATCHDOG_MS. Mount-only: `forceResetGesture`
+  // is stable, so this never needs to re-subscribe.
+  useEffect(() => {
+    const onBlur = () => {
+      forceResetGesture('blur')
+    }
+    const onVisibilityChange = () => {
+      if (document.hidden) forceResetGesture('visibility')
+    }
+    window.addEventListener('blur', onBlur)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      window.removeEventListener('blur', onBlur)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [forceResetGesture])
+
   // `committed`/`handlePick` change identity or value across renders (a
   // commit flips `committed` false->true mid-lifecycle); the touch effect
   // below is intentionally mount-only (empty deps) so listeners are never
@@ -434,6 +552,7 @@ export function SwipeBinary({
       activeTouchIdRef.current = null
       axisRef.current = 'ambiguous'
       snippetElRef.current = null
+      clearWatchdog()
     }
 
     const onTouchStart = (event: TouchEvent) => {
@@ -451,6 +570,7 @@ export function SwipeBinary({
       startYRef.current = touch.clientY
       startTimeRef.current = performance.now()
       axisRef.current = 'ambiguous'
+      armWatchdog()
       const snippetEl = scrollableSnippetAncestor(event.target)
       snippetElRef.current = snippetEl
       if (snippetEl) {
@@ -483,6 +603,10 @@ export function SwipeBinary({
       if (id === null) return
       const touch = findTouchById(event.touches, id)
       if (!touch) return
+      // Rearmed on every accepted move (not just at touchstart) — see
+      // GESTURE_WATCHDOG_MS's doc comment: a still-actively-moving real drag
+      // should never trip the watchdog, only one that's gone silent.
+      armWatchdog()
 
       const prevented = event.cancelable
       if (prevented) event.preventDefault()
@@ -659,6 +783,11 @@ export function SwipeBinary({
       card.removeEventListener('touchmove', onTouchMove)
       card.removeEventListener('touchend', onTouchEnd)
       card.removeEventListener('touchcancel', onTouchCancel)
+      // A puzzle change remounts this component fresh (PracticePage keys the
+      // card wrapper on puzzle.id) — without this, an in-flight watchdog
+      // from an abandoned gesture on the PREVIOUS puzzle would still fire
+      // later and touch this cleanup's now-stale closure.
+      clearWatchdog()
     }
     // Mount-only, deliberately — see the doc comment above committedRef.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -678,12 +807,15 @@ export function SwipeBinary({
     startTimeRef.current = performance.now()
     axisRef.current = 'ambiguous'
     capturedRef.current = false
+    armWatchdog()
   }
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType === 'touch') return
     if (committed) return
     if (event.pointerId !== activePointerIdRef.current) return
+    // Rearmed on every accepted move — see GESTURE_WATCHDOG_MS's doc comment.
+    armWatchdog()
 
     const dx = event.clientX - startXRef.current
     const dy = event.clientY - startYRef.current
@@ -714,6 +846,7 @@ export function SwipeBinary({
     activePointerIdRef.current = null
     axisRef.current = 'ambiguous'
     capturedRef.current = false
+    clearWatchdog()
     if (wasCaptured) releasePointerCaptureIfSupported(target, event.pointerId)
 
     if (committed || axis !== 'horizontal') return
@@ -739,6 +872,7 @@ export function SwipeBinary({
     activePointerIdRef.current = null
     axisRef.current = 'ambiguous'
     capturedRef.current = false
+    clearWatchdog()
     if (wasCaptured) releasePointerCaptureIfSupported(target, event.pointerId)
     setPreviewDirection(null)
     void animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 })
@@ -757,6 +891,7 @@ export function SwipeBinary({
     activePointerIdRef.current = null
     axisRef.current = 'ambiguous'
     capturedRef.current = false
+    clearWatchdog()
     setPreviewDirection(null)
     void animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 })
   }
