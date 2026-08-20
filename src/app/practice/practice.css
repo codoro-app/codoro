@@ -194,7 +194,6 @@
   border: 1px solid var(--border);
   background: var(--surface-1);
   color: var(--text-0);
-  font-size: var(--font-size-md);
   /* A mouse/pen can grab the row anywhere (JS pointer handlers live on the
    * row itself); a touch pointer may only start a drag from the
    * `.drag-order__handle` child (below), so the row itself keeps native
@@ -317,9 +316,42 @@
   padding: 2px 8px;
 }
 
+/*
+ * font-family/size + shrink-then-scroll below mirror CodeSnippet.tsx's
+ * code-snippet treatment (font-mono, `--font-size-sm` base, a
+ * measured-in-JS shrink scale, native horizontal scroll once floored) — see
+ * DragOrder.tsx's measureRowFontScale for the per-row measurement this
+ * consumes (`--drag-order-font-scale` is shared across every row so they
+ * all shrink together, not independently). `min-width: 0` is load-bearing:
+ * without it a flex item's automatic min-width (its content's natural,
+ * unwrapped size) would keep growing the row/list past the intended width
+ * instead of letting `overflow-x: auto` actually clip and scroll it.
+ *
+ * Applies to both `format: 'code'` (genuinely needs this — real snippets
+ * overflow at any reasonable card width) and `format: 'output'` prose
+ * blocks, which wrapped gracefully before this change — if that reads worse
+ * than the old wrap behavior after a visual pass, the fix is a
+ * format-conditional override, not reverting this rule wholesale.
+ */
 .drag-order__row-text {
+  position: relative;
   flex: 1;
-  white-space: pre-wrap;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: calc(var(--font-size-sm) * var(--drag-order-font-scale, 1));
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.drag-order__row-text--scrollable::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--space-6);
+  background: linear-gradient(to right, transparent, var(--surface-1));
+  pointer-events: none;
 }
 
 .drag-order__submit {

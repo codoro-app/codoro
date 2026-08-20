@@ -105,6 +105,9 @@ export function PracticePage() {
   const session = usePracticeSession()
   const puzzleId = session.puzzle?.id
   const isDesktop = useMediaQuery('(min-width: 1024px)')
+  // Scroll target for the new-puzzle effect below — the motion.div wrapping
+  // PuzzleCardShell, not PuzzleCardShell itself (which forwards no ref).
+  const puzzleCardRef = useRef<HTMLDivElement>(null)
 
   // Tracks the puzzle's own solve state for the share card below (v2 Phase
   // 1b) — usePracticeSession's onAnswered callback doesn't expose committed
@@ -175,8 +178,24 @@ export function PracticePage() {
   // Keyed on puzzle id specifically (not e.g. `view`) so this only fires
   // when a genuinely new puzzle is served — via Continue or a pattern
   // filter switch — not on every render.
+  //
+  // Scrolls the card itself into view, not just the page top (bug report,
+  // 2026-08-18): on mobile, StatusBar + the Browse-patterns/Mastery links +
+  // filter chips all render above the puzzle card, so a bare
+  // `window.scrollTo({ top: 0 })` still leaves the question below the fold
+  // — "scrolled to the top of the page" isn't "scrolled to the question".
+  // Falls back to the page-top behavior when the ref isn't mounted yet (the
+  // loading/error/empty branches below render no puzzle card at all) or in
+  // an environment without `scrollIntoView` (jsdom, this project's test
+  // environment, doesn't implement it — same `typeof === 'function'`
+  // feature-detection convention as SwipeBinary.tsx/DragOrder.tsx's
+  // pointer-capture guards, rather than a jsdom-only special case here).
   useEffect(() => {
-    if (puzzleId) {
+    if (!puzzleId) return
+    const card = puzzleCardRef.current
+    if (card && typeof card.scrollIntoView === 'function') {
+      card.scrollIntoView({ block: 'start' })
+    } else {
       window.scrollTo({ top: 0 })
     }
   }, [puzzleId])
@@ -398,6 +417,7 @@ export function PracticePage() {
         ) : (
           <AnimatePresence mode="wait">
             <motion.div
+              ref={puzzleCardRef}
               key={session.puzzle.id}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
