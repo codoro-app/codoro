@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, createEvent, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { createEvent, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import type { SwipeBinaryPuzzle } from '../../../content'
 import type { CommitPayload } from '../interactionTypes'
@@ -112,19 +112,33 @@ interface TouchOpts {
 // `fireEvent(el, event)` form, and return the same (now-dispatched,
 // possibly-defaultPrevented) event object.
 
+/**
+ * Every helper below populates BOTH `touches` and `changedTouches`, the way a
+ * real browser does — `touches` is every touch point currently on the screen,
+ * `changedTouches` is the subset this particular event is about. They used to
+ * set only one or the other, which is what let OD-6's defect 3 (the component
+ * reading `touches[0]` at `touchstart` instead of `changedTouches[0]`) sit
+ * undetected under a green suite: with a single-finger gesture the two lists
+ * are identical, so the bug is invisible until a second touch exists. The
+ * multi-touch cases further down are the ones that actually distinguish them.
+ */
 function touchStart(card: HTMLElement, x: number, y: number, opts: TouchOpts = {}) {
+  const touch = { identifier: TOUCH_ID, clientX: x, clientY: y, target: card }
   const event = createEvent.touchStart(card, {
     cancelable: opts.cancelable ?? true,
-    touches: [{ identifier: TOUCH_ID, clientX: x, clientY: y, target: card }],
+    touches: [touch],
+    changedTouches: [touch],
   })
   fireEvent(card, event)
   return event
 }
 
 function touchMove(card: HTMLElement, x: number, y: number, opts: TouchOpts = {}) {
+  const touch = { identifier: TOUCH_ID, clientX: x, clientY: y, target: card }
   const event = createEvent.touchMove(card, {
     cancelable: opts.cancelable ?? true,
-    touches: [{ identifier: TOUCH_ID, clientX: x, clientY: y, target: card }],
+    touches: [touch],
+    changedTouches: [touch],
   })
   fireEvent(card, event)
   return event
@@ -132,6 +146,7 @@ function touchMove(card: HTMLElement, x: number, y: number, opts: TouchOpts = {}
 
 function touchEnd(card: HTMLElement, x: number, y: number) {
   const event = createEvent.touchEnd(card, {
+    touches: [],
     changedTouches: [{ identifier: TOUCH_ID, clientX: x, clientY: y, target: card }],
   })
   fireEvent(card, event)
@@ -140,6 +155,7 @@ function touchEnd(card: HTMLElement, x: number, y: number) {
 
 function touchCancel(card: HTMLElement, x: number, y: number) {
   const event = createEvent.touchCancel(card, {
+    touches: [],
     changedTouches: [{ identifier: TOUCH_ID, clientX: x, clientY: y, target: card }],
   })
   fireEvent(card, event)
@@ -454,55 +470,144 @@ describe('SwipeBinary', () => {
     })
   })
 
-  describe('gesture watchdog (mobile stuck-tilted bug, 2026-08-19)', () => {
-    /**
-     * Live-reproduced against the deployed app (desktop Chrome, synthetic
-     * PointerEvents): a claimed gesture that never receives its terminating
-     * event (touchend/touchcancel here, pointerup/pointercancel/
-     * lostpointercapture for mouse) freezes the card at its last tilt
-     * forever AND silently blackholes every later gesture attempt, since the
-     * claiming ref never clears. See GESTURE_WATCHDOG_MS's doc comment in
-     * SwipeBinary.tsx for the full writeup. `vi.useFakeTimers()` is local to
-     * this block so `vi.advanceTimersByTime` can fast-forward the watchdog's
-     * `setTimeout` without needing to actually wait 2s.
-     *
-     * Registered BEFORE `installMockClock()` below, deliberately:
-     * `vi.useFakeTimers()` silently replaces `performance.now` too (confirmed
-     * directly — a pre-existing `vi.spyOn(performance, 'now')` returns a
-     * frozen 0 once fake timers are enabled afterward), so it must run
-     * first, with `installMockClock`'s spy layered on top of it, or every
-     * `elapsedTime`/velocity computation in this block silently breaks.
-     */
-    beforeEach(() => {
-      vi.useFakeTimers()
-    })
+  /**
+   * OD-6 (2026-08-21) — gesture resilience WITHOUT a watchdog.
+   *
+   * This block replaces the "gesture watchdog" block that lived here. The
+   * watchdog (PR #71, GESTURE_WATCHDOG_MS = 2000) existed because the state
+   * machine assumed a terminating touch event always eventually arrives. The
+   * concern was real; a timer was the wrong instrument, because it cannot
+   * tell a dropped gesture apart from a user pausing mid-drag — both are just
+   * silence — and the value it was given picked the wrong one for the
+   * pausing user. Captured against production: a 2.3s mid-drag pause tore the
+   * gesture down while the finger was still on the screen, discarded the real
+   * touchend, and stopped calling preventDefault() on a still-live touch.
+   *
+   * Two structural properties replace it, and these are their tests:
+   *   1. terminating events are heard at `window`, so they arrive even if the
+   *      card is gone or the touch retargeted;
+   *   2. a stale claim is detected lazily at the next `touchstart`, from the
+   *      browser's own `event.touches` list rather than from elapsed time.
+   *
+   * No fake timers here, deliberately: there is no longer any timer to
+   * advance. That the whole block can run on the real clock is itself part of
+   * what changed.
+   */
+  describe('gesture resilience without a watchdog (OD-6, 2026-08-21)', () => {
     installMockClock()
-    afterEach(() => {
-      vi.useRealTimers()
+
+    const OTHER_ID = 42
+
+    /** A `touchend` dispatched somewhere other than the card — what the window-level listener exists for. */
+    function touchEndOnBody(x: number, y: number, id: number = TOUCH_ID) {
+      const event = createEvent.touchEnd(document.body, {
+        touches: [],
+        changedTouches: [{ identifier: id, clientX: x, clientY: y, target: document.body }],
+      })
+      fireEvent(document.body, event)
+      return event
+    }
+
+    /** A `touchstart` on the card while `stray` is already resting elsewhere on the page. */
+    function touchStartWithStray(card: HTMLElement, x: number, y: number, id: number = TOUCH_ID) {
+      const stray = { identifier: 99, clientX: 5, clientY: 600, target: document.body }
+      const touch = { identifier: id, clientX: x, clientY: y, target: card }
+      const event = createEvent.touchStart(card, {
+        cancelable: true,
+        // Note the ORDER: the stray finger started first, so a real browser
+        // puts it at `touches[0]`. That is the whole defect.
+        touches: [stray, touch],
+        changedTouches: [touch],
+      })
+      fireEvent(card, event)
+      return event
+    }
+
+    function touchMoveWithStray(card: HTMLElement, x: number, y: number, id: number = TOUCH_ID) {
+      const stray = { identifier: 99, clientX: 5, clientY: 600, target: document.body }
+      const touch = { identifier: id, clientX: x, clientY: y, target: card }
+      const event = createEvent.touchMove(card, {
+        cancelable: true,
+        touches: [stray, touch],
+        changedTouches: [touch],
+      })
+      fireEvent(card, event)
+      return event
+    }
+
+    function touchEndWithStray(card: HTMLElement, x: number, y: number, id: number = TOUCH_ID) {
+      const stray = { identifier: 99, clientX: 5, clientY: 600, target: document.body }
+      const event = createEvent.touchEnd(card, {
+        touches: [stray],
+        changedTouches: [{ identifier: id, clientX: x, clientY: y, target: card }],
+      })
+      fireEvent(card, event)
+      return event
+    }
+
+    it('never disowns a gesture that is still live, however long it pauses (the watchdog regression)', () => {
+      // The exact captured failure: 200px of intent, interrupted by a 2.3s
+      // pause — comfortably past the old 2000ms watchdog — and then finished
+      // normally. Under the watchdog this committed nothing and the card sat
+      // dead at centre from the moment the timer fired.
+      const onCommit = vi.fn()
+      const { container } = render(<Harness onCommit={onCommit} />)
+      const card = getCard(container)
+
+      touchStart(card, 0, 0)
+      advanceClock(60)
+      touchMove(card, 70, 0) // past PREVIEW_RANGE/2 — the side preview lights up
+      expect(screen.getByText('Race condition').className).toContain('--previewing')
+
+      // The pause. Nothing may happen here — no reset, no un-preview.
+      advanceClock(2300)
+      expect(screen.getByText('Race condition').className).toContain('--previewing')
+
+      advanceClock(60)
+      touchMove(card, 200, 0)
+      touchEnd(card, 200, 0)
+      expect(onCommit).toHaveBeenCalledWith({ correct: true, choiceIndex: null })
     })
 
-    it('springs the card back to center on its own if no terminating touch event ever arrives', () => {
+    it('keeps calling preventDefault throughout a long pause, never handing a live touch back mid-gesture', () => {
+      // The second, worse half of the watchdog defect: once it fired, the
+      // component stopped preventing default on a touch STILL on the card,
+      // which on WebKit hands the in-flight gesture to the native pan
+      // recognizer — the failure OD-1..OD-5 spent nine rounds chasing.
       const { container } = render(<Harness />)
       const card = getCard(container)
 
       touchStart(card, 0, 0)
-      advanceClock(50)
-      touchMove(card, 40, 0) // resolves horizontal
-      touchMove(card, 150, 0) // well past PREVIEW_RANGE — card tilts hard right
-      // Deliberately no touchEnd/touchCancel — the exact drop this guards.
-      expect(screen.getByText('Race condition').className).toContain('--previewing')
+      advanceClock(60)
+      touchMove(card, 70, 0)
+      advanceClock(3000)
 
-      // The watchdog's setState (setPreviewDirection) fires from a raw
-      // setTimeout callback, outside any fireEvent-wrapped act() — wrap the
-      // advance itself so the resulting update is flushed before we assert.
-      act(() => {
-        vi.advanceTimersByTime(2100)
-      })
-
-      expect(screen.getByText('Race condition').className).not.toContain('--previewing')
+      expect(touchMove(card, 90, 0).defaultPrevented).toBe(true)
+      expect(touchMove(card, 140, 0).defaultPrevented).toBe(true)
     })
 
-    it('accepts a brand-new gesture again after the watchdog recovers an abandoned one', () => {
+    it('resolves a gesture whose touchend never reaches the card, because it listens at window', () => {
+      // The gap the watchdog was added for. Hearing terminating events at
+      // window means a retargeted or re-parented touchend still lands.
+      const onCommit = vi.fn()
+      const { container } = render(<Harness onCommit={onCommit} />)
+      const card = getCard(container)
+
+      touchStart(card, 0, 0)
+      advanceClock(150)
+      touchMove(card, 40, 0)
+      advanceClock(150)
+      touchMove(card, 180, 0)
+      touchEndOnBody(180, 0)
+
+      expect(onCommit).toHaveBeenCalledWith({ correct: true, choiceIndex: null })
+    })
+
+    it('recovers a claim abandoned with no terminating event at all, at the next touchstart', () => {
+      // Belt and braces for the case (1) cannot cover: no terminating event
+      // is ever dispatched anywhere. The next touchstart sees that the
+      // claimed identifier is absent from `event.touches` — the browser
+      // saying that finger is gone — and takes the new gesture.
       const onCommit = vi.fn()
       const { container } = render(<Harness onCommit={onCommit} />)
       const card = getCard(container)
@@ -510,43 +615,131 @@ describe('SwipeBinary', () => {
       touchStart(card, 0, 0)
       advanceClock(50)
       touchMove(card, 150, 0)
-      // Without the watchdog, activeTouchIdRef stays claimed forever and
-      // every event below would be silently ignored.
-      act(() => {
-        vi.advanceTimersByTime(2100)
-      })
+      // Deliberately nothing else — the gesture simply evaporates.
 
-      // A completely fresh, otherwise-normal swipe should work again.
-      swipe(card, 180, 350)
+      const next = { identifier: OTHER_ID, clientX: 0, clientY: 0, target: card }
+      const start = createEvent.touchStart(card, {
+        cancelable: true,
+        touches: [next],
+        changedTouches: [next],
+      })
+      fireEvent(card, start)
+      // The abandoned gesture must not have blocked this one.
+      expect(start.defaultPrevented).toBe(true)
+
+      advanceClock(150)
+      const moved = { identifier: OTHER_ID, clientX: 40, clientY: 0, target: card }
+      fireEvent(
+        card,
+        createEvent.touchMove(card, {
+          cancelable: true,
+          touches: [moved],
+          changedTouches: [moved],
+        }),
+      )
+      advanceClock(150)
+      const far = { identifier: OTHER_ID, clientX: 180, clientY: 0, target: card }
+      fireEvent(
+        card,
+        createEvent.touchMove(card, { cancelable: true, touches: [far], changedTouches: [far] }),
+      )
+      fireEvent(card, createEvent.touchEnd(card, { touches: [], changedTouches: [far] }))
+
       expect(onCommit).toHaveBeenCalledWith({ correct: true, choiceIndex: null })
     })
 
-    it('does not fire while a gesture is still actively moving (rearmed per-move, not a flat ceiling from gesture start)', () => {
+    it('claims the touch that actually started, not whichever finger was already on the screen (OD-6 defect 3)', () => {
+      // Captured: with one finger already resting anywhere on the page, the
+      // component read `event.touches[0]` — the STRAY finger, because
+      // `touches` is document-wide and ordered by start time — anchored its
+      // origin to a point that never moved, and the card did not budge
+      // through a full 160px drag. Then touchend could not find that
+      // identifier in `changedTouches` and returned without clearing the
+      // claim, leaving the card inert for every gesture afterwards.
+      const onCommit = vi.fn()
+      const { container } = render(<Harness onCommit={onCommit} />)
+      const card = getCard(container)
+
+      touchStartWithStray(card, 0, 0)
+      advanceClock(150)
+      touchMoveWithStray(card, 70, 0)
+      expect(screen.getByText('Race condition').className).toContain('--previewing')
+      advanceClock(150)
+      touchMoveWithStray(card, 180, 0)
+      touchEndWithStray(card, 180, 0)
+
+      expect(onCommit).toHaveBeenCalledWith({ correct: true, choiceIndex: null })
+    })
+
+    it('does not leave the card inert when another finger lifts mid-gesture', () => {
+      // A touchend for a DIFFERENT identifier must neither resolve nor kill
+      // our gesture — ours is still down, and `event.touches` still contains
+      // it. This is the guard on the early-return that used to leak.
+      const onCommit = vi.fn()
+      const { container } = render(<Harness onCommit={onCommit} />)
+      const card = getCard(container)
+
+      touchStartWithStray(card, 0, 0)
+      advanceClock(150)
+      touchMoveWithStray(card, 70, 0)
+
+      // The stray finger lifts. Our touch is still listed in `touches`.
+      const ours = { identifier: TOUCH_ID, clientX: 70, clientY: 0, target: card }
+      fireEvent(
+        document.body,
+        createEvent.touchEnd(document.body, {
+          touches: [ours],
+          changedTouches: [{ identifier: 99, clientX: 5, clientY: 600, target: document.body }],
+        }),
+      )
+      expect(onCommit).not.toHaveBeenCalled()
+      expect(screen.getByText('Race condition').className).toContain('--previewing')
+
+      advanceClock(150)
+      touchMove(card, 180, 0)
+      touchEnd(card, 180, 0)
+      expect(onCommit).toHaveBeenCalledWith({ correct: true, choiceIndex: null })
+    })
+
+    it('commits the captured slow drag: 160px released after 2558ms (OD-6 defect 1)', () => {
+      // Component-level companion to gestureThreshold.test.ts's unit case.
+      // This is the gesture a real user makes and the old AND rule silently
+      // discarded.
       const onCommit = vi.fn()
       const { container } = render(<Harness onCommit={onCommit} />)
       const card = getCard(container)
 
       touchStart(card, 0, 0)
-      touchMove(card, 70, 0) // past PREVIEW_RANGE/2 (60px) — previewing right
-      // Three 1000ms gaps (3000ms total, well past GESTURE_WATCHDOG_MS) but
-      // each followed by a real move, which should keep rearming the
-      // watchdog rather than letting it accumulate toward the ceiling.
-      for (let i = 0; i < 3; i++) {
-        act(() => {
-          vi.advanceTimersByTime(1000)
-        })
-        advanceClock(1000)
-        touchMove(card, 70 + (i + 1) * 10, 0)
+      for (let i = 1; i <= 24; i++) {
+        advanceClock(2558 / 24)
+        touchMove(card, (160 * i) / 24, 0)
       }
-      expect(screen.getByText('Race condition').className).toContain('--previewing')
+      touchEnd(card, 160, 0)
 
+      expect(onCommit).toHaveBeenCalledWith({ correct: true, choiceIndex: null })
+    })
+
+    it('commits a full-distance drag that comes to a complete stop before release', () => {
+      // The release habit that made a whole-gesture average velocity feel
+      // necessary in the first place. With distance standing alone, a dead
+      // stop before lift-off is simply irrelevant.
+      const onCommit = vi.fn()
+      const { container } = render(<Harness onCommit={onCommit} />)
+      const card = getCard(container)
+
+      touchStart(card, 0, 0)
+      advanceClock(100)
+      touchMove(card, 60, 0)
+      advanceClock(100)
+      touchMove(card, 180, 0)
+      // Three samples at the same position: the finger has stopped dead.
+      advanceClock(120)
+      touchMove(card, 180, 0)
+      advanceClock(120)
+      touchMove(card, 180, 0)
       touchEnd(card, 180, 0)
-      // The ~3s elapsed since touchstart makes this too slow to clear the
-      // velocity threshold (not the point of this test) — what matters is
-      // that the gesture was still live and resolved through the normal
-      // touchEnd path rather than being force-reset out from under it.
-      expect(onCommit).not.toHaveBeenCalled()
-      expect(screen.getByText('Race condition').className).not.toContain('--previewing')
+
+      expect(onCommit).toHaveBeenCalledWith({ correct: true, choiceIndex: null })
     })
   })
 
@@ -562,9 +755,11 @@ describe('SwipeBinary', () => {
      * coverage: `event.target` was always `card`, never a button.
      */
     function touchStartOnButton(button: HTMLElement, x: number, y: number) {
+      const touch = { identifier: TOUCH_ID, clientX: x, clientY: y, target: button }
       const event = createEvent.touchStart(button, {
         cancelable: true,
-        touches: [{ identifier: TOUCH_ID, clientX: x, clientY: y, target: button }],
+        touches: [touch],
+        changedTouches: [touch],
       })
       fireEvent(button, event)
       return event
@@ -572,6 +767,7 @@ describe('SwipeBinary', () => {
 
     function touchEndOnButton(button: HTMLElement, x: number, y: number) {
       const event = createEvent.touchEnd(button, {
+        touches: [],
         changedTouches: [{ identifier: TOUCH_ID, clientX: x, clientY: y, target: button }],
       })
       fireEvent(button, event)
