@@ -39,7 +39,7 @@ import { truncateToChallengeLimit } from '../../challenge'
 // 2b.0: was `.rush-page` in rushPage.css (max-width breakpoint matches
 // Tailwind's `lg` exactly). Not test-asserted (grep-verified).
 const PAGE_SHELL_CLASS =
-  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-4'
+  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[var(--space-4)] px-4 pb-4'
 
 export function RushPage() {
   const session = useRushSession()

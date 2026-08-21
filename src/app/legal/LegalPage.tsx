@@ -22,7 +22,7 @@ const LINK_CLASS = 'text-accent'
 
 export function LegalPage() {
   return (
-    <div className="flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-6 text-text-1">
+    <div className="flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto pt-[var(--space-4)] px-4 pb-6 text-text-1">
       <Link
         href="/"
         className="self-start min-h-11 py-2 px-3 border border-border rounded-sm bg-surface-1 text-text-1 text-sm no-underline cursor-pointer inline-flex items-center"
