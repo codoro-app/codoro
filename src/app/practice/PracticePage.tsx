@@ -292,6 +292,7 @@ export function PracticePage() {
           label: 'Share puzzle',
           copiedLabel: 'Copied!',
           copyAriaLabel: 'Copy puzzle link',
+          description: 'Copy a link to this exact puzzle',
           text: buildPracticeShareText({ puzzleId: answer.puzzleId, correct: answer.correct }),
           onShared: () => {
             trackShareClick({ surface: 'practice', puzzle_id: answer.puzzleId })
@@ -304,6 +305,7 @@ export function PracticePage() {
                 label: 'Share challenge',
                 copiedLabel: 'Link copied!',
                 copyAriaLabel: 'Copy challenge link',
+                description: `Challenge a friend to beat your streak of ${String(session.streakAttempts.length)}`,
                 text: buildPracticeChallengeText({ attempts: session.streakAttempts }),
                 onShared: () => {
                   trackChallengeCreate({
@@ -459,12 +461,18 @@ export function PracticePage() {
                 ratingDelta={session.ratingDelta}
                 onAnswered={handleAnswered}
                 onContinue={session.handleContinue}
+                shareActions={shareActions}
               />
             </motion.div>
           </AnimatePresence>
         )}
 
-        <ShareMenu actions={shareActions} />
+        {/* 2b.11: mobile's share trigger now lives inside PuzzleCardShell's
+            drawer footer (the `shareActions` prop above) — rendering it
+            again here would duplicate it. Desktop never had a drawer to be
+            buried behind, so it keeps this same external placement it
+            always had. */}
+        {isDesktop && <ShareMenu actions={shareActions} />}
       </div>
 
       {isDesktop && (

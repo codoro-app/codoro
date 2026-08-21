@@ -142,14 +142,14 @@ describe('DailyPage', () => {
     await user.click(screen.getByRole('button', { name: 'Share' }))
 
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
-    await user.click(screen.getByRole('menuitem', { name: 'Share puzzle' }))
+    await user.click(screen.getByRole('button', { name: 'Share puzzle' }))
 
     expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('Codoro Daily #'))
     expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('getcodoro.com/puzzle/'))
     expect(trackShareClick).toHaveBeenCalledTimes(1)
     expect(trackShareClick).toHaveBeenCalledWith(expect.objectContaining({ surface: 'daily' }))
     await waitFor(() => {
-      expect(screen.getByRole('menuitem', { name: 'Copied!' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument()
     })
   })
 
@@ -177,7 +177,7 @@ describe('DailyPage', () => {
     await user.click(screen.getByRole('button', { name: 'Share' }))
 
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
-    await user.click(screen.getByRole('menuitem', { name: 'Share challenge' }))
+    await user.click(screen.getByRole('button', { name: 'Share challenge' }))
 
     expect(trackChallengeCreate).toHaveBeenCalledTimes(1)
     expect(trackChallengeCreate).toHaveBeenCalledWith({ surface: 'daily', puzzle_count: 1 })
@@ -193,7 +193,7 @@ describe('DailyPage', () => {
     expect(decoded?.ids).toEqual([servedPuzzle.id])
 
     await waitFor(() => {
-      expect(screen.getByRole('menuitem', { name: 'Link copied!' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Link copied!' })).toBeInTheDocument()
     })
   })
 

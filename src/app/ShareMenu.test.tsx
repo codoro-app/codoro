@@ -16,6 +16,22 @@ function makeAction(overrides: Partial<ShareAction> = {}): ShareAction {
   }
 }
 
+// Locates the full-viewport scrim behind the open sheet — the dialog's own
+// parent element (see ShareMenu.tsx's render: scrim div wraps the dialog).
+// Clicking it is how every "dismiss" test below closes the sheet, matching
+// what a real click "outside" the sheet does now that dismissal is scrim-
+// driven rather than a document-level outside-click listener (2b.11 — a
+// modal sheet should block interaction with the rest of the page while
+// open, which the scrim already does visually; there's no longer a
+// separate document listener to also close on a click that lands on some
+// unrelated page element).
+function getScrim(): HTMLElement {
+  const dialog = screen.getByRole('dialog')
+  const scrim = dialog.parentElement
+  if (!scrim) throw new Error('expected the sheet dialog to have a scrim parent')
+  return scrim
+}
+
 describe('ShareMenu', () => {
   afterEach(() => {
     vi.restoreAllMocks()
@@ -26,18 +42,57 @@ describe('ShareMenu', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('renders a single action as a plain button, not a menu', () => {
+  it('renders a "Share" trigger even for a single action — no special-cased inline button', () => {
     render(<ShareMenu actions={[makeAction()]} />)
-    expect(screen.getByRole('button', { name: 'Share puzzle' })).toBeInTheDocument()
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('clicking the single action fires onShared and copies its text', async () => {
+  it('opens the sheet on trigger click, showing the single action as a full row', async () => {
+    const user = userEvent.setup()
+    render(<ShareMenu actions={[makeAction()]} />)
+
+    await user.click(screen.getByRole('button', { name: 'Share' }))
+
+    expect(screen.getByRole('dialog', { name: 'Share' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Share puzzle' })).toBeInTheDocument()
+  })
+
+  it('opens the sheet showing every action when there are several', async () => {
+    const user = userEvent.setup()
+    render(
+      <ShareMenu
+        actions={[makeAction(), makeAction({ id: 'challenge', label: 'Share challenge' })]}
+      />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Share' }))
+
+    expect(screen.getByRole('button', { name: 'Share puzzle' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Share challenge' })).toBeInTheDocument()
+  })
+
+  it("shows each action's description under its label, without it leaking into the row's accessible name", async () => {
+    const user = userEvent.setup()
+    render(
+      <ShareMenu actions={[makeAction({ description: 'Copy a link to this exact puzzle' })]} />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Share' }))
+
+    expect(screen.getByText('Copy a link to this exact puzzle')).toBeInTheDocument()
+    // Exact-name match would fail if the description text had folded into
+    // the button's computed accessible name (aria-describedby keeps it out).
+    expect(screen.getByRole('button', { name: 'Share puzzle' })).toBeInTheDocument()
+  })
+
+  it('clicking a row label fires onShared, copies its text, and swaps the label to confirm — the sheet stays open', async () => {
     const user = userEvent.setup()
     const onShared = vi.fn()
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
     render(<ShareMenu actions={[makeAction({ onShared, text: 'hello world' })]} />)
 
+    await user.click(screen.getByRole('button', { name: 'Share' }))
     await user.click(screen.getByRole('button', { name: 'Share puzzle' }))
 
     expect(onShared).toHaveBeenCalledTimes(1)
@@ -45,144 +100,50 @@ describe('ShareMenu', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument()
     })
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 
-  it('renders two actions behind a single Share trigger, items hidden until opened', () => {
-    render(
-      <ShareMenu
-        actions={[makeAction(), makeAction({ id: 'challenge', label: 'Share challenge' })]}
-      />,
-    )
-    expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: 'Share puzzle' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: 'Share challenge' })).not.toBeInTheDocument()
-  })
-
-  it('opens the menu on trigger click, showing both actions', async () => {
-    const user = userEvent.setup()
-    render(
-      <ShareMenu
-        actions={[makeAction(), makeAction({ id: 'challenge', label: 'Share challenge' })]}
-      />,
-    )
-
-    await user.click(screen.getByRole('button', { name: 'Share' }))
-
-    expect(screen.getByRole('menu')).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'Share puzzle' })).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'Share challenge' })).toBeInTheDocument()
-  })
-
-  it('clicking a menu item fires its onShared, copies its text, and keeps the menu open showing the confirmation', async () => {
+  it("clicking a row's dedicated copy-icon button always force-copies, even with navigator.share available, and keeps the sheet open", async () => {
     const user = userEvent.setup()
     const onShared = vi.fn()
-    const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
-    render(
-      <ShareMenu
-        actions={[
-          makeAction(),
-          makeAction({
-            id: 'challenge',
-            label: 'Share challenge',
-            copiedLabel: 'Link copied!',
-            text: 'challenge text',
-            onShared,
-          }),
-        ]}
-      />,
-    )
-
-    await user.click(screen.getByRole('button', { name: 'Share' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Share challenge' }))
-
-    expect(onShared).toHaveBeenCalledTimes(1)
-    expect(writeTextSpy).toHaveBeenCalledWith('challenge text')
-    await waitFor(() => {
-      expect(screen.getByRole('menuitem', { name: 'Link copied!' })).toBeInTheDocument()
-    })
-    expect(screen.getByRole('menu')).toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'Share puzzle' })).toBeInTheDocument()
-  })
-
-  it('closes the menu when clicking outside it', async () => {
-    const user = userEvent.setup()
-    render(
-      <div>
-        <button type="button">outside</button>
-        <ShareMenu
-          actions={[makeAction(), makeAction({ id: 'challenge', label: 'Share challenge' })]}
-        />
-      </div>,
-    )
-
-    await user.click(screen.getByRole('button', { name: 'Share' }))
-    expect(screen.getByRole('menu')).toBeInTheDocument()
-
-    await user.click(screen.getByRole('button', { name: 'outside' }))
-
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-  })
-
-  it('closes the menu on Escape', async () => {
-    const user = userEvent.setup()
-    render(
-      <ShareMenu
-        actions={[makeAction(), makeAction({ id: 'challenge', label: 'Share challenge' })]}
-      />,
-    )
-
-    await user.click(screen.getByRole('button', { name: 'Share' }))
-    expect(screen.getByRole('menu')).toBeInTheDocument()
-
-    await user.keyboard('{Escape}')
-
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-  })
-
-  it('reopening the menu clears a previous copy confirmation', async () => {
-    const user = userEvent.setup()
-    render(
-      <ShareMenu
-        actions={[makeAction(), makeAction({ id: 'challenge', label: 'Share challenge' })]}
-      />,
-    )
-
-    await user.click(screen.getByRole('button', { name: 'Share' }))
-    await user.click(screen.getByRole('menuitem', { name: 'Share puzzle' }))
-    await waitFor(() => {
-      expect(screen.getByRole('menuitem', { name: 'Copied!' })).toBeInTheDocument()
-    })
-    await user.keyboard('{Escape}')
-
-    await user.click(screen.getByRole('button', { name: 'Share' }))
-
-    expect(screen.getByRole('menuitem', { name: 'Share puzzle' })).toBeInTheDocument()
-  })
-
-  it('uses native share instead of the clipboard when navigator.share is available, and closes the menu on success', async () => {
-    const user = userEvent.setup()
     const shareSpy = vi.fn().mockResolvedValue(undefined)
-    Object.defineProperty(navigator, 'share', {
-      value: shareSpy,
-      configurable: true,
-    })
+    Object.defineProperty(navigator, 'share', { value: shareSpy, configurable: true })
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
     try {
-      render(
-        <ShareMenu
-          actions={[makeAction(), makeAction({ id: 'challenge', label: 'Share challenge' })]}
-        />,
-      )
+      render(<ShareMenu actions={[makeAction({ onShared, text: 'hello world' })]} />)
 
       await user.click(screen.getByRole('button', { name: 'Share' }))
-      await user.click(screen.getByRole('menuitem', { name: 'Share puzzle' }))
+      await user.click(screen.getByRole('button', { name: 'Copy puzzle link' }))
+
+      expect(shareSpy).not.toHaveBeenCalled()
+      expect(writeTextSpy).toHaveBeenCalledWith('hello world')
+      expect(onShared).toHaveBeenCalledTimes(1)
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument()
+      })
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    } finally {
+      Reflect.deleteProperty(navigator, 'share')
+    }
+  })
+
+  it('uses native share instead of the clipboard when navigator.share is available, and closes the sheet on success', async () => {
+    const user = userEvent.setup()
+    const shareSpy = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'share', { value: shareSpy, configurable: true })
+    const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
+    try {
+      render(<ShareMenu actions={[makeAction()]} />)
+
+      await user.click(screen.getByRole('button', { name: 'Share' }))
+      await user.click(screen.getByRole('button', { name: 'Share puzzle' }))
 
       await waitFor(() => {
         expect(shareSpy).toHaveBeenCalledWith({ text: 'share text' })
       })
       expect(writeTextSpy).not.toHaveBeenCalled()
       await waitFor(() => {
-        expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
       })
     } finally {
       Reflect.deleteProperty(navigator, 'share')
@@ -193,14 +154,12 @@ describe('ShareMenu', () => {
     const user = userEvent.setup()
     const abortError = Object.assign(new Error('cancelled'), { name: 'AbortError' })
     const shareSpy = vi.fn().mockRejectedValue(abortError)
-    Object.defineProperty(navigator, 'share', {
-      value: shareSpy,
-      configurable: true,
-    })
+    Object.defineProperty(navigator, 'share', { value: shareSpy, configurable: true })
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
     try {
       render(<ShareMenu actions={[makeAction()]} />)
 
+      await user.click(screen.getByRole('button', { name: 'Share' }))
       await user.click(screen.getByRole('button', { name: 'Share puzzle' }))
 
       await waitFor(() => {
@@ -215,14 +174,12 @@ describe('ShareMenu', () => {
   it('falls back to the clipboard when native share rejects with a real error', async () => {
     const user = userEvent.setup()
     const shareSpy = vi.fn().mockRejectedValue(new Error('not allowed'))
-    Object.defineProperty(navigator, 'share', {
-      value: shareSpy,
-      configurable: true,
-    })
+    Object.defineProperty(navigator, 'share', { value: shareSpy, configurable: true })
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
     try {
       render(<ShareMenu actions={[makeAction()]} />)
 
+      await user.click(screen.getByRole('button', { name: 'Share' }))
       await user.click(screen.getByRole('button', { name: 'Share puzzle' }))
 
       await waitFor(() => {
@@ -236,86 +193,79 @@ describe('ShareMenu', () => {
     }
   })
 
-  it('renders a dedicated copy-icon button next to a single action', () => {
+  it('closes the sheet when clicking the scrim', async () => {
+    const user = userEvent.setup()
     render(<ShareMenu actions={[makeAction()]} />)
+
+    await user.click(screen.getByRole('button', { name: 'Share' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    await user.click(getScrim())
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('does not close when clicking inside the sheet itself', async () => {
+    const user = userEvent.setup()
+    render(<ShareMenu actions={[makeAction()]} />)
+
+    await user.click(screen.getByRole('button', { name: 'Share' }))
+    await user.click(screen.getByRole('dialog'))
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+  })
+
+  it('closes the sheet on Escape', async () => {
+    const user = userEvent.setup()
+    render(<ShareMenu actions={[makeAction()]} />)
+
+    await user.click(screen.getByRole('button', { name: 'Share' }))
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('reopening the sheet clears a previous copy confirmation', async () => {
+    const user = userEvent.setup()
+    render(<ShareMenu actions={[makeAction()]} />)
+
+    await user.click(screen.getByRole('button', { name: 'Share' }))
+    await user.click(screen.getByRole('button', { name: 'Share puzzle' }))
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument()
+    })
+    await user.keyboard('{Escape}')
+
+    await user.click(screen.getByRole('button', { name: 'Share' }))
+
     expect(screen.getByRole('button', { name: 'Share puzzle' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Copy puzzle link' })).toBeInTheDocument()
   })
 
-  it('the copy-icon button always copies to the clipboard, even when navigator.share is available', async () => {
+  it('locks body scroll while open and restores it on close', async () => {
     const user = userEvent.setup()
-    const onShared = vi.fn()
-    const shareSpy = vi.fn().mockResolvedValue(undefined)
-    Object.defineProperty(navigator, 'share', {
-      value: shareSpy,
-      configurable: true,
-    })
-    const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
-    try {
-      render(<ShareMenu actions={[makeAction({ onShared, text: 'hello world' })]} />)
+    render(<ShareMenu actions={[makeAction()]} />)
+    const originalOverflow = document.body.style.overflow
 
-      await user.click(screen.getByRole('button', { name: 'Copy puzzle link' }))
+    await user.click(screen.getByRole('button', { name: 'Share' }))
+    expect(document.body.style.overflow).toBe('hidden')
 
-      expect(shareSpy).not.toHaveBeenCalled()
-      expect(writeTextSpy).toHaveBeenCalledWith('hello world')
-      expect(onShared).toHaveBeenCalledTimes(1)
-      await waitFor(() => {
-        expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument()
-      })
-    } finally {
-      Reflect.deleteProperty(navigator, 'share')
-    }
+    await user.keyboard('{Escape}')
+    expect(document.body.style.overflow).toBe(originalOverflow)
   })
 
-  it("a menu item's copy-icon button always copies, even with navigator.share available, and keeps the menu open", async () => {
+  it('trigger="icon" renders a compact icon-only button with an accessible "Share" name, opening the same sheet', async () => {
     const user = userEvent.setup()
-    const shareSpy = vi.fn().mockResolvedValue(undefined)
-    Object.defineProperty(navigator, 'share', {
-      value: shareSpy,
-      configurable: true,
-    })
-    const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
-    try {
-      render(
-        <ShareMenu
-          actions={[
-            makeAction(),
-            makeAction({
-              id: 'challenge',
-              label: 'Share challenge',
-              copiedLabel: 'Link copied!',
-              copyAriaLabel: 'Copy challenge link',
-              text: 'challenge text',
-            }),
-          ]}
-        />,
-      )
+    render(<ShareMenu actions={[makeAction()]} trigger="icon" />)
 
-      await user.click(screen.getByRole('button', { name: 'Share' }))
-      await user.click(screen.getByRole('menuitem', { name: 'Copy challenge link' }))
-
-      expect(shareSpy).not.toHaveBeenCalled()
-      expect(writeTextSpy).toHaveBeenCalledWith('challenge text')
-      await waitFor(() => {
-        expect(screen.getByRole('menuitem', { name: 'Link copied!' })).toBeInTheDocument()
-      })
-      expect(screen.getByRole('menu')).toBeInTheDocument()
-    } finally {
-      Reflect.deleteProperty(navigator, 'share')
-    }
-  })
-
-  it('the two-action trigger opts out of flex-column stretch, so the popover anchors to it rather than a stretched ancestor (regression guard for the mispositioned-popover bug)', () => {
-    render(
-      <ShareMenu
-        actions={[makeAction(), makeAction({ id: 'challenge', label: 'Share challenge' })]}
-      />,
-    )
     const trigger = screen.getByRole('button', { name: 'Share' })
-    // The trigger's own positioned wrapper (relative + absolute popover
-    // child) must not stretch to fill a `flex flex-col` ancestor's width —
-    // that stretch is exactly what disconnected the popover from the
-    // trigger. `self-start` opts the wrapper out of cross-axis stretch.
-    expect(trigger.parentElement).toHaveClass('self-start')
+    expect(trigger).toHaveAccessibleName('Share')
+    expect(trigger).not.toHaveTextContent('Share')
+
+    await user.click(trigger)
+
+    expect(screen.getByRole('dialog', { name: 'Share' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Share puzzle' })).toBeInTheDocument()
   })
 })

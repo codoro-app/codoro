@@ -92,6 +92,7 @@ export function RushPage() {
                   label: 'Share puzzle',
                   copiedLabel: 'Copied!',
                   copyAriaLabel: 'Copy puzzle link',
+                  description: 'Copy a link to the puzzle you ended on',
                   text: buildRushShareText({
                     solvedCount: runSummary.solvedCount,
                     bestStreakThisRun: runSummary.bestStreakThisRun,
@@ -108,6 +109,7 @@ export function RushPage() {
             label: 'Share challenge',
             copiedLabel: 'Link copied!',
             copyAriaLabel: 'Copy challenge link',
+            description: `Challenge a friend to beat your run of ${String(runSummary.solvedCount)}`,
             text: buildRushChallengeText({
               solvedCount: runSummary.solvedCount,
               bestStreakThisRun: runSummary.bestStreakThisRun,

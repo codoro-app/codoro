@@ -93,6 +93,7 @@ export function DailyPage() {
           label: 'Share puzzle',
           copiedLabel: 'Copied!',
           copyAriaLabel: 'Copy puzzle link',
+          description: `Copy a link to today's puzzle`,
           text: buildShareText({
             dayNumber: session.dayNumber,
             correct: session.profile.dailyCompletion?.correct ?? false,
@@ -110,6 +111,7 @@ export function DailyPage() {
                 label: 'Share challenge',
                 copiedLabel: 'Link copied!',
                 copyAriaLabel: 'Copy challenge link',
+                description: 'Challenge a friend to beat your result',
                 text: buildDailyChallengeText({
                   dayNumber: session.dayNumber,
                   attempt: session.challengeAttempt,
