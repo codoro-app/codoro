@@ -47,7 +47,14 @@ export function BottomNav() {
 
   return (
     <nav
-      className="lg:hidden fixed inset-x-0 bottom-0 z-20 flex bg-surface-1 border-t border-border pb-[env(safe-area-inset-bottom)]"
+      // 2b.9 (nav-floating bug, 2026-08-21): `translateZ(0)` forces this
+      // bar onto its own compositing layer instead of sharing one with
+      // scrolling page content — Tier 1 mitigation, see index.css's `body`
+      // rule (same bug report) for the fuller reproduction/rationale. Paired
+      // with `overscroll-behavior-y: none` there; if the floating-mid-scroll
+      // symptom is still reproducible in the installed PWA after both land,
+      // the fix plan's Tier 2 (contained-scroll app shell) is the next step.
+      className="lg:hidden fixed inset-x-0 bottom-0 z-20 flex bg-surface-1 border-t border-border pb-[env(safe-area-inset-bottom)] [transform:translateZ(0)]"
       aria-label="Primary"
     >
       <Link

@@ -102,15 +102,23 @@ function feedbackAccentClass(correct: boolean): string {
 const FEEDBACK_CONTINUE_CLASS =
   'flex items-center justify-center gap-2 min-h-11 w-full py-3.5 px-4 border-0 rounded-md bg-accent text-accent-ink text-base font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
-// 2b.2 (click-meaningfulness): same shape as PuzzleCardShell.tsx's own
-// CONTINUE_BAR_CLASS (duplicated, not imported — matches this file's own
-// established convention of duplicating rather than cross-importing
-// route-chunk-specific styling, per its module doc comment).
-//
-// 2b.2 follow-up (bug report, 2026-08-12): mobile-only as of this pass —
-// see `isDesktop` below and PuzzleCardShell.tsx's identical constant for
-// the full rationale (duplicated, same convention as above).
-const CONTINUE_BAR_CLASS = 'sticky bottom-0 z-10 pt-3 pb-3 bg-surface-0 border-t border-border'
+// 2b.9 (feedback-fit bug, 2026-08-21): same shape as PuzzleCardShell.tsx's
+// own FEEDBACK_DRAWER_CLASS (duplicated, not imported — matches this file's
+// own established convention of duplicating rather than cross-importing
+// route-chunk-specific styling, per its module doc comment). Result +
+// explanation + Continue are one pinned drawer instead of a normal-flow
+// panel plus a separate sticky button-only bar — see PuzzleCardShell.tsx's
+// identical constant for the full rationale (duplicated, same convention as
+// above). Bottom offset stays flush `bottom-0` here (not
+// `bottom-[var(--bottom-nav-height)]`) — unchanged from this constant's
+// pre-existing value, out of scope for this pass.
+const FEEDBACK_DRAWER_CLASS = 'sticky bottom-0 z-10 bg-surface-0 border-t border-border'
+
+// See PuzzleCardShell.tsx's identical `drawerPanelClass` for why the panel
+// is height-capped with only its explanation paragraph scrolling.
+function drawerPanelClass(correct: boolean): string {
+  return `${feedbackPanelClass(correct)} min-h-[128px] max-h-[46dvh]`
+}
 
 // Desktop's inline placement — see PuzzleCardShell.tsx's identical constant.
 const DESKTOP_CONTINUE_CLASS =
@@ -407,69 +415,131 @@ export function TraceRunnerPuzzle({
         )}
 
         {isComplete && isDesktop && (
-          <div className="flex justify-end">
-            <ContinueCta className={DESKTOP_CONTINUE_CLASS} onContinue={onContinue} />
-          </div>
-        )}
-
-        {isComplete && (
-          <div className={feedbackPanelClass(solved ?? false)} role="status">
-            <div className="flex items-center gap-2">
-              <span
-                className={`flex items-center ${feedbackAccentClass(solved ?? false)}`}
-                aria-hidden="true"
-              >
-                {solved ? (
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="var(--accent)"
-                    strokeWidth="2.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                ) : (
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="var(--danger)"
-                    strokeWidth="2.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                )}
-              </span>
-              <span
-                className={`flex-1 font-bold text-base ${feedbackAccentClass(solved ?? false)}`}
-              >
-                {solved ? 'Nice — fully traced' : 'Not quite'}
-              </span>
-              {ratingDelta !== null && (
-                <span
-                  className={`feedback-panel__delta font-mono font-bold tabular-nums ${feedbackAccentClass(solved ?? false)}`}
-                >
-                  {ratingDelta > 0 ? `+${String(ratingDelta)}` : String(ratingDelta)}
-                </span>
-              )}
+          <>
+            <div className="flex justify-end">
+              <ContinueCta className={DESKTOP_CONTINUE_CLASS} onContinue={onContinue} />
             </div>
-            <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">{puzzle.explanation}</p>
-          </div>
+            <div className={feedbackPanelClass(solved ?? false)} role="status">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`flex items-center ${feedbackAccentClass(solved ?? false)}`}
+                  aria-hidden="true"
+                >
+                  {solved ? (
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="var(--accent)"
+                      strokeWidth="2.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="var(--danger)"
+                      strokeWidth="2.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  )}
+                </span>
+                <span
+                  className={`flex-1 font-bold text-base ${feedbackAccentClass(solved ?? false)}`}
+                >
+                  {solved ? 'Nice — fully traced' : 'Not quite'}
+                </span>
+                {ratingDelta !== null && (
+                  <span
+                    className={`feedback-panel__delta font-mono font-bold tabular-nums ${feedbackAccentClass(solved ?? false)}`}
+                  >
+                    {ratingDelta > 0 ? `+${String(ratingDelta)}` : String(ratingDelta)}
+                  </span>
+                )}
+              </div>
+              <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">
+                {puzzle.explanation}
+              </p>
+            </div>
+          </>
         )}
       </div>
 
       {isComplete && !isDesktop && (
-        <div className={CONTINUE_BAR_CLASS}>
-          <div className="w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto px-4">
-            <ContinueCta className={FEEDBACK_CONTINUE_CLASS} onContinue={onContinue} />
+        <div className={FEEDBACK_DRAWER_CLASS}>
+          <div className="w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto px-4 py-3">
+            <div className={drawerPanelClass(solved ?? false)} role="status">
+              <div className="flex items-center gap-2 flex-none">
+                <span
+                  className={`flex items-center ${feedbackAccentClass(solved ?? false)}`}
+                  aria-hidden="true"
+                >
+                  {solved ? (
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="var(--accent)"
+                      strokeWidth="2.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="var(--danger)"
+                      strokeWidth="2.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  )}
+                </span>
+                <span
+                  className={`flex-1 font-bold text-base ${feedbackAccentClass(solved ?? false)}`}
+                >
+                  {solved ? 'Nice — fully traced' : 'Not quite'}
+                </span>
+                {ratingDelta !== null && (
+                  <span
+                    className={`feedback-panel__delta font-mono font-bold tabular-nums ${feedbackAccentClass(solved ?? false)}`}
+                  >
+                    {ratingDelta > 0 ? `+${String(ratingDelta)}` : String(ratingDelta)}
+                  </span>
+                )}
+              </div>
+              {/* flex-1 min-h-0 lets this shrink and scroll inside the
+                  panel's flex column instead of forcing the panel past its
+                  max-height cap — see drawerPanelClass's doc comment. */}
+              <p
+                className="m-0 flex-1 min-h-0 overflow-y-auto text-text-0 text-[0.9375rem] leading-[1.45]"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
+                {puzzle.explanation}
+              </p>
+              <ContinueCta
+                className={`${FEEDBACK_CONTINUE_CLASS} flex-none`}
+                onContinue={onContinue}
+              />
+            </div>
           </div>
         </div>
       )}

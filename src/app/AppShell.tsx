@@ -60,8 +60,20 @@ export function AppShell({ children }: AppShellProps) {
       {/* 2b.0: was `.app-shell__mobile-nav` (app.css) — display toggle now
        * inline. 2b.8: slimmed to just the brand link — the old ModeSwitcher
        * tab strip that lived here moved to BottomNav, fixed at the viewport
-       * bottom (see below and BottomNav.tsx's own doc comment). */}
-      <div className="block lg:hidden pt-[calc(var(--space-2)+env(safe-area-inset-top))] px-4">
+       * bottom (see below and BottomNav.tsx's own doc comment).
+       *
+       * 2b.9 (spacing bug, 2026-08-21): top padding is flat `space-2` only —
+       * no `env(safe-area-inset-top)` here. Every page root below (Practice/
+       * Daily/Puzzle/Home/etc.) already adds its own
+       * `pt-[calc(var(--space-N)+env(safe-area-inset-top))]`; this bar sits
+       * above all of them and was *also* adding the inset, so the notch
+       * safe-area was being applied twice, stacked, producing a visibly
+       * oversized gap between this bar and each page's first content. This
+       * bar is the one place in the app that isn't itself a page root, so it
+       * has no independent reason to own the inset — the page below it
+       * already does. Fixing it here (not in every page) corrects the gap
+       * app-wide from a single change instead of touching a dozen files. */}
+      <div className="block lg:hidden pt-[var(--space-2)] px-4">
         <Link
           href="/"
           className="flex items-center gap-2 min-h-11 py-2 bg-transparent no-underline cursor-pointer"
