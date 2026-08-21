@@ -16,19 +16,21 @@ function makeAction(overrides: Partial<ShareAction> = {}): ShareAction {
   }
 }
 
-// Locates the full-viewport scrim behind the open sheet — the dialog's own
-// parent element (see ShareMenu.tsx's render: scrim div wraps the dialog).
-// Clicking it is how every "dismiss" test below closes the sheet, matching
-// what a real click "outside" the sheet does now that dismissal is scrim-
-// driven rather than a document-level outside-click listener (2b.11 — a
-// modal sheet should block interaction with the rest of the page while
-// open, which the scrim already does visually; there's no longer a
-// separate document listener to also close on a click that lands on some
-// unrelated page element).
+// Locates the full-viewport scrim behind the open sheet — its previous DOM
+// sibling (2b.13: scrim and sheet render as siblings, not parent/child —
+// see ShareMenu.tsx's render). Clicking it is how every "dismiss" test
+// below closes the sheet, matching what a real click "outside" the sheet
+// does now that dismissal is scrim-driven rather than a document-level
+// outside-click listener (2b.11 — a modal sheet should block interaction
+// with the rest of the page while open, which the scrim already does
+// visually; there's no longer a separate document listener to also close
+// on a click that lands on some unrelated page element).
 function getScrim(): HTMLElement {
   const dialog = screen.getByRole('dialog')
-  const scrim = dialog.parentElement
-  if (!scrim) throw new Error('expected the sheet dialog to have a scrim parent')
+  const scrim = dialog.previousElementSibling
+  if (!(scrim instanceof HTMLElement)) {
+    throw new Error('expected the sheet dialog to have a scrim previous sibling')
+  }
   return scrim
 }
 

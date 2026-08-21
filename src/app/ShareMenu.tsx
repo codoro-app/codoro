@@ -221,36 +221,43 @@ export function ShareMenu({ actions, trigger = 'button' }: ShareMenuProps) {
         </button>
       )}
       {open && (
-        // `items-end` + a full-viewport scrim is what makes this a bottom
-        // sheet instead of a centered dialog — matches the approved mockup.
-        // Click-to-dismiss lives on the scrim itself; `stopPropagation` on
-        // the sheet keeps a tap inside it from bubbling to that handler.
-        //
-        // 2b.12 (sheet covered by Safari's own chrome, 2026-08-21): `inset-0`
-        // sizes this against the *layout* viewport, which in plain mobile
-        // Safari (not the installed/standalone PWA) stays the same height
-        // whether or not Safari's own collapsible bottom toolbar is showing
-        // — so with the toolbar visible, the sheet's bottom rows rendered
-        // underneath it, unreachable (confirmed on-device). `h-dvh` instead
-        // of relying on `inset-0`'s implicit height tracks the actual
-        // visible viewport, which shrinks when that toolbar is up.
-        <div
-          className="fixed inset-x-0 top-0 h-dvh z-30 flex items-end justify-center bg-black/55"
-          onClick={() => {
-            setOpen(false)
-          }}
-        >
+        <>
+          {/* Scrim: click-to-dismiss backdrop only, kept as a separate
+              sibling rather than a sized flex parent the sheet aligns
+              itself within (2b.13 — see the sheet's own comment below for
+              why that changed). Its own exact height/coverage isn't
+              load-bearing for anything but the dim + click-catch, so plain
+              `inset-0` is fine here even though it wasn't reliable for
+              positioning the sheet itself. */}
+          <div
+            className="fixed inset-0 z-30 bg-black/55"
+            onClick={() => {
+              setOpen(false)
+            }}
+          />
+          {/* 2b.13 (sheet not reaching the true bottom in the installed PWA,
+              2026-08-21): the previous version nested this inside a
+              `h-dvh`, `items-end` flex scrim to align it to the bottom —
+              on-device in the standalone PWA that left the sheet ending
+              short, with BottomNav still fully visible below it instead of
+              covered (the flex/`dvh` height match wasn't reliable there,
+              even though the same `h-dvh` swap *had* fixed the earlier
+              plain-Safari coverage bug in #79's first round). Anchoring the
+              sheet directly with `fixed inset-x-0 bottom-0` instead — the
+              exact same pattern BottomNav.tsx and PuzzleCardShell's own
+              feedback drawer already use successfully in this same PWA —
+              sidesteps the viewport-unit question entirely: the sheet is
+              flush with the true bottom by construction, regardless of
+              what `dvh`/`vh` resolve to. `max-h` + `overflow-y-auto` stays
+              as the belt-and-braces guarantee that every row is reachable
+              by scroll even if the visible viewport is shorter than
+              expected (e.g. plain Safari's own toolbar still showing). */}
           <div
             ref={sheetRef}
             role="dialog"
             aria-modal="true"
             aria-label="Share"
-            // `max-h` + `overflow-y-auto`: belt-and-braces alongside the
-            // `h-dvh` scrim above — whatever slice of the viewport is
-            // actually visible, every row stays reachable by scrolling
-            // inside the sheet rather than being hard-cut by whatever ate
-            // into the bottom of the screen.
-            className="w-full max-w-[var(--content-width-mobile)] max-h-[85dvh] overflow-y-auto flex flex-col gap-0.5 bg-surface-1 border border-border border-b-0 rounded-t-lg shadow-lg p-4 pb-[calc(var(--space-4)+env(safe-area-inset-bottom))]"
+            className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[var(--content-width-mobile)] max-h-[85dvh] overflow-y-auto flex flex-col gap-0.5 bg-surface-1 border border-border border-b-0 rounded-t-lg shadow-lg p-4 pb-[calc(var(--space-4)+env(safe-area-inset-bottom))]"
             onClick={(event) => {
               event.stopPropagation()
             }}
@@ -275,7 +282,7 @@ export function ShareMenu({ actions, trigger = 'button' }: ShareMenuProps) {
               />
             ))}
           </div>
-        </div>
+        </>
       )}
     </>
   )
