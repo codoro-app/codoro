@@ -33,7 +33,7 @@ const BLOCK_BASE =
 export function RouteSkeleton() {
   return (
     <div
-      className="app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-4"
+      className="app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto pt-[var(--space-4)] px-4 pb-4"
       aria-hidden="true"
     >
       <div className={`${BLOCK_BASE} h-8 w-2/5`} />

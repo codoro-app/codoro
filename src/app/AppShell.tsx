@@ -62,18 +62,21 @@ export function AppShell({ children }: AppShellProps) {
        * tab strip that lived here moved to BottomNav, fixed at the viewport
        * bottom (see below and BottomNav.tsx's own doc comment).
        *
-       * 2b.9 (spacing bug, 2026-08-21): top padding is flat `space-2` only —
-       * no `env(safe-area-inset-top)` here. Every page root below (Practice/
-       * Daily/Puzzle/Home/etc.) already adds its own
-       * `pt-[calc(var(--space-N)+env(safe-area-inset-top))]`; this bar sits
-       * above all of them and was *also* adding the inset, so the notch
-       * safe-area was being applied twice, stacked, producing a visibly
-       * oversized gap between this bar and each page's first content. This
-       * bar is the one place in the app that isn't itself a page root, so it
-       * has no independent reason to own the inset — the page below it
-       * already does. Fixing it here (not in every page) corrects the gap
-       * app-wide from a single change instead of touching a dozen files. */}
-      <div className="block lg:hidden pt-[var(--space-2)] px-4">
+       * 2b.9 (spacing bug, 2026-08-21 — corrected): this bar IS the element
+       * that must own `env(safe-area-inset-top)` — it's the first thing in
+       * the DOM, rendered at the true top of the viewport, directly under
+       * the notch/Dynamic Island. A first attempt at this fix removed the
+       * inset from here instead (reasoning that every page root below also
+       * adds it, so this looked like the duplicate) — that shipped with the
+       * logo bar rendering with zero notch clearance, visibly overlapping
+       * the OS status bar. The actual duplicate was never here: every page
+       * root re-adding `env(safe-area-inset-top)` on top of an already-
+       * cleared position (they render *below* this bar in normal flow, not
+       * at the viewport edge) is what doubles the inset. The real fix
+       * removes it from each page root instead — see PracticePage.tsx/
+       * DailyPage.tsx/PuzzlePage.tsx/etc.'s own `pt-[var(--space-N)]`
+       * (no `+env(...)`) for the other half of this. */}
+      <div className="block lg:hidden pt-[calc(var(--space-2)+env(safe-area-inset-top))] px-4">
         <Link
           href="/"
           className="flex items-center gap-2 min-h-11 py-2 bg-transparent no-underline cursor-pointer"

@@ -176,12 +176,18 @@ export function Home() {
   // apart, since both can render the same "1200" text on a fresh profile.
   //
   // 2b.1: the loading branch below has no PageShell/header (nothing to pin
-  // yet), so it keeps its own top safe-area padding directly. The loaded
-  // branch passes HOME_SHELL_CLASS to PageShell instead — no top padding of
-  // its own, since the rating row inside `header` now owns that (see the
-  // 2b.1 Design record's "known, accepted spacing delta").
+  // yet), so it keeps its own top padding directly. The loaded branch passes
+  // HOME_SHELL_CLASS to PageShell instead — no top padding of its own, since
+  // the rating row inside `header` now owns that.
+  //
+  // 2b.9 (spacing bug, 2026-08-21): flat `space-4` only, no
+  // `env(safe-area-inset-top)` — AppShell.tsx's mobile logo bar (rendered
+  // above this page, outside it) already clears the notch; this page starts
+  // below that bar in normal flow, so it never needed its own copy of the
+  // inset. See AppShell.tsx's own comment for the fuller history (a first
+  // attempt at this fix put the inset in the wrong place).
   const homeShellClass =
-    'home app-shell__main flex flex-col gap-3 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-4'
+    'home app-shell__main flex flex-col gap-3 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[var(--space-4)] px-4 pb-4'
   const HOME_SHELL_CLASS =
     'home app-shell__main flex flex-col gap-3 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto px-4 pb-4'
 
@@ -230,7 +236,12 @@ export function Home() {
         className={HOME_SHELL_CLASS}
         header={
           <div className="flex flex-col gap-3">
-            <div className="flex items-baseline justify-between flex-wrap gap-3 pt-[calc(var(--space-5)+env(safe-area-inset-top))]">
+            {/* space-5, not space-4 like other pages' top padding — Home's
+                own deliberate extra breathing room above the rating row,
+                unrelated to the safe-area fix below. No env(safe-area-inset-top)
+                here (2b.9, 2026-08-21) — same reasoning as homeShellClass
+                above: AppShell.tsx's logo bar already clears the notch. */}
+            <div className="flex items-baseline justify-between flex-wrap gap-3 pt-[var(--space-5)]">
               <div className="flex flex-col gap-1">
                 <span className="text-sm font-bold text-text-1 uppercase tracking-[0.04em]">
                   Rating

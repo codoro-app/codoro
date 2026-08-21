@@ -90,7 +90,7 @@ interface LastAnswer {
 // App.test.tsx uses it as a root-container marker
 // (`querySelector('.practice-page')`) to confirm this page mounted.
 const PAGE_SHELL_CLASS =
-  'practice-page app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-4'
+  'practice-page app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[var(--space-4)] px-4 pb-4'
 
 // Was the shared `.practice-page__link` classname (also used verbatim in
 // MasteryView.tsx/PatternPicker.tsx's "← Back" buttons).

@@ -45,7 +45,7 @@ import type { ExportedData, UserProfile } from '../../storage'
 // 2b.0: was `.settings-page` (settingsPage.css). Not test-asserted
 // (grep-verified).
 const PAGE_SHELL_CLASS =
-  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto pt-[calc(var(--space-4)+env(safe-area-inset-top))] px-4 pb-6 text-text-1'
+  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto pt-[var(--space-4)] px-4 pb-6 text-text-1'
 // Was `.settings-page__section h2`/`p`/`code` descendant selectors —
 // applied directly to each element (same pattern as LegalPage.tsx).
 const SECTION_HEADING_CLASS = 'text-lg text-text-0 m-0 mb-2'
