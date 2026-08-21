@@ -545,6 +545,39 @@ describe('SwipeBinary', () => {
       return event
     }
 
+    it('binds its window-level touch listeners only while a gesture is in flight', () => {
+      // The cost of hearing terminating events at `window`, and why it is
+      // scoped to the gesture. A non-passive `touchmove` listener on `window`
+      // opts the WHOLE PAGE out of the browser's scroll fast path for as long
+      // as it is attached — the compositor can no longer assume the handler
+      // won't preventDefault. Attaching at mount would tax every scroll on any
+      // page showing a swipe-binary card, including scrolls nowhere near it.
+      const add = vi.spyOn(window, 'addEventListener')
+      const remove = vi.spyOn(window, 'removeEventListener')
+      const moveAdds = () => add.mock.calls.filter(([type]) => type === 'touchmove').length
+      const moveRemoves = () => remove.mock.calls.filter(([type]) => type === 'touchmove').length
+
+      const { container } = render(<Harness />)
+      const card = getCard(container)
+      expect(moveAdds()).toBe(0)
+
+      touchStart(card, 0, 0)
+      expect(moveAdds()).toBe(1)
+      // passive:false is load-bearing — a passive listener makes
+      // preventDefault() a silent no-op, which is OD-5's whole mechanism.
+      expect(add.mock.calls.find(([type]) => type === 'touchmove')?.[2]).toMatchObject({
+        passive: false,
+        capture: true,
+      })
+
+      advanceClock(150)
+      touchMove(card, 40, 0)
+      advanceClock(150)
+      touchMove(card, 180, 0)
+      touchEnd(card, 180, 0)
+      expect(moveRemoves()).toBe(1)
+    })
+
     it('never disowns a gesture that is still live, however long it pauses (the watchdog regression)', () => {
       // The exact captured failure: 200px of intent, interrupted by a 2.3s
       // pause — comfortably past the old 2000ms watchdog — and then finished

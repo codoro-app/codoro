@@ -232,7 +232,10 @@ that made it.
 gone, replaced by two structural properties that cannot fire mid-gesture:
 `touchmove`/`touchend`/`touchcancel` are bound to `window` (capture phase) for the gesture's
 duration, and a stale claim is detected lazily at the next `touchstart` by checking the tracked
-identifier against `event.touches`. The `visibilitychange`/`blur` reset stays — those are
+identifier against `event.touches`. The window binding is scoped to the gesture deliberately,
+not attached at mount: a non-passive `touchmove` listener on `window` opts the whole page out of
+the browser's scroll fast path for as long as it is attached, so a mount-lifetime binding would
+tax every scroll on any page showing a swipe-binary card. There is a test on that scoping. The `visibilitychange`/`blur` reset stays — those are
 explicit browser signals, not guesses.
 
 **C. Commit rule.** `distance AND velocity` → `distance OR flick`:
@@ -253,7 +256,7 @@ would let a fast, slightly-horizontal-dominant scroll attempt commit an answer.
 ### Verification
 
 `pnpm validate` equivalent, run against a clean install of this branch: typecheck clean, lint
-clean, **1884/1884 tests passing** (up from 1629 — 46 in `SwipeBinary.test.tsx`, 27 in
+clean, **1885/1885 tests passing** (up from 1629 — 47 in `SwipeBinary.test.tsx`, 27 in
 `gestureThreshold.test.ts`), content validation clean, production build clean.
 
 Revert-checks, per this repo's standing rule that a fix ships with a test verified red when the
@@ -283,3 +286,41 @@ reported symptoms, but the OD-5 architecture (unconditional `preventDefault` at 
 `touch-action: none`) is unchanged and untested in jsdom, and the window-level listener move is
 new. If a symptom survives on device, that residue is a genuine WebKit arbitration problem —
 and unlike rounds 1-9, there is now a harness to reproduce against first.
+
+---
+
+## Browser verification against the fix (2026-08-21, local dev build)
+
+Same harness (`docs/od-6-swipe-harness.js`), same method as the capture above, run against
+`localhost:5173/practice` with the Swipe filter on, in a focused tab (`visibilityState: visible`
+confirmed on every case — a throttled background tab invalidates timing and was caught doing so
+once during this session).
+
+| Case        | Gesture                                        | Want      | Result                                     |
+| ----------- | ---------------------------------------------- | --------- | ------------------------------------------ |
+| `slow`      | 160px, released at 2688ms                      | commit    | **commit** — the captured defect-1 gesture |
+| `verySlow`  | 170px over 4409ms                              | commit    | **commit**                                 |
+| `pause`     | 200px with a 2.3s stall mid-drag               | commit    | **commit** — the captured defect-2 gesture |
+| `stray`     | 180px with a second finger already on the page | commit    | **commit** — the captured defect-3 gesture |
+| `stopDead`  | 180px, dead stop 400ms before release          | commit    | **commit**                                 |
+| `flick`     | 90px in 265ms                                  | commit    | **commit**                                 |
+| `fast`      | 180px in 582ms                                 | commit    | **commit**                                 |
+| `tinyFlick` | 30px in 227ms                                  | no commit | no commit                                  |
+| `halfDrag`  | 80px over 3243ms, abandoned                    | no commit | no commit                                  |
+| `vertical`  | 160px vertical / 20px horizontal               | no commit | no commit, card did not move               |
+
+Resilience and regression cases:
+
+| Case                                                                                                       | Result                                                                                                                               |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Normal swipe immediately after an abandoned 80px half-drag                                                 | commits — card not left inert                                                                                                        |
+| Normal swipe after a gesture that evaporates with no `touchend`/`touchcancel` ever, using a new identifier | commits — lazy stale-claim recovery, no timer involved                                                                               |
+| `touchend` dispatched at `document.body` instead of the card                                               | commits — the window-level listener catches it                                                                                       |
+| `touchmove` on the page while no gesture is in flight                                                      | **not** `defaultPrevented` — the non-passive window listener really is absent when idle, so the page's scroll fast path is untouched |
+| Fallback button tapped by touch only, no `click` dispatched                                                | commits, `touchstart` prevented, no duplicate native click                                                                           |
+
+No application console errors across the run.
+
+Every one of the three captured failures now passes, and none of the guards that were supposed
+to hold gave way. Still not covered here, and still owed: a real iPhone, where WebKit's own
+gesture arbitration is the one thing synthetic events cannot exercise.

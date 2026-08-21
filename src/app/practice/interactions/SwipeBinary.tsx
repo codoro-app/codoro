@@ -504,6 +504,15 @@ export function SwipeBinary({
    */
   const trailRef = useRef<GestureTrailSample[]>([])
 
+  /**
+   * Detaches the window-level `touchmove`/`touchend`/`touchcancel` listeners
+   * of the gesture currently in flight, or null when none is. Held in a ref
+   * because those listeners are created inside the mount-only effect below,
+   * while `forceResetGesture` (which must also be able to drop them) is
+   * defined out here.
+   */
+  const detachGestureListenersRef = useRef<(() => void) | null>(null)
+
   // Touch-only: the identifier of the single active touch, or null.
   const activeTouchIdRef = useRef<number | null>(null)
 
@@ -576,6 +585,7 @@ export function SwipeBinary({
       snippetElRef.current = null
       capturedRef.current = false
       trailRef.current = []
+      detachGestureListenersRef.current?.()
       if (!wasActive) return
       debug.log({
         type: 'cancel',
@@ -632,17 +642,52 @@ export function SwipeBinary({
     const card = cardRef.current
     if (!card) return
 
+    /**
+     * The rest of a gesture is heard at `window`, capture phase — but only
+     * WHILE a gesture is in flight, attached here at `touchstart` and dropped
+     * again the moment the claim is released.
+     *
+     * Scoping matters, and not only for tidiness: a non-passive `touchmove`
+     * listener on `window` opts the whole page out of the browser's scroll
+     * fast path for as long as it is attached, because the compositor can no
+     * longer assume the handler won't call `preventDefault()`. Attaching for
+     * the component's whole lifetime would tax every scroll on any page
+     * showing a swipe-binary card, including scrolls nowhere near it.
+     * Attaching only between `touchstart` and the gesture's end costs
+     * nothing the gesture wasn't already claiming.
+     *
+     * Re-attaching with the same function references and the same capture
+     * flag is a no-op per the DOM spec, so the paths that attach without a
+     * guaranteed matching detach (see `forceResetGesture`) cannot stack
+     * duplicates.
+     */
+    const attachGestureListeners = () => {
+      window.addEventListener('touchmove', onTouchMove, { passive: false, capture: true })
+      window.addEventListener('touchend', onTouchEnd, { capture: true })
+      window.addEventListener('touchcancel', onTouchCancel, { capture: true })
+      detachGestureListenersRef.current = detachGestureListeners
+    }
+
+    const detachGestureListeners = () => {
+      window.removeEventListener('touchmove', onTouchMove, { capture: true })
+      window.removeEventListener('touchend', onTouchEnd, { capture: true })
+      window.removeEventListener('touchcancel', onTouchCancel, { capture: true })
+      detachGestureListenersRef.current = null
+    }
+
     const resetTouch = () => {
       activeTouchIdRef.current = null
       axisRef.current = 'ambiguous'
       snippetElRef.current = null
       trailRef.current = []
+      detachGestureListeners()
     }
 
     const resetButtonTap = () => {
       buttonTouchIdRef.current = null
       buttonTapElRef.current = null
       buttonTapStartRef.current = null
+      detachGestureListeners()
     }
 
     /** Springs the card home and drops the claim — the shared tail of every abandoned-gesture path. */
@@ -686,6 +731,7 @@ export function SwipeBinary({
         buttonTouchIdRef.current = touch.identifier
         buttonTapElRef.current = button
         buttonTapStartRef.current = { x: touch.clientX, y: touch.clientY }
+        attachGestureListeners()
         const prevented = event.cancelable
         if (prevented) event.preventDefault()
         debug.log({
@@ -720,6 +766,7 @@ export function SwipeBinary({
       axisRef.current = 'ambiguous'
       trailRef.current = []
       pushTrail(trailRef.current, touch.clientX, startTime)
+      attachGestureListeners()
       const snippetEl = scrollableSnippetAncestor(event.target)
       snippetElRef.current = snippetEl
       if (snippetEl) {
@@ -1000,24 +1047,21 @@ export function SwipeBinary({
     // is why these are raw addEventListener calls and not React's
     // onTouchStart/onTouchMove synthetic props — see the component doc
     // comment's OD-5 section.
-    // `touchstart` on the card — only a touch that BEGINS here is ever ours.
-    // Everything after that on `window`, capture phase (OD-6): the card can be
-    // unmounted, retargeted, or transformed out from under a finger
-    // mid-gesture, and `window` still sees the terminating event. This is what
-    // makes the removed watchdog unnecessary rather than merely relaxed.
-    // Safe for the rest of the page: every window handler below returns
-    // immediately unless this component holds a claim, and a claim is only
-    // ever taken in `onTouchStart` above — a touch that never began on the
-    // card is never inspected, never prevented, never scrolled differently.
+    // Only `touchstart` is bound permanently, and only to the card — a touch
+    // that does not BEGIN here is never ours. The rest of the gesture is heard
+    // at `window` for the gesture's duration only; see
+    // `attachGestureListeners` above for why that scoping is load-bearing and
+    // why `window` rather than the card (OD-6: the card can be unmounted,
+    // retargeted, or transformed out from under a finger mid-gesture, and
+    // `window` still sees the terminating event — which is what makes the
+    // removed watchdog unnecessary rather than merely relaxed).
     card.addEventListener('touchstart', onTouchStart, { passive: false })
-    window.addEventListener('touchmove', onTouchMove, { passive: false, capture: true })
-    window.addEventListener('touchend', onTouchEnd, { capture: true })
-    window.addEventListener('touchcancel', onTouchCancel, { capture: true })
     return () => {
       card.removeEventListener('touchstart', onTouchStart)
-      window.removeEventListener('touchmove', onTouchMove, { capture: true })
-      window.removeEventListener('touchend', onTouchEnd, { capture: true })
-      window.removeEventListener('touchcancel', onTouchCancel, { capture: true })
+      // A puzzle change remounts this component (PracticePage keys the card
+      // wrapper on puzzle.id); an in-flight gesture's window listeners must
+      // not outlive the component that owns them.
+      detachGestureListeners()
     }
     // Mount-only, deliberately — see the doc comment above committedRef.
     // eslint-disable-next-line react-hooks/exhaustive-deps
