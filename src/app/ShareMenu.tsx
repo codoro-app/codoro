@@ -225,8 +225,17 @@ export function ShareMenu({ actions, trigger = 'button' }: ShareMenuProps) {
         // sheet instead of a centered dialog — matches the approved mockup.
         // Click-to-dismiss lives on the scrim itself; `stopPropagation` on
         // the sheet keeps a tap inside it from bubbling to that handler.
+        //
+        // 2b.12 (sheet covered by Safari's own chrome, 2026-08-21): `inset-0`
+        // sizes this against the *layout* viewport, which in plain mobile
+        // Safari (not the installed/standalone PWA) stays the same height
+        // whether or not Safari's own collapsible bottom toolbar is showing
+        // — so with the toolbar visible, the sheet's bottom rows rendered
+        // underneath it, unreachable (confirmed on-device). `h-dvh` instead
+        // of relying on `inset-0`'s implicit height tracks the actual
+        // visible viewport, which shrinks when that toolbar is up.
         <div
-          className="fixed inset-0 z-30 flex items-end justify-center bg-black/55"
+          className="fixed inset-x-0 top-0 h-dvh z-30 flex items-end justify-center bg-black/55"
           onClick={() => {
             setOpen(false)
           }}
@@ -236,7 +245,12 @@ export function ShareMenu({ actions, trigger = 'button' }: ShareMenuProps) {
             role="dialog"
             aria-modal="true"
             aria-label="Share"
-            className="w-full max-w-[var(--content-width-mobile)] flex flex-col gap-0.5 bg-surface-1 border border-border border-b-0 rounded-t-lg shadow-lg p-4 pb-[calc(var(--space-4)+env(safe-area-inset-bottom))]"
+            // `max-h` + `overflow-y-auto`: belt-and-braces alongside the
+            // `h-dvh` scrim above — whatever slice of the viewport is
+            // actually visible, every row stays reachable by scrolling
+            // inside the sheet rather than being hard-cut by whatever ate
+            // into the bottom of the screen.
+            className="w-full max-w-[var(--content-width-mobile)] max-h-[85dvh] overflow-y-auto flex flex-col gap-0.5 bg-surface-1 border border-border border-b-0 rounded-t-lg shadow-lg p-4 pb-[calc(var(--space-4)+env(safe-area-inset-bottom))]"
             onClick={(event) => {
               event.stopPropagation()
             }}

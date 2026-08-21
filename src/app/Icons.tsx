@@ -226,6 +226,13 @@ export function StreakIcon({ size = 20 }: IconProps) {
   )
 }
 
+// 2b.12: was the three-connected-circles "Android share" glyph — at the
+// icon-only trigger size (PuzzleCardShellProps' shareActions doc comment)
+// it read as three unrelated dots, not a share icon (reported on-device).
+// This is the export-arrow-from-a-tray shape instead (iOS's own share
+// glyph family) — a single, unambiguous "send this out" arrow that also
+// reads better against this app's flat line-icon set than the dot cluster
+// did.
 export function ShareIcon({ size = 20 }: IconProps) {
   return (
     <svg
@@ -239,11 +246,9 @@ export function ShareIcon({ size = 20 }: IconProps) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <circle cx="18" cy="5" r="3" />
-      <circle cx="6" cy="12" r="3" />
-      <circle cx="18" cy="19" r="3" />
-      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+      <path d="M12 15V3" />
+      <polyline points="8 7 12 3 16 7" />
+      <path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-7" />
     </svg>
   )
 }
