@@ -176,7 +176,7 @@ describe('PuzzleCardShell', () => {
     expect(onContinue).toHaveBeenCalledTimes(1)
   })
 
-  it('click-meaningfulness: defaults to a "Next puzzle" preview label, pinned in a sticky bottom bar', async () => {
+  it('click-meaningfulness: defaults to a "Next puzzle" preview label, pinned in a sticky bottom drawer', async () => {
     const user = userEvent.setup()
     const { container } = render(
       <PuzzleCardShell
@@ -195,10 +195,13 @@ describe('PuzzleCardShell', () => {
     // mobile-only, and AppShell now renders a fixed BottomNav at the
     // viewport bottom on mobile; flush bottom-0 would sit directly under it.
     expect(stickyBar).toHaveClass('bottom-[var(--bottom-nav-height)]')
-    // The button previews its destination outside the bordered feedback
-    // card, not nested inside it (a sticky element inside a rounded/bordered
-    // card would visually detach from that card's chrome once pinned).
-    expect(container.querySelector('.feedback-panel')?.contains(continueButton)).toBe(false)
+    // 2b.9 (feedback-fit bug): Continue now lives INSIDE the feedback-panel-
+    // styled drawer, not outside it — the whole panel is what's sticky now
+    // (banner + explanation + button pinned together as one unit), so
+    // nesting no longer detaches the button from the panel's chrome the way
+    // it did under the old "normal-flow panel + separate sticky bar" split
+    // (see FEEDBACK_DRAWER_CLASS's doc comment in PuzzleCardShell.tsx).
+    expect(container.querySelector('.feedback-panel')?.contains(continueButton)).toBe(true)
   })
 
   // Bug report (2026-08-12): the sticky bottom bar's solid bg-surface-0 read

@@ -81,32 +81,63 @@ function feedbackAccentClass(correct: boolean): string {
 const FEEDBACK_CONTINUE_CLASS =
   'flex items-center justify-center gap-2 min-h-11 w-full py-3.5 px-4 border-0 rounded-md bg-accent text-accent-ink text-base font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
-// 2b.2 (click-meaningfulness): pinned in its own sticky bar, OUTSIDE the
-// bordered feedback-panel card above — a sticky element nested inside a
-// rounded/bordered card would visually detach from that card's chrome once
-// pinned to the viewport edge, since the card's own background/border don't
-// scroll with it. `bg-surface-0 border-t border-border` matches PageShell's
-// own `stickyAction` slot treatment (PageShell.tsx) for the same reason:
-// this is functionally that same pinned-CTA pattern, kept local to this
+// 2b.9 (feedback-fit bug, 2026-08-21): mobile no longer splits the result
+// into a normal-flow feedback panel (scrolls away with the page) plus a
+// separate sticky bar holding only Continue (the original 2b.2 shape, kept
+// below for history) — the explanation text was routinely scrolled out of
+// reach even though the button stayed pinned, exactly the "user has to
+// scroll to see why" bug report. The whole result — icon/verdict/delta,
+// explanation, Continue — is now ONE sticky drawer: this class wraps it,
+// `feedbackPanelClass`/`drawerPanelClass` style the bordered panel inside
+// it. `bg-surface-0 border-t border-border` matches PageShell's own
+// `stickyAction` slot treatment (PageShell.tsx) for the same reason: this
+// is functionally that same pinned-CTA pattern, kept local to this
 // component instead of threading every caller through PageShell explicitly.
 //
-// 2b.2 follow-up (bug report, 2026-08-12): mobile-only as of this pass —
-// see `isDesktop` below. Desktop dropped the sticky bar entirely rather
-// than just re-coloring it: the bar's solid bg-surface-0 (even now that it
-// matches the true page background, index.css.test.ts) still had to sit
-// directly over a long feedback panel's scrolled-past text once the panel
-// grew taller than the viewport, since `position: sticky` pins it to the
-// viewport edge regardless of content height. Desktop has the width to
-// avoid that outright instead of just re-coloring the same overlap.
+// What makes this safe where a naive "just make the whole panel sticky"
+// attempt previously wasn't: `drawerPanelClass` caps the panel's height and
+// only the explanation paragraph inside it scrolls (`overflow-y-auto`).
+// Sticky positioning pins a box to the viewport edge but does nothing to
+// shrink its content — an uncapped panel with a long explanation grew
+// taller than the viewport and broke exactly the way this file's history
+// warns about. Capping the panel and scrolling only the explanation is what
+// keeps the banner and the button always visible regardless of explanation
+// length.
+//
+// 2b.2 (click-meaningfulness, original rationale — still why this drawer is
+// a sibling of `.puzzle-card`, not nested inside it): a sticky element
+// nested inside a normal-flow, non-sticky card would visually detach from
+// that card's chrome once pinned to the viewport edge, since the card's own
+// background/border don't scroll with it. Here the *entire* bordered panel
+// is what's sticky (not just a bar below it), so nesting Continue inside
+// that panel — instead of outside it, as the original 2b.2 bar did — no
+// longer has that problem: the whole thing, border/gradient/button
+// included, is one pinned unit.
+//
+// Desktop dropped the sticky treatment entirely (see `isDesktop` below)
+// rather than applying the same cap: desktop has the width to just place
+// Continue inline above a normal-flow, uncapped feedback panel instead.
 //
 // 2b.8: offset `bottom-[var(--bottom-nav-height)]`, not flush `bottom-0` —
 // AppShell.tsx now renders a fixed BottomNav at the viewport bottom on
-// mobile (this bar's only rendered width), and a flush offset would sit
-// this bar directly underneath it. No `lg:` fallback needed: this bar
-// never renders on desktop at all (see `isDesktop` below), unlike
+// mobile (this drawer's only rendered width), and a flush offset would sit
+// this drawer directly underneath it. No `lg:` fallback needed: this
+// drawer never renders on desktop at all (see `isDesktop` below), unlike
 // PageShell.tsx's `stickyAction` slot which does.
-const CONTINUE_BAR_CLASS =
-  'sticky bottom-[var(--bottom-nav-height)] z-10 pt-3 pb-3 bg-surface-0 border-t border-border'
+const FEEDBACK_DRAWER_CLASS =
+  'sticky bottom-[var(--bottom-nav-height)] z-10 bg-surface-0 border-t border-border'
+
+// Caps the drawer's panel so a long explanation scrolls *inside* it instead
+// of growing the panel past the viewport (see FEEDBACK_DRAWER_CLASS's
+// comment above for why that matters). `min-h` keeps the banner+button from
+// ever being squeezed out on a very short viewport; `max-h` is what
+// actually bounds growth. Children rely on this being `flex flex-col`
+// (inherited from `feedbackPanelClass`/`FEEDBACK_BASE`): the header row and
+// Continue button both get `flex-none` so only the explanation paragraph
+// (`flex-1 min-h-0 overflow-y-auto`) is the part that scrolls.
+function drawerPanelClass(correct: boolean): string {
+  return `${feedbackPanelClass(correct)} min-h-[128px] max-h-[46dvh]`
+}
 
 // Desktop's inline placement (see `isDesktop` below): same button, not
 // full-width (it sits beside the feedback panel's own width, right-aligned,
@@ -184,6 +215,71 @@ function continueLabel(destination: ContinueDestination): string {
   if (destination === 'results') return 'See results'
   if (destination === 'retry') return 'Try again'
   return 'Next puzzle'
+}
+
+function FeedbackIcon({ correct }: { correct: boolean }) {
+  return correct ? (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="var(--accent)"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  ) : (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="var(--danger)"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  )
+}
+
+/**
+ * Icon + verdict text + rating delta — identical between desktop's
+ * normal-flow feedback panel and mobile's drawer panel, so both build on
+ * this instead of hand-copying the same three spans. `flex-none` so it
+ * never shrinks inside the drawer's capped, `flex flex-col` panel (see
+ * `drawerPanelClass`'s doc comment) — only the explanation paragraph next
+ * to it is meant to give up height.
+ */
+function FeedbackHeader({
+  correct,
+  ratingDelta,
+}: {
+  correct: boolean
+  ratingDelta: number | null
+}) {
+  return (
+    <div className="flex items-center gap-2 flex-none">
+      <span className={`flex items-center ${feedbackAccentClass(correct)}`} aria-hidden="true">
+        <FeedbackIcon correct={correct} />
+      </span>
+      <span className={`flex-1 font-bold text-base ${feedbackAccentClass(correct)}`}>
+        {correct ? 'Nice — correct' : 'Not quite'}
+      </span>
+      {ratingDelta !== null && (
+        <span
+          className={`feedback-panel__delta font-mono font-bold tabular-nums ${feedbackAccentClass(correct)}`}
+        >
+          {ratingDelta > 0 ? `+${String(ratingDelta)}` : String(ratingDelta)}
+        </span>
+      )}
+    </div>
+  )
 }
 
 /** The Continue button itself — shared by both of its placements below (mobile's sticky bar, desktop's inline slot) so the two stay in sync instead of drifting as two hand-copied buttons. */
@@ -353,77 +449,44 @@ export function PuzzleCardShell({
         <div className="flex flex-col">{interactionBody}</div>
 
         {committed && committedPayload && isDesktop && (
-          <div className="flex justify-end">
-            <ContinueCta
-              className={DESKTOP_CONTINUE_CLASS}
-              destination={continueDestination}
-              onContinue={onContinue}
-            />
-          </div>
-        )}
-
-        {committed && committedPayload && (
-          <div className={feedbackPanelClass(committedPayload.correct)} role="status">
-            <div className="flex items-center gap-2">
-              <span
-                className={`flex items-center ${feedbackAccentClass(committedPayload.correct)}`}
-                aria-hidden="true"
-              >
-                {committedPayload.correct ? (
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="var(--accent)"
-                    strokeWidth="2.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                ) : (
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="var(--danger)"
-                    strokeWidth="2.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                )}
-              </span>
-              <span
-                className={`flex-1 font-bold text-base ${feedbackAccentClass(committedPayload.correct)}`}
-              >
-                {committedPayload.correct ? 'Nice — correct' : 'Not quite'}
-              </span>
-              {ratingDelta !== null && (
-                <span
-                  className={`feedback-panel__delta font-mono font-bold tabular-nums ${feedbackAccentClass(committedPayload.correct)}`}
-                >
-                  {ratingDelta > 0 ? `+${String(ratingDelta)}` : String(ratingDelta)}
-                </span>
-              )}
+          <>
+            <div className="flex justify-end">
+              <ContinueCta
+                className={DESKTOP_CONTINUE_CLASS}
+                destination={continueDestination}
+                onContinue={onContinue}
+              />
             </div>
-            <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">{puzzle.explanation}</p>
-          </div>
+            <div className={feedbackPanelClass(committedPayload.correct)} role="status">
+              <FeedbackHeader correct={committedPayload.correct} ratingDelta={ratingDelta} />
+              <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">
+                {puzzle.explanation}
+              </p>
+            </div>
+          </>
         )}
       </div>
 
       {committed && committedPayload && !isDesktop && (
-        <div className={CONTINUE_BAR_CLASS}>
-          <div className="w-full max-w-[var(--content-width-mobile)] mx-auto px-4">
-            <ContinueCta
-              className={FEEDBACK_CONTINUE_CLASS}
-              destination={continueDestination}
-              onContinue={onContinue}
-            />
+        <div className={FEEDBACK_DRAWER_CLASS}>
+          <div className="w-full max-w-[var(--content-width-mobile)] mx-auto px-4 py-3">
+            <div className={drawerPanelClass(committedPayload.correct)} role="status">
+              <FeedbackHeader correct={committedPayload.correct} ratingDelta={ratingDelta} />
+              {/* flex-1 min-h-0 is what lets this shrink and scroll inside
+                  the panel's flex column instead of forcing the panel past
+                  its max-height cap — see drawerPanelClass's doc comment. */}
+              <p
+                className="m-0 flex-1 min-h-0 overflow-y-auto text-text-0 text-[0.9375rem] leading-[1.45]"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
+                {puzzle.explanation}
+              </p>
+              <ContinueCta
+                className={`${FEEDBACK_CONTINUE_CLASS} flex-none`}
+                destination={continueDestination}
+                onContinue={onContinue}
+              />
+            </div>
           </div>
         </div>
       )}
