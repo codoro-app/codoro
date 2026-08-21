@@ -235,29 +235,28 @@ export function ShareMenu({ actions, trigger = 'button' }: ShareMenuProps) {
               setOpen(false)
             }}
           />
-          {/* 2b.13 (sheet not reaching the true bottom in the installed PWA,
-              2026-08-21): the previous version nested this inside a
-              `h-dvh`, `items-end` flex scrim to align it to the bottom —
-              on-device in the standalone PWA that left the sheet ending
-              short, with BottomNav still fully visible below it instead of
-              covered (the flex/`dvh` height match wasn't reliable there,
-              even though the same `h-dvh` swap *had* fixed the earlier
-              plain-Safari coverage bug in #79's first round). Anchoring the
-              sheet directly with `fixed inset-x-0 bottom-0` instead — the
-              exact same pattern BottomNav.tsx and PuzzleCardShell's own
-              feedback drawer already use successfully in this same PWA —
-              sidesteps the viewport-unit question entirely: the sheet is
-              flush with the true bottom by construction, regardless of
-              what `dvh`/`vh` resolve to. `max-h` + `overflow-y-auto` stays
-              as the belt-and-braces guarantee that every row is reachable
-              by scroll even if the visible viewport is shorter than
-              expected (e.g. plain Safari's own toolbar still showing). */}
+          {/* 2b.14 (still covered by BottomNav, 2026-08-21): flush `bottom-0`
+              puts this sheet in the exact same footprint BottomNav itself
+              occupies (also `position: fixed`, also anchored to the true
+              viewport bottom) — on-device that showed as the nav bar
+              covering the sheet's lower portion. `PuzzleCardShell`'s own
+              feedback drawer never has this problem because it doesn't sit
+              flush either: it's offset by `--bottom-nav-height` (see
+              FEEDBACK_DRAWER_CLASS's doc comment), clearing BottomNav
+              instead of overlapping its footprint. Same fix here — and
+              since it's spatial (no overlap to stack), it holds regardless
+              of whatever the actual z-index/height mechanism behind the
+              previous two attempts' symptoms was. `lg:bottom-0` on top:
+              BottomNav is `lg:hidden` (AppShell.tsx), so desktop — where
+              this sheet's `trigger="button"` variant also renders, e.g.
+              Daily/Rush/Challenge — has nothing to clear and shouldn't
+              carry the gap. */}
           <div
             ref={sheetRef}
             role="dialog"
             aria-modal="true"
             aria-label="Share"
-            className="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-[var(--content-width-mobile)] max-h-[85dvh] overflow-y-auto flex flex-col gap-0.5 bg-surface-1 border border-border border-b-0 rounded-t-lg shadow-lg p-4 pb-[calc(var(--space-4)+env(safe-area-inset-bottom))]"
+            className="fixed inset-x-0 bottom-[var(--bottom-nav-height)] lg:bottom-0 z-30 mx-auto w-full max-w-[var(--content-width-mobile)] max-h-[85dvh] overflow-y-auto flex flex-col gap-0.5 bg-surface-1 border border-border border-b-0 rounded-t-lg shadow-lg p-4 pb-[calc(var(--space-4)+env(safe-area-inset-bottom))]"
             onClick={(event) => {
               event.stopPropagation()
             }}
