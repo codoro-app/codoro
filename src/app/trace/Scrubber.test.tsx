@@ -21,18 +21,6 @@ function readVarRows(container: HTMLElement): [string, string][] {
   ])
 }
 
-/**
- * jsdom never lays out real content, so scrollWidth/clientWidth default to
- * 0 — stub them on Element.prototype for the duration of one test so the
- * code pane's useAutoShrinkFontScale measurement has real overflow to react
- * to. Restored via afterEach so other test files' unrelated renders aren't
- * affected. Same technique as CodeSnippet.test.tsx's own stubMeasurements.
- */
-function stubMeasurements(scrollWidth: number, clientWidth: number) {
-  vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(scrollWidth)
-  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(clientWidth)
-}
-
 function getCodePaneElement(container: HTMLElement): HTMLElement {
   const pane = container.querySelector<HTMLElement>('.scrubber__code')
   if (!pane) {
@@ -348,9 +336,16 @@ describe('Scrubber', () => {
     consoleError.mockRestore()
   })
 
-  it('does not shrink or mark scrollable when every code line already fits', () => {
-    stubMeasurements(300, 400)
-
+  /*
+   * Replaces three tests of the old measure-and-shrink code pane
+   * (`--scrubber-font-scale` in [0.7, 1] plus a `scrubber__code--scrollable`
+   * fallback), deleted 2026-08-21. Trace shares Practice's code type scale,
+   * so it has to share Practice's rule too — see CodeSnippet.tsx's doc
+   * comment for the whole rationale. Guarding the invariant here is what
+   * stops Trace quietly drifting back to a different code size than
+   * Practice, which is one half of the inconsistency that was reported.
+   */
+  it('renders the code pane at the shared code size with no per-pane scale or scroll', () => {
     const { container } = render(
       <Scrubber
         snippet={snippet}
@@ -363,16 +358,13 @@ describe('Scrubber', () => {
     )
     const pane = getCodePaneElement(container)
 
+    expect(pane.className).toContain('text-code')
+    expect(pane.style.getPropertyValue('--scrubber-font-scale')).toBe('')
     expect(pane.className).not.toContain('scrubber__code--scrollable')
-    expect(pane.style.getPropertyValue('--scrubber-font-scale')).toBe('1')
+    expect(pane.className).not.toContain('overflow-x-auto')
   })
 
-  it('shrinks the code pane font to fit when the widest line moderately overflows', () => {
-    // clientWidth 300 / scrollWidth 360 -> scale 300/360 = 0.8333..., above
-    // the 0.7 floor, so this should fit at a shrunk (not floored) scale and
-    // not need the scroll affordance.
-    stubMeasurements(360, 300)
-
+  it('wraps long code lines rather than clipping them to one row', () => {
     const { container } = render(
       <Scrubber
         snippet={snippet}
@@ -384,31 +376,12 @@ describe('Scrubber', () => {
       />,
     )
     const pane = getCodePaneElement(container)
+    const codeSpans = pane.querySelectorAll<HTMLElement>('span[class*="whitespace-"]')
 
-    const scale = Number(pane.style.getPropertyValue('--scrubber-font-scale'))
-    expect(scale).toBeCloseTo(300 / 360, 5)
-    expect(pane.className).not.toContain('scrubber__code--scrollable')
-  })
-
-  it('floors the code pane shrink and falls back to a scrollable affordance for extreme overflow', () => {
-    // clientWidth 100 / scrollWidth 1000 would compute scale 0.1, well
-    // under the 0.7 floor — must clamp to the floor and mark scrollable
-    // rather than shrinking text to the point of illegibility.
-    stubMeasurements(1000, 100)
-
-    const { container } = render(
-      <Scrubber
-        snippet={snippet}
-        language="javascript"
-        steps={steps}
-        stepIndex={0}
-        onScrub={vi.fn()}
-        maxAllowedIndex={4}
-      />,
-    )
-    const pane = getCodePaneElement(container)
-
-    expect(pane.style.getPropertyValue('--scrubber-font-scale')).toBe('0.7')
-    expect(pane.className).toContain('scrubber__code--scrollable')
+    expect(codeSpans.length).toBeGreaterThan(0)
+    codeSpans.forEach((span) => {
+      expect(span.className).toContain('whitespace-pre-wrap')
+      expect(span.className).toContain('min-w-0')
+    })
   })
 })

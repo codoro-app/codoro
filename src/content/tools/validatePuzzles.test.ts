@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  findLongSnippetLines,
+  SNIPPET_LINE_LENGTH_MAX,
   validateBossRun,
   validateDailyCalendar,
   validateInteractionMix,
@@ -459,5 +461,55 @@ describe('validateBossRun', () => {
   it('flags a rating that steps down instead of escalating', () => {
     const errors = validateBossRun(['boss-001', 'boss-002', 'boss-003'], [boss1, boss2, boss3])
     expect(errors.some((e) => e.includes('must escalate'))).toBe(true)
+  })
+})
+
+describe('findLongSnippetLines', () => {
+  /** A ValidatedPuzzle carrying just the fields this check reads. */
+  function withSnippet(id: string, snippet: string): ValidatedPuzzle {
+    return {
+      filePath: `${id}.json`,
+      puzzle: { id, snippet } as unknown as Puzzle,
+    }
+  }
+
+  it('returns nothing when every snippet line is within the cap', () => {
+    const puzzles = [withSnippet('a-001', 'int x = 1;\nint y = 2;')]
+    expect(findLongSnippetLines(puzzles)).toEqual([])
+  })
+
+  it('reports a puzzle by its LONGEST line, not its first or last', () => {
+    const long = 'x'.repeat(SNIPPET_LINE_LENGTH_MAX + 10)
+    const puzzles = [withSnippet('a-001', `short;\n${long}\nalso short;`)]
+
+    const warnings = findLongSnippetLines(puzzles)
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]?.id).toBe('a-001')
+    expect(warnings[0]?.longestLine).toBe(SNIPPET_LINE_LENGTH_MAX + 10)
+  })
+
+  it('is exclusive at the boundary — exactly MAX chars is fine, one more is not', () => {
+    const atCap = [withSnippet('a-001', 'x'.repeat(SNIPPET_LINE_LENGTH_MAX))]
+    const overCap = [withSnippet('a-002', 'x'.repeat(SNIPPET_LINE_LENGTH_MAX + 1))]
+
+    expect(findLongSnippetLines(atCap)).toEqual([])
+    expect(findLongSnippetLines(overCap)).toHaveLength(1)
+  })
+
+  it('sorts worst first so a capped report shows the biggest offenders', () => {
+    const puzzles = [
+      withSnippet('a-001', 'x'.repeat(SNIPPET_LINE_LENGTH_MAX + 5)),
+      withSnippet('a-002', 'x'.repeat(SNIPPET_LINE_LENGTH_MAX + 30)),
+      withSnippet('a-003', 'x'.repeat(SNIPPET_LINE_LENGTH_MAX + 12)),
+    ]
+
+    expect(findLongSnippetLines(puzzles).map((w) => w.id)).toEqual(['a-002', 'a-003', 'a-001'])
+  })
+
+  it('honours a caller-supplied cap, so a future tightening needs no code change here', () => {
+    const puzzles = [withSnippet('a-001', 'x'.repeat(40))]
+
+    expect(findLongSnippetLines(puzzles)).toEqual([])
+    expect(findLongSnippetLines(puzzles, 33)).toHaveLength(1)
   })
 })

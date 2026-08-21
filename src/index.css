@@ -61,6 +61,8 @@
 
   --text-xs: var(--font-size-xs);
   --text-sm: var(--font-size-sm);
+  /* `text-code` -- the single code type size, see --font-size-code below. */
+  --text-code: var(--font-size-code);
   --text-base: var(--font-size-base);
   --text-md: var(--font-size-md);
   --text-lg: var(--font-size-lg);
@@ -173,6 +175,16 @@
   /* --- type scale (font-size) --- */
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.8125rem;
+  /*
+   * The ONE size every code surface renders at -- CodeSnippet (practice),
+   * Scrubber (trace) and DragOrder's row text all read this and nothing
+   * else. It replaced a per-surface, measured-in-JS shrink scale
+   * (`useAutoShrinkFontScale`, deleted 2026-08-21) that let every card pick
+   * its own multiplier in [0.7, 1.0] from its own longest line, so two
+   * consecutive cards legitimately rendered code at two different sizes.
+   * If you change this, change it here only.
+   */
+  --font-size-code: 0.8125rem;
   --font-size-base: 0.875rem;
   --font-size-md: 0.9375rem;
   --font-size-lg: 1rem;
@@ -209,6 +221,34 @@
 :root {
   color-scheme: dark;
   font-family: var(--font-ui);
+}
+
+/*
+ * Mobile PWA bug report, 2026-08-21: inside an installed iOS PWA, individual
+ * lines of a code snippet rendered at visibly different sizes from their
+ * neighbours in the SAME snippet -- the longest, overflowing line was
+ * inflated roughly 1.5x while the short lines around it stayed at the
+ * authored size. That is WebKit's text auto-sizing ("font boosting"): it
+ * picks a per-block multiplier from how wide a block is relative to the
+ * viewport, so a line wide enough to overflow the card got boosted and the
+ * lines that fit did not. Nothing in this codebase had ever set
+ * `text-size-adjust`, so the UA default (`auto` on iOS) was in force
+ * everywhere.
+ *
+ * `100%` means "apply the author's font-size, do not inflate it" -- it is
+ * NOT the same as `none`, which additionally breaks the user's ability to
+ * pinch-zoom text in some engines. Set on `html` so it inherits to
+ * everything; the `-webkit-` prefix is the one iOS Safari actually reads.
+ *
+ * Note this is belt-and-braces alongside the wrap-don't-scroll change to
+ * CodeSnippet/Scrubber/DragOrder (same bug report): with no horizontally
+ * overflowing blocks left, the autosizer has far less to grab onto anyway.
+ * Keep both -- the wrap fix is about layout, this is about the UA
+ * overriding a computed font-size we asked for.
+ */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 * {

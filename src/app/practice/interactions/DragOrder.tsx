@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import type { InteractionBodyProps } from '../interactionTypes'
 import type { DragOrderPuzzle } from '../../../content'
@@ -11,7 +11,6 @@ import {
   restCenterAt,
 } from '../dragOrderReorder'
 import type { RowLayout } from '../dragOrderReorder'
-import { computeShrinkScale, DEFAULT_MIN_FONT_SCALE } from '../autoShrinkFontScale'
 
 interface DragState {
   /** Identity of the dragged block — a `puzzle.blocks` index, fixed for the whole gesture. Rows render in fixed DOM order by this index (see the component doc comment); only this block's *position* within `order` moves. */
@@ -90,35 +89,6 @@ function measureLayout(
   return { heights, gap }
 }
 
-interface RowFontInfo {
-  /** Shared across every row (`Math.min` of each row's own required scale) so all rows shrink together instead of drifting to different sizes — same shrink-to-fit behavior CodeSnippet.tsx/Scrubber.tsx use, applied per-row here since drag-order has no single container to measure. */
-  scale: number
-  /** Block indices whose own text still overflows at `scale` (i.e. their own required scale was below the shared floor) — only these rows get the scroll-fade affordance, not every row. */
-  scrollableBlockIndices: ReadonlySet<number>
-}
-
-const DEFAULT_ROW_FONT_INFO: RowFontInfo = { scale: 1, scrollableBlockIndices: new Set() }
-
-/**
- * Measures every row's own text width against its available width (mirrors
- * CodeSnippet.tsx's shrink-to-fit, generalized to N independent rows sharing
- * one font-size instead of one container). A row whose own required scale
- * would need MORE shrink than the group's floor allows keeps its own
- * scroll-fade affordance rather than forcing every other row to shrink past
- * what it needs.
- */
-function measureRowFontScale(textRefs: readonly (HTMLSpanElement | null)[]): RowFontInfo {
-  let scale = 1
-  const scrollableBlockIndices = new Set<number>()
-  textRefs.forEach((el, blockIndex) => {
-    if (!el) return
-    const result = computeShrinkScale(el.scrollWidth, el.clientWidth, DEFAULT_MIN_FONT_SCALE)
-    scale = Math.min(scale, result.scale)
-    if (result.scrollable) scrollableBlockIndices.add(blockIndex)
-  })
-  return { scale, scrollableBlockIndices }
-}
-
 /**
  * Native-Pointer-Events drag-to-reorder list — no gesture library dependency
  * (unlike SwipeBinary's `@use-gesture/react`; drag-order was deliberately
@@ -192,8 +162,6 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
 
   const listRef = useRef<HTMLDivElement | null>(null)
   const rowRefs = useRef<(HTMLDivElement | null)[]>([])
-  const textRefs = useRef<(HTMLSpanElement | null)[]>([])
-  const [rowFontInfo, setRowFontInfo] = useState<RowFontInfo>(DEFAULT_ROW_FONT_INFO)
   const startClientYRef = useRef(0)
   const startCenterRef = useRef(0)
   const layoutRef = useRef<RowLayout | null>(null)
@@ -213,47 +181,6 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
     layoutRef.current = measureLayout(rowRefs.current, listRef.current)
     activePointerIdRef.current = null
   }, [puzzle.id])
-
-  // Separate from the layout effect above: re-measured on `committed` too,
-  // not just `puzzle.id` — the locked view (below) renders a different set
-  // of row-text spans (a numbered badge instead of the drag handle to their
-  // left), which can leave a different amount of width for the text, so the
-  // shared scale computed for the interactive view isn't guaranteed to still
-  // be correct once the locked view mounts. Re-measures on resize too (same
-  // ResizeObserver-guarded-for-jsdom pattern as useAutoShrinkFontScale),
-  // since drag-order doesn't route through that shared hook (one scale
-  // spans N independent row elements here, not one container).
-  useLayoutEffect(() => {
-    const el = listRef.current
-    if (!el) return
-
-    const measure = () => {
-      // Reset to the unscaled baseline before measuring, imperatively —
-      // the CSS var lives on `el` (the list) and cascades down to every
-      // `.drag-order__row-text` span being measured, so without this a
-      // re-measure (e.g. on resize) would read scrollWidth against
-      // already-shrunk text and compound the previous shrink instead of
-      // computing a fresh scale from the real content width every time.
-      // Same reasoning as useAutoShrinkFontScale's own reset-before-measure
-      // step; done imperatively here (not just via the state set below)
-      // because the state update that would otherwise reset it hasn't
-      // committed to the DOM yet at the point this function reads
-      // scrollWidth.
-      el.style.setProperty('--drag-order-font-scale', '1')
-      const info = measureRowFontScale(textRefs.current)
-      el.style.setProperty('--drag-order-font-scale', String(info.scale))
-      setRowFontInfo(info)
-    }
-
-    measure()
-
-    if (typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    return () => {
-      observer.disconnect()
-    }
-  }, [puzzle.id, committed])
 
   const locked = committed || submitted
 
@@ -371,29 +298,19 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
     onCommit({ correct, choiceIndex: null })
   }
 
-  // Shared by both branches below — a block's own text keeps the scroll-fade
-  // affordance only when ITS required scale is still below the shared floor
-  // at the group's shared scale (see measureRowFontScale's doc comment); the
-  // CSS var itself is shared by every row via the list container it cascades
-  // down from.
-  const rowTextClassName = (blockIndex: number) =>
-    [
-      'drag-order__row-text',
-      rowFontInfo.scrollableBlockIndices.has(blockIndex) && 'drag-order__row-text--scrollable',
-    ]
-      .filter(Boolean)
-      .join(' ')
-  const listStyle = { '--drag-order-font-scale': rowFontInfo.scale } as CSSProperties
+  // 2026-08-21: was a per-row scroll-fade class plus a shared, measured-in-JS
+  // `--drag-order-font-scale`. Both are gone -- rows render at the app's one
+  // code size (`--font-size-code`) and long text WRAPS instead of scrolling.
+  // CodeSnippet.tsx's doc comment carries the full rationale; the short
+  // version is that the per-surface shrink scale is what made type size
+  // inconsistent between cards, and a horizontally scrolling row is a
+  // gesture container competing with the drag that owns this component.
+  const rowTextClassName = () => 'drag-order__row-text'
 
   if (committed) {
     return (
       <div className="drag-order">
-        <div
-          ref={listRef}
-          className="drag-order__list drag-order__list--locked"
-          role="list"
-          style={listStyle}
-        >
+        <div ref={listRef} className="drag-order__list drag-order__list--locked" role="list">
           {order.map((blockIndex, position) => {
             const state: AnswerState =
               puzzle.correct_order[position] === blockIndex ? 'correct' : 'wrong'
@@ -406,14 +323,7 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
                 <span className="drag-order__row-badge" aria-hidden="true">
                   {position + 1}
                 </span>
-                <span
-                  className={rowTextClassName(blockIndex)}
-                  ref={(el) => {
-                    textRefs.current[blockIndex] = el
-                  }}
-                >
-                  {puzzle.blocks[blockIndex]}
-                </span>
+                <span className={rowTextClassName()}>{puzzle.blocks[blockIndex]}</span>
               </div>
             )
           })}
@@ -431,7 +341,7 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
       <p className="drag-order__hint">
         Drag the blocks into the correct order (or focus a block and use the up/down arrow keys).
       </p>
-      <div className="drag-order__list" role="list" ref={listRef} style={listStyle}>
+      <div className="drag-order__list" role="list" ref={listRef}>
         {puzzle.blocks.map((text, blockIndex) => {
           const position = order.indexOf(blockIndex)
           const isDragging = dragState?.blockIndex === blockIndex
@@ -465,14 +375,7 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
               <span className="drag-order__handle" aria-hidden="true">
                 <GripIcon size={24} />
               </span>
-              <span
-                className={rowTextClassName(blockIndex)}
-                ref={(el) => {
-                  textRefs.current[blockIndex] = el
-                }}
-              >
-                {text}
-              </span>
+              <span className={rowTextClassName()}>{text}</span>
             </div>
           )
         })}

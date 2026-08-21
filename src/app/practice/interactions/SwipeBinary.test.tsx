@@ -58,12 +58,32 @@ const puzzle: SwipeBinaryPuzzle = {
   correct_verdict: 'bug',
 }
 
-function Harness({ onCommit }: { onCommit?: (p: CommitPayload) => void }) {
+/**
+ * A snippet whose longest line is well past what fits on a phone card (~33
+ * characters at the app's code size on a 393px-wide viewport). Under the
+ * pre-2026-08-21 renderer this content is exactly what tipped a snippet into
+ * `code-snippet--scrollable` and made the card unswipeable; it now wraps and
+ * changes nothing about the gesture. Used by the regression block below.
+ */
+const LONG_SNIPPET =
+  'public class Report {\n' +
+  '  public static String formatPrice(double price) {\n' +
+  '    return String.format("Price: $%d", price);\n' +
+  '  }\n' +
+  '}'
+
+function Harness({
+  onCommit,
+  snippet,
+}: {
+  onCommit?: (p: CommitPayload) => void
+  snippet?: string
+}) {
   const [committed, setCommitted] = useState(false)
   const [payload, setPayload] = useState<CommitPayload | undefined>(undefined)
   return (
     <SwipeBinary
-      puzzle={puzzle}
+      puzzle={snippet === undefined ? puzzle : { ...puzzle, snippet }}
       committed={committed}
       committedPayload={payload}
       onCommit={(p) => {
@@ -88,17 +108,19 @@ function getSnippet(container: HTMLElement): HTMLElement {
 }
 
 /**
- * jsdom never lays out real content, so scrollWidth/clientWidth default to
- * 0 — stub them on Element.prototype for the duration of one test so the
- * nested CodeSnippet's own auto-shrink measurement reports a real,
- * `code-snippet--scrollable` overflow. Same technique as
- * CodeSnippet.test.tsx's own stubMeasurements. Restored via afterEach
- * (installMockClock already does this via vi.restoreAllMocks).
+ * `stubExtremeSnippetOverflow()` used to live here: it faked
+ * scrollWidth/clientWidth so the nested CodeSnippet would mark itself
+ * `code-snippet--scrollable` and this component would divert the touch into
+ * the snippet's own scroll. Both the stub and the behavior it exercised were
+ * deleted on 2026-08-21 — code snippets wrap and never scroll horizontally,
+ * so there is no competing scroll container to forward to. See
+ * CodeSnippet.tsx's doc comment and the deleted-function note in
+ * SwipeBinary.tsx.
+ *
+ * What replaces it is the opposite assertion: a snippet with content long
+ * enough that it USED to become scrollable must now drag the card like any
+ * other part of the surface. `LONG_SNIPPET` below is that fixture.
  */
-function stubExtremeSnippetOverflow() {
-  vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(1000)
-  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(100)
-}
 
 const TOUCH_ID = 7
 
@@ -404,63 +426,78 @@ describe('SwipeBinary', () => {
     })
   })
 
-  describe("scrollable snippet scroll forwarding (does not swallow the snippet's own horizontal scroll)", () => {
+  /*
+   * Regression block for the mobile PWA report of 2026-08-21: a swipe that
+   * started on a long code snippet did nothing at all.
+   *
+   * Cause (see SwipeBinary.tsx's deleted-function note and CodeSnippet.tsx):
+   * a snippet whose longest line overflowed became a horizontal scroll
+   * container, and this component deliberately handed any touch starting
+   * there to `snippetEl.scrollLeft` instead of the card drag. Since the
+   * snippet covers nearly the whole card, that made long-code puzzles
+   * effectively unswipeable — and dragging RIGHT clamped `scrollLeft` at 0,
+   * so the gesture produced no movement whatsoever. Roughly 28% of the
+   * puzzle corpus rendered in that state on a phone.
+   *
+   * The tests this replaces asserted the forwarding worked. These assert it
+   * is gone: the snippet is part of the drag surface, full stop, and content
+   * length changes nothing about that.
+   */
+  describe('a touch starting on the code snippet drags the card (2026-08-21 regression)', () => {
     installMockClock()
 
-    it("forwards a touch starting on a scrollable snippet to the snippet's own scroll, not the card's drag", () => {
-      stubExtremeSnippetOverflow()
-      const { container } = render(<Harness />)
+    it('drags the card when the touch starts on a long snippet, not a scroll', () => {
+      const { container } = render(<Harness snippet={LONG_SNIPPET} />)
       const snippet = getSnippet(container)
-      expect(snippet.className).toContain('code-snippet--scrollable')
 
       touchStart(snippet, 0, 0)
       advanceClock(50)
       touchMove(snippet, 30, 0) // resolves the axis horizontal
-      touchMove(snippet, 80, 0) // well past the 60px preview-halfway point
+      touchMove(snippet, 80, 0) // past the 60px preview-halfway point
 
-      // The card's own `x` motion value was never set — no drag preview,
-      // even though 80px would normally be well past the halfway point
-      // (framer-motion's own style writes are rAF-batched and don't flush
-      // synchronously in jsdom, so `--previewing`, driven by a
-      // `useMotionValueEvent` subscriber -> React state, is the reliable
-      // synchronous signal here, not `card.style.transform`).
-      expect(screen.getByText('Race condition').className).not.toContain('--previewing')
-      // ...the snippet's own scroll position moved instead.
-      expect(snippet.scrollLeft).not.toBe(0)
+      // framer-motion's own style writes are rAF-batched and don't flush
+      // synchronously in jsdom, so `--previewing` (a useMotionValueEvent
+      // subscriber -> React state) is the reliable synchronous signal here,
+      // not `card.style.transform`.
+      expect(screen.getByText('Race condition').className).toContain('--previewing')
+      // And nothing scrolled: the snippet is not a scroll container at all.
+      expect(snippet.scrollLeft).toBe(0)
     })
 
-    it('still calls preventDefault on a snippet-origin touchstart (forwarding still claims the touch, it does not skip preventDefault)', () => {
-      stubExtremeSnippetOverflow()
-      const { container } = render(<Harness />)
+    it('commits a full swipe that starts on a long snippet', () => {
+      const onCommit = vi.fn()
+      const { container } = render(<Harness snippet={LONG_SNIPPET} onCommit={onCommit} />)
+      const snippet = getSnippet(container)
+
+      touchStart(snippet, 0, 0)
+      advanceClock(50)
+      touchMove(snippet, 40, 0)
+      touchMove(snippet, 130, 0)
+      touchEnd(snippet, 130, 0)
+
+      expect(onCommit).toHaveBeenCalledTimes(1)
+    })
+
+    it('renders a long snippet without becoming a horizontal scroll container', () => {
+      const { container } = render(<Harness snippet={LONG_SNIPPET} />)
+      const snippet = getSnippet(container)
+
+      expect(snippet.className).not.toContain('code-snippet--scrollable')
+      expect(snippet.className).not.toContain('overflow-x-auto')
+    })
+
+    it('still calls preventDefault on a snippet-origin touchstart (OD-5: the card claims every touch)', () => {
+      const { container } = render(<Harness snippet={LONG_SNIPPET} />)
       const snippet = getSnippet(container)
 
       const down = touchStart(snippet, 0, 0)
       expect(down.defaultPrevented).toBe(true)
     })
 
-    it('does not forward when the snippet fits (not scrollable) — a touch there still drags the card normally', () => {
-      // No stubExtremeSnippetOverflow here: scrollWidth/clientWidth default
-      // to 0 in jsdom, i.e. no overflow, so CodeSnippet never marks itself
-      // scrollable.
-      const { container } = render(<Harness />)
-      const snippet = getSnippet(container)
-      expect(snippet.className).not.toContain('code-snippet--scrollable')
-
-      touchStart(snippet, 0, 0)
-      advanceClock(50)
-      touchMove(snippet, 30, 0)
-      touchMove(snippet, 80, 0)
-
-      expect(screen.getByText('Race condition').className).toContain('--previewing')
-    })
-
-    it('a touch starting elsewhere on the card (not the snippet) still drags the card normally, even with a scrollable snippet present', () => {
-      stubExtremeSnippetOverflow()
-      const { container } = render(<Harness />)
+    it('a touch starting elsewhere on the card still drags it, long snippet or not', () => {
+      const { container } = render(<Harness snippet={LONG_SNIPPET} />)
       const card = getCard(container)
 
-      // Dispatched on the card itself, not the snippet — e.g. the buttons
-      // row / padding area, matching every other swipe test in this file.
       touchStart(card, 0, 0)
       advanceClock(50)
       touchMove(card, 30, 0)
