@@ -204,6 +204,56 @@ describe('PuzzleCardShell', () => {
     expect(container.querySelector('.feedback-panel')?.contains(continueButton)).toBe(true)
   })
 
+  it('shareActions: renders no share trigger when omitted, and an icon trigger beside Continue when provided (2b.11)', async () => {
+    const user = userEvent.setup()
+    const onShared = vi.fn()
+    const { rerender } = render(
+      <PuzzleCardShell
+        puzzle={mcqPuzzle}
+        ratingDelta={null}
+        onAnswered={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+
+    expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument()
+
+    rerender(
+      <PuzzleCardShell
+        puzzle={mcqPuzzle}
+        ratingDelta={null}
+        onAnswered={vi.fn()}
+        onContinue={vi.fn()}
+        shareActions={[
+          {
+            id: 'puzzle',
+            label: 'Share puzzle',
+            copiedLabel: 'Copied!',
+            copyAriaLabel: 'Copy puzzle link',
+            text: 'share text',
+            onShared,
+          },
+        ]}
+      />,
+    )
+
+    const shareTrigger = screen.getByRole('button', { name: 'Share' })
+    // Icon-only in this footer row (PuzzleCardShellProps' shareActions doc
+    // comment) — same "Share" accessible name as the labelled variant used
+    // elsewhere, but no visible text content, so it stays compact next to
+    // Continue instead of competing with it for width.
+    expect(shareTrigger).not.toHaveTextContent('Share')
+    expect(shareTrigger.closest('.feedback-panel')).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Next puzzle' }).closest('.feedback-panel')).toBe(
+      shareTrigger.closest('.feedback-panel'),
+    )
+
+    await user.click(shareTrigger)
+    await user.click(screen.getByRole('button', { name: 'Share puzzle' }))
+    expect(onShared).toHaveBeenCalledTimes(1)
+  })
+
   // Bug report (2026-08-12): the sticky bottom bar's solid bg-surface-0 read
   // as a "block of darker color than the background" and, on a tall
   // feedback panel, overlapped its scrolled-past text. Desktop has room to

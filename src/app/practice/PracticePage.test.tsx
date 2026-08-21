@@ -127,7 +127,7 @@ describe('PracticePage', () => {
     await user.click(screen.getByRole('button', { name: 'Share' }))
 
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
-    await user.click(screen.getByRole('menuitem', { name: 'Share puzzle' }))
+    await user.click(screen.getByRole('button', { name: 'Share puzzle' }))
     expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('Codoro Practice —'))
     expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('getcodoro.com/puzzle/'))
     expect(trackShareClick).toHaveBeenCalledTimes(1)
@@ -160,7 +160,7 @@ describe('PracticePage', () => {
     // still be the same accumulated spy — clear it so calls[0] is this
     // test's own write, not a leftover.
     writeTextSpy.mockClear()
-    await user.click(screen.getByRole('menuitem', { name: 'Share challenge' }))
+    await user.click(screen.getByRole('button', { name: 'Share challenge' }))
 
     expect(trackChallengeCreate).toHaveBeenCalledTimes(1)
     expect(trackChallengeCreate).toHaveBeenCalledWith({ surface: 'practice', puzzle_count: 1 })
@@ -175,7 +175,7 @@ describe('PracticePage', () => {
     expect(decoded?.ids).toHaveLength(1)
 
     await waitFor(() => {
-      expect(screen.getByRole('menuitem', { name: 'Link copied!' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Link copied!' })).toBeInTheDocument()
     })
   })
 

@@ -23,6 +23,8 @@ import { SwipeBinary } from './interactions/SwipeBinary'
 import { TapLine } from './interactions/TapLine'
 import { DragOrder } from './interactions/DragOrder'
 import { useMediaQuery } from '../useMediaQuery'
+import { ShareMenu } from '../ShareMenu'
+import type { ShareAction } from '../ShareMenu'
 import '../tokens.css'
 import './practice.css'
 
@@ -44,6 +46,17 @@ export interface PuzzleCardShellProps {
   forcedCommit?: CommitPayload | undefined
   /** What pressing Continue does next — previewed on the button itself (icon + label). Defaults to `'next-puzzle'`. See `ContinueDestination`'s own doc comment. */
   continueDestination?: ContinueDestination
+  /**
+   * Share/challenge actions to offer from the mobile drawer's footer, as a
+   * compact icon trigger beside Continue (2b.11 — see ShareMenu.tsx's own
+   * doc comment for why this moved here instead of staying page-level
+   * content the caller renders after this shell). Omitted or empty renders
+   * no trigger. Desktop is unaffected — callers that also want sharing
+   * there render their own `<ShareMenu trigger="button">` in normal page
+   * flow, same as before (see PracticePage.tsx); desktop's feedback panel
+   * was never buried, so it didn't need to move.
+   */
+  shareActions?: readonly ShareAction[]
 }
 
 interface CommitState {
@@ -78,8 +91,13 @@ function feedbackPanelClass(correct: boolean): string {
 function feedbackAccentClass(correct: boolean): string {
   return correct ? 'text-accent' : 'text-danger'
 }
+// 2b.11: `w-full` dropped in favor of `flex-1` inside the footer row this
+// button now shares with the mobile drawer's optional share trigger (see
+// PuzzleCardShellProps' `shareActions` doc comment) — `flex-1` fills that
+// row exactly the same way `w-full` filled the panel when this was the
+// row's only child, so the no-share-actions case renders identically.
 const FEEDBACK_CONTINUE_CLASS =
-  'flex items-center justify-center gap-2 min-h-11 w-full py-3.5 px-4 border-0 rounded-md bg-accent text-accent-ink text-base font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+  'flex items-center justify-center gap-2 min-h-11 py-3.5 px-4 border-0 rounded-md bg-accent text-accent-ink text-base font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
 // 2b.9 (feedback-fit bug, 2026-08-21): mobile no longer splits the result
 // into a normal-flow feedback panel (scrolls away with the page) plus a
@@ -317,6 +335,7 @@ export function PuzzleCardShell({
   onContinue,
   forcedCommit,
   continueDestination = 'next-puzzle',
+  shareActions = [],
 }: PuzzleCardShellProps) {
   const [commit, setCommit] = useState<CommitState | null>(null)
   // Purely a Continue-button placement switch (bug report, 2026-08-12) — see
@@ -481,11 +500,21 @@ export function PuzzleCardShell({
               >
                 {puzzle.explanation}
               </p>
-              <ContinueCta
-                className={`${FEEDBACK_CONTINUE_CLASS} flex-none`}
-                destination={continueDestination}
-                onContinue={onContinue}
-              />
+              {/* 2b.11: footer row, not just the button — the share trigger
+                  (when there are any shareActions) sits beside Continue
+                  instead of after this shell's rendered output the way
+                  ShareMenu used to, which is what let it get buried below
+                  this very drawer once it went sticky. `flex-none` on the
+                  row keeps it from being squeezed by the scrolling
+                  explanation above it, same as the row it replaces. */}
+              <div className="flex items-stretch gap-2 flex-none">
+                {shareActions.length > 0 && <ShareMenu actions={shareActions} trigger="icon" />}
+                <ContinueCta
+                  className={`${FEEDBACK_CONTINUE_CLASS} flex-1`}
+                  destination={continueDestination}
+                  onContinue={onContinue}
+                />
+              </div>
             </div>
           </div>
         </div>

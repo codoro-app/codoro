@@ -137,14 +137,14 @@ describe('RushPage', () => {
     await user.click(screen.getByRole('button', { name: 'Share' }))
 
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
-    await user.click(screen.getByRole('menuitem', { name: 'Share puzzle' }))
+    await user.click(screen.getByRole('button', { name: 'Share puzzle' }))
 
     expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('Codoro Rush —'))
     expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('getcodoro.com/puzzle/'))
     expect(trackShareClick).toHaveBeenCalledTimes(1)
     expect(trackShareClick).toHaveBeenCalledWith(expect.objectContaining({ surface: 'rush' }))
     await waitFor(() => {
-      expect(screen.getByRole('menuitem', { name: 'Copied!' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument()
     })
   })
 
@@ -164,7 +164,7 @@ describe('RushPage', () => {
     await user.click(screen.getByRole('button', { name: 'Share' }))
 
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
-    await user.click(screen.getByRole('menuitem', { name: 'Share challenge' }))
+    await user.click(screen.getByRole('button', { name: 'Share challenge' }))
 
     expect(trackChallengeCreate).toHaveBeenCalledTimes(1)
     // All three run attempts (none correct here) are encoded — puzzle_count
@@ -182,7 +182,7 @@ describe('RushPage', () => {
     expect(decoded?.results.every((result) => !result.correct)).toBe(true)
 
     await waitFor(() => {
-      expect(screen.getByRole('menuitem', { name: 'Link copied!' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Link copied!' })).toBeInTheDocument()
     })
   })
 })

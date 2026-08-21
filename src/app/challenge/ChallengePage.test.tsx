@@ -255,6 +255,10 @@ describe('ChallengePageForHash — comparison screen + counter-challenge', () =>
       screen.getByText(/You beat the challenge|friend beat you|it.s a tie/i),
     ).toBeInTheDocument()
     expect(screen.getByText(/they got/i)).toBeInTheDocument()
+    // 2b.11: "Share counter-challenge" is now a row inside ShareMenu's
+    // bottom sheet, behind a "Share" trigger — not an inline button.
+    expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Share' }))
     expect(screen.getByRole('button', { name: 'Share counter-challenge' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Copy counter-challenge link' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /practice more like this/i })).toHaveAttribute(
@@ -269,6 +273,7 @@ describe('ChallengePageForHash — comparison screen + counter-challenge', () =>
     render(<ChallengePageForHash hash={twoPuzzleHash()} />)
     await solveTwoPuzzleRun(user)
 
+    await user.click(screen.getByRole('button', { name: 'Share' }))
     await user.click(screen.getByRole('button', { name: 'Copy counter-challenge link' }))
     await screen.findByRole('button', { name: 'Link copied!' })
 

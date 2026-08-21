@@ -62,6 +62,7 @@ export function ChallengeComparison({ theirs, yours }: ChallengeComparisonProps)
       label: 'Share counter-challenge',
       copiedLabel: 'Link copied!',
       copyAriaLabel: 'Copy counter-challenge link',
+      description: 'Send them a challenge of your own, using this same run',
       text: buildChallengeUrl(buildChallengePayload([...yours])),
       onShared: () => {
         trackChallengeCreate({ surface: 'challenge', puzzle_count: yours.length })
