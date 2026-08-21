@@ -15,6 +15,50 @@
   animation: combo-badge-pop 0.18s ease-out;
 }
 
+/*
+ * 2b.9 (space bug, 2026-08-21): the interaction-type filter row scrolls
+ * horizontally in one line instead of wrapping to a second — see
+ * PracticePage.tsx's own comment above the chip row for the fuller
+ * rationale. Both rules below are pseudo-element/pseudo-class selectors
+ * with no Tailwind utility equivalent (same category as this file's
+ * existing `@keyframes` case), hence living here rather than as an
+ * arbitrary-value className.
+ *
+ * Scrollbar hidden, not removed — the row is still fully scrollable via
+ * touch/trackpad/keyboard. A visible scrollbar on a short, thumb-scrollable
+ * chip row reads as UI clutter rather than a meaningful affordance; the
+ * trailing edge fade below is the "there's more" signal instead.
+ */
+.interaction-filter-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.interaction-filter-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * Static, not scroll-position-aware (no JS scroll listener) — deliberately
+ * the simplest version that solves the "which row is this" ambiguity.
+ * Only ever misleading in the one case where all four chips already fit
+ * without scrolling on a wide-enough mobile viewport, which just means an
+ * edge fade over content that happens not to need it — a much smaller cost
+ * than the added state/listener would be for a four-item row.
+ */
+.interaction-filter-scroll-wrap {
+  position: relative;
+}
+.interaction-filter-scroll-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 28px;
+  background: linear-gradient(to right, transparent, var(--surface-0));
+  pointer-events: none;
+}
+
 @keyframes combo-badge-pop {
   from {
     transform: scale(0.85);
