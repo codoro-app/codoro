@@ -28,10 +28,27 @@
  * touch/trackpad/keyboard. A visible scrollbar on a short, thumb-scrollable
  * chip row reads as UI clutter rather than a meaningful affordance; the
  * trailing edge fade below is the "there's more" signal instead.
+ *
+ * 2b.10 (nav-floating regression, 2026-08-21): this row was the change that
+ * brought back BottomNav.tsx's fixed-position bug (index.css's `body` +
+ * BottomNav's own `translateZ(0)` — 2b.9 — had fully mitigated it before
+ * this landed). This page still scrolls at the document level (no
+ * contained-scroll shell, see index.css's `body` comment), and adding a
+ * second, horizontally-scrollable region to that same document reproduces
+ * the known WKWebView bug class where a nested touch-scrollable region
+ * causes `position: fixed` siblings to be recomposited as part of the
+ * page's scroll instead of staying pinned — same family of bug as 2b.9,
+ * new trigger. `overscroll-behavior-x: contain` stops this row's own
+ * horizontal scroll from chaining into the document (mirrors `body`'s
+ * `overscroll-behavior-y: none`); `-webkit-overflow-scrolling: touch` gives
+ * it a real, WebKit-recognized scrolling context instead of the ambiguous
+ * one plain `overflow-x: auto` produces on iOS.
  */
 .interaction-filter-scroll {
   scrollbar-width: none;
   -ms-overflow-style: none;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .interaction-filter-scroll::-webkit-scrollbar {
   display: none;
@@ -47,6 +64,11 @@
  */
 .interaction-filter-scroll-wrap {
   position: relative;
+  /* 2b.10: own compositing layer, same reasoning as BottomNav.tsx's
+   * `translateZ(0)` (2b.9) — keeps this scrolling region off the layer the
+   * fixed nav shares with the rest of the page, instead of letting WebKit
+   * decide how to group them during a touch-scroll. */
+  transform: translateZ(0);
 }
 .interaction-filter-scroll-wrap::after {
   content: '';
