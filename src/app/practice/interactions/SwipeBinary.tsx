@@ -535,8 +535,9 @@ export function SwipeBinary({
   // Mobile bug report, 2026-08-19 (second round): the original fix
   // (skipping preventDefault so the browser's own touch-to-click synthesis
   // would reach the button) turned out insufficient on a real device.
-  // CSS Touch Action's intersection rule means a descendant can't loosen an
-  // ancestor's `touch-action: none` — this card sets exactly that on itself —
+  // scrollableSnippetAncestor's doc comment already establishes that a
+  // descendant can't loosen an ancestor's `touch-action: none` (CSS Touch
+  // Action's intersection rule) — this card sets exactly that on itself —
   // and the same restriction appears to suppress native tap-to-click
   // synthesis for a button underneath it too, not just scrolling. Rather
   // than depend further on exactly which touch-action side effect is
@@ -671,6 +672,7 @@ export function SwipeBinary({
     const resetTouch = () => {
       activeTouchIdRef.current = null
       axisRef.current = 'ambiguous'
+      snippetElRef.current = null
       trailRef.current = []
       detachGestureListeners()
     }
@@ -759,6 +761,12 @@ export function SwipeBinary({
       trailRef.current = []
       pushTrail(trailRef.current, touch.clientX, startTime)
       attachGestureListeners()
+      const snippetEl = scrollableSnippetAncestor(event.target)
+      snippetElRef.current = snippetEl
+      if (snippetEl) {
+        snippetStartScrollLeftRef.current = snippetEl.scrollLeft
+        snippetStartWindowScrollYRef.current = window.scrollY
+      }
       // OD-5: declare intent HERE, unconditionally, before the browser's
       // own gesture recognizer can commit to anything — see the component
       // doc comment. Unconditional again as of 2026-08-21: the old
@@ -907,6 +915,14 @@ export function SwipeBinary({
       const axis = axisRef.current
       const dx = touch.clientX - startXRef.current
       const elapsedTime = performance.now() - startTimeRef.current
+      // Captured before resetTouch() clears it below — a gesture that spent
+      // its whole life forwarding to the snippet's own scroll never moved
+      // the card at all, so its dx/velocity must not be run through
+      // resolveSwipeCommit: without this guard, a fast/long snippet-scroll
+      // touch could accidentally satisfy the commit threshold and fly the
+      // card off / fire onCommit for an answer the user never actually
+      // dragged toward.
+      const wasSnippetForward = snippetElRef.current !== null
       // Captured before resetTouch() swaps in a fresh array.
       const trail = trailRef.current
       resetTouch()
