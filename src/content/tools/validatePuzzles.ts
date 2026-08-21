@@ -422,3 +422,63 @@ export function validatePuzzleFiles(files: readonly RawPuzzleFile[]): Validation
 
   return { valid, errors }
 }
+
+/*
+ * ---------------------------------------------------------------------------
+ * Snippet line length (warning, not an error)
+ * ---------------------------------------------------------------------------
+ *
+ * Added 2026-08-21 alongside the wrap-don't-scroll rendering change (see
+ * CodeSnippet.tsx). Code snippets now soft-wrap instead of scrolling
+ * horizontally, which means over-long lines are no longer BROKEN — they're
+ * just uglier, since a wrapped line reads as two rows and loses the
+ * one-line-per-statement shape that makes a bug spottable at a glance.
+ *
+ * The numbers behind the threshold, measured on the real app rather than
+ * guessed: at the app's single code size (13px JetBrains Mono, 0.6em per
+ * character) inside a puzzle card on a 393px-wide phone, the code column is
+ * ~260px wide after the line-number gutter and padding — about 33
+ * characters. So NOTHING over ~33 chars fits on one row on a phone, and a
+ * cap set there would flag most of the library at once.
+ *
+ * MAX is therefore set at the more useful "wraps at most once" line rather
+ * than "never wraps": up to 2x the one-row budget, rounded to 66. Tighten it
+ * toward 33 as content gets reformatted. It is a warning by deliberate
+ * choice — a hard failure would block every unrelated change until the
+ * backlog is cleared.
+ */
+export const SNIPPET_LINE_LENGTH_MAX = 66
+
+/** The number of characters that actually fit on ONE row on a 393px-wide phone — the aspirational target the MAX above is relaxed from. */
+export const SNIPPET_LINE_LENGTH_IDEAL = 33
+
+export interface SnippetLineLengthWarning {
+  readonly filePath: string
+  readonly id: string
+  /** Longest line in this puzzle's snippet, in characters. */
+  readonly longestLine: number
+}
+
+/**
+ * Every puzzle whose snippet has a line longer than `SNIPPET_LINE_LENGTH_MAX`,
+ * worst first. Returns structured data rather than formatted strings so the
+ * caller can decide how loudly to report it (validateContent.ts prints a
+ * capped summary; a future hard gate could reuse the same function).
+ *
+ * Only `snippet` is checked. `blocks` (drag-order) and scrubber `steps` are
+ * deliberately out of scope for now: blocks are single fragments authored at
+ * a different granularity, and step output isn't code.
+ */
+export function findLongSnippetLines(
+  valid: readonly ValidatedPuzzle[],
+  max: number = SNIPPET_LINE_LENGTH_MAX,
+): SnippetLineLengthWarning[] {
+  return valid
+    .map(({ filePath, puzzle }) => ({
+      filePath,
+      id: puzzle.id,
+      longestLine: puzzle.snippet.split('\n').reduce((a, line) => Math.max(a, line.length), 0),
+    }))
+    .filter((entry) => entry.longestLine > max)
+    .sort((a, b) => b.longestLine - a.longestLine)
+}

@@ -3,10 +3,10 @@
  * mcq-choice rule moved to utility classes (see PuzzleCardShell.tsx,
  * CodeSnippet.tsx, Mcq.tsx). What's deliberately NOT converted, and why:
  *
- *  - `.code-snippet--scrollable::after`: a `::after` pseudo-element with a
- *    gradient fade. Tailwind's `after:` variant can drive pseudo-content,
- *    but there's no reason to take on that indirection for one rule with no
- *    interaction logic attached — kept as plain CSS instead.
+ *  - `.code-snippet--scrollable::after` USED to live here: a gradient fade
+ *    marking a horizontally scrollable snippet. Deleted 2026-08-21 along
+ *    with the scroll itself — no code surface in this app scrolls
+ *    horizontally any more, long lines wrap instead (see CodeSnippet.tsx).
  *
  *  - `.swipe-fallback__*` (the whole block) and `.drag-order__*` (the whole
  *    block): SwipeBinary.tsx and DragOrder.tsx's own doc comments describe
@@ -22,18 +22,6 @@
  *    would catch. Revisit only with a real device pass to verify against,
  *    not as a mechanical pass like this one.
  */
-
-.code-snippet--scrollable::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: var(--space-6);
-  background: linear-gradient(to right, transparent, var(--surface-code));
-  pointer-events: none;
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
-}
 
 /* --- swipe-binary fallback --------------------------------------------- */
 
@@ -185,7 +173,11 @@
 .drag-order__row {
   position: relative;
   display: flex;
-  align-items: center;
+  /* `flex-start`, not `center`: row text wraps now (see
+   * `.drag-order__row-text` below), and centering would float the drag
+   * handle / position badge to the vertical middle of a two-line row
+   * instead of keeping it aligned with the first line. */
+  align-items: flex-start;
   gap: var(--space-3);
   min-height: var(--tap-target-min);
   width: 100%;
@@ -317,41 +309,33 @@
 }
 
 /*
- * font-family/size + shrink-then-scroll below mirror CodeSnippet.tsx's
- * code-snippet treatment (font-mono, `--font-size-sm` base, a
- * measured-in-JS shrink scale, native horizontal scroll once floored) — see
- * DragOrder.tsx's measureRowFontScale for the per-row measurement this
- * consumes (`--drag-order-font-scale` is shared across every row so they
- * all shrink together, not independently). `min-width: 0` is load-bearing:
- * without it a flex item's automatic min-width (its content's natural,
- * unwrapped size) would keep growing the row/list past the intended width
- * instead of letting `overflow-x: auto` actually clip and scroll it.
+ * Mirrors CodeSnippet.tsx's treatment exactly, and for the same reasons —
+ * read that component's doc comment before changing anything here. The short
+ * version (2026-08-21): rows render at the app's ONE code size
+ * (`--font-size-code`, index.css), and long text soft-wraps. What this
+ * replaced was a shared, measured-in-JS `--drag-order-font-scale` plus
+ * `overflow-x: auto` and a per-row `--scrollable` scroll-fade; the scale is
+ * what made code type size differ card-to-card, and the scroll container is
+ * a gesture competitor inside a component whose entire job is a drag.
  *
- * Applies to both `format: 'code'` (genuinely needs this — real snippets
- * overflow at any reasonable card width) and `format: 'output'` prose
- * blocks, which wrapped gracefully before this change — if that reads worse
- * than the old wrap behavior after a visual pass, the fix is a
- * format-conditional override, not reverting this rule wholesale.
+ * `min-width: 0` is still load-bearing, now for the opposite reason: a flex
+ * item's automatic min-width is its content's natural UNWRAPPED size, so
+ * without it the row refuses to shrink below its longest line and grows the
+ * list instead of wrapping inside it — silently restoring the overflow this
+ * change exists to remove.
+ *
+ * `overflow-wrap: anywhere` (not `break-word`) because code has long
+ * unbroken identifiers with no break opportunity for `break-word` to find.
+ * Applies to both `format: 'code'` and `format: 'output'` prose blocks;
+ * prose wrapped gracefully before the scroll era and does so again.
  */
 .drag-order__row-text {
-  position: relative;
   flex: 1;
   min-width: 0;
   font-family: var(--font-mono);
-  font-size: calc(var(--font-size-sm) * var(--drag-order-font-scale, 1));
-  white-space: pre;
-  overflow-x: auto;
-}
-
-.drag-order__row-text--scrollable::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: var(--space-6);
-  background: linear-gradient(to right, transparent, var(--surface-1));
-  pointer-events: none;
+  font-size: var(--font-size-code);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .drag-order__submit {

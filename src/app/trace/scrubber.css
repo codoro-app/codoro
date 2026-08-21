@@ -1,24 +1,15 @@
 /*
- * Trace's own copy of CodeSnippet's `code-snippet--scrollable::after` fade —
- * deliberately duplicated, not cross-chunk-imported. Trace is its own
- * lazy-loaded route chunk (App.tsx) and doesn't otherwise pull in
- * practice.css (see tokens.css's own doc comment for why this codebase
- * duplicates small shared-looking rules per chunk instead of cross-chunk
- * importing). Keep in sync by hand with practice.css's
- * `.code-snippet--scrollable::after` if that rule ever changes.
+ * The `--scrollable` right-edge fade that used to live here is gone
+ * (2026-08-21). It was the affordance for a horizontally scrolling code
+ * pane, and code panes no longer scroll horizontally on any surface in this
+ * app -- long lines soft-wrap at one fixed size instead. See
+ * CodeSnippet.tsx's doc comment for the full rationale (inconsistent
+ * per-card type sizes + a horizontal scroll container that ate the swipe
+ * gesture, both reported against the installed iOS PWA).
+ *
+ * This file is kept rather than deleted because Trace is its own
+ * lazy-loaded route chunk (App.tsx) and is the natural home for any
+ * scrubber-only plain CSS that can't be expressed as a utility. It is
+ * intentionally empty of rules right now; if you add one, keep it
+ * scrubber-scoped.
  */
-.scrubber__code--scrollable {
-  position: relative;
-}
-
-.scrubber__code--scrollable::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: var(--space-6);
-  background: linear-gradient(to right, transparent, var(--surface-code));
-  pointer-events: none;
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
-}

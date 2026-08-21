@@ -192,33 +192,38 @@ function findTouchById(list: TouchList, id: number): Touch | null {
   return null
 }
 
-/**
- * The nearest `.code-snippet` ancestor of `target` (inclusive), but ONLY
- * when it's currently in `code-snippet--scrollable` state — i.e. its own
- * auto-shrink already hit the floor and it still doesn't fit, so it has a
- * real competing horizontal scroll to protect. Returns `null` for a touch
- * anywhere else on the card, or on a snippet that isn't overflowing (the
- * common case — most snippets fit; see the component doc comment's touch
- * scroll-forwarding note below for why this is gated, not unconditional).
+/*
+ * `scrollableSnippetAncestor()` used to live here (deleted 2026-08-21).
  *
- * Mobile bug report, 2026-08-18: without this, a long code line inside a
- * swipe-binary card shows CodeSnippet's own "scrollable" fade cue but a
- * touch there can never actually scroll it — the card's whole-surface
- * `touch-action: none` + unconditional `preventDefault()` (OD-5, below)
- * makes the snippet's effective touch-action `none` too (CSS Touch Action's
- * ancestor/descendant restrictions compose — a descendant can't loosen an
- * ancestor's `none`), so simply skipping `preventDefault()` for a
- * snippet-origin touch would NOT hand it back to native scroll; it would
- * just go dead. The fix is JS-driven manual forwarding (see
- * `onTouchMove`'s `snippetElRef` branch below), not a CSS/touch-action
- * change.
+ * It existed because a code snippet could be horizontally scrollable, which
+ * made it a gesture container competing with this card for the horizontal
+ * axis. Its job was to detect a touch that STARTED on such a snippet so
+ * `onTouchMove` could hand that touch's movement to `snippetEl.scrollLeft`
+ * (and `window.scrollTo` for the vertical branch) instead of the card drag —
+ * JS forwarding, because the card's own `touch-action: none` meant simply
+ * skipping `preventDefault()` would have made the snippet go dead rather
+ * than scroll natively (CSS Touch Action's intersection rule: a descendant
+ * cannot loosen an ancestor's `none`).
+ *
+ * Mobile PWA bug report, 2026-08-21 — the whole mechanism was the bug. The
+ * snippet covers nearly the entire card, so on any puzzle whose code was
+ * long enough to overflow there was effectively nowhere left to start a
+ * swipe. Worse than "scrolls instead of swiping": dragging RIGHT clamps
+ * `scrollLeft` at 0, so the gesture did nothing whatsoever. Reproduced
+ * deterministically with synthetic TouchEvents against production — a 160px
+ * drag on a `--scrollable` snippet left the card's translateX at 0 on every
+ * frame and never committed — and ~28% of the puzzle corpus rendered in
+ * that state on a phone.
+ *
+ * The fix was upstream, in the rendering: CodeSnippet/Scrubber/DragOrder
+ * now wrap long lines at one fixed size and NOTHING in this app scrolls
+ * horizontally, so there is no competing container left to arbitrate
+ * against and this card owns 100% of a touch that starts on it, exactly as
+ * OD-5 intended. That invariant is what keeps this deletion valid: if you
+ * ever put `overflow-x: auto` back on a code surface, you must restore this
+ * function and both `onTouchMove` forwarding branches with it, or long-code
+ * cards go dead again.
  */
-function scrollableSnippetAncestor(target: EventTarget | null): HTMLElement | null {
-  if (!(target instanceof Element)) return null
-  const snippet = target.closest('.code-snippet')
-  if (!(snippet instanceof HTMLElement)) return null
-  return snippet.classList.contains('code-snippet--scrollable') ? snippet : null
-}
 
 /**
  * Whether `target` is (or is inside) one of the two `.swipe-fallback__button`
@@ -516,16 +521,6 @@ export function SwipeBinary({
   // Touch-only: the identifier of the single active touch, or null.
   const activeTouchIdRef = useRef<number | null>(null)
 
-  // Touch-only, set at touchstart when the touch began on a scrollable
-  // snippet (scrollableSnippetAncestor) — non-null for the rest of that
-  // gesture means onTouchMove forwards movement to the snippet's own
-  // scroll/the page's vertical scroll instead of the card's drag. See
-  // scrollableSnippetAncestor's own doc comment for why this is JS
-  // forwarding, not a touch-action/preventDefault change.
-  const snippetElRef = useRef<HTMLElement | null>(null)
-  const snippetStartScrollLeftRef = useRef(0)
-  const snippetStartWindowScrollYRef = useRef(0)
-
   // Mouse/pen-only (Pointer Events): pointerId + whether this component
   // holds an explicit capture on it.
   const activePointerIdRef = useRef<number | null>(null)
@@ -540,9 +535,8 @@ export function SwipeBinary({
   // Mobile bug report, 2026-08-19 (second round): the original fix
   // (skipping preventDefault so the browser's own touch-to-click synthesis
   // would reach the button) turned out insufficient on a real device.
-  // scrollableSnippetAncestor's doc comment already establishes that a
-  // descendant can't loosen an ancestor's `touch-action: none` (CSS Touch
-  // Action's intersection rule) — this card sets exactly that on itself —
+  // CSS Touch Action's intersection rule means a descendant can't loosen an
+  // ancestor's `touch-action: none` — this card sets exactly that on itself —
   // and the same restriction appears to suppress native tap-to-click
   // synthesis for a button underneath it too, not just scrolling. Rather
   // than depend further on exactly which touch-action side effect is
@@ -582,7 +576,6 @@ export function SwipeBinary({
       activeTouchIdRef.current = null
       activePointerIdRef.current = null
       axisRef.current = 'ambiguous'
-      snippetElRef.current = null
       capturedRef.current = false
       trailRef.current = []
       detachGestureListenersRef.current?.()
@@ -678,7 +671,6 @@ export function SwipeBinary({
     const resetTouch = () => {
       activeTouchIdRef.current = null
       axisRef.current = 'ambiguous'
-      snippetElRef.current = null
       trailRef.current = []
       detachGestureListeners()
     }
@@ -767,19 +759,12 @@ export function SwipeBinary({
       trailRef.current = []
       pushTrail(trailRef.current, touch.clientX, startTime)
       attachGestureListeners()
-      const snippetEl = scrollableSnippetAncestor(event.target)
-      snippetElRef.current = snippetEl
-      if (snippetEl) {
-        snippetStartScrollLeftRef.current = snippetEl.scrollLeft
-        snippetStartWindowScrollYRef.current = window.scrollY
-      }
       // OD-5: declare intent HERE, unconditionally, before the browser's
       // own gesture recognizer can commit to anything — see the component
-      // doc comment. Still true for a snippet-origin touch (`snippetEl`
-      // set above): this component still claims the touch and forwards its
-      // movement manually (see onTouchMove below) rather than releasing it
-      // back to the browser — see scrollableSnippetAncestor's doc comment
-      // for why a native handoff can't work here.
+      // doc comment. Unconditional again as of 2026-08-21: the old
+      // snippet-origin carve-out is gone with the scroll container that
+      // justified it (see the deleted-function note above
+      // `fallbackButtonAncestor`).
       const prevented = event.cancelable
       if (prevented) event.preventDefault()
       debug.log({
@@ -789,7 +774,6 @@ export function SwipeBinary({
         cancelable: event.cancelable,
         axis: 'ambiguous',
         prevented,
-        note: snippetEl ? 'snippet-scroll-forward' : undefined,
       })
     }
 
@@ -853,21 +837,12 @@ export function SwipeBinary({
       }
 
       if (axisRef.current === 'vertical') {
-        // OD-5: no scroll-passthrough for the card itself — see the
-        // component doc comment. A snippet-origin touch is the one
-        // exception: it gets real page-vertical passthrough back, restoring
-        // the scroll the ancestor card's own touch-action:none/
-        // preventDefault would otherwise still be blocking for it (see
-        // scrollableSnippetAncestor's doc comment) — sign convention
-        // (`- dy`) matches natural touch-scroll semantics (finger moves
-        // down -> content follows the finger down -> the page scrolls
-        // toward its top, i.e. scrollY decreases), flagged in the plan as
-        // needing on-device confirmation like every other gesture change
-        // here.
-        const snippetEl = snippetElRef.current
-        if (snippetEl) {
-          window.scrollTo(window.scrollX, snippetStartWindowScrollYRef.current - dy)
-        }
+        // OD-5: no scroll-passthrough at all — the card owns 100% of a touch
+        // that starts on it, matching how Tinder-style cards actually
+        // behave. The snippet-origin exception that used to sit here (real
+        // page-vertical passthrough via `window.scrollTo`) went away with
+        // the scrollable snippet itself on 2026-08-21 — see the
+        // deleted-function note above `fallbackButtonAncestor`.
         debug.log({
           type: 'move',
           x: touch.clientX,
@@ -875,25 +850,6 @@ export function SwipeBinary({
           cancelable: event.cancelable,
           axis: 'vertical',
           prevented,
-          note: snippetEl ? 'snippet-scroll-forward' : undefined,
-        })
-        return
-      }
-
-      const snippetEl = snippetElRef.current
-      if (snippetEl) {
-        // Forwarded to the snippet's own horizontal scroll instead of the
-        // card's drag — same sign convention/on-device-verification note as
-        // the vertical branch above.
-        snippetEl.scrollLeft = snippetStartScrollLeftRef.current - dx
-        debug.log({
-          type: 'move',
-          x: touch.clientX,
-          y: touch.clientY,
-          cancelable: event.cancelable,
-          axis: 'horizontal',
-          prevented,
-          note: `snippet-scroll-forward dx=${String(Math.round(dx))}`,
         })
         return
       }
@@ -951,19 +907,11 @@ export function SwipeBinary({
       const axis = axisRef.current
       const dx = touch.clientX - startXRef.current
       const elapsedTime = performance.now() - startTimeRef.current
-      // Captured before resetTouch() clears it below — a gesture that spent
-      // its whole life forwarding to the snippet's own scroll never moved
-      // the card at all, so its dx/velocity must not be run through
-      // resolveSwipeCommit: without this guard, a fast/long snippet-scroll
-      // touch could accidentally satisfy the commit threshold and fly the
-      // card off / fire onCommit for an answer the user never actually
-      // dragged toward.
-      const wasSnippetForward = snippetElRef.current !== null
       // Captured before resetTouch() swaps in a fresh array.
       const trail = trailRef.current
       resetTouch()
 
-      if (committedRef.current || axis !== 'horizontal' || wasSnippetForward) {
+      if (committedRef.current || axis !== 'horizontal') {
         debug.log({
           type: 'up',
           x: touch.clientX,
@@ -971,9 +919,7 @@ export function SwipeBinary({
           cancelable: event.cancelable,
           axis,
           prevented: false,
-          note: wasSnippetForward
-            ? 'no commit (forwarded to snippet scroll, not a card drag)'
-            : 'no commit (gesture never resolved horizontal, or already committed)',
+          note: 'no commit (gesture never resolved horizontal, or already committed)',
         })
         return
       }

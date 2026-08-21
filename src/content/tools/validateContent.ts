@@ -12,6 +12,9 @@ import { DAILY_CALENDAR } from '../dailyCalendar'
 import { BOSS_SETS } from '../bossRun'
 import { loadRawPuzzleFiles } from './loadPuzzles'
 import {
+  findLongSnippetLines,
+  SNIPPET_LINE_LENGTH_IDEAL,
+  SNIPPET_LINE_LENGTH_MAX,
   validateBossRun,
   validateDailyCalendar,
   validateInteractionMix,
@@ -69,6 +72,31 @@ function validateAllBossSets(valid: Parameters<typeof validateBossRun>[1]): stri
   )
 }
 
+/**
+ * Warns (doesn't fail the build) about snippets with over-long lines. Since
+ * the 2026-08-21 wrap-don't-scroll change these no longer break anything —
+ * they just wrap, costing the one-line-per-statement shape that makes a bug
+ * spottable at a glance. See findLongSnippetLines' doc comment for where the
+ * threshold comes from. Printed after the success line, capped at the worst
+ * few so a large backlog doesn't bury the actual result.
+ */
+const SNIPPET_WARNING_SAMPLE = 8
+
+function checkSnippetLineLengths(valid: Parameters<typeof findLongSnippetLines>[0]): void {
+  const warnings = findLongSnippetLines(valid)
+  if (warnings.length === 0) return
+
+  console.warn(
+    `\nvalidate:content: ${String(warnings.length)} of ${String(valid.length)} puzzle(s) have a snippet line over ${String(SNIPPET_LINE_LENGTH_MAX)} chars — these wrap to 3+ rows on a phone (~${String(SNIPPET_LINE_LENGTH_IDEAL)} chars fit on one row). Reformat when you next touch them:`,
+  )
+  for (const { filePath, id, longestLine } of warnings.slice(0, SNIPPET_WARNING_SAMPLE)) {
+    console.warn(`  - ${id} (${String(longestLine)} chars) ${filePath}`)
+  }
+  if (warnings.length > SNIPPET_WARNING_SAMPLE) {
+    console.warn(`  ...and ${String(warnings.length - SNIPPET_WARNING_SAMPLE)} more.`)
+  }
+}
+
 function main(): void {
   const files = loadRawPuzzleFiles()
   const { valid, errors } = validatePuzzleFiles(files)
@@ -94,6 +122,7 @@ function main(): void {
   console.log(
     `validate:content: ${String(valid.length)} puzzle(s) OK, ${String(DAILY_CALENDAR.length)} daily-calendar entries OK, ${String(BOSS_SETS.length)} boss set(s) OK`,
   )
+  checkSnippetLineLengths(valid)
 }
 
 main()
