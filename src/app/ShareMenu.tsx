@@ -86,7 +86,15 @@ const ROW_LABEL_CLASS =
 const ROW_COPY_BUTTON_CLASS =
   'flex items-center justify-center shrink-0 w-11 h-11 border-0 bg-transparent text-text-2 hover:text-text-0 hover:bg-surface-2 rounded-sm cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
-type ActivateResult = 'shared' | 'copied'
+// 2b.15: 'cancelled' is its own outcome, not folded into 'shared' — the
+// native OS share sheet (navigator.share) is layered ON TOP of this sheet,
+// not a replacement for it, so dismissing that native sheet should return
+// the user to this one, still open, not drop them all the way back to the
+// puzzle underneath it (reported on-device: dismissing the Apple share
+// sheet was landing back on Continue/the feedback drawer instead). Only a
+// genuine completed share closes this sheet — same reasoning as closing
+// the native sheet itself.
+type ActivateResult = 'shared' | 'copied' | 'cancelled'
 
 async function activate(action: ShareAction): Promise<ActivateResult> {
   action.onShared()
@@ -97,7 +105,7 @@ async function activate(action: ShareAction): Promise<ActivateResult> {
     } catch (err) {
       // User-cancelled sheets are a normal outcome, not a failure to
       // recover from — only a real error falls through to clipboard.
-      if (err instanceof Error && err.name === 'AbortError') return 'shared'
+      if (err instanceof Error && err.name === 'AbortError') return 'cancelled'
     }
   }
   await navigator.clipboard.writeText(action.text)
@@ -271,9 +279,11 @@ export function ShareMenu({ actions, trigger = 'button' }: ShareMenuProps) {
                 onActivated={(result) => {
                   if (result === 'copied') {
                     setCopiedId(action.id)
-                  } else {
+                  } else if (result === 'shared') {
                     setOpen(false)
                   }
+                  // 'cancelled': leave the sheet exactly as it was — see
+                  // ActivateResult's doc comment.
                 }}
                 onCopied={() => {
                   setCopiedId(action.id)

@@ -168,6 +168,10 @@ describe('ShareMenu', () => {
         expect(shareSpy).toHaveBeenCalled()
       })
       expect(writeTextSpy).not.toHaveBeenCalled()
+      // 2b.15: dismissing the native OS share sheet must return the user
+      // to THIS sheet, still open — not drop them past it to whatever's
+      // underneath (reported on-device).
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
     } finally {
       Reflect.deleteProperty(navigator, 'share')
     }
