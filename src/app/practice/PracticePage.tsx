@@ -97,6 +97,19 @@ const PAGE_SHELL_CLASS =
 const LINK_CLASS =
   'min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer'
 
+// 2b.9 (space bug, 2026-08-21): Browse-patterns + Mastery used to stack
+// full-width (flex-col), each independently paying the 44px min-tap-target
+// floor — ~100px of vertical space for two one-line labels. Same row now
+// (see the `flex gap-2` wrapper below), Browse-patterns growing via
+// `flex-1` and this button sized to its own label via `flex-none`, so both
+// still clear min-h-11 but share one row's height instead of two. Not
+// LINK_CLASS (that's the borderless, no-min-height "text-only" pattern
+// shared with MasteryView/PatternPicker's "← Back" — a different visual
+// weight than the bordered box this needs to read as a sibling of
+// Browse-patterns, not a stray label under it).
+const MASTERY_INLINE_CLASS =
+  'flex items-center justify-center min-h-11 py-[13px] px-4 border border-border-strong rounded-sm bg-transparent text-accent font-sans text-base font-bold no-underline cursor-pointer whitespace-nowrap'
+
 export function PracticePage() {
   const [location, navigate] = useLocation()
   const search = useSearch()
@@ -332,10 +345,10 @@ export function PracticePage() {
             call, so cmd/middle-click opens it in a new tab. Mastery stays
             mobile-only since desktop already shows it persistently in the
             sidebar (below). */}
-        <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
           <Link
             href="/browse"
-            className="flex items-center justify-between gap-2 w-full min-h-11 py-[13px] px-[14px] border border-border-strong rounded-sm bg-transparent text-text-0 font-sans text-base font-bold no-underline cursor-pointer"
+            className="flex flex-1 items-center justify-between gap-2 min-h-11 py-[13px] px-[14px] border border-border-strong rounded-sm bg-transparent text-text-0 font-sans text-base font-bold no-underline cursor-pointer"
           >
             <span>Browse patterns</span>
             <svg
@@ -356,7 +369,7 @@ export function PracticePage() {
           {!isDesktop && (
             <button
               type="button"
-              className={LINK_CLASS}
+              className={MASTERY_INLINE_CLASS}
               onClick={() => {
                 setView('mastery')
               }}
@@ -369,27 +382,43 @@ export function PracticePage() {
         {/* Interaction-type filter chips (Phase 5 Item 4) — combines (AND)
             with the pattern filter below, not mutually exclusive. Clicking
             an already-active chip clears just that filter; the banner below
-            clears both at once. */}
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by interaction type">
-          {QUIZ_INTERACTIONS.map((interaction) => {
-            const active = session.interactionFilter === interaction
-            const chipClass = active
-              ? 'min-h-11 py-1.5 px-3 border border-accent rounded-full bg-accent-dim text-text-0 text-sm font-semibold cursor-pointer'
-              : 'min-h-11 py-1.5 px-3 border border-border rounded-full bg-surface-1 text-text-1 text-sm font-semibold cursor-pointer'
-            return (
-              <button
-                key={interaction}
-                type="button"
-                className={chipClass}
-                aria-pressed={active}
-                onClick={() => {
-                  session.setInteractionFilter(active ? null : interaction)
-                }}
-              >
-                {QUIZ_INTERACTION_LABELS[interaction]}
-              </button>
-            )
-          })}
+            clears both at once.
+
+            2b.9 (space bug, 2026-08-21): one row, `overflow-x-auto` instead
+            of `flex-wrap` — four chips at this padding/font-size don't
+            reliably fit one row on a phone-width viewport, so wrapping put
+            "Drag to reorder" alone on its own second line, spending a full
+            row of height on one label. Each chip gets `flex-none` (never
+            shrinks/wraps its own text) + `whitespace-nowrap`; the outer
+            `-wrap` div + `.interaction-filter-scroll(-wrap)` (practicePage.css)
+            hide the scrollbar and fade the trailing edge as the
+            "there's more" affordance instead of a visible scrollbar. */}
+        <div className="interaction-filter-scroll-wrap">
+          <div
+            className="interaction-filter-scroll flex flex-nowrap gap-2 overflow-x-auto"
+            role="group"
+            aria-label="Filter by interaction type"
+          >
+            {QUIZ_INTERACTIONS.map((interaction) => {
+              const active = session.interactionFilter === interaction
+              const chipClass = active
+                ? 'flex-none min-h-11 py-1.5 px-3 border border-accent rounded-full bg-accent-dim text-text-0 text-sm font-semibold whitespace-nowrap cursor-pointer'
+                : 'flex-none min-h-11 py-1.5 px-3 border border-border rounded-full bg-surface-1 text-text-1 text-sm font-semibold whitespace-nowrap cursor-pointer'
+              return (
+                <button
+                  key={interaction}
+                  type="button"
+                  className={chipClass}
+                  aria-pressed={active}
+                  onClick={() => {
+                    session.setInteractionFilter(active ? null : interaction)
+                  }}
+                >
+                  {QUIZ_INTERACTION_LABELS[interaction]}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {activeFilterLabels.length > 0 && (
