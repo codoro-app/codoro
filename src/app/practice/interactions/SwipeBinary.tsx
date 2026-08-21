@@ -7,10 +7,11 @@ import type { SwipeBinaryPuzzle } from '../../../content'
 import type { AnswerState } from '../answerState'
 import {
   DEFAULT_SWIPE_THRESHOLD,
+  RECENT_VELOCITY_WINDOW_MS,
+  recentVelocity,
   resolveSwipeCommit,
-  signedVelocityFromGesture,
 } from '../gestureThreshold'
-import type { SwipeCommitDirection } from '../gestureThreshold'
+import type { GestureTrailSample, SwipeCommitDirection } from '../gestureThreshold'
 import { highlightSnippet } from '../highlightSnippet'
 import { CodeSnippet } from '../CodeSnippet'
 import { useGestureDebugOverlay } from './useGestureDebugOverlay'
@@ -31,7 +32,7 @@ const FLY_OUT_DISTANCE = 600
 
 /**
  * Drag distance (px) over which the card tilts and the "about to pick this
- * side" preview kicks in — locked to `DEFAULT_SWIPE_THRESHOLD.minDistance`
+ * side" preview kicks in — locked to `DEFAULT_SWIPE_THRESHOLD.commitDistance`
  * (gestureThreshold.ts), the actual commit distance, as a single source of
  * truth. Was a smaller, independent constant (90px) that let the card reach
  * full tilt and full preview color a full 30px before the real 120px
@@ -40,14 +41,16 @@ const FLY_OUT_DISTANCE = 600
  * the required drag, and often no commit at all (mobile bug report,
  * 2026-08-18). Tying the two together means full tilt now coincides with
  * the point a release would actually satisfy the distance half of
- * `resolveSwipeCommit` — this is still a distance-only approximation
- * (velocity is unknowable until release), so a slow drag that reaches full
- * tilt can still fail to commit if released too slowly; that's a
- * pre-existing limitation of any distance-based preview, not new here. The
- * commit decision itself is still entirely `gestureThreshold.ts`'s job and
- * only runs once, at drag-end — this constant only drives the live visual.
+ * `resolveSwipeCommit`. As of OD-6 (2026-08-21) that is an exact promise
+ * rather than an approximation: the commit rule's distance branch stands
+ * alone, so reaching full tilt and releasing commits at any pace. The
+ * caveat this comment used to carry — "a slow drag that reaches full tilt
+ * can still fail to commit if released too slowly" — was the visible face
+ * of the defect OD-6 captured, and is gone with it. The commit decision
+ * itself is still entirely `gestureThreshold.ts`'s job and only runs once,
+ * at drag-end — this constant only drives the live visual.
  */
-const PREVIEW_RANGE = DEFAULT_SWIPE_THRESHOLD.minDistance
+const PREVIEW_RANGE = DEFAULT_SWIPE_THRESHOLD.commitDistance
 const MAX_TILT_DEG = 10
 
 /**
@@ -64,41 +67,63 @@ const MAX_TILT_DEG = 10
 const AXIS_TOLERANCE = 20
 
 /**
- * Longest gap (ms) a claimed gesture is allowed to go without a terminating
- * `touchend`/`touchcancel`/`pointerup`/`pointercancel`/`lostpointercapture`
- * before `forceResetGesture` below assumes the browser dropped it and
- * recovers on its own. Re-armed on every accepted move, so this is measured
- * from the LAST move, not gesture start — a genuinely slow, deliberate drag
- * that's still actively moving never trips it.
- *
- * Mobile bug report, 2026-08-19: live-reproduced (desktop Chrome, synthetic
- * PointerEvents: pointerdown + a few pointermoves past the tilt threshold,
- * then withholding pointerup entirely) that this component's gesture state
- * machine has no recovery path if the terminating event never arrives — the
- * card freezes at whatever tilt it last reached, `translateX`/`rotate`
- * inline styles stuck, and EVERY subsequent gesture attempt is silently
- * ignored forever (the claiming ref — `activeTouchIdRef`/
- * `activePointerIdRef` — never clears), because `onTouchStart`/
- * `handlePointerDown` both bail out early while a ref is still claimed. This
- * matches the reported symptom exactly ("pauses and stays tilted, doesn't
- * snap back or confirm") and needs no on-device capture to confirm: it's a
- * structural gap, not a specific browser quirk — the whole state machine
- * assumes a terminating event always eventually arrives, which is exactly
- * the assumption OD-1 through OD-5 (this file's own doc comment) found five
- * separate real ways to be false for touch specifically. This ceiling is a
- * safety net that makes "permanently stuck" impossible regardless of WHY a
- * terminating event went missing — dropped by a WebKit gesture-recognizer
- * race (OD-1..OD-5's territory), the app losing focus/being backgrounded
- * mid-drag (also handled instantly, not via this timeout — see the
- * `visibilitychange`/`blur` listeners below), or any other cause — without
- * needing to identify the exact mechanism first.
- *
- * 2000ms: generously past the ~300-500ms a real complete gesture takes in
- * this file's own tests (including the deliberate-pause-before-release
- * regression, which pauses 200ms) so it never fires mid-legitimate-drag, while
- * still recovering well within what would otherwise read as "broken".
+ * How many position samples the live gesture trail keeps. `recentVelocity`
+ * only reads the tail of it (the last `RECENT_VELOCITY_WINDOW_MS`), so there
+ * is nothing to gain from letting this grow for the length of a slow
+ * multi-second drag — 16 samples covers well past that window at any
+ * realistic touch sampling rate.
  */
-const GESTURE_WATCHDOG_MS = 2000
+const TRAIL_MAX_SAMPLES = 16
+
+/** Appends one position sample to a gesture trail, evicting the oldest past `TRAIL_MAX_SAMPLES`. */
+function pushTrail(trail: GestureTrailSample[], x: number, t: number): void {
+  trail.push({ x, t })
+  if (trail.length > TRAIL_MAX_SAMPLES) trail.shift()
+}
+
+/**
+ * OD-6 (2026-08-21): the 2000ms gesture watchdog that used to live here is
+ * GONE, and deliberately not replaced by a longer timeout.
+ *
+ * It was added (PR #71) because this state machine assumed a terminating
+ * `touchend`/`touchcancel` always eventually arrives and had no recovery if
+ * it didn't. That gap was real; a timer was the wrong instrument for it. A
+ * timeout cannot tell "the browser dropped this gesture" apart from "the
+ * user paused mid-drag" — both are just silence — so whatever value it is
+ * given is wrong for one of the two cases. 2000ms picked the wrong one for a
+ * hesitating user, which is common.
+ *
+ * Captured against production (desktop Chrome, synthetic touch stream; see
+ * `docs/od-6-swipe-capture-2026-08-21.md`): a 200px drag that paused 2.3s
+ * after 50px of travel had its gesture torn down WHILE THE FINGER WAS STILL
+ * DOWN — the card snapped back to centre, every later move and the real
+ * `touchend` were discarded, no commit. That is exactly the reported
+ * "freezes mid-drag while I'm still moving" symptom: the watchdog was not
+ * the recovery from that state, it was the cause of it.
+ *
+ * Worse, once the gesture was disowned this component stopped calling
+ * `preventDefault()` on a touch still live on the card (`pd=false` in the
+ * capture) — which on WebKit hands the in-flight gesture to the native pan
+ * recognizer, the precise class of failure OD-1 through OD-5 spent nine
+ * rounds fighting. A safety net that can manufacture the failure it exists
+ * to catch is worse than no safety net.
+ *
+ * Two structural changes replace it, neither able to fire mid-gesture:
+ *
+ * 1. `touchmove`/`touchend`/`touchcancel` are bound to `window` (capture
+ *    phase) for the gesture's duration rather than to the card, so the
+ *    terminating event still arrives even if the card is unmounted,
+ *    retargeted, or moved out from under the finger.
+ * 2. Stale claims are detected lazily at the next `touchstart`: a claim whose
+ *    identifier is absent from `event.touches` belongs to a finger that is
+ *    provably gone, so it is dropped then and there. The browser's own touch
+ *    list is ground truth, free, and available at exactly the moment
+ *    staleness matters — no guessing from elapsed time required.
+ *
+ * The invariant those encode, asserted in SwipeBinary.test.tsx: while a touch
+ * this component has claimed is still live, it is never disowned, and
+ * `preventDefault()` is always called on it.
+ */
 
 /** Whether this gesture has been decided to be a horizontal card drag, a vertical one (ignored — see OD-5), or is still too small to call. */
 type AxisResolution = 'ambiguous' | 'horizontal' | 'vertical'
@@ -211,13 +236,15 @@ function scrollableSnippetAncestor(target: EventTarget | null): HTMLElement | nu
  * `touchStart` directly on the card element, so `event.target` was always
  * `card`, never a button.
  *
- * Fix: a button-origin touch skips the card's claim entirely (see its use in
- * `onTouchStart`) — no `preventDefault()`, no `activeTouchIdRef` — so the
- * browser's normal touch-to-click synthesis reaches the button unobstructed.
- * This makes the buttons tap-only, matching how they already behave for
- * mouse/pen (a mouse press on a button was never treated as a drag-start
- * either): starting a touch on a button and then dragging elsewhere on the
- * card does not swipe it.
+ * First fix attempt: a button-origin touch skipped the card's claim
+ * entirely — no `preventDefault()`, no `activeTouchIdRef` — banking on the
+ * browser's normal touch-to-click synthesis reaching the button
+ * unobstructed. A second real-device report (2026-08-19, same day) showed
+ * that wasn't enough — see `buttonTouchIdRef`'s doc comment for why (the
+ * card's own `touch-action: none` likely still suppresses it) and for the
+ * actual fix, which owns the tap in JS instead of depending on native
+ * click synthesis at all. This helper is now used only to detect the
+ * button, not to decide whether to skip it.
  */
 function fallbackButtonAncestor(target: EventTarget | null): HTMLElement | null {
   if (!(target instanceof Element)) return null
@@ -349,17 +376,37 @@ function commitFlyOff(
  *    listeners above) — desktop drag was never the broken half of OD-1, so
  *    it isn't touched beyond that guard.
  *
- * `gestureThreshold.ts` (commit math) and the Framer Motion visual layer
- * (`x`, `rotate`, `animate`) are unchanged through all five rounds.
+ * The Framer Motion visual layer (`x`, `rotate`, `animate`) is unchanged
+ * through all five rounds. `gestureThreshold.ts`'s commit math was unchanged
+ * through them too, and then changed in OD-6 — see its module doc.
+ *
+ * ## OD-6: the defect was never WebKit's
+ *
+ * Rounds OD-1 through OD-5, plus PR #70/#71 and the 2026-08-19 velocity
+ * retune, all assumed browser touch arbitration was the adversary, so nobody
+ * built a scriptable reproduction. On 2026-08-21 one was built — synthetic
+ * `TouchEvent` streams with controlled timing dispatched at this card in
+ * desktop Chrome against production, with a window-level bubble-phase tap
+ * recording `defaultPrevented` and the card's computed `translateX` per
+ * event — and it reproduced BOTH reported symptoms in minutes, with no
+ * WebKit involved. Three defects, all in this file and
+ * `gestureThreshold.ts`: the whole-gesture velocity average acting as a
+ * duration ceiling, the 2000ms watchdog aborting live gestures, and
+ * `touches[0]` claiming the wrong touch identifier. Each is documented at
+ * its own site above/below; the captured traces are in
+ * `docs/od-6-swipe-capture-2026-08-21.md`.
+ *
+ * The lesson worth keeping: a gesture bug that survives repeated
+ * source-reading rounds is a bug that needs a HARNESS, not a sixth
+ * hypothesis — and "only reproduces on a phone" was itself an assumption
+ * nobody had tested.
  *
  * ### Timing source
  *
- * `elapsedTime` for `signedVelocityFromGesture` is measured with
- * `performance.now()`, not `event.timeStamp` — `timeStamp` is read-only and
- * not settable through RTL's `fireEvent`, which would make every
- * timing-dependent case in SwipeBinary.test.tsx (including the
- * 32ms-staleness regression) untestable. The difference is at most a frame
- * or so over a ~350ms gesture, far inside `minVelocity`'s margin.
+ * Gesture timestamps are taken with `performance.now()`, not
+ * `event.timeStamp` — `timeStamp` is read-only and not settable through
+ * RTL's `fireEvent`, which would make every timing-dependent case in
+ * SwipeBinary.test.tsx untestable. The difference is at most a frame or so.
  *
  * `CommitPayload.choiceIndex` is `null` for swipe-binary by contract — but
  * since this is a strictly binary choice, `correct` + `puzzle.correct_direction`
@@ -449,6 +496,23 @@ export function SwipeBinary({
   const startTimeRef = useRef(0)
   const axisRef = useRef<AxisResolution>('ambiguous')
 
+  /**
+   * Rolling position trail (client X + timestamp) for the live gesture,
+   * feeding `recentVelocity` at release. Shared across touch and mouse for
+   * the same reason the refs above are: only one input drives a gesture at a
+   * time.
+   */
+  const trailRef = useRef<GestureTrailSample[]>([])
+
+  /**
+   * Detaches the window-level `touchmove`/`touchend`/`touchcancel` listeners
+   * of the gesture currently in flight, or null when none is. Held in a ref
+   * because those listeners are created inside the mount-only effect below,
+   * while `forceResetGesture` (which must also be able to drop them) is
+   * defined out here.
+   */
+  const detachGestureListenersRef = useRef<(() => void) | null>(null)
+
   // Touch-only: the identifier of the single active touch, or null.
   const activeTouchIdRef = useRef<number | null>(null)
 
@@ -467,24 +531,40 @@ export function SwipeBinary({
   const activePointerIdRef = useRef<number | null>(null)
   const capturedRef = useRef(false)
 
-  // See GESTURE_WATCHDOG_MS's doc comment. Shared across touch and mouse —
-  // only one input drives a gesture at a time, so only one timer is ever
-  // live.
-  const watchdogTimerRef = useRef<number | null>(null)
-
-  const clearWatchdog = useCallback(() => {
-    if (watchdogTimerRef.current !== null) {
-      window.clearTimeout(watchdogTimerRef.current)
-      watchdogTimerRef.current = null
-    }
-  }, [])
+  // Touch-only: tracks a touch that started on one of the two fallback
+  // buttons (`.swipe-fallback__button`) as its own, isolated tap gesture —
+  // entirely separate from activeTouchIdRef's card-drag tracking, and never
+  // promoted into one (fallbackButtonAncestor's doc comment: a
+  // button-origin touch is tap-only, even if it later drags).
+  //
+  // Mobile bug report, 2026-08-19 (second round): the original fix
+  // (skipping preventDefault so the browser's own touch-to-click synthesis
+  // would reach the button) turned out insufficient on a real device.
+  // scrollableSnippetAncestor's doc comment already establishes that a
+  // descendant can't loosen an ancestor's `touch-action: none` (CSS Touch
+  // Action's intersection rule) — this card sets exactly that on itself —
+  // and the same restriction appears to suppress native tap-to-click
+  // synthesis for a button underneath it too, not just scrolling. Rather
+  // than depend further on exactly which touch-action side effect is
+  // responsible, this owns the tap entirely in JS instead (matching OD-5's
+  // "claim 100% of touch, don't rely on the browser's default handling"
+  // approach for the rest of the card) and calls `preventDefault()` on the
+  // button's touchstart to guarantee the browser's own click synthesis
+  // never ALSO fires — which would otherwise risk a double-commit.
+  const buttonTouchIdRef = useRef<number | null>(null)
+  const buttonTapElRef = useRef<HTMLElement | null>(null)
+  const buttonTapStartRef = useRef<{ x: number; y: number } | null>(null)
 
   /**
-   * Recovers a gesture the browser abandoned mid-flight (see
-   * GESTURE_WATCHDOG_MS's doc comment for the live repro) — clears BOTH
-   * touch's and mouse's claim refs unconditionally (only one is ever
-   * actually set, but clearing both is simpler than branching on which
-   * input was active) and springs the card back to center, exactly like a
+   * Recovers a gesture that ended without a terminating event because the
+   * page itself went away underneath it — the app backgrounded, the window
+   * blurred (see the listeners below). NOT a timeout: this only runs on an
+   * explicit browser signal that the gesture cannot continue, never on a
+   * guess about elapsed silence (OD-6 — see the watchdog removal note near
+   * the top of this file). Clears BOTH touch's and mouse's claim refs
+   * unconditionally (only one is ever actually set, but clearing both is
+   * simpler than branching on which input was active) and springs the card
+   * back to center, exactly like a
    * normal `touchcancel`/`pointercancel` would. Deliberately does not call
    * `releasePointerCaptureIfSupported` — same reasoning as
    * `handleLostPointerCapture`: a capture the browser already reclaimed
@@ -497,14 +577,15 @@ export function SwipeBinary({
    * directly without the ref-indirection `committedRef`/`handlePickRef` use.
    */
   const forceResetGesture = useCallback(
-    (reason: 'watchdog-timeout' | 'visibility' | 'blur') => {
-      clearWatchdog()
+    (reason: 'visibility' | 'blur') => {
       const wasActive = activeTouchIdRef.current !== null || activePointerIdRef.current !== null
       activeTouchIdRef.current = null
       activePointerIdRef.current = null
       axisRef.current = 'ambiguous'
       snippetElRef.current = null
       capturedRef.current = false
+      trailRef.current = []
+      detachGestureListenersRef.current?.()
       if (!wasActive) return
       debug.log({
         type: 'cancel',
@@ -518,21 +599,14 @@ export function SwipeBinary({
       setPreviewDirection(null)
       void animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 })
     },
-    [clearWatchdog, debug, x],
+    [debug, x],
   )
 
-  const armWatchdog = useCallback(() => {
-    clearWatchdog()
-    watchdogTimerRef.current = window.setTimeout(() => {
-      forceResetGesture('watchdog-timeout')
-    }, GESTURE_WATCHDOG_MS)
-  }, [clearWatchdog, forceResetGesture])
-
-  // Instant recovery for the most common real-world "terminating event never
+  // Recovery for the most common real-world "terminating event never
   // arrives" cause — the app loses focus or is backgrounded mid-drag (a
-  // notification, an app switch, the OS's own edge gesture) — rather than
-  // waiting out the full GESTURE_WATCHDOG_MS. Mount-only: `forceResetGesture`
-  // is stable, so this never needs to re-subscribe.
+  // notification, an app switch, the OS's own edge gesture). An explicit
+  // browser signal, not a timeout: `document.hidden`/`blur` mean the gesture
+  // genuinely cannot continue, which a stretch of silence never does.
   useEffect(() => {
     const onBlur = () => {
       forceResetGesture('blur')
@@ -568,29 +642,131 @@ export function SwipeBinary({
     const card = cardRef.current
     if (!card) return
 
+    /**
+     * The rest of a gesture is heard at `window`, capture phase — but only
+     * WHILE a gesture is in flight, attached here at `touchstart` and dropped
+     * again the moment the claim is released.
+     *
+     * Scoping matters, and not only for tidiness: a non-passive `touchmove`
+     * listener on `window` opts the whole page out of the browser's scroll
+     * fast path for as long as it is attached, because the compositor can no
+     * longer assume the handler won't call `preventDefault()`. Attaching for
+     * the component's whole lifetime would tax every scroll on any page
+     * showing a swipe-binary card, including scrolls nowhere near it.
+     * Attaching only between `touchstart` and the gesture's end costs
+     * nothing the gesture wasn't already claiming.
+     *
+     * Re-attaching with the same function references and the same capture
+     * flag is a no-op per the DOM spec, so the paths that attach without a
+     * guaranteed matching detach (see `forceResetGesture`) cannot stack
+     * duplicates.
+     */
+    const attachGestureListeners = () => {
+      window.addEventListener('touchmove', onTouchMove, { passive: false, capture: true })
+      window.addEventListener('touchend', onTouchEnd, { capture: true })
+      window.addEventListener('touchcancel', onTouchCancel, { capture: true })
+      detachGestureListenersRef.current = detachGestureListeners
+    }
+
+    const detachGestureListeners = () => {
+      window.removeEventListener('touchmove', onTouchMove, { capture: true })
+      window.removeEventListener('touchend', onTouchEnd, { capture: true })
+      window.removeEventListener('touchcancel', onTouchCancel, { capture: true })
+      detachGestureListenersRef.current = null
+    }
+
     const resetTouch = () => {
       activeTouchIdRef.current = null
       axisRef.current = 'ambiguous'
       snippetElRef.current = null
-      clearWatchdog()
+      trailRef.current = []
+      detachGestureListeners()
+    }
+
+    const resetButtonTap = () => {
+      buttonTouchIdRef.current = null
+      buttonTapElRef.current = null
+      buttonTapStartRef.current = null
+      detachGestureListeners()
+    }
+
+    /** Springs the card home and drops the claim — the shared tail of every abandoned-gesture path. */
+    const abandonCardGesture = () => {
+      resetTouch()
+      setPreviewDirection(null)
+      void animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 })
     }
 
     const onTouchStart = (event: TouchEvent) => {
       if (committedRef.current) return
-      if (activeTouchIdRef.current !== null) return
-      // Mobile bug report, 2026-08-19 — see fallbackButtonAncestor's doc
-      // comment: a button-origin touch is never claimed, so the browser's
-      // native tap-to-click reaches it instead of being swallowed by this
-      // card's unconditional preventDefault() below.
-      if (fallbackButtonAncestor(event.target)) return
-      const touch = event.touches[0]
+      // Lazy stale-claim recovery — the timer-free replacement for the OD-6
+      // watchdog (see its removal note near the top of this file). A claim
+      // whose identifier is no longer among the document's live touches
+      // belongs to a finger that is provably gone, whatever became of its
+      // terminating event; drop it and let this touch through. Unlike a
+      // timeout this cannot misfire mid-gesture: it only runs when a NEW
+      // touch has started, and it reads the browser's own touch list rather
+      // than inferring death from elapsed silence.
+      if (
+        activeTouchIdRef.current !== null &&
+        findTouchById(event.touches, activeTouchIdRef.current) === null
+      ) {
+        abandonCardGesture()
+      }
+      if (
+        buttonTouchIdRef.current !== null &&
+        findTouchById(event.touches, buttonTouchIdRef.current) === null
+      ) {
+        resetButtonTap()
+      }
+      if (activeTouchIdRef.current !== null || buttonTouchIdRef.current !== null) return
+      // See buttonTouchIdRef's doc comment: a button-origin touch is
+      // tracked and owned as its own isolated tap gesture, never claimed
+      // for card-dragging.
+      const button = fallbackButtonAncestor(event.target)
+      if (button) {
+        // `changedTouches`, not `touches` — see the card branch below.
+        const touch = event.changedTouches[0]
+        if (!touch) return
+        buttonTouchIdRef.current = touch.identifier
+        buttonTapElRef.current = button
+        buttonTapStartRef.current = { x: touch.clientX, y: touch.clientY }
+        attachGestureListeners()
+        const prevented = event.cancelable
+        if (prevented) event.preventDefault()
+        debug.log({
+          type: 'down',
+          x: touch.clientX,
+          y: touch.clientY,
+          cancelable: event.cancelable,
+          axis: 'ambiguous',
+          prevented,
+          note: 'button-tap',
+        })
+        return
+      }
+      // `changedTouches`, NOT `touches` (OD-6, 2026-08-21). `TouchEvent.touches`
+      // is every active touch point in the DOCUMENT, ordered by start time, so
+      // any finger already resting anywhere on the page — a palm on the screen
+      // edge, a thumb bracing the phone, a finger still lifting from the last
+      // interaction — is `touches[0]` and hijacks this claim. Captured effect:
+      // the component anchored `startXRef`/`startYRef` to a finger that never
+      // moved, so `dx` stayed ~0 and the card did not move AT ALL through a
+      // full 160px drag; then `onTouchEnd` failed to find that identifier in
+      // its `changedTouches` and returned without clearing the claim, leaving
+      // the card inert for every gesture afterwards. `changedTouches[0]` is
+      // the touch that actually started here, which is the one we mean.
+      const touch = event.changedTouches[0]
       if (!touch) return
+      const startTime = performance.now()
       activeTouchIdRef.current = touch.identifier
       startXRef.current = touch.clientX
       startYRef.current = touch.clientY
-      startTimeRef.current = performance.now()
+      startTimeRef.current = startTime
       axisRef.current = 'ambiguous'
-      armWatchdog()
+      trailRef.current = []
+      pushTrail(trailRef.current, touch.clientX, startTime)
+      attachGestureListeners()
       const snippetEl = scrollableSnippetAncestor(event.target)
       snippetElRef.current = snippetEl
       if (snippetEl) {
@@ -619,14 +795,41 @@ export function SwipeBinary({
 
     const onTouchMove = (event: TouchEvent) => {
       if (committedRef.current) return
+      const buttonId = buttonTouchIdRef.current
+      if (buttonId !== null) {
+        const touch = findTouchById(event.touches, buttonId)
+        if (!touch) return
+        const prevented = event.cancelable
+        if (prevented) event.preventDefault()
+        const start = buttonTapStartRef.current
+        const dx = start ? touch.clientX - start.x : 0
+        const dy = start ? touch.clientY - start.y : 0
+        // A real tap barely moves; drifting past the same tolerance the
+        // card's own axis arbitration uses means the finger left the
+        // button — cancel the tap rather than commit it OR hand off to a
+        // card drag (fallbackButtonAncestor's doc comment: button-origin
+        // touches are tap-only, even if they later drag).
+        if (Math.abs(dx) >= AXIS_TOLERANCE || Math.abs(dy) >= AXIS_TOLERANCE) {
+          buttonTouchIdRef.current = null
+          buttonTapElRef.current = null
+          buttonTapStartRef.current = null
+          debug.log({
+            type: 'cancel',
+            x: touch.clientX,
+            y: touch.clientY,
+            cancelable: event.cancelable,
+            axis: 'ambiguous',
+            prevented: false,
+            note: 'button-tap cancelled — moved too far to be a tap',
+          })
+        }
+        return
+      }
       const id = activeTouchIdRef.current
       if (id === null) return
       const touch = findTouchById(event.touches, id)
       if (!touch) return
-      // Rearmed on every accepted move (not just at touchstart) — see
-      // GESTURE_WATCHDOG_MS's doc comment: a still-actively-moving real drag
-      // should never trip the watchdog, only one that's gone silent.
-      armWatchdog()
+      pushTrail(trailRef.current, touch.clientX, performance.now())
 
       const prevented = event.cancelable
       if (prevented) event.preventDefault()
@@ -708,10 +911,42 @@ export function SwipeBinary({
     }
 
     const onTouchEnd = (event: TouchEvent) => {
+      const buttonId = buttonTouchIdRef.current
+      if (buttonId !== null) {
+        const touch = findTouchById(event.changedTouches, buttonId)
+        const button = buttonTapElRef.current
+        buttonTouchIdRef.current = null
+        buttonTapElRef.current = null
+        buttonTapStartRef.current = null
+        if (!touch || !button || committedRef.current) return
+        const direction =
+          button.dataset.swipeDirection === 'left' || button.dataset.swipeDirection === 'right'
+            ? button.dataset.swipeDirection
+            : null
+        debug.log({
+          type: 'up',
+          x: touch.clientX,
+          y: touch.clientY,
+          cancelable: event.cancelable,
+          axis: 'ambiguous',
+          prevented: false,
+          note: direction ? `button-tap -> ${direction}` : 'button-tap (no direction?!)',
+        })
+        if (direction) handlePickRef.current(direction)
+        return
+      }
       const id = activeTouchIdRef.current
       if (id === null) return
       const touch = findTouchById(event.changedTouches, id)
-      if (!touch) return
+      if (!touch) {
+        // A different finger lifted — keep tracking ours. Unless ours is not
+        // among the document's live touches either, in which case this
+        // gesture is over and the claim must not outlive it: the bare
+        // `return` that used to be here is how a card went permanently inert
+        // once the wrong identifier had been claimed (OD-6, defect 3).
+        if (findTouchById(event.touches, id) === null) abandonCardGesture()
+        return
+      }
 
       const axis = axisRef.current
       const dx = touch.clientX - startXRef.current
@@ -724,6 +959,8 @@ export function SwipeBinary({
       // card off / fire onCommit for an answer the user never actually
       // dragged toward.
       const wasSnippetForward = snippetElRef.current !== null
+      // Captured before resetTouch() swaps in a fresh array.
+      const trail = trailRef.current
       resetTouch()
 
       if (committedRef.current || axis !== 'horizontal' || wasSnippetForward) {
@@ -741,12 +978,13 @@ export function SwipeBinary({
         return
       }
 
-      // Signed velocity averaged over the WHOLE gesture (movement /
-      // elapsedTime) — see signedVelocityFromGesture's doc comment in
-      // gestureThreshold.ts for the real-hardware bug (a pause before
-      // release collapsing a final-frame velocity to ~0) that averaging
-      // sidesteps.
-      const velocityX = signedVelocityFromGesture({ movement: dx, elapsedTime })
+      // Velocity over the gesture's last RECENT_VELOCITY_WINDOW_MS, not its
+      // whole-life average (OD-6 — see recentVelocity's doc comment). It only
+      // feeds the flick branch now; a full-distance drag commits on distance
+      // alone, at any pace, so the pause-before-release habit that made a
+      // recent-window velocity unusable before can no longer block a swipe.
+      pushTrail(trail, touch.clientX, performance.now())
+      const velocityX = recentVelocity(trail, RECENT_VELOCITY_WINDOW_MS)
       const commitDirection = resolveSwipeCommit({ dx, velocityX }, DEFAULT_SWIPE_THRESHOLD)
 
       debug.log({
@@ -771,6 +1009,21 @@ export function SwipeBinary({
 
     /** A gesture the OS took away (a system gesture interrupted it — rare, now that touchstart claims the touch upfront): drop everything and settle the card back to center — never leave it stuck off-center. */
     const onTouchCancel = (event: TouchEvent) => {
+      if (buttonTouchIdRef.current !== null) {
+        buttonTouchIdRef.current = null
+        buttonTapElRef.current = null
+        buttonTapStartRef.current = null
+        debug.log({
+          type: 'cancel',
+          x: 0,
+          y: 0,
+          cancelable: event.cancelable,
+          axis: 'ambiguous',
+          prevented: false,
+          note: 'button-tap cancelled (touchcancel)',
+        })
+        return
+      }
       const id = activeTouchIdRef.current
       if (id === null) return
       const touch = findTouchById(event.changedTouches, id)
@@ -794,20 +1047,21 @@ export function SwipeBinary({
     // is why these are raw addEventListener calls and not React's
     // onTouchStart/onTouchMove synthetic props — see the component doc
     // comment's OD-5 section.
+    // Only `touchstart` is bound permanently, and only to the card — a touch
+    // that does not BEGIN here is never ours. The rest of the gesture is heard
+    // at `window` for the gesture's duration only; see
+    // `attachGestureListeners` above for why that scoping is load-bearing and
+    // why `window` rather than the card (OD-6: the card can be unmounted,
+    // retargeted, or transformed out from under a finger mid-gesture, and
+    // `window` still sees the terminating event — which is what makes the
+    // removed watchdog unnecessary rather than merely relaxed).
     card.addEventListener('touchstart', onTouchStart, { passive: false })
-    card.addEventListener('touchmove', onTouchMove, { passive: false })
-    card.addEventListener('touchend', onTouchEnd)
-    card.addEventListener('touchcancel', onTouchCancel)
     return () => {
       card.removeEventListener('touchstart', onTouchStart)
-      card.removeEventListener('touchmove', onTouchMove)
-      card.removeEventListener('touchend', onTouchEnd)
-      card.removeEventListener('touchcancel', onTouchCancel)
-      // A puzzle change remounts this component fresh (PracticePage keys the
-      // card wrapper on puzzle.id) — without this, an in-flight watchdog
-      // from an abandoned gesture on the PREVIOUS puzzle would still fire
-      // later and touch this cleanup's now-stale closure.
-      clearWatchdog()
+      // A puzzle change remounts this component (PracticePage keys the card
+      // wrapper on puzzle.id); an in-flight gesture's window listeners must
+      // not outlive the component that owns them.
+      detachGestureListeners()
     }
     // Mount-only, deliberately — see the doc comment above committedRef.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -821,21 +1075,22 @@ export function SwipeBinary({
     if (event.pointerType === 'touch') return
     if (committed) return
     if (activePointerIdRef.current !== null) return
+    const startTime = performance.now()
     activePointerIdRef.current = event.pointerId
     startXRef.current = event.clientX
     startYRef.current = event.clientY
-    startTimeRef.current = performance.now()
+    startTimeRef.current = startTime
     axisRef.current = 'ambiguous'
     capturedRef.current = false
-    armWatchdog()
+    trailRef.current = []
+    pushTrail(trailRef.current, event.clientX, startTime)
   }
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType === 'touch') return
     if (committed) return
     if (event.pointerId !== activePointerIdRef.current) return
-    // Rearmed on every accepted move — see GESTURE_WATCHDOG_MS's doc comment.
-    armWatchdog()
+    pushTrail(trailRef.current, event.clientX, performance.now())
 
     const dx = event.clientX - startXRef.current
     const dy = event.clientY - startYRef.current
@@ -859,19 +1114,20 @@ export function SwipeBinary({
 
     const axis = axisRef.current
     const dx = event.clientX - startXRef.current
-    const elapsedTime = performance.now() - startTimeRef.current
     const wasCaptured = capturedRef.current
     const target = event.currentTarget
 
+    const trail = trailRef.current
+    pushTrail(trail, event.clientX, performance.now())
     activePointerIdRef.current = null
     axisRef.current = 'ambiguous'
     capturedRef.current = false
-    clearWatchdog()
+    trailRef.current = []
     if (wasCaptured) releasePointerCaptureIfSupported(target, event.pointerId)
 
     if (committed || axis !== 'horizontal') return
 
-    const velocityX = signedVelocityFromGesture({ movement: dx, elapsedTime })
+    const velocityX = recentVelocity(trail, RECENT_VELOCITY_WINDOW_MS)
     const commitDirection = resolveSwipeCommit({ dx, velocityX }, DEFAULT_SWIPE_THRESHOLD)
 
     setPreviewDirection(null)
@@ -892,7 +1148,7 @@ export function SwipeBinary({
     activePointerIdRef.current = null
     axisRef.current = 'ambiguous'
     capturedRef.current = false
-    clearWatchdog()
+    trailRef.current = []
     if (wasCaptured) releasePointerCaptureIfSupported(target, event.pointerId)
     setPreviewDirection(null)
     void animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 })
@@ -911,7 +1167,7 @@ export function SwipeBinary({
     activePointerIdRef.current = null
     axisRef.current = 'ambiguous'
     capturedRef.current = false
-    clearWatchdog()
+    trailRef.current = []
     setPreviewDirection(null)
     void animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 })
   }
@@ -939,6 +1195,7 @@ export function SwipeBinary({
           <button
             type="button"
             className={classFor('left')}
+            data-swipe-direction="left"
             onClick={() => {
               handlePick('left')
             }}
@@ -949,6 +1206,7 @@ export function SwipeBinary({
           <button
             type="button"
             className={classFor('right')}
+            data-swipe-direction="right"
             onClick={() => {
               handlePick('right')
             }}

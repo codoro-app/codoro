@@ -1,142 +1,246 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEFAULT_SWIPE_THRESHOLD,
+  RECENT_VELOCITY_WINDOW_MS,
+  recentVelocity,
   resolveSwipeCommit,
-  signedVelocityFromGesture,
+  type GestureTrailSample,
   type SwipeSample,
   type SwipeThresholdConfig,
 } from './gestureThreshold'
 
-const config: SwipeThresholdConfig = { minDistance: 120, minVelocity: 0.3 }
+const config: SwipeThresholdConfig = {
+  commitDistance: 120,
+  flickDistance: 45,
+  flickVelocity: 0.5,
+}
 
-describe('resolveSwipeCommit', () => {
-  it('commits right on a deliberate full-distance, real-velocity rightward drag', () => {
-    // Mirrors the DoD's "20 deliberate swipes all commit": a real swipe
-    // covers well past minDistance in well past minVelocity.
+/** Builds a trail of evenly-spaced samples travelling `dx` px over `durationMs`. */
+function trailFor(dx: number, durationMs: number, samples = 8): GestureTrailSample[] {
+  const out: GestureTrailSample[] = []
+  for (let i = 0; i <= samples; i++) {
+    out.push({ x: (dx * i) / samples, t: (durationMs * i) / samples })
+  }
+  return out
+}
+
+describe('resolveSwipeCommit — distance branch', () => {
+  it('commits right on a deliberate full-distance rightward drag', () => {
     const sample: SwipeSample = { dx: 180, velocityX: 0.6 }
     expect(resolveSwipeCommit(sample, config)).toBe('right')
   })
 
-  it('commits left on a deliberate full-distance, real-velocity leftward drag', () => {
+  it('commits left on a deliberate full-distance leftward drag', () => {
     const sample: SwipeSample = { dx: -180, velocityX: -0.6 }
     expect(resolveSwipeCommit(sample, config)).toBe('left')
   })
 
-  it('does not commit a short, high-velocity accidental flick', () => {
-    // Distance below threshold, velocity above threshold — exactly the
-    // failure mode named in the spec: a stray touch-drag of a few pixels
-    // that happens to move fast must not fire a rating update.
-    const sample: SwipeSample = { dx: 15, velocityX: 0.8 }
-    expect(resolveSwipeCommit(sample, config)).toBeNull()
+  it('commits a full-distance drag at ZERO velocity (OD-6 regression, 2026-08-21)', () => {
+    // THE defect this rule change exists for. Captured against production:
+    // a clean 160px drag released at 2558ms — axis resolved horizontal, the
+    // card tracking the finger the whole way to 153px, preventDefault
+    // succeeding on every event, touchend arriving normally — silently did
+    // not commit, because the old rule ANDed distance with a whole-gesture
+    // average velocity and 160/2558 = 0.063 px/ms fell under the 0.08 floor.
+    // Distance now stands alone: pace is irrelevant once the user has
+    // deliberately dragged this far, so even a velocity of exactly 0 (a
+    // finger that came to a complete stop before lifting — the most common
+    // real release habit there is) commits.
+    expect(resolveSwipeCommit({ dx: 160, velocityX: 0 }, config)).toBe('right')
+    expect(resolveSwipeCommit({ dx: -160, velocityX: 0 }, config)).toBe('left')
   })
 
-  it('does not commit a slow, incomplete drag', () => {
-    // Distance below threshold, velocity below threshold — mirrors "10
-    // lazy half-drags all spring back".
-    const sample: SwipeSample = { dx: 40, velocityX: 0.05 }
-    expect(resolveSwipeCommit(sample, config)).toBeNull()
+  it('commits a full-distance drag whose tail velocity points the other way', () => {
+    // A snap-back in the last few ms before release does not undo 150px of
+    // deliberate travel. Direction agreement is a FLICK-branch rule only —
+    // it exists to stop a rebound being read as a throw, not to veto a
+    // completed drag.
+    expect(resolveSwipeCommit({ dx: 150, velocityX: -0.6 }, config)).toBe('right')
   })
 
-  it('does not commit a full-distance drag released very slowly', () => {
-    // Distance above threshold, velocity below threshold. Under the locked
-    // AND semantics this must NOT commit even though the drag "finished" —
-    // distance alone is not sufficient. This is a theoretical edge case: a
-    // real human dragging 120+px across a phone-width card in one gesture
-    // naturally produces velocity well above 0.3 px/ms (120px in under
-    // ~400ms already clears it), so this scenario is not expected to bite
-    // real users, but the AND semantics must hold regardless.
-    const sample: SwipeSample = { dx: 150, velocityX: 0.1 }
-    expect(resolveSwipeCommit(sample, config)).toBeNull()
-  })
-
-  it('does not commit when distance and velocity point in opposite directions', () => {
-    // Defensive case not called out explicitly by the DoD, but required by
-    // "both conditions... in the same direction": a drag that ends up past
-    // both thresholds in magnitude, but where the sign of dx and the sign
-    // of velocityX disagree (e.g. a fast snap-back at the very end of a
-    // gesture), must not be treated as a deliberate commit in either
-    // direction.
-    const sample: SwipeSample = { dx: 150, velocityX: -0.6 }
-    expect(resolveSwipeCommit(sample, config)).toBeNull()
-  })
-
-  it('does not commit on zero movement', () => {
-    const sample: SwipeSample = { dx: 0, velocityX: 0 }
-    expect(resolveSwipeCommit(sample, config)).toBeNull()
-  })
-
-  it('treats the boundary values themselves as meeting the threshold (commits)', () => {
-    // Documented choice: comparisons use >= (not strictly >), so a sample
-    // that lands exactly on minDistance/minVelocity commits. Consistent for
-    // both distance and velocity.
-    const sample: SwipeSample = { dx: config.minDistance, velocityX: config.minVelocity }
-    expect(resolveSwipeCommit(sample, config)).toBe('right')
-  })
-
-  it('does not commit one unit below either boundary', () => {
-    const belowDistance: SwipeSample = {
-      dx: config.minDistance - 1,
-      velocityX: config.minVelocity + 1,
-    }
-    expect(resolveSwipeCommit(belowDistance, config)).toBeNull()
-
-    const belowVelocity: SwipeSample = {
-      dx: config.minDistance + 100,
-      velocityX: config.minVelocity - 0.01,
-    }
-    expect(resolveSwipeCommit(belowVelocity, config)).toBeNull()
-  })
-
-  it('exposes sane, documented default constants', () => {
-    expect(DEFAULT_SWIPE_THRESHOLD.minDistance).toBeGreaterThan(0)
-    expect(DEFAULT_SWIPE_THRESHOLD.minVelocity).toBeGreaterThan(0)
-    // Sanity-check the defaults land in the ranges the brief calls out for a
-    // ~300-400px-wide card: 30-50% of container width, 0.2-0.5 px/ms floor.
-    expect(DEFAULT_SWIPE_THRESHOLD.minDistance).toBeGreaterThanOrEqual(90)
-    expect(DEFAULT_SWIPE_THRESHOLD.minDistance).toBeLessThanOrEqual(200)
-    expect(DEFAULT_SWIPE_THRESHOLD.minVelocity).toBeGreaterThanOrEqual(0.2)
-    expect(DEFAULT_SWIPE_THRESHOLD.minVelocity).toBeLessThanOrEqual(0.5)
+  it('treats the commit distance itself as sufficient (>=, not >)', () => {
+    const atThreshold: SwipeSample = { dx: config.commitDistance, velocityX: 0 }
+    expect(resolveSwipeCommit(atThreshold, config)).toBe('right')
   })
 })
 
-describe('signedVelocityFromGesture', () => {
-  it('computes signed velocity as movement / elapsedTime', () => {
-    expect(signedVelocityFromGesture({ movement: 180, elapsedTime: 360 })).toBeCloseTo(0.5)
+describe('resolveSwipeCommit — flick branch', () => {
+  it('commits a short, fast throw before it reaches the full commit distance', () => {
+    // The reason the flick branch exists at all: a real throw shouldn't have
+    // to be dragged the whole way.
+    expect(resolveSwipeCommit({ dx: 60, velocityX: 0.9 }, config)).toBe('right')
+    expect(resolveSwipeCommit({ dx: -60, velocityX: -0.9 }, config)).toBe('left')
   })
 
-  it('carries the sign of movement, not a separate direction input', () => {
-    expect(signedVelocityFromGesture({ movement: -180, elapsedTime: 360 })).toBeCloseTo(-0.5)
+  it('does not commit a short, high-velocity accidental flick', () => {
+    // The failure mode the module doc names by name, and the one thing
+    // flickDistance exists to prevent: a stray few-pixel touch-drag that
+    // happens to move fast must never fire a rating update.
+    expect(resolveSwipeCommit({ dx: 15, velocityX: 0.8 }, config)).toBeNull()
+    expect(resolveSwipeCommit({ dx: 44, velocityX: 5 }, config)).toBeNull()
   })
 
-  it('returns 0 for zero or negative elapsedTime rather than dividing by it', () => {
-    expect(signedVelocityFromGesture({ movement: 180, elapsedTime: 0 })).toBe(0)
-    expect(signedVelocityFromGesture({ movement: 180, elapsedTime: -5 })).toBe(0)
+  it('does not commit a short drag that is merely fast-ish', () => {
+    // Past flickDistance, but nowhere near throw speed — a partial drag the
+    // user thought better of, which must spring back.
+    expect(resolveSwipeCommit({ dx: 60, velocityX: 0.2 }, config)).toBeNull()
   })
 
-  it(
-    'still resolves a deliberate full-distance swipe that paused before release, where ' +
-      "@use-gesture's own last-frame velocity/direction would have collapsed to ~0",
-    () => {
-      // Reproduces the real-hardware bug this function fixes: @use-gesture/core
-      // only recomputes its last-frame `direction`/`velocity` from the delta
-      // since the PREVIOUS frame when the gap before release exceeds an
-      // internal 32ms threshold (confirmed by reading @use-gesture/core
-      // v10.3.1's source — see this function's doc comment). A finger that
-      // pauses before lifting — common — makes that final delta ~0, so the
-      // library's own velocity/direction collapse to 0 regardless of how the
-      // gesture actually went. The old `vx * dirX` computation inherited
-      // that collapse (0 * 0 = 0, or 0 * anything = 0); this one doesn't,
-      // because it never reads a single-frame delta at all.
-      const config: SwipeThresholdConfig = { minDistance: 120, minVelocity: 0.3 }
-      // The gesture itself: 180px right in 360ms overall — a normal,
-      // deliberate swipe — even though @use-gesture's own last-frame
-      // velocity/direction (not used here) would report ~0 after the pause.
-      const sample: SwipeSample = {
-        dx: 180,
-        velocityX: signedVelocityFromGesture({ movement: 180, elapsedTime: 360 }),
-      }
+  it('does not commit a short drag whose velocity opposes its displacement', () => {
+    // A rebound at the tail of an aborted half-drag: displacement still to
+    // the right, but the finger is travelling left at release. Not a throw
+    // in either direction.
+    expect(resolveSwipeCommit({ dx: 60, velocityX: -0.9 }, config)).toBeNull()
+  })
 
-      expect(resolveSwipeCommit(sample, config)).toBe('right')
-    },
-  )
+  it('does not commit a slow, incomplete drag', () => {
+    expect(resolveSwipeCommit({ dx: 40, velocityX: 0.05 }, config)).toBeNull()
+  })
+
+  it('does not commit idle drift', () => {
+    // Well under flickDistance and orders of magnitude under flick speed.
+    expect(resolveSwipeCommit({ dx: 8, velocityX: 0.02 }, config)).toBeNull()
+  })
+
+  it('does not commit a zero-displacement sample in either direction', () => {
+    expect(resolveSwipeCommit({ dx: 0, velocityX: 0 }, config)).toBeNull()
+    expect(resolveSwipeCommit({ dx: 0, velocityX: 5 }, config)).toBeNull()
+  })
+
+  it('treats both flick thresholds as inclusive (>=, not >)', () => {
+    const atBoth: SwipeSample = { dx: config.flickDistance, velocityX: config.flickVelocity }
+    expect(resolveSwipeCommit(atBoth, config)).toBe('right')
+
+    expect(
+      resolveSwipeCommit({ dx: config.flickDistance - 1, velocityX: config.flickVelocity }, config),
+    ).toBeNull()
+    expect(
+      resolveSwipeCommit(
+        { dx: config.flickDistance, velocityX: config.flickVelocity - 0.01 },
+        config,
+      ),
+    ).toBeNull()
+  })
+})
+
+describe('DEFAULT_SWIPE_THRESHOLD', () => {
+  it('is a usable config', () => {
+    expect(DEFAULT_SWIPE_THRESHOLD.commitDistance).toBeGreaterThan(0)
+    expect(DEFAULT_SWIPE_THRESHOLD.flickDistance).toBeGreaterThan(0)
+    expect(DEFAULT_SWIPE_THRESHOLD.flickVelocity).toBeGreaterThan(0)
+  })
+
+  it('keeps the flick distance well below the commit distance', () => {
+    // The flick branch is an early-out for throws, not a second, easier way
+    // to satisfy the same gesture — if these converged, flickVelocity would
+    // be the only thing left guarding a full commit.
+    expect(DEFAULT_SWIPE_THRESHOLD.flickDistance).toBeLessThanOrEqual(
+      DEFAULT_SWIPE_THRESHOLD.commitDistance / 2,
+    )
+  })
+
+  it('keeps the commit distance in a sane band for a phone-width card', () => {
+    // Roughly 30-35% of a ~340-390px card. Deliberately NOT lowered when the
+    // rule was loosened to OR: this is the only thing standing between a
+    // resting finger and a committed answer.
+    expect(DEFAULT_SWIPE_THRESHOLD.commitDistance).toBeGreaterThanOrEqual(90)
+    expect(DEFAULT_SWIPE_THRESHOLD.commitDistance).toBeLessThanOrEqual(200)
+  })
+
+  it('keeps the flick velocity at genuine throw speed, far above idle drift', () => {
+    // Idle finger drift sits under ~0.05 px/ms. The flick gate can afford to
+    // be strict precisely because it no longer gates the distance branch.
+    expect(DEFAULT_SWIPE_THRESHOLD.flickVelocity).toBeGreaterThanOrEqual(0.3)
+    expect(DEFAULT_SWIPE_THRESHOLD.flickVelocity).toBeLessThanOrEqual(1)
+  })
+
+  it('commits the captured 160px / 2558ms slow drag (OD-6 regression)', () => {
+    // The exact gesture from docs/od-6-swipe-capture-2026-08-21.md, driven
+    // end to end through the real trail -> velocity -> commit path.
+    const trail = trailFor(160, 2558, 24)
+    const velocityX = recentVelocity(trail, RECENT_VELOCITY_WINDOW_MS)
+    expect(resolveSwipeCommit({ dx: 160, velocityX }, DEFAULT_SWIPE_THRESHOLD)).toBe('right')
+  })
+
+  it('commits an unhurried 130px / 900ms drag (mobile bug report, 2026-08-19)', () => {
+    const trail = trailFor(130, 900)
+    const velocityX = recentVelocity(trail, RECENT_VELOCITY_WINDOW_MS)
+    expect(resolveSwipeCommit({ dx: 130, velocityX }, DEFAULT_SWIPE_THRESHOLD)).toBe('right')
+  })
+
+  it('still refuses a half-drag that stalls short of the commit distance', () => {
+    // 80px over 3s: past flickDistance, but far under commitDistance and
+    // nowhere near flick speed. Loosening to OR must not turn a hesitant,
+    // abandoned drag into a committed answer.
+    const trail = trailFor(80, 3000)
+    const velocityX = recentVelocity(trail, RECENT_VELOCITY_WINDOW_MS)
+    expect(resolveSwipeCommit({ dx: 80, velocityX }, DEFAULT_SWIPE_THRESHOLD)).toBeNull()
+  })
+})
+
+describe('recentVelocity', () => {
+  it('measures px/ms across the recent window, signed by direction of travel', () => {
+    const trail: GestureTrailSample[] = [
+      { x: 0, t: 0 },
+      { x: 50, t: 100 },
+      { x: 100, t: 150 },
+      { x: 160, t: 200 },
+    ]
+    // Window covers t=100..200: 110px over 100ms.
+    expect(recentVelocity(trail, 100)).toBeCloseTo(1.1)
+  })
+
+  it('carries a negative sign for leftward travel', () => {
+    const trail: GestureTrailSample[] = [
+      { x: 0, t: 0 },
+      { x: -60, t: 50 },
+      { x: -120, t: 100 },
+    ]
+    expect(recentVelocity(trail, 100)).toBeCloseTo(-1.2)
+  })
+
+  it('reports 0 for a gesture that came to a stop before release', () => {
+    // The pause-before-release habit. Harmless now: this only feeds the
+    // flick branch, and a gesture that stopped genuinely is not a flick.
+    const trail: GestureTrailSample[] = [
+      { x: 0, t: 0 },
+      { x: 150, t: 300 },
+      { x: 150, t: 400 },
+      { x: 150, t: 500 },
+    ]
+    expect(recentVelocity(trail, RECENT_VELOCITY_WINDOW_MS)).toBe(0)
+  })
+
+  it('reaches past the window rather than reporting a meaningless zero on sparse samples', () => {
+    // A slow drag can produce fewer than two samples inside a 100ms window.
+    // Measuring across the last two is honest; returning 0 would not be.
+    const trail: GestureTrailSample[] = [
+      { x: 0, t: 0 },
+      { x: 100, t: 400 },
+      { x: 200, t: 800 },
+    ]
+    expect(recentVelocity(trail, 100)).toBeCloseTo(0.25)
+  })
+
+  it('returns 0 for a trail too short to have a velocity', () => {
+    expect(recentVelocity([], 100)).toBe(0)
+    expect(recentVelocity([{ x: 10, t: 5 }], 100)).toBe(0)
+  })
+
+  it('returns 0 rather than dividing by a zero or inverted time delta', () => {
+    expect(
+      recentVelocity(
+        [
+          { x: 0, t: 100 },
+          { x: 50, t: 100 },
+        ],
+        100,
+      ),
+    ).toBe(0)
+  })
+
+  it('defaults to RECENT_VELOCITY_WINDOW_MS when no window is given', () => {
+    const trail = trailFor(200, 400, 8)
+    expect(recentVelocity(trail)).toBeCloseTo(recentVelocity(trail, RECENT_VELOCITY_WINDOW_MS))
+  })
 })
