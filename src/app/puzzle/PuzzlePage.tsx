@@ -1,11 +1,15 @@
 /**
  * `/puzzle/:id` — Codoro's shareable puzzle link (v2 Phase 1b). Renders any
- * bundled puzzle from `puzzlePool` (the full union — every interaction type;
- * see content/index.ts's own doc comment for why that export exists
- * alongside `quizPool`/`scrubberPool`) in its native interaction, entirely
- * unrated: no `appendAttempt`, no `saveProfile`, no rating math that reaches
- * storage anywhere in this file. A displayed `ratingDelta` is always `null`
- * here, never a computed-but-discarded number.
+ * bundled puzzle (the full union — every interaction type) in its native
+ * interaction, entirely unrated: no `appendAttempt`, no `saveProfile`, no
+ * rating math that reaches storage anywhere in this file. A displayed
+ * `ratingDelta` is always `null` here, never a computed-but-discarded number.
+ *
+ * Puzzle bodies are fetched on demand via `getPuzzleBody` (Task 6 of the
+ * content-metadata-lazy-load follow-up) rather than read from the eager
+ * `puzzlePool` — a genuine async hop, so this file renders a distinct
+ * loading state while the id resolves, before falling back to the
+ * not-found state for a genuinely missing id.
  *
  * Split the same way TraceRunner.tsx is (outer owns the wouter param, inner
  * is pure props) so the dispatch/unrated logic is directly testable without
@@ -45,7 +49,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'wouter'
-import { puzzlePool } from '../../content'
+import { getPuzzleBody } from '../../content'
 import type { Puzzle, QuizPuzzle, ScrubberPuzzle } from '../../content'
 import { scoreScrubberAttempt } from '../../engine'
 import type { CheckpointResult } from '../../engine'
@@ -177,21 +181,61 @@ export interface PuzzlePageForIdProps {
   id: string
 }
 
-/** Pure, props-driven inner component — exported so tests can drive it directly against the real puzzlePool without a Router wrapper. */
+/** Pure, props-driven inner component — exported so tests can drive it directly, by id, without a Router wrapper. */
 export function PuzzlePageForId({ id }: PuzzlePageForIdProps) {
-  const puzzle = puzzlePool.find((candidate) => candidate.id === id)
+  // Task 6 (content-metadata-lazy-load follow-up): was a synchronous
+  // `puzzlePool.find(...)` against the eager pool. `getPuzzleBody` is a
+  // genuine async hop, so lookup state and "not found" state must render
+  // distinctly — `puzzle === undefined` alone can't tell "still loading" from
+  // "genuinely missing" the way it could when the lookup was synchronous.
+  const [puzzle, setPuzzle] = useState<Puzzle | undefined>(undefined)
+  const [loading, setLoading] = useState(true)
+  // useRef, not a plain `let cancelled = false` closed over by the async
+  // callback below: eslint's no-unnecessary-condition narrows a bare `let`
+  // to its initial literal value across the closure boundary and flags the
+  // later `if (cancelled)` read as always-false — same fix
+  // usePracticeSession.ts's own mount effect already uses for this exact
+  // shape (see its own comment).
+  const cancelledRef = useRef(false)
 
   useEffect(() => {
-    trackPuzzleLinkView({
-      puzzle_id: id,
-      interaction: puzzle?.interaction ?? null,
-      found: puzzle !== undefined,
-    })
-    // Fire once per id, not on every render/puzzle-object-identity-change —
-    // puzzlePool entries are stable module-level objects, so `id` alone is
-    // the correct dependency.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    cancelledRef.current = false
+    void (async () => {
+      // The loading/puzzle reset lives here, as the first synchronous work
+      // inside the async callback (not as the effect body's own first
+      // statement) — react-hooks/set-state-in-effect reads a bare
+      // "first-statement setState" as the resetting-state-on-prop-change
+      // anti-pattern react.dev warns about. This still runs synchronously,
+      // in the same tick as every other call in this effect (JS runs an
+      // async function's body up to its first `await` immediately) — same
+      // timing, different syntactic position.
+      setLoading(true)
+      setPuzzle(undefined)
+      const result = await getPuzzleBody(id)
+      if (cancelledRef.current) return
+      setPuzzle(result)
+      setLoading(false)
+      // Fires once per id, the instant its lookup settles (found or not) —
+      // same "once per id" contract as before, just decided after the fetch
+      // resolves instead of synchronously against the eager puzzlePool.
+      trackPuzzleLinkView({
+        puzzle_id: id,
+        interaction: result?.interaction ?? null,
+        found: result !== undefined,
+      })
+    })()
+    return () => {
+      cancelledRef.current = true
+    }
   }, [id])
+
+  if (loading) {
+    return (
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">Loading puzzle…</p>
+      </div>
+    )
+  }
 
   if (!puzzle) {
     return (

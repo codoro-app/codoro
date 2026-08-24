@@ -33,6 +33,13 @@ const { PuzzlePageForId } = await import('./PuzzlePage')
 
 /** Drives a mounted scrubber puzzle to full completion via the real UI: repeatedly answers whichever checkpoint is pending and advances via "Next step" until every checkpoint has a result. Generic over checkpoint count/placement so it works for any real scrubberPool puzzle. */
 async function solveScrubberToCompletion(user: ReturnType<typeof userEvent.setup>) {
+  // Task 6: the puzzle body now resolves via a real async getPuzzleBody
+  // call — wait past the loading state, or the loop below finds no
+  // checkpoint buttons yet and returns immediately, mistaking "not rendered
+  // yet" for "already complete".
+  await waitFor(() => {
+    expect(screen.queryByText(/loading puzzle/i)).not.toBeInTheDocument()
+  })
   for (let i = 0; i < 200; i++) {
     const choiceButtons = screen.queryAllByRole('button', {
       name: /./,
@@ -58,15 +65,21 @@ describe('PuzzlePageForId — dispatch against the real puzzlePool', () => {
   // The corrective's own P0 (docs/v2-phase2-review.md) was exactly "a puzzle
   // interaction type reachable with nothing to render it" — cheap, real
   // coverage: every bundled puzzle renders its native interaction and
-  // nothing throws. Not a fixture — the real, shipped content pool.
+  // nothing throws. Not a fixture — the real, shipped content pool. Task 6:
+  // the puzzle body now resolves via a real async getPuzzleBody call, so
+  // this waits for the resolved render instead of asserting synchronously.
   it.each(puzzlePool.map((puzzle) => [puzzle.id, puzzle.interaction] as const))(
     'renders %s (%s) without throwing',
-    (id, interaction) => {
+    async (id, interaction) => {
       const { container } = render(<PuzzlePageForId id={id} />)
       if (interaction === 'scrubber') {
-        expect(container.querySelector('.trace-runner')).toBeInTheDocument()
+        await waitFor(() => {
+          expect(container.querySelector('.trace-runner')).toBeInTheDocument()
+        })
       } else {
-        expect(container.querySelector('.puzzle-card')).toBeInTheDocument()
+        await waitFor(() => {
+          expect(container.querySelector('.puzzle-card')).toBeInTheDocument()
+        })
       }
     },
   )
@@ -116,10 +129,14 @@ describe('PuzzlePageForId — unrated (asserted at the storage boundary)', () =>
 })
 
 describe('PuzzlePageForId — telemetry', () => {
-  it('fires puzzle_link_view once with found: true and the real interaction for a real id', () => {
+  it('fires puzzle_link_view once with found: true and the real interaction for a real id', async () => {
     trackPuzzleLinkView.mockClear()
     render(<PuzzlePageForId id="con-005" />)
-    expect(trackPuzzleLinkView).toHaveBeenCalledTimes(1)
+    // Task 6: fires once the real async getPuzzleBody call settles, not on
+    // mount.
+    await waitFor(() => {
+      expect(trackPuzzleLinkView).toHaveBeenCalledTimes(1)
+    })
     expect(trackPuzzleLinkView).toHaveBeenCalledWith({
       puzzle_id: 'con-005',
       interaction: 'mcq',
@@ -127,13 +144,15 @@ describe('PuzzlePageForId — telemetry', () => {
     })
   })
 
-  it('fires puzzle_link_view with found: false and a null interaction for an unknown id', () => {
+  it('fires puzzle_link_view with found: false and a null interaction for an unknown id', async () => {
     trackPuzzleLinkView.mockClear()
     render(<PuzzlePageForId id="not-a-real-puzzle-id" />)
-    expect(trackPuzzleLinkView).toHaveBeenCalledWith({
-      puzzle_id: 'not-a-real-puzzle-id',
-      interaction: null,
-      found: false,
+    await waitFor(() => {
+      expect(trackPuzzleLinkView).toHaveBeenCalledWith({
+        puzzle_id: 'not-a-real-puzzle-id',
+        interaction: null,
+        found: false,
+      })
     })
   })
 
@@ -184,19 +203,27 @@ describe('PuzzlePageForId — telemetry', () => {
 })
 
 describe('PuzzlePageForId — not-found state', () => {
-  it('renders a real in-app not-found state for an unknown id, not a crash', () => {
+  it('renders a loading state, then the real in-app not-found state for an unknown id, not a crash', async () => {
     render(<PuzzlePageForId id="definitely-not-a-real-id" />)
-    expect(screen.getByText(/couldn.t find that puzzle/i)).toBeInTheDocument()
+    // Task 6: the lookup is now a real async getPuzzleBody call, so the
+    // page must render a distinct loading state first — an unresolved-yet
+    // id should never be briefly mistaken for a genuinely missing one.
+    expect(screen.getByText(/loading puzzle/i)).toBeInTheDocument()
+    expect(screen.queryByText(/couldn.t find that puzzle/i)).not.toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.getByText(/couldn.t find that puzzle/i)).toBeInTheDocument()
+    })
     expect(screen.getByRole('link', { name: /go to practice/i })).toBeInTheDocument()
   })
 })
 
 describe('PuzzlePageForId — "practice more like this" CTA', () => {
-  it("links into /practice filtered to the puzzle's own pattern", () => {
+  it("links into /practice filtered to the puzzle's own pattern", async () => {
     const puzzle = puzzlePool.find((candidate) => candidate.id === 'con-005')
     if (!puzzle) throw new Error('expected con-005 to exist in puzzlePool')
     render(<PuzzlePageForId id="con-005" />)
-    const cta = screen.getByRole('link', { name: /practice more like this/i })
+    const cta = await screen.findByRole('link', { name: /practice more like this/i })
     expect(cta).toHaveAttribute('href', `/practice?pattern=${puzzle.pattern}`)
   })
 })
