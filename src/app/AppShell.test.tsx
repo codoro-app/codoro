@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { AppShell } from './AppShell'
 import { nth } from '../test/nth'
 
@@ -58,10 +61,18 @@ describe('AppShell', () => {
         <p>page content</p>
       </AppShell>,
     )
-    // Three now, not two: the slim mobile top bar's logo, BottomNav's own
-    // Home tab, and NavRail's logo — all real hrefs to '/'.
+    // Mobile topbar's brand link carries visible "Codoro" text next to the
+    // logo mark, so its accessible name must contain that text (WCAG
+    // 2.5.3) — aria-label="Codoro — Home" replaces the old label-content
+    // mismatch (aria-label="Home" alone, visible text "Codoro") flagged by
+    // Lighthouse's label-content-name-mismatch audit. BottomNav's Home tab
+    // and NavRail's logo are icon-only (no visible text label), so WCAG
+    // 2.5.3 doesn't apply to them — they keep their plain aria-label="Home".
+    const topbarBrandLink = screen.getByRole('link', { name: 'Codoro — Home', hidden: true })
+    expect(topbarBrandLink).toHaveAttribute('href', '/')
+
     const homeLinks = screen.getAllByRole('link', { name: 'Home', hidden: true })
-    expect(homeLinks.length).toBe(3)
+    expect(homeLinks.length).toBe(2)
     homeLinks.forEach((link) => {
       expect(link).toHaveAttribute('href', '/')
     })
@@ -149,5 +160,27 @@ describe('AppShell', () => {
     expect(document.activeElement).toBe(screen.getByRole('main'))
 
     scrollToSpy.mockRestore()
+  })
+})
+
+describe('AppShell — full-height layout contract (CLS regression, 2026-08-24 perf pass)', () => {
+  // jsdom doesn't compute real CSS layout or media queries, so this can't
+  // assert "the footer never moves" via computed style the way a real
+  // browser (or `pnpm perf:lighthouse`) can. It instead asserts app.css
+  // itself still declares the full-height contract that keeps the footer
+  // pinned below the fold regardless of <main>'s content height — see
+  // app.css's own comment for the mechanism. This only catches someone
+  // silently deleting/reordering the rule that makes that true; the real
+  // verification is `pnpm perf:lighthouse` reporting zero layout-shifts
+  // items on /practice.
+  it('declares .app-shell as a full-height column at every width, with <main> growing to fill it', () => {
+    const cssPath = join(dirname(fileURLToPath(import.meta.url)), 'app.css')
+    const css = readFileSync(cssPath, 'utf-8').replace(/\s+/g, ' ')
+
+    expect(css).toContain(
+      '.app-shell { display: flex; flex-direction: column; min-height: 100dvh; }',
+    )
+    expect(css).toContain('.app-shell__content { flex: 1 0 auto; }')
+    expect(css).toContain('grid-template-rows: 1fr auto;')
   })
 })

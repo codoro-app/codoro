@@ -95,6 +95,46 @@ describe('initTelemetry', () => {
   })
 })
 
+describe('loadPosthog deferral (perf pass, 2026-08-24)', () => {
+  it('schedules the posthog-js import via a timer instead of triggering it synchronously', async () => {
+    vi.useFakeTimers()
+    try {
+      const { initTelemetry } = await loadTelemetry('phc_test_key')
+      expect(vi.getTimerCount()).toBe(0)
+      initTelemetry()
+      // Deferred code registers exactly one fake timer (the idle-fallback
+      // setTimeout) the instant loadPosthog() first runs, instead of
+      // calling import('posthog-js') directly — a structural fact
+      // vi.getTimerCount() reports deterministically, regardless of how
+      // many microtask ticks a mocked dynamic import actually takes to
+      // resolve (confirmed empirically to be ~18 ticks in this
+      // environment via vite-node's own module-loader machinery — not a
+      // stable signal, which is why an earlier version of this test tried
+      // and failed to infer deferral from microtask-flush timing instead).
+      expect(vi.getTimerCount()).toBe(1)
+      await vi.runAllTimersAsync()
+      expect(posthogMock.init).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a call made before the idle callback fires still queues and captures once it resolves', async () => {
+    vi.useFakeTimers()
+    try {
+      const { trackSessionStart } = await loadTelemetry('phc_test_key')
+      expect(vi.getTimerCount()).toBe(0)
+      trackSessionStart()
+      expect(vi.getTimerCount()).toBe(1)
+      expect(posthogMock.capture).not.toHaveBeenCalled()
+      await vi.runAllTimersAsync()
+      expect(posthogMock.capture).toHaveBeenCalledWith('session_start', undefined)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
 describe('trackSessionStart', () => {
   it('captures session_start with no required custom properties', async () => {
     const { trackSessionStart } = await loadTelemetry('phc_test_key')

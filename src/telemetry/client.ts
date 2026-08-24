@@ -73,11 +73,47 @@ type PostHogInstance = typeof import('posthog-js').default
 
 let posthogPromise: Promise<PostHogInstance> | null = null
 
+// Perf pass (2026-08-24): the underlying import('posthog-js') fetch+parse
+// (~220 KB raw / 72 KB transferred, confirmed via a real production
+// Lighthouse run) used to start the instant loadPosthog() was first
+// called — which was main.tsx's initTelemetry()/trackSessionStart() at
+// boot, competing for bandwidth and main thread with the app's own chunks
+// right inside the LCP window. Scheduling the *import itself* onto the
+// browser's idle period (falling back to a macrotask where
+// requestIdleCallback doesn't exist — Safari has none) moves that fetch out
+// of the critical path without changing when callers THINK the module is
+// ready: posthogPromise is still created and memoized exactly once, on
+// first call, so every caller (however many, however soon after each
+// other) still awaits the same single promise and queues correctly even if
+// they call in before the idle callback has fired — no event is dropped,
+// it's just captured a little later than it used to be.
+function scheduleIdle(run: () => void): void {
+  const idle: (cb: () => void) => void =
+    typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function'
+      ? (cb) => {
+          window.requestIdleCallback(cb)
+        }
+      : (cb) => {
+          setTimeout(cb, 0)
+        }
+  idle(run)
+}
+
 function loadPosthog(): Promise<PostHogInstance> | null {
   if (!env.VITE_POSTHOG_KEY) {
     return null
   }
-  posthogPromise ??= import('posthog-js').then((mod) => mod.default)
+  posthogPromise ??= new Promise<PostHogInstance>((resolve, reject) => {
+    scheduleIdle(() => {
+      import('posthog-js')
+        .then((mod) => {
+          resolve(mod.default)
+        })
+        .catch((error: unknown) => {
+          reject(error instanceof Error ? error : new Error(String(error)))
+        })
+    })
+  })
   return posthogPromise
 }
 
