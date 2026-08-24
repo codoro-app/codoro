@@ -155,6 +155,43 @@ async function waitForServer(url: string, timeoutMs: number): Promise<void> {
   )
 }
 
+/**
+ * Cross-platform tree-kill for a child process. On Windows, uses taskkill /T /F
+ * to kill the entire process tree (matches chrome-launcher's approach). On POSIX,
+ * uses process group kill (only works if the child was spawned with detached: true).
+ * Also attempts direct process.kill() as a fallback.
+ */
+function killProcessTree(pid: number | undefined): void {
+  if (!pid) return
+  try {
+    if (process.platform === 'win32') {
+      // Windows: taskkill /T recursively kills all children of this PID, /F forces termination
+      // The PID here is actually cmd.exe when spawned with shell: true, but taskkill /T
+      // still reaches all descendant processes (pnpm -> node -> vite processes)
+      try {
+        execFileSync('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore' })
+      } catch {
+        // Process may have already exited; that's fine
+      }
+      // Also try killing by process.kill as a backup
+      try {
+        process.kill(pid, 'SIGTERM')
+      } catch {
+        // Already dead
+      }
+    } else {
+      // POSIX: kill the entire process group (only works if spawned detached: true)
+      try {
+        process.kill(-pid, 'SIGTERM')
+      } catch {
+        // Process may have already exited
+      }
+    }
+  } catch {
+    // Silently ignore any cleanup errors; we're in the finally block
+  }
+}
+
 function reportTable(label: string, runs: RunMetrics[]): RunMetrics {
   const med: RunMetrics = {
     performance: median(runs.map((r) => r.performance)),
@@ -189,9 +226,13 @@ async function main(): Promise<void> {
     console.log('Building production bundle...')
     execFileSync('pnpm', ['build'], { stdio: 'inherit', shell: true })
     console.log(`Starting local preview server on port ${String(PORT)}...`)
+    // On Windows, shell: true wraps the process in cmd.exe, which prevents normal .kill()
+    // from reaching descendant processes. On POSIX, use detached: true so killProcessTree's
+    // process group kill works. The killProcessTree function handles the actual cleanup.
     previewProcess = spawn('pnpm', ['preview', '--port', String(PORT), '--strictPort'], {
       stdio: 'inherit',
       shell: true,
+      detached: process.platform !== 'win32',
     })
     targetUrl = `http://localhost:${String(PORT)}/practice`
     await waitForServer(targetUrl, 30_000)
@@ -218,11 +259,8 @@ async function main(): Promise<void> {
       '\nCopy these medians into docs/perf-baseline-2026-08-24.md by hand — this script deliberately does not auto-write the committed baseline doc.',
     )
   } finally {
-    // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
-    await Promise.resolve(chrome.kill())
-    if (previewProcess) {
-      previewProcess.kill()
-    }
+    chrome.kill()
+    killProcessTree(previewProcess?.pid)
   }
 }
 
