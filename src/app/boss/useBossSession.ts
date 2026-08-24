@@ -64,7 +64,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { BOSS_STRIKE_LIMIT, shouldRateAttempt, updateRating } from '../../engine'
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, BossStats, UserProfile } from '../../storage'
-import { quizPool, BOSS_SETS, resolveActiveBossSet } from '../../content'
+import { getPuzzleBody, BOSS_SETS, resolveActiveBossSet } from '../../content'
 import { isDevPuzzleModeEnabled, resolveBossStubPuzzle } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle } from '../../content'
 import { trackError, trackBossAttempt, trackBossRunEnd } from '../../telemetry'
@@ -174,7 +174,14 @@ export function useBossSession(): BossSession {
   const runStartAtRef = useRef(0)
   const splitsRef = useRef<number[]>([])
 
-  const contentById = useRef(new Map(quizPool.map((p) => [p.id, p])))
+  // Task 6 (content-metadata-lazy-load follow-up): was `new Map(quizPool.map(...))`
+  // — an eager Map over the ENTIRE quizPool built once at hook creation.
+  // Replaced with a targeted prefetch of exactly the active set's 10 ids,
+  // resolved once in startRun (below) before the run's first puzzle is
+  // served — never per-puzzle mid-run, since boss sets are small and fixed.
+  // Starts empty; populated by startRun before every serveAt call that
+  // needs it.
+  const contentByIdRef = useRef<Map<string, ContentPuzzle>>(new Map())
 
   const serveAt = useCallback((index: number) => {
     setWillEndOnContinue(false)
@@ -197,7 +204,7 @@ export function useBossSession(): BossSession {
       setStatus('empty')
       return
     }
-    const fullPuzzle = contentById.current.get(id)
+    const fullPuzzle = contentByIdRef.current.get(id)
     if (!fullPuzzle) {
       setPuzzle(null)
       setStatus('empty')
@@ -224,7 +231,26 @@ export function useBossSession(): BossSession {
       setStrikes(0)
       setTotalPuzzles(activeSet.length)
       setRunSummary(null)
-      serveAt(0)
+      // Task 6 (content-metadata-lazy-load follow-up): prefetch exactly this
+      // run's active set, once, before serving its first puzzle — never
+      // per-puzzle mid-run (boss sets are small and fixed, so resolving all
+      // 10 up front is simpler and cheap). `status` stays 'loading' for this
+      // window (the same status BossPage.tsx already renders for the
+      // initial profile load), so a run start — including "Run it back",
+      // which re-enters this same function — never briefly shows a stale or
+      // missing puzzle while its set's bodies are still in flight.
+      setStatus('loading')
+      void (async () => {
+        const bodies = await Promise.all(activeSet.map((id) => getPuzzleBody(id)))
+        if (cancelledRef.current) return
+        const map = new Map<string, ContentPuzzle>()
+        activeSet.forEach((id, i) => {
+          const body = bodies[i]
+          if (body) map.set(id, body)
+        })
+        contentByIdRef.current = map
+        serveAt(0)
+      })()
     },
     [serveAt],
   )
