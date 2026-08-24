@@ -24,13 +24,14 @@ pnpm dev
 
 ## Scripts
 
-| Script                  | What it does                                                              |
-| ----------------------- | ------------------------------------------------------------------------- |
-| `pnpm validate`         | Full gate: typecheck, lint, test, content validation, build               |
-| `pnpm test`             | Run the test suite (Vitest)                                               |
-| `pnpm validate:content` | Validate every puzzle JSON against the content schema                     |
-| `pnpm content:stats`    | Per-pattern / per-interaction-type / difficulty-histogram breakdown       |
-| `pnpm generate:puzzles` | Gap-driven LLM puzzle authoring (see `src/content/GENERATING_PUZZLES.md`) |
+| Script                  | What it does                                                                                                                              |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm validate`         | Full gate: typecheck, lint, test, content validation, build                                                                               |
+| `pnpm test`             | Run the test suite (Vitest)                                                                                                               |
+| `pnpm validate:content` | Validate every puzzle JSON against the content schema                                                                                     |
+| `pnpm content:stats`    | Per-pattern / per-interaction-type / difficulty-histogram breakdown                                                                       |
+| `pnpm generate:puzzles` | Gap-driven LLM puzzle authoring (see `src/content/GENERATING_PUZZLES.md`)                                                                 |
+| `pnpm perf:lighthouse`  | Clean-profile (extension-free) Lighthouse audit of `/practice`, median of 3 runs per form factor — see `docs/perf-baseline-2026-08-24.md` |
 
 ## Architecture
 
