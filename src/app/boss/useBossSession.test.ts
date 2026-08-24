@@ -53,8 +53,15 @@ vi.mock('../../content', async (importOriginal) => {
     // this stub resolves them against FIXTURE_POOL instead, same as the
     // other content stubs above. Genuinely async (a resolved Promise, not a
     // bare return) so this exercises the hook's real await, not a papered-
-    // over synchronous call.
-    getPuzzleBody: (id: string) => Promise.resolve(FIXTURE_POOL.find((puzzle) => puzzle.id === id)),
+    // over synchronous call. Wrapped in vi.fn (same pattern as updateRating
+    // below) so review-fix regression tests can override its behavior
+    // per-test via mockImplementation/mockRejectedValue — restoreAllMocks
+    // in the outer afterEach below already reverts any such override back
+    // to this default implementation after every test, exactly like it
+    // already does for updateRating.
+    getPuzzleBody: vi.fn((id: string) =>
+      Promise.resolve(FIXTURE_POOL.find((puzzle) => puzzle.id === id)),
+    ),
   }
 })
 
@@ -82,7 +89,8 @@ vi.mock('../../engine', async (importOriginal) => {
 const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
   await import('../../storage')
 const { updateRating } = await import('../../engine')
-const { trackBossAttempt, trackBossRunEnd } = await import('../../telemetry')
+const { trackError, trackBossAttempt, trackBossRunEnd } = await import('../../telemetry')
+const { getPuzzleBody } = await import('../../content')
 
 function answerAndContinue(
   result: { current: ReturnType<typeof useBossSession> },
@@ -814,6 +822,44 @@ describe('useBossSession', () => {
       })
 
       expect(result.current.runSummary?.splits).toEqual([300, 600, 900])
+    })
+  })
+
+  describe('review-fix regression coverage (prefetch rejection)', () => {
+    // Important #2 (Boss called out as "the clearest gap"): a rejected
+    // getPuzzleBody (failed dynamic import, or the zod validation throw on
+    // invalid content) must not hang the run in `status: 'loading'`
+    // forever. Before the fix, this prefetch's `void`-ed IIFE ran textually
+    // inside loadAndStart's own try/catch but its rejection escaped that
+    // catch entirely (a `void`-ed async function's rejection is not caught
+    // by an enclosing sync try/catch) — status stayed 'loading' with no
+    // error path and no telemetry.
+    it('reports status: error instead of hanging when the prefetch rejects, and retryLoad recovers', async () => {
+      const failure = new Error('chunk load failed')
+      vi.mocked(getPuzzleBody).mockRejectedValue(failure)
+
+      const { result } = renderHook(() => useBossSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('error')
+      })
+      expect(trackError).toHaveBeenCalledWith(
+        failure,
+        'useBossSession: puzzle body prefetch failed',
+      )
+
+      // The existing retryLoad recovery path (already wired to BossPage's
+      // "Try again" button) must still work once the transient failure
+      // clears.
+      vi.mocked(getPuzzleBody).mockImplementation((id: string) =>
+        Promise.resolve(FIXTURE_POOL.find((puzzle) => puzzle.id === id)),
+      )
+      act(() => {
+        result.current.retryLoad()
+      })
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+      expect(result.current.puzzle?.id).toBe('b0')
     })
   })
 })

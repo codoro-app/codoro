@@ -182,6 +182,23 @@ export function useBossSession(): BossSession {
   // Starts empty; populated by startRun before every serveAt call that
   // needs it.
   const contentByIdRef = useRef<Map<string, ContentPuzzle>>(new Map())
+  // Review fix (post-Task-6): `startRun` is a plain callback, not a
+  // re-running effect — but it CAN itself be invoked more than once while
+  // still mounted (mount, and every "Run it back" via handleRunItBack,
+  // which has no guard against a second click landing before the first
+  // run's prefetch has resolved). Two overlapping prefetches would race the
+  // same way PuzzlePage.tsx's id-change race did: whichever
+  // Promise.all(...) happens to settle LAST wins and silently overwrites
+  // `contentByIdRef`/`serveAt(0)`, even if it was the OLDER of the two
+  // calls. This token is bumped once per startRun call and checked after
+  // the prefetch settles, so only the most recently started run can ever
+  // apply its result — same "compare against the latest, not a boolean
+  // flag" fix as PuzzlePage.tsx/useChallengeSession.ts. `cancelledRef`
+  // above still separately covers true unmount (it's reset exactly once,
+  // by the single mount-only effect below, so it doesn't have the
+  // reset-clobbers-a-concurrent-run problem the boolean-flag pattern had
+  // in the other two files).
+  const startRunTokenRef = useRef(0)
 
   const serveAt = useCallback((index: number) => {
     setWillEndOnContinue(false)
@@ -240,16 +257,38 @@ export function useBossSession(): BossSession {
       // which re-enters this same function — never briefly shows a stale or
       // missing puzzle while its set's bodies are still in flight.
       setStatus('loading')
+      // See startRunTokenRef's own doc comment: guards against a second
+      // startRun call (a fast repeat "Run it back" click) superseding this
+      // one before this prefetch has resolved.
+      const token = ++startRunTokenRef.current
       void (async () => {
-        const bodies = await Promise.all(activeSet.map((id) => getPuzzleBody(id)))
-        if (cancelledRef.current) return
-        const map = new Map<string, ContentPuzzle>()
-        activeSet.forEach((id, i) => {
-          const body = bodies[i]
-          if (body) map.set(id, body)
-        })
-        contentByIdRef.current = map
-        serveAt(0)
+        try {
+          const bodies = await Promise.all(activeSet.map((id) => getPuzzleBody(id)))
+          if (cancelledRef.current || startRunTokenRef.current !== token) return
+          const map = new Map<string, ContentPuzzle>()
+          activeSet.forEach((id, i) => {
+            const body = bodies[i]
+            if (body) map.set(id, body)
+          })
+          contentByIdRef.current = map
+          serveAt(0)
+        } catch (error) {
+          // getPuzzleBody can reject (a failed dynamic import — offline, or
+          // a deploy-invalidated chunk — or the zod validation throw on
+          // invalid content, which now runs in production too, unlike
+          // puzzlePool's DEV-only validation). Without this catch the run
+          // would hang in `status: 'loading'` forever — and, notably, this
+          // IIFE's rejection would NOT be caught by loadAndStart's own
+          // try/catch below even though this code runs textually inside
+          // it: a `void`-ed async function's rejection is not caught by an
+          // enclosing sync try/catch, only by its own. Reuses the same
+          // 'error' status + retryLoad recovery path loadProfile failures
+          // already have — a prefetch failure is just one more way a run
+          // can fail to start, not a new state to invent.
+          if (cancelledRef.current || startRunTokenRef.current !== token) return
+          trackError(error, 'useBossSession: puzzle body prefetch failed')
+          setStatus('error')
+        }
       })()
     },
     [serveAt],

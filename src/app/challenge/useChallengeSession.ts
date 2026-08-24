@@ -37,7 +37,7 @@ import { scoreScrubberAttempt } from '../../engine'
 import type { CheckpointResult } from '../../engine'
 import { decodeChallengePayload } from '../../challenge'
 import type { ChallengeAttemptInput, ChallengePayload } from '../../challenge'
-import { trackChallengeLinkComplete, trackChallengeLinkView } from '../../telemetry'
+import { trackChallengeLinkComplete, trackChallengeLinkView, trackError } from '../../telemetry'
 import { resolveChallengeOutcome } from './challengeOutcome'
 import type { CommitPayload } from '../practice/interactionTypes'
 
@@ -98,29 +98,43 @@ export function useChallengeSession(hash: string): ChallengeSession {
   const [fetchResolution, setFetchResolution] = useState<Resolution>(() =>
     payload === null ? { status: 'broken' } : { status: 'loading' },
   )
-  // useRef, not a plain `let cancelled = false` closed over by the async
-  // callback below: eslint's no-unnecessary-condition narrows a bare `let`
-  // to its initial literal value across the closure boundary and flags the
-  // later `if (cancelled)` read as always-false — same fix
-  // usePracticeSession.ts's own mount effect already uses for this exact
-  // shape (see its own comment).
-  const cancelledRef = useRef(false)
+  // Review fix (post-Task-6): a single shared `useRef(false)`, reset to
+  // `false` at the TOP of every effect run and set `true` only in that
+  // run's own cleanup, cannot distinguish "the run that got cancelled" from
+  // "the run that replaced it" — when `payload` changes, React runs the OLD
+  // run's cleanup (sets the shared ref true) and then the NEW run's setup
+  // (immediately resets that same shared ref back to false), re-arming the
+  // guard the old run's own in-flight fetch was relying on. `ChallengePage`
+  // remounts on hash change (key={hash}), so this exact race isn't
+  // reachable through that page today — but this hook's own tests drive it
+  // directly by hash, and the module doc comment below claims the hook
+  // stays correct standalone; that claim needs to actually be true, not
+  // just true in the one call site that happens to remount around it.
+  //
+  // Fix: an ever-incrementing counter, same shape as PuzzlePage.tsx's own
+  // fix for the identical pattern. Each run captures its own token by
+  // incrementing it in setup; each run's cleanup ALSO increments it — so an
+  // older run's token can never again equal the counter's current value,
+  // whether superseded by a newer run or the component unmounting outright.
+  // This also fixes trackChallengeLinkView's exposure to the same class of
+  // bug for free — see viewTrackedRef below, which already correctly
+  // guarded against a double-fire, but only once resolution itself stopped
+  // racing.
+  const runTokenRef = useRef(0)
 
   // Resolve every id in parallel via getPuzzleBody; any unresolvable id
   // collapses the whole payload to the broken state, not a partial run
   // (reject-wholesale, mirroring the codec) — same standard as before, just
   // decided once every fetch settles instead of synchronously against the
   // eager puzzlePool. Re-runs whenever `payload` changes identity (a new
-  // hash) — ChallengePage also remounts on hash change (key={hash}), so in
-  // practice this only ever runs once per mount, but the hook stays correct
-  // standalone too (see this hook's own tests, which drive it directly).
+  // hash).
   useEffect(() => {
     // A decode failure is a pure function of `payload` alone — no fetch
     // involved, so it's derived in `resolution` below rather than stored
     // here (react-hooks/set-state-in-effect: an effect branch that does
     // nothing but set state and return belongs in render, not an effect).
     if (payload === null) return
-    cancelledRef.current = false
+    const token = ++runTokenRef.current
     void (async () => {
       // The loading reset lives here, as the first synchronous work inside
       // the async callback (not as the effect body's own first statement) —
@@ -131,16 +145,35 @@ export function useChallengeSession(hash: string): ChallengeSession {
       // body up to its first `await` immediately) — same timing, different
       // syntactic position.
       setFetchResolution({ status: 'loading' })
-      const results = await Promise.all(payload.ids.map((id) => getPuzzleBody(id)))
-      if (cancelledRef.current) return
-      if (results.some((puzzle) => puzzle === undefined)) {
+      try {
+        const results = await Promise.all(payload.ids.map((id) => getPuzzleBody(id)))
+        if (runTokenRef.current !== token) return // superseded — see runTokenRef's doc comment
+        if (results.some((puzzle) => puzzle === undefined)) {
+          setFetchResolution({ status: 'broken' })
+          return
+        }
+        setFetchResolution({ status: 'resolved', puzzles: results as Puzzle[] })
+      } catch (error) {
+        // getPuzzleBody can reject (a failed dynamic import — offline, or a
+        // deploy-invalidated chunk — or the zod validation throw on
+        // invalid content, which now runs in production too, unlike
+        // puzzlePool's DEV-only validation). Without this catch the run
+        // would hang in `loading` forever. Collapsed into the existing
+        // `'broken'` state — reject-wholesale already treats "this
+        // challenge can't be played" as one legible state; a fetch failure
+        // is just one more way to reach it, not a new state to invent.
+        if (runTokenRef.current !== token) return
+        trackError(error, 'useChallengeSession: getPuzzleBody failed')
         setFetchResolution({ status: 'broken' })
-        return
       }
-      setFetchResolution({ status: 'resolved', puzzles: results as Puzzle[] })
     })()
     return () => {
-      cancelledRef.current = true
+      // Bump the token here too, not just in the next run's own setup:
+      // setup-side bumping alone handles the re-run case (a new payload)
+      // fine, but on a genuine unmount no further setup ever runs to
+      // invalidate this run's token — this cleanup is the only chance to
+      // do that.
+      runTokenRef.current += 1
     }
   }, [payload])
 

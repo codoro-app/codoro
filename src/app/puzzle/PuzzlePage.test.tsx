@@ -17,6 +17,7 @@ vi.mock('../../storage', async (importOriginal) => {
 
 const trackPuzzleLinkView = vi.fn()
 const trackPuzzleLinkAttempt = vi.fn()
+const trackError = vi.fn()
 
 vi.mock('../../telemetry', () => ({
   trackPuzzleLinkView: (...args: unknown[]) => {
@@ -25,11 +26,33 @@ vi.mock('../../telemetry', () => ({
   trackPuzzleLinkAttempt: (...args: unknown[]) => {
     trackPuzzleLinkAttempt(...args)
   },
-  trackError: vi.fn(),
+  trackError: (...args: unknown[]) => {
+    trackError(...args)
+  },
 }))
 
+// Review-fix regression coverage (race + rejection tests below) needs a
+// controllable getPuzzleBody — wrapped in a vi.fn whose DEFAULT
+// implementation is the real one (every other test in this file still
+// exercises the real, bundled content), overridden per-test via
+// mockImplementation/mockImplementationOnce only where needed.
+vi.mock('../../content', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../content')>()
+  return { ...actual, getPuzzleBody: vi.fn(actual.getPuzzleBody) }
+})
+
 const { appendAttempt, saveProfile } = await import('../../storage')
+const { getPuzzleBody } = await import('../../content')
+const { getPuzzleBody: realGetPuzzleBody } =
+  await vi.importActual<typeof import('../../content')>('../../content')
 const { PuzzlePageForId } = await import('./PuzzlePage')
+
+afterEach(() => {
+  // Any race/rejection test below that overrides getPuzzleBody's
+  // implementation must not leak that override into later tests, which all
+  // assume the real, bundled lookup.
+  vi.mocked(getPuzzleBody).mockImplementation(realGetPuzzleBody)
+})
 
 /** Drives a mounted scrubber puzzle to full completion via the real UI: repeatedly answers whichever checkpoint is pending and advances via "Next step" until every checkpoint has a result. Generic over checkpoint count/placement so it works for any real scrubberPool puzzle. */
 async function solveScrubberToCompletion(user: ReturnType<typeof userEvent.setup>) {
@@ -199,6 +222,88 @@ describe('PuzzlePageForId — telemetry', () => {
     expect(trackPuzzleLinkAttempt).toHaveBeenCalledWith(
       expect.objectContaining({ puzzle_id: 'tc-009', interaction: 'scrubber' }),
     )
+  })
+})
+
+describe('PuzzlePageForId — review-fix regression coverage (async id-change race + rejection)', () => {
+  // Critical review finding: a single shared `useRef(false)` reset to
+  // `false` at the top of every effect run couldn't distinguish "the run
+  // that got cancelled" from "the run that replaced it" — an id change
+  // (real app: navigating link-to-link on this un-keyed route, App.tsx's
+  // `<Route path="/puzzle/:id">`) whose OLDER fetch resolves AFTER its
+  // NEWER one would let the older result win, rendering the wrong puzzle
+  // with `loading: false`. Reproduces the exact race: id 'con-005' is
+  // deliberately held pending while id 'tc-009' is allowed to resolve and
+  // render first, then the held-back 'con-005' fetch is released — it must
+  // not clobber the already-rendered 'tc-009'.
+  it('does not render a stale puzzle when getPuzzleBody resolves out of order across an id change', async () => {
+    trackPuzzleLinkView.mockClear()
+    let releaseFirst!: (puzzle: Awaited<ReturnType<typeof realGetPuzzleBody>>) => void
+    const firstFetch = new Promise<Awaited<ReturnType<typeof realGetPuzzleBody>>>((resolve) => {
+      releaseFirst = resolve
+    })
+    vi.mocked(getPuzzleBody).mockImplementation((id: string) => {
+      if (id === 'con-005') return firstFetch
+      return realGetPuzzleBody(id)
+    })
+
+    const { container, rerender } = render(<PuzzlePageForId id="con-005" />)
+    expect(screen.getByText(/loading puzzle/i)).toBeInTheDocument()
+
+    // The id changes before the first fetch has resolved — same prop
+    // change a real un-keyed route navigation produces, no remount.
+    rerender(<PuzzlePageForId id="tc-009" />)
+    await waitFor(() => {
+      expect(container.querySelector('.trace-runner')).toBeInTheDocument()
+    })
+
+    // Now let the stale, superseded 'con-005' fetch resolve.
+    releaseFirst(await realGetPuzzleBody('con-005'))
+    await waitFor(() => {
+      // Still tc-009 — the stale result must not have won.
+      expect(container.querySelector('.trace-runner')).toBeInTheDocument()
+      expect(container.querySelector('.puzzle-card')).not.toBeInTheDocument()
+    })
+    // And it must not have fired its own (stale) telemetry either.
+    expect(trackPuzzleLinkView).not.toHaveBeenCalledWith(
+      expect.objectContaining({ puzzle_id: 'con-005' }),
+    )
+  })
+
+  // Important #3: PuzzlePage had no double-fire guard on trackPuzzleLinkView
+  // (unlike useChallengeSession.ts's viewTrackedRef) — under StrictMode's
+  // dev-only double-invoke, the same disarmed-guard mechanism as the
+  // Critical finding let both effect invocations reach it. The runTokenRef
+  // fix (each invocation gets its own token, even repeat invocations for
+  // the same id) closes this for free.
+  it('fires puzzle_link_view exactly once for a given id under StrictMode', async () => {
+    trackPuzzleLinkView.mockClear()
+    render(<PuzzlePageForId id="con-005" />, { wrapper: StrictMode })
+    await waitFor(() => {
+      expect(trackPuzzleLinkView).toHaveBeenCalled()
+    })
+    expect(trackPuzzleLinkView).toHaveBeenCalledTimes(1)
+    expect(trackPuzzleLinkView).toHaveBeenCalledWith({
+      puzzle_id: 'con-005',
+      interaction: 'mcq',
+      found: true,
+    })
+  })
+
+  // Important #2: a rejected getPuzzleBody (failed dynamic import, or the
+  // zod validation throw on invalid content) must not hang the page in
+  // `loading` forever.
+  it('clears the loading state and reports the error instead of hanging when getPuzzleBody rejects', async () => {
+    const failure = new Error('chunk load failed')
+    vi.mocked(getPuzzleBody).mockRejectedValue(failure)
+
+    render(<PuzzlePageForId id="con-005" />)
+    expect(screen.getByText(/loading puzzle/i)).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.queryByText(/loading puzzle/i)).not.toBeInTheDocument()
+    })
+    expect(trackError).toHaveBeenCalledWith(failure, 'PuzzlePage: getPuzzleBody failed')
   })
 })
 
