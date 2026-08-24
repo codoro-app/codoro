@@ -1,3 +1,32 @@
+# 2026-08-24 perf pass: `csp-xss` (Lighthouse Best Practices, High
+# severity) flagged "No CSP found in enforcement mode" — there was no
+# Content-Security-Policy at all. Report-Only, not enforcing: this can't be
+# verified against a real deployed page in this session, and a CSP that
+# silently breaks telemetry or the service worker in production is a
+# strictly worse outcome than no CSP. Flip to `Content-Security-Policy`
+# (dropping `-Report-Only`) only after confirming reports are clean against
+# real traffic.
+#
+# style-src 'unsafe-inline': vite.config.ts's inlineCriticalCss plugin
+# inlines the app-shell stylesheet as a literal <style> block with no
+# nonce/hash mechanism (see that plugin's own comment) — a hash-based
+# style-src would require the plugin to emit a matching per-build hash,
+# which is a real rewrite this pass doesn't take on. Taking 'unsafe-inline'
+# for style-src only (not script-src) is the documented, narrower trade the
+# spec asked for.
+# script-src: 'self' plus static.cloudflareinsights.com — Cloudflare Pages'
+# own Web Analytics beacon script (confirmed in network-requests: a <script>
+# load from that host, not something this app's own code injects).
+# connect-src: 'self' plus the PostHog host (see Step 1) and
+# static.cloudflareinsights.com (the beacon's own reporting endpoint) — a
+# missing entry here silently kills telemetry, not a loud failure, so this
+# is exactly the directive to double-check before ever dropping
+# Report-Only.
+# worker-src 'self': the Workbox-generated service worker (vite.config.ts's
+# VitePWA plugin).
+/*
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://us.i.posthog.com https://static.cloudflareinsights.com; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+
 /sw.js
   Cache-Control: no-cache
 
