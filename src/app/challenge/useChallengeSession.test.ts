@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { act, renderHook } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import { buildChallengePayload, buildChallengeUrl } from '../../challenge'
 import type { ChallengeAttemptInput } from '../../challenge'
 import { useChallengeSession } from './useChallengeSession'
@@ -25,9 +25,17 @@ describe('useChallengeSession — run-end re-entrancy', () => {
   // queued in the same tick) must not double-fire the run's only completion
   // telemetry. Regression for the gap the checkpoint path already guards
   // against via checkpointResultsRef but the run-end path originally didn't.
-  it('fires challenge_link_complete only once when handleContinue is dispatched twice in the same tick', () => {
+  it('fires challenge_link_complete only once when handleContinue is dispatched twice in the same tick', async () => {
     const hash = fragmentFor([{ puzzleId: 'con-005', correct: true, time_ms: 500 }])
     const { result } = renderHook(() => useChallengeSession(hash))
+
+    // Task 6: the puzzle body now resolves via a real async getPuzzleBody
+    // call — wait for that to settle before driving the handlers, or
+    // handleAnswered/handleContinue are no-ops against a still-'loading'
+    // session.
+    await waitFor(() => {
+      expect(result.current.status).toBe('playing')
+    })
 
     act(() => {
       result.current.handleAnswered({ correct: true, choiceIndex: 0 })
