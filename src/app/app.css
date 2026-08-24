@@ -21,6 +21,25 @@
  *    `.app-shell`'s `:has()` rule above to detect the collapsed state.
  */
 
+/* 2026-08-24 perf pass: .app-shell had no rule at all below 1024px — the
+ * footer sat in plain block flow directly after <main>, so any growth of
+ * <main>'s content (RouteSkeleton -> real page, then the puzzle card's own
+ * content filling in) pushed it down. Lighthouse's layout-shifts audit
+ * (clean profile) attributed both mobile shifts to exactly this element
+ * (0.149 + 0.047 = 0.196 CLS). A full-height flex column pins the footer
+ * below the fold on a short page instead — see .app-shell__content below
+ * for the other half (main growing to fill the remaining space), and the
+ * >=1024px block further down for the grid equivalent. */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.app-shell__content {
+  flex: 1 0 auto;
+}
+
 .app-shell__main {
   grid-area: main;
 }
@@ -33,6 +52,7 @@
   .app-shell {
     display: grid;
     grid-template-columns: var(--nav-rail-width) 1fr;
+    grid-template-rows: 1fr auto;
     min-height: 100dvh;
   }
 
