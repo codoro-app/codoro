@@ -55,7 +55,7 @@ import { scoreScrubberAttempt } from '../../engine'
 import type { CheckpointResult } from '../../engine'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { TraceRunnerPuzzle } from '../trace/TraceRunner'
-import { trackPuzzleLinkAttempt, trackPuzzleLinkView } from '../../telemetry'
+import { trackError, trackPuzzleLinkAttempt, trackPuzzleLinkView } from '../../telemetry'
 import type { CommitPayload } from '../practice/interactionTypes'
 import '../tokens.css'
 
@@ -190,16 +190,35 @@ export function PuzzlePageForId({ id }: PuzzlePageForIdProps) {
   // "genuinely missing" the way it could when the lookup was synchronous.
   const [puzzle, setPuzzle] = useState<Puzzle | undefined>(undefined)
   const [loading, setLoading] = useState(true)
-  // useRef, not a plain `let cancelled = false` closed over by the async
-  // callback below: eslint's no-unnecessary-condition narrows a bare `let`
-  // to its initial literal value across the closure boundary and flags the
-  // later `if (cancelled)` read as always-false — same fix
-  // usePracticeSession.ts's own mount effect already uses for this exact
-  // shape (see its own comment).
-  const cancelledRef = useRef(false)
+  // Review fix (post-Task-6): a single shared `useRef(false)`, reset to
+  // `false` at the TOP of every effect run and set `true` only in that
+  // run's own cleanup, cannot distinguish "the run that got cancelled" from
+  // "the run that replaced it" — when `id` changes, React runs the OLD
+  // run's cleanup (sets the shared ref true) and then the NEW run's setup
+  // (immediately resets that same shared ref back to false), which
+  // re-arms the guard the old run's own in-flight fetch was relying on. A
+  // slower-to-resolve fetch for an earlier id can then land AFTER a
+  // faster-to-resolve fetch for a later id and win, rendering the wrong
+  // puzzle at the current URL (this route has no `key`, so a link-to-link
+  // navigation changes `id` without a remount — App.tsx's
+  // `<Route path="/puzzle/:id">` — so this is reachable in the real app,
+  // not just synthetically).
+  //
+  // Fix: an ever-incrementing counter. Each run captures its own token by
+  // incrementing it in setup; each run's cleanup ALSO increments it — so
+  // an older run's token can never again equal the counter's current
+  // value, whether it was superseded by a newer run (whose own setup
+  // bumps the counter again right after) or the component simply
+  // unmounted (nothing else will ever bump the counter again, but this
+  // run's own cleanup already did). Comparing "is my token still the
+  // latest" — not a boolean flag — is what makes this survive re-runs,
+  // repeats (React StrictMode's dev-only double-invoke of the same id
+  // produces two distinct tokens too, so only the second, "real", run's
+  // fetch can ever pass the check and fire trackPuzzleLinkView below).
+  const runTokenRef = useRef(0)
 
   useEffect(() => {
-    cancelledRef.current = false
+    const token = ++runTokenRef.current
     void (async () => {
       // The loading/puzzle reset lives here, as the first synchronous work
       // inside the async callback (not as the effect body's own first
@@ -211,21 +230,40 @@ export function PuzzlePageForId({ id }: PuzzlePageForIdProps) {
       // timing, different syntactic position.
       setLoading(true)
       setPuzzle(undefined)
-      const result = await getPuzzleBody(id)
-      if (cancelledRef.current) return
-      setPuzzle(result)
-      setLoading(false)
-      // Fires once per id, the instant its lookup settles (found or not) —
-      // same "once per id" contract as before, just decided after the fetch
-      // resolves instead of synchronously against the eager puzzlePool.
-      trackPuzzleLinkView({
-        puzzle_id: id,
-        interaction: result?.interaction ?? null,
-        found: result !== undefined,
-      })
+      try {
+        const result = await getPuzzleBody(id)
+        if (runTokenRef.current !== token) return // superseded — see runTokenRef's doc comment
+        setPuzzle(result)
+        setLoading(false)
+        // Fires once per id, the instant its lookup settles (found or
+        // not) — same "once per id" contract as before, just decided
+        // after the fetch resolves instead of synchronously against the
+        // eager puzzlePool.
+        trackPuzzleLinkView({
+          puzzle_id: id,
+          interaction: result?.interaction ?? null,
+          found: result !== undefined,
+        })
+      } catch (error) {
+        // getPuzzleBody can reject (a failed dynamic import — offline, or a
+        // deploy-invalidated chunk — or the zod validation throw on
+        // invalid content, which now runs in production too, unlike
+        // puzzlePool's DEV-only validation). Without this catch the page
+        // would hang in `loading` forever. `puzzle` is already reset to
+        // undefined above, so clearing `loading` here falls through to the
+        // existing not-found state — reused as this surface's only
+        // "genuinely couldn't load" state rather than inventing a new one.
+        if (runTokenRef.current !== token) return
+        trackError(error, 'PuzzlePage: getPuzzleBody failed')
+        setLoading(false)
+      }
     })()
     return () => {
-      cancelledRef.current = true
+      // Bump the token here too, not just in the next run's own setup:
+      // setup-side bumping alone handles the re-run case (a new id) fine,
+      // but on a genuine unmount no further setup ever runs to invalidate
+      // this run's token — this cleanup is the only chance to do that.
+      runTokenRef.current += 1
     }
   }, [id])
 
