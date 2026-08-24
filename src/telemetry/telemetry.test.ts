@@ -101,8 +101,15 @@ describe('loadPosthog deferral (perf pass, 2026-08-24)', () => {
     try {
       const { initTelemetry } = await loadTelemetry('phc_test_key')
       initTelemetry()
-      // jsdom has no requestIdleCallback, so client.ts's fallback schedules
-      // a setTimeout(..., 0) — nothing has run it yet.
+      expect(posthogMock.init).not.toHaveBeenCalled()
+      // Flush microtasks only (no timer advance) — this is what actually
+      // distinguishes deferred from eager: under the OLD eager code,
+      // import('posthog-js') (mocked, resolves via microtasks only) would
+      // already be settled by this point with no timer involved at all.
+      // Under the NEW idle-scheduled code, the import hasn't even started
+      // yet — it's still waiting on the scheduled idle/timeout callback.
+      await Promise.resolve()
+      await Promise.resolve()
       expect(posthogMock.init).not.toHaveBeenCalled()
       await vi.runAllTimersAsync()
       expect(posthogMock.init).toHaveBeenCalledTimes(1)
@@ -116,6 +123,14 @@ describe('loadPosthog deferral (perf pass, 2026-08-24)', () => {
     try {
       const { trackSessionStart } = await loadTelemetry('phc_test_key')
       trackSessionStart()
+      expect(posthogMock.capture).not.toHaveBeenCalled()
+      // Flush microtasks only (no timer advance) — this distinguishes
+      // deferred from eager loading: under the old eager implementation,
+      // the mocked import resolves via microtasks alone, so posthogMock.capture
+      // would already be called here. Under the new deferred code, the import
+      // hasn't started yet (waiting on the idle/timeout callback).
+      await Promise.resolve()
+      await Promise.resolve()
       expect(posthogMock.capture).not.toHaveBeenCalled()
       await vi.runAllTimersAsync()
       expect(posthogMock.capture).toHaveBeenCalledWith('session_start', undefined)
