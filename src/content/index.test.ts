@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { puzzlePool, quizPool, scrubberPool } from './index'
+import { getPuzzleBody, puzzleMeta, puzzlePool, quizPool, scrubberPool } from './index'
 
 /**
  * Rating-integrity regression: a `swipe-binary` puzzle whose `correct_direction`
@@ -67,5 +67,33 @@ describe('quizPool / scrubberPool — pool split', () => {
     expect(quizPool.length + scrubberPool.length).toBe(puzzlePool.length)
     const scrubberIds = new Set(scrubberPool.map((puzzle) => puzzle.id))
     expect(quizPool.some((puzzle) => scrubberIds.has(puzzle.id))).toBe(false)
+  })
+})
+
+describe('puzzleMeta', () => {
+  it('has one entry per puzzlePool entry, with matching id/pattern/difficulty_rating/interaction', () => {
+    expect(puzzleMeta.length).toBe(puzzlePool.length)
+    const byId = new Map(puzzlePool.map((p) => [p.id, p]))
+    for (const meta of puzzleMeta) {
+      const full = byId.get(meta.id)
+      expect(full, `${meta.id} missing from puzzlePool`).toBeDefined()
+      expect(meta.pattern).toBe(full?.pattern)
+      expect(meta.difficulty_rating).toBe(full?.difficulty_rating)
+      expect(meta.interaction).toBe(full?.interaction)
+    }
+  })
+})
+
+describe('getPuzzleBody', () => {
+  it('resolves the real, fully-validated puzzle for a known id', async () => {
+    const known = puzzlePool[0]
+    if (!known) throw new Error('puzzlePool is empty in test env')
+    const body = await getPuzzleBody(known.id)
+    expect(body).toEqual(known)
+  })
+
+  it('resolves undefined for an unknown id', async () => {
+    const body = await getPuzzleBody('nonexistent-id-xyz')
+    expect(body).toBeUndefined()
   })
 })
