@@ -95,6 +95,36 @@ describe('initTelemetry', () => {
   })
 })
 
+describe('loadPosthog deferral (perf pass, 2026-08-24)', () => {
+  it('does not call posthog.init synchronously — only after the idle callback fires', async () => {
+    vi.useFakeTimers()
+    try {
+      const { initTelemetry } = await loadTelemetry('phc_test_key')
+      initTelemetry()
+      // jsdom has no requestIdleCallback, so client.ts's fallback schedules
+      // a setTimeout(..., 0) — nothing has run it yet.
+      expect(posthogMock.init).not.toHaveBeenCalled()
+      await vi.runAllTimersAsync()
+      expect(posthogMock.init).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('a call made before the idle callback fires still queues and captures once it resolves', async () => {
+    vi.useFakeTimers()
+    try {
+      const { trackSessionStart } = await loadTelemetry('phc_test_key')
+      trackSessionStart()
+      expect(posthogMock.capture).not.toHaveBeenCalled()
+      await vi.runAllTimersAsync()
+      expect(posthogMock.capture).toHaveBeenCalledWith('session_start', undefined)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
 describe('trackSessionStart', () => {
   it('captures session_start with no required custom properties', async () => {
     const { trackSessionStart } = await loadTelemetry('phc_test_key')
