@@ -19,7 +19,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { listAttempts } from '../../storage'
 import type { Attempt } from '../../storage'
-import { PATTERN_LABELS, PATTERN_SLUGS, puzzlePool } from '../../content'
+import { PATTERN_LABELS, PATTERN_SLUGS, puzzleMeta } from '../../content'
 import type { PatternSlug } from '../../content'
 import { computeMastery, MIN_ATTEMPTS_FOR_MASTERY } from './mastery'
 import type { PatternMastery } from './mastery'
@@ -79,7 +79,7 @@ export function PatternPicker({ onSelect, onBack, singleColumn = false }: Patter
     void (async () => {
       const attempts: Attempt[] = await listAttempts()
       if (cancelledRef.current) return
-      setRows(computeMastery(attempts, puzzlePool))
+      setRows(computeMastery(attempts, puzzleMeta))
     })()
     return () => {
       cancelledRef.current = true

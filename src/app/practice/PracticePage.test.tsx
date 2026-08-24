@@ -52,7 +52,12 @@ const { FIXTURE_POOL } = vi.hoisted(() => ({
 
 vi.mock('../../content', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../content')>()
-  return { ...actual, puzzlePool: FIXTURE_POOL, quizPool: FIXTURE_POOL }
+  // puzzleMeta needs the same override as puzzlePool/quizPool (perf pass,
+  // 2026-08-24) — MasteryTeaser now reads puzzleMeta, not puzzlePool, to
+  // compute mastery; without this the fixture ids (p0/p1/...) never resolve
+  // to a pattern via the real (unmocked) puzzleMeta, and any test exercising
+  // MasteryTeaser inside PracticePage silently never sees an accuracy update.
+  return { ...actual, puzzlePool: FIXTURE_POOL, quizPool: FIXTURE_POOL, puzzleMeta: FIXTURE_POOL }
 })
 
 vi.mock('../../storage', async (importOriginal) => {
