@@ -80,7 +80,7 @@ export function AppShell({ children }: AppShellProps) {
         <Link
           href="/"
           className="flex items-center gap-2 min-h-11 py-2 bg-transparent no-underline cursor-pointer"
-          aria-label="Home"
+          aria-label="Codoro — Home"
         >
           <div
             className="flex items-center justify-center w-7 h-7 flex-none rounded-sm bg-accent text-accent-ink font-mono font-bold text-md"
@@ -113,13 +113,13 @@ export function AppShell({ children }: AppShellProps) {
       <footer className="flex justify-center p-4 pb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom)+var(--space-4))] lg:pb-4 border-t border-border lg:col-span-full">
         <Link
           href={ROUTES.settings.path}
-          className="min-h-11 px-3 py-2 bg-transparent text-text-2 text-sm no-underline cursor-pointer inline-flex items-center"
+          className="min-h-11 px-3 py-2 bg-transparent text-text-1 text-sm no-underline cursor-pointer inline-flex items-center"
         >
           Settings
         </Link>
         <Link
           href={ROUTES.legal.path}
-          className="min-h-11 px-3 py-2 bg-transparent text-text-2 text-sm no-underline cursor-pointer inline-flex items-center"
+          className="min-h-11 px-3 py-2 bg-transparent text-text-1 text-sm no-underline cursor-pointer inline-flex items-center"
         >
           Legal
         </Link>

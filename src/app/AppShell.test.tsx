@@ -61,10 +61,18 @@ describe('AppShell', () => {
         <p>page content</p>
       </AppShell>,
     )
-    // Three now, not two: the slim mobile top bar's logo, BottomNav's own
-    // Home tab, and NavRail's logo — all real hrefs to '/'.
+    // Mobile topbar's brand link carries visible "Codoro" text next to the
+    // logo mark, so its accessible name must contain that text (WCAG
+    // 2.5.3) — aria-label="Codoro — Home" replaces the old label-content
+    // mismatch (aria-label="Home" alone, visible text "Codoro") flagged by
+    // Lighthouse's label-content-name-mismatch audit. BottomNav's Home tab
+    // and NavRail's logo are icon-only (no visible text label), so WCAG
+    // 2.5.3 doesn't apply to them — they keep their plain aria-label="Home".
+    const topbarBrandLink = screen.getByRole('link', { name: 'Codoro — Home', hidden: true })
+    expect(topbarBrandLink).toHaveAttribute('href', '/')
+
     const homeLinks = screen.getAllByRole('link', { name: 'Home', hidden: true })
-    expect(homeLinks.length).toBe(3)
+    expect(homeLinks.length).toBe(2)
     homeLinks.forEach((link) => {
       expect(link).toHaveAttribute('href', '/')
     })
