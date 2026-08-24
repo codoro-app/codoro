@@ -96,21 +96,22 @@ describe('initTelemetry', () => {
 })
 
 describe('loadPosthog deferral (perf pass, 2026-08-24)', () => {
-  it('does not call posthog.init synchronously — only after the idle callback fires', async () => {
+  it('schedules the posthog-js import via a timer instead of triggering it synchronously', async () => {
     vi.useFakeTimers()
     try {
       const { initTelemetry } = await loadTelemetry('phc_test_key')
+      expect(vi.getTimerCount()).toBe(0)
       initTelemetry()
-      expect(posthogMock.init).not.toHaveBeenCalled()
-      // Flush microtasks only (no timer advance) — this is what actually
-      // distinguishes deferred from eager: under the OLD eager code,
-      // import('posthog-js') (mocked, resolves via microtasks only) would
-      // already be settled by this point with no timer involved at all.
-      // Under the NEW idle-scheduled code, the import hasn't even started
-      // yet — it's still waiting on the scheduled idle/timeout callback.
-      await Promise.resolve()
-      await Promise.resolve()
-      expect(posthogMock.init).not.toHaveBeenCalled()
+      // Deferred code registers exactly one fake timer (the idle-fallback
+      // setTimeout) the instant loadPosthog() first runs, instead of
+      // calling import('posthog-js') directly — a structural fact
+      // vi.getTimerCount() reports deterministically, regardless of how
+      // many microtask ticks a mocked dynamic import actually takes to
+      // resolve (confirmed empirically to be ~18 ticks in this
+      // environment via vite-node's own module-loader machinery — not a
+      // stable signal, which is why an earlier version of this test tried
+      // and failed to infer deferral from microtask-flush timing instead).
+      expect(vi.getTimerCount()).toBe(1)
       await vi.runAllTimersAsync()
       expect(posthogMock.init).toHaveBeenCalledTimes(1)
     } finally {
@@ -122,15 +123,9 @@ describe('loadPosthog deferral (perf pass, 2026-08-24)', () => {
     vi.useFakeTimers()
     try {
       const { trackSessionStart } = await loadTelemetry('phc_test_key')
+      expect(vi.getTimerCount()).toBe(0)
       trackSessionStart()
-      expect(posthogMock.capture).not.toHaveBeenCalled()
-      // Flush microtasks only (no timer advance) — this distinguishes
-      // deferred from eager loading: under the old eager implementation,
-      // the mocked import resolves via microtasks alone, so posthogMock.capture
-      // would already be called here. Under the new deferred code, the import
-      // hasn't started yet (waiting on the idle/timeout callback).
-      await Promise.resolve()
-      await Promise.resolve()
+      expect(vi.getTimerCount()).toBe(1)
       expect(posthogMock.capture).not.toHaveBeenCalled()
       await vi.runAllTimersAsync()
       expect(posthogMock.capture).toHaveBeenCalledWith('session_start', undefined)
