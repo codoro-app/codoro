@@ -3,6 +3,8 @@ import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join } from 'node:path'
 
 const BRAND_PURPLE = '#863bff'
 
@@ -64,6 +66,59 @@ function inlineCriticalCss(): Plugin {
   }
 }
 
+const PUZZLE_META_VIRTUAL_ID = 'virtual:codoro-puzzle-meta'
+const RESOLVED_PUZZLE_META_VIRTUAL_ID = `\0${PUZZLE_META_VIRTUAL_ID}`
+
+// Perf pass follow-up (2026-08-24): generates the metadata-only puzzle
+// index src/content/index.ts's `puzzleMeta` export needs to select a
+// puzzle WITHOUT eagerly importing all 214 puzzle bodies (286 KB raw,
+// confirmed on /practice's critical path — see
+// docs/perf-baseline-2026-08-24.md). A small, self-contained file walk —
+// not a reach into src/content/tools/loadPuzzles.ts's near-identical logic
+// — see this file's own navigateFallbackDenylist comment above for why
+// this file avoids importing from src/: an isolated tsconfig.node.json
+// project. Runs once at build/dev-server-start time, not per-request.
+function puzzleMetaPlugin(): Plugin {
+  function readPuzzleMeta(): string {
+    const puzzlesDir = join(process.cwd(), 'src/content/puzzles')
+    const walk = (dir: string): string[] =>
+      readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+        const fullPath = join(dir, entry.name)
+        if (entry.isDirectory()) return walk(fullPath)
+        return entry.name.endsWith('.json') ? [fullPath] : []
+      })
+    const meta = walk(puzzlesDir)
+      .sort()
+      .map((filePath) => {
+        const raw = JSON.parse(readFileSync(filePath, 'utf-8')) as {
+          id: unknown
+          pattern: unknown
+          difficulty_rating: unknown
+          interaction: unknown
+        }
+        return {
+          id: raw.id,
+          pattern: raw.pattern,
+          difficulty_rating: raw.difficulty_rating,
+          interaction: raw.interaction,
+        }
+      })
+    return `export const PUZZLE_META = ${JSON.stringify(meta)}`
+  }
+
+  return {
+    name: 'codoro-puzzle-meta',
+    resolveId(id) {
+      if (id === PUZZLE_META_VIRTUAL_ID) return RESOLVED_PUZZLE_META_VIRTUAL_ID
+      return undefined
+    },
+    load(id) {
+      if (id === RESOLVED_PUZZLE_META_VIRTUAL_ID) return readPuzzleMeta()
+      return undefined
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   build: {
@@ -106,6 +161,7 @@ export default defineConfig({
     // bundled stylesheet that plugin inlines into <head>.
     tailwindcss(),
     inlineCriticalCss(),
+    puzzleMetaPlugin(),
     VitePWA({
       // 'prompt', not 'autoUpdate': a new SW installs and Workbox checks for
       // it automatically in the background, but it never takes over the
