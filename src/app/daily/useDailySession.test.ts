@@ -239,19 +239,6 @@ describe('useDailySession', () => {
     })
 
     it('a rejected getPuzzleBody transitions to error and reports via trackError', async () => {
-      // Note: unlike Practice/Trace/Rush's own equivalent tests, this
-      // deliberately does NOT also assert "retryLoad recovers." Daily's id is
-      // 100% deterministic (same DAILY_CALENDAR entry every call, this
-      // calendar day), and puzzleBodyCache.ts caches a promise per id
-      // forever, rejection included (see its own doc comment — "no
-      // eviction," locked by Task 5a) — so retryLoad would call
-      // loadPuzzleBody with the exact same id and get back the SAME
-      // already-rejected promise, not a fresh attempt. Practice/Trace/Rush's
-      // equivalent tests only "recover" because their retry's random
-      // reselection usually (not always) lands on a different, uncached id;
-      // Daily can't rely on that. This is a pre-existing property of the
-      // shared cache module (out of scope for this task to change — flagged
-      // in this task's own report), not something this hook can work around.
       vi.mocked(getPuzzleBody).mockRejectedValueOnce(new Error('dynamic import failed'))
 
       const { result } = renderHook(() => useDailySession())
@@ -263,6 +250,34 @@ describe('useDailySession', () => {
         expect.stringContaining('puzzle body fetch failed'),
       )
       expect(result.current.puzzle).toBeNull()
+    })
+
+    it('after a rejected getPuzzleBody, retryLoad() evicts the cache and attempts a fresh fetch', async () => {
+      // With the cache eviction fix (content-metadata-lazy-load Task 5), a
+      // rejected promise IS evicted, so retryLoad can successfully retry for
+      // the same id that previously failed. This test verifies that behavior.
+      vi.mocked(getPuzzleBody).mockRejectedValueOnce(new Error('dynamic import failed'))
+
+      const { result } = renderHook(() => useDailySession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('error')
+      })
+      expect(result.current.puzzle).toBeNull()
+
+      // Mock a successful response for the retry.
+      vi.mocked(getPuzzleBody).mockResolvedValueOnce(expectedPuzzle())
+
+      act(() => {
+        result.current.retryLoad()
+      })
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+
+      // After successful retry, the puzzle should be loaded and ready.
+      expect(result.current.puzzle?.id).toBe(expectedPuzzle().id)
+      // Verify getPuzzleBody was called twice (first rejection, then successful retry).
+      expect(vi.mocked(getPuzzleBody)).toHaveBeenCalledTimes(2)
     })
 
     it('getPuzzleBody resolving undefined (unknown id) also transitions to error, not a stuck skeleton', async () => {

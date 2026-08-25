@@ -73,7 +73,7 @@ describe('puzzleBodyCache', () => {
     expect(getPuzzleBodyMock).toHaveBeenCalledTimes(1)
   })
 
-  it('a rejected fetch is cached too — a second call for the same id gets the same rejection, not a fresh attempt', async () => {
+  it('two back-to-back calls for the same id before any rejection share one promise (prefetch-and-load invariant)', async () => {
     const error = new Error('dynamic import failed')
     getPuzzleBodyMock.mockRejectedValue(error)
 
@@ -87,6 +87,27 @@ describe('puzzleBodyCache', () => {
     // unhandled-rejection warning independent of what it's testing.
     await second.catch(() => undefined)
     expect(getPuzzleBodyMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('after a rejected fetch, the next call for the same id attempts a fresh fetch (not the same rejected promise)', async () => {
+    const error = new Error('schema validation failed')
+    getPuzzleBodyMock.mockRejectedValueOnce(error)
+
+    const first = loadPuzzleBody('evict-me')
+    await expect(first).rejects.toBe(error)
+    expect(getPuzzleBodyMock).toHaveBeenCalledTimes(1)
+
+    // The cache should have evicted the rejected promise, so the next call
+    // issues a fresh fetch (not the same rejection).
+    const puzzle = makePuzzle('evict-me')
+    getPuzzleBodyMock.mockResolvedValueOnce(puzzle)
+
+    const second = loadPuzzleBody('evict-me')
+    // Crucially, the second call is a different promise (not the same
+    // rejected one), and will resolve successfully.
+    expect(second).not.toBe(first)
+    await expect(second).resolves.toBe(puzzle)
+    expect(getPuzzleBodyMock).toHaveBeenCalledTimes(2)
   })
 
   it('resetPuzzleBodyCacheForTests clears the cache so a subsequent call re-fetches', async () => {

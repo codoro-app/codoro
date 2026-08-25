@@ -1,0 +1,398 @@
+<style>
+  /* Real Codoro tokens, scoped to this screen only — not the app's actual CSS. */
+  .frame {
+    --surface-0: #0e0f13;
+    --surface-1: #16181e;
+    --surface-2: #20232b;
+    --border: #2a2e38;
+    --border-strong: #3a3f4c;
+    --text-0: #f3f2ee;
+    --text-1: #a3a6b0;
+    --text-2: #636773;
+    --accent: #c6f83c;
+    --accent-dim: #26310a;
+    --accent-ink: #0e0f13;
+    --danger: #ff5470;
+    --danger-dim: #31121b;
+    --warn: #ffb020;
+    --warn-dim: #2e2408;
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    background: var(--surface-0);
+    color: var(--text-0);
+    width: 340px;
+    border: 1px solid var(--border-strong);
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+  }
+  .mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .hero-num {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .accent {
+    color: var(--accent);
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .totals-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .totals-row .t-num {
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .totals-row .t-label {
+    font-size: 10px;
+    color: var(--text-2);
+  }
+  .heat-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 5px;
+  }
+  .cell {
+    aspect-ratio: 1;
+    border-radius: 5px;
+  }
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(13, 1fr);
+    gap: 3px;
+  }
+  .cal-cell {
+    aspect-ratio: 1;
+    border-radius: 2px;
+    background: var(--surface-2);
+  }
+  .callout {
+    border: 1px solid var(--danger);
+    background: var(--danger-dim);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 99px;
+  }
+  .col-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0 0 8px;
+  }
+  .frame-title {
+    text-align: center;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .wrap {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+</style>
+
+<h2>Page composition — which ordering earns "worth checking out"?</h2>
+<p class="subtitle">
+  Same 5 pieces (rating graph, streak calendar, pattern heatmap, weakest-pattern callout, lifetime
+  totals) in three different hierarchies. Scored against the app's existing dark/lime token set.
+  Mobile portrait frame (~340px content width).
+</p>
+
+<div class="options" data-multiselect="false">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)" style="flex-direction: column">
+    <div class="frame-title">A — Progress-forward</div>
+    <div class="frame">
+      <div>
+        <div class="label">Rating</div>
+        <div class="hero-num accent mono">1487</div>
+        <div class="mono" style="font-size: 11px; color: var(--accent)">▲ +34 this week</div>
+      </div>
+      <div class="card">
+        <svg viewBox="0 0 300 70" width="100%" height="70">
+          <polyline
+            points="0,55 30,50 60,52 90,38 120,42 150,30 180,33 210,20 240,24 270,10 300,14"
+            fill="none"
+            stroke="#c6f83c"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <circle cx="300" cy="14" r="3.5" fill="#c6f83c" />
+        </svg>
+      </div>
+      <div class="callout">
+        <div style="font-size: 20px">🎯</div>
+        <div>
+          <div style="font-weight: 700; font-size: 13px">Practice this next</div>
+          <div style="font-size: 12px; color: var(--text-1)">Concurrency · 38% accuracy</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="col-title">Mastery by pattern</div>
+        <div class="heat-grid">
+          <div class="cell" style="background: var(--accent-dim)"></div>
+          <div class="cell" style="background: var(--warn-dim)"></div>
+          <div class="cell" style="background: var(--danger-dim)"></div>
+          <div class="cell" style="background: var(--accent-dim)"></div>
+          <div class="cell" style="background: var(--surface-2)"></div>
+          <div class="cell" style="background: var(--accent-dim)"></div>
+          <div class="cell" style="background: var(--accent-dim)"></div>
+          <div class="cell" style="background: var(--warn-dim)"></div>
+          <div class="cell" style="background: var(--accent-dim)"></div>
+          <div class="cell" style="background: var(--danger-dim)"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="row" style="margin-bottom: 8px">
+          <div class="col-title" style="margin: 0">Activity</div>
+          <div class="mono" style="font-size: 11px; color: var(--warn)">🔥 12 day streak</div>
+        </div>
+        <div class="cal-grid">
+          <div class="cal-cell" style="background: var(--accent-dim)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell"></div>
+          <div class="cal-cell" style="background: var(--accent-dim)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell"></div>
+          <div class="cal-cell" style="background: var(--accent-dim)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell" style="background: var(--accent-dim)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+        </div>
+      </div>
+      <div class="card totals-row">
+        <div>
+          <div class="t-num mono">1,204</div>
+          <div class="t-label">Solved</div>
+        </div>
+        <div>
+          <div class="t-num mono">23</div>
+          <div class="t-label">Best streak</div>
+        </div>
+        <div>
+          <div class="t-num mono">18h</div>
+          <div class="t-label">Practiced</div>
+        </div>
+        <div>
+          <div class="t-num mono">5</div>
+          <div class="t-label">Modes</div>
+        </div>
+      </div>
+    </div>
+    <div class="content" style="text-align: center; margin-top: 8px">
+      <p style="font-size: 12px; color: var(--text-1)">
+        Leads with the "line goes up" proof, right where Home's rating stat trains the eye to look.
+        Weakest-pattern callout comes second — an immediate, actionable hook before the browse-y
+        grid content.
+      </p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)" style="flex-direction: column">
+    <div class="frame-title">B — Streak-forward</div>
+    <div class="frame">
+      <div class="row">
+        <div>
+          <div class="label">Streak</div>
+          <div class="hero-num mono" style="color: var(--warn)">
+            12<span style="font-size: 16px">🔥</span>
+          </div>
+        </div>
+        <div style="text-align: right">
+          <div class="label">Rating</div>
+          <div class="hero-num accent mono" style="font-size: 22px">1487</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="col-title">Activity</div>
+        <div class="cal-grid">
+          <div class="cal-cell" style="background: var(--accent-dim)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell"></div>
+          <div class="cal-cell" style="background: var(--accent-dim)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell"></div>
+          <div class="cal-cell" style="background: var(--accent-dim)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell" style="background: var(--accent-dim)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="col-title">Rating history</div>
+        <svg viewBox="0 0 300 60" width="100%" height="60">
+          <polyline
+            points="0,48 30,44 60,46 90,32 120,36 150,26 180,28 210,16 240,20 270,8 300,12"
+            fill="none"
+            stroke="#c6f83c"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+      <div class="callout">
+        <div style="font-size: 20px">🎯</div>
+        <div>
+          <div style="font-weight: 700; font-size: 13px">Practice this next</div>
+          <div style="font-size: 12px; color: var(--text-1)">Concurrency · 38% accuracy</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="col-title">Mastery by pattern</div>
+        <div class="heat-grid">
+          <div class="cell" style="background: var(--accent-dim)"></div>
+          <div class="cell" style="background: var(--warn-dim)"></div>
+          <div class="cell" style="background: var(--danger-dim)"></div>
+          <div class="cell" style="background: var(--accent-dim)"></div>
+          <div class="cell" style="background: var(--surface-2)"></div>
+        </div>
+      </div>
+      <div class="card totals-row">
+        <div>
+          <div class="t-num mono">1,204</div>
+          <div class="t-label">Solved</div>
+        </div>
+        <div>
+          <div class="t-num mono">23</div>
+          <div class="t-label">Best streak</div>
+        </div>
+        <div>
+          <div class="t-num mono">18h</div>
+          <div class="t-label">Practiced</div>
+        </div>
+        <div>
+          <div class="t-num mono">5</div>
+          <div class="t-label">Modes</div>
+        </div>
+      </div>
+    </div>
+    <div class="content" style="text-align: center; margin-top: 8px">
+      <p style="font-size: 12px; color: var(--text-1)">
+        Leads with the habit hook (streak + calendar) — the "did I keep it up" check-in,
+        Duolingo-style. Reads more "did I show up" than "am I improving."
+      </p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)" style="flex-direction: column">
+    <div class="frame-title">C — Snapshot-first</div>
+    <div class="frame">
+      <div class="card totals-row" style="border-color: var(--border-strong)">
+        <div>
+          <div class="t-num accent mono">1487</div>
+          <div class="t-label">Rating</div>
+        </div>
+        <div>
+          <div class="t-num mono" style="color: var(--warn)">12🔥</div>
+          <div class="t-label">Streak</div>
+        </div>
+        <div>
+          <div class="t-num mono">1,204</div>
+          <div class="t-label">Solved</div>
+        </div>
+        <div>
+          <div class="t-num mono">18h</div>
+          <div class="t-label">Practiced</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="col-title">Rating history</div>
+        <svg viewBox="0 0 300 60" width="100%" height="60">
+          <polyline
+            points="0,48 30,44 60,46 90,32 120,36 150,26 180,28 210,16 240,20 270,8 300,12"
+            fill="none"
+            stroke="#c6f83c"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </div>
+      <div class="callout">
+        <div style="font-size: 20px">🎯</div>
+        <div>
+          <div style="font-weight: 700; font-size: 13px">Practice this next</div>
+          <div style="font-size: 12px; color: var(--text-1)">Concurrency · 38% accuracy</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="col-title">Mastery by pattern</div>
+        <div class="heat-grid">
+          <div class="cell" style="background: var(--accent-dim)"></div>
+          <div class="cell" style="background: var(--warn-dim)"></div>
+          <div class="cell" style="background: var(--danger-dim)"></div>
+          <div class="cell" style="background: var(--accent-dim)"></div>
+          <div class="cell" style="background: var(--surface-2)"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="col-title">Activity</div>
+        <div class="cal-grid">
+          <div class="cal-cell" style="background: var(--accent-dim)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell"></div>
+          <div class="cal-cell" style="background: var(--accent-dim)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell"></div>
+          <div class="cal-cell" style="background: var(--accent-dim)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+          <div class="cal-cell" style="background: var(--accent-dim)"></div>
+          <div class="cal-cell" style="background: var(--accent)"></div>
+        </div>
+      </div>
+    </div>
+    <div class="content" style="text-align: center; margin-top: 8px">
+      <p style="font-size: 12px; color: var(--text-1)">
+        Compact 4-up totals strip up top (glanceable in &lt;1s), then graph → nudge → heatmap →
+        calendar. Closest to a real "stats dashboard" feel, least like Home's hero-stat pattern.
+      </p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top: 16px">
+  Click a frame to select, or tell me in the terminal if you want a mix (e.g. "B's top but A's
+  ordering below").
+</p>
