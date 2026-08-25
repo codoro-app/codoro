@@ -1,17 +1,22 @@
 /**
  * The eager, whole-library puzzle pools — `puzzlePool` and its two derived
- * views. Re-exported unchanged from ./index (the barrel every consumer
- * outside src/content/ still imports from); split into its own file purely
+ * views. Deliberately NOT re-exported from ./index (the barrel every consumer
+ * outside src/content/ imports from); live in this separate file precisely
  * so that the eager glob below is a *separate module* from the barrel.
  *
- * Why that matters: ES modules evaluate per file, not per binding, so while
- * this glob lived in index.ts, importing anything at all from the barrel
- * (PATTERN_LABELS, puzzleMeta, getPuzzleBody, DEV_STUB_PUZZLES, ...) forced
- * all 214 puzzle bodies into the importer's chunk. That put the entire
- * content library on every route's critical path — measured in dist/: 214
- * `<link rel="modulepreload">` hints hanging off index.html. Keeping it here
- * lets Rollup drop the whole module when nothing in the production graph
- * actually reads these three exports (DEV/test still read them freely).
+ * Why that matters: ES modules evaluate per file, not per binding. If these
+ * were re-exported from index.ts (i.e. `export { puzzlePool } from './pools'`),
+ * Rollup would treat pools.ts as side-effectful and keep its top-level `.sort().map()`
+ * over the eager glob in every chunk that imports anything from the barrel. That
+ * would mean importing anything at all from the barrel (PATTERN_LABELS, puzzleMeta,
+ * getPuzzleBody, DEV_STUB_PUZZLES, ...) would drag all 214 puzzle bodies into the
+ * importer's chunk — putting the entire content library on every route's critical
+ * path (measured: with re-export, 79.74 KB statically; without it, 53.84 KB and
+ * zero static imports). Living here lets Rollup drop the whole module when nothing
+ * in the production graph reads these three exports (DEV/test still read them freely).
+ * Consumers that need `puzzlePool`/`quizPool`/`scrubberPool` must import directly
+ * from './pools' (or '../../content/pools', '../../../content/pools' etc. depending
+ * on their own depth), never from the barrel.
  *
  * `puzzlePool` aggregates every file under src/content/puzzles/ at
  * build/dev time via Vite's `import.meta.glob`, parsed through
