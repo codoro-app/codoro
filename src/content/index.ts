@@ -9,9 +9,17 @@
  * comment:
  *   - `puzzlePool`/`quizPool`/`scrubberPool` live in ./pools and are imported
  *     from there directly (tests, ScrubberDebugPage), not re-exported here.
- *   - src/app/devTools/devPuzzleMode.ts deep-imports ./devPuzzles, so that a
- *     dev-only toggle rendered on every route can't pull this module into
- *     the entry chunk.
+ *     Enforced mechanically, not just by comment: barrelBoundary.test.ts
+ *     fails if any file imports those names from a '.../content' path.
+ *   - `DEV_STUB_PUZZLES` lives in ./devPuzzles and is deep-imported from
+ *     there by its four consumers (devPuzzleMode.ts and the Practice/Rush/
+ *     Trace session hooks), so that dev-only stub content can't be pulled
+ *     into a production chunk. Their own `import.meta.env.DEV` guards are
+ *     necessary but NOT sufficient: module inclusion is decided by whether
+ *     the FILE is reachable, so a `export { DEV_STUB_PUZZLES } from
+ *     './devPuzzles'` re-export here put the stubs in the production entry
+ *     chunk regardless of those guards (confirmed in a real build by the
+ *     final whole-branch review).
  */
 import { PuzzleSchema } from './schema'
 import type { Puzzle } from './schema'
@@ -34,6 +42,35 @@ export interface PuzzleMeta {
 // — it never pulls a single puzzle body (snippet/choices/explanation/...)
 // into the bundle. See docs/superpowers/plans/2026-08-24-content-metadata-lazy-load.md.
 export const puzzleMeta: PuzzleMeta[] = PUZZLE_META as PuzzleMeta[]
+
+/**
+ * The metadata-only counterparts of ./pools's `quizPool`/`scrubberPool`,
+ * partitioning `puzzleMeta` by interaction with the identical predicates.
+ *
+ * Derived once here, for the same reason the pools are (see pools.ts's own
+ * comment): Phase 2's scrubber puzzles were servable — and unplayable — in
+ * Practice precisely because an unfiltered pool was passed straight through
+ * with no filter at the call site (docs/v2-phase2-review.md, P0). The
+ * metadata path introduced by this perf pass initially re-opened that gap by
+ * having each of Practice/Trace re-implement `interaction !== 'scrubber'`
+ * against raw `puzzleMeta` independently; these two exports close it again.
+ * Prefer them over filtering `puzzleMeta` by hand at a call site.
+ *
+ * Pure `.filter()`s over an array that's already fully in memory — unlike the
+ * pools, these pull no puzzle bodies and cost nothing beyond the walk.
+ *
+ * Rush deliberately does NOT build on `quizMeta`: its eligibility rule is a
+ * positive allow-list (mcq/swipe-binary/tap-line — see `isRushEligible` in
+ * useRushSession.ts), not "everything except scrubber", so drag-order is
+ * excluded there but present here. That's a genuinely different rule, not
+ * duplicated filtering.
+ */
+export const quizMeta: PuzzleMeta[] = puzzleMeta.filter((meta) => meta.interaction !== 'scrubber')
+
+/** The scrubber-only complement of `quizMeta` — Trace's selection pool. See `quizMeta`'s comment. */
+export const scrubberMeta: PuzzleMeta[] = puzzleMeta.filter(
+  (meta) => meta.interaction === 'scrubber',
+)
 
 // NOTE: `puzzlePool`/`quizPool`/`scrubberPool` are deliberately NOT
 // re-exported here — import them from '../../content/pools' instead. A
@@ -66,8 +103,8 @@ function loaderEntryForId(id: string): [path: string, loader: () => Promise<unkn
 /**
  * Loads and validates a single puzzle body by id, on demand — the only way
  * to get a full Puzzle (snippet/choices/explanation/...) outside DEV/test,
- * where puzzlePool above still holds everything eagerly. Always
- * zod-validates (even in production, unlike puzzlePool's DEV-only
+ * where ./pools's `puzzlePool` still holds everything eagerly. Always
+ * zod-validates (even in production, unlike `puzzlePool`'s DEV-only
  * validation): this runs once per real navigation/prefetch, not 214x
  * before first paint, so the cost is negligible and the safety net is
  * worth keeping. Returns undefined for an unknown id rather than
@@ -93,7 +130,10 @@ export type { PatternSlug } from './patterns'
 export { DAILY_CALENDAR } from './dailyCalendar'
 export { BOSS_SETS, resolveActiveBossSet } from './bossRun'
 
-export { DEV_STUB_PUZZLES } from './devPuzzles'
+// NOTE: `DEV_STUB_PUZZLES` is deliberately NOT re-exported here either —
+// import it from './devPuzzles' ('../../content/devPuzzles' etc.) instead.
+// See this file's header comment for why the consumers' own
+// `import.meta.env.DEV` guards can't do this job on their own.
 
 export { PuzzleSchema, ScrubberSchema, MIN_DIFFICULTY, MAX_DIFFICULTY } from './schema'
 export type {

@@ -73,6 +73,13 @@ vi.mock('../../content', async (importOriginal) => {
     puzzlePool: FIXTURE_SCRUBBER_POOL,
     scrubberPool: FIXTURE_SCRUBBER_POOL,
     puzzleMeta: FIXTURE_PUZZLE_META,
+    // Derived exports must be re-derived from the SAME fixture, not left
+    // real — see usePracticeSession.test.ts's identical mock comment.
+    // Filtered with the real predicate, deliberately: this fixture
+    // includes a non-scrubber entry, and the point of these tests is that
+    // the hook selects from `scrubberMeta` rather than raw `puzzleMeta`.
+    quizMeta: FIXTURE_PUZZLE_META.filter((meta) => meta.interaction !== 'scrubber'),
+    scrubberMeta: FIXTURE_PUZZLE_META.filter((meta) => meta.interaction === 'scrubber'),
     getPuzzleBody: vi.fn((id: string) => Promise.resolve(FIXTURE_BODY_BY_ID.get(id))),
   }
 })

@@ -32,15 +32,32 @@ const BLOCK_BASE =
 
 export function RouteSkeleton() {
   return (
-    <div
-      className="app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto pt-[var(--space-4)] px-4 pb-4"
-      aria-hidden="true"
-      data-testid="route-skeleton"
-    >
-      <div className={`${BLOCK_BASE} h-8 w-2/5`} />
-      <div className={`${BLOCK_BASE} h-4 w-[90%]`} />
-      <div className={`${BLOCK_BASE} h-4 w-[90%]`} />
-      <div className={`${BLOCK_BASE} h-32 w-full`} />
-    </div>
+    <>
+      {/*
+       * The shimmer blocks below are `aria-hidden` — decorative placeholder
+       * geometry, meaningless read aloud — which left this component with
+       * nothing announceable at all. Fine while it was only App.tsx's
+       * route-chunk Suspense fallback, but the content-metadata-lazy-load
+       * pass made it the cold-boot state on Practice/Trace/Rush/Daily too,
+       * four surfaces that previously rendered synchronously and had no
+       * loading state to announce. A screen-reader user would otherwise hear
+       * silence for the whole fetch. `sr-only` (Tailwind) keeps this out of
+       * the visual layout entirely, so the skeleton's appearance is
+       * unchanged.
+       */}
+      <p role="status" className="sr-only">
+        Loading…
+      </p>
+      <div
+        className="app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto pt-[var(--space-4)] px-4 pb-4"
+        aria-hidden="true"
+        data-testid="route-skeleton"
+      >
+        <div className={`${BLOCK_BASE} h-8 w-2/5`} />
+        <div className={`${BLOCK_BASE} h-4 w-[90%]`} />
+        <div className={`${BLOCK_BASE} h-4 w-[90%]`} />
+        <div className={`${BLOCK_BASE} h-32 w-full`} />
+      </div>
+    </>
   )
 }

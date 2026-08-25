@@ -39,7 +39,12 @@ import {
 import type { Puzzle as EnginePuzzle, SelectionSource } from '../../engine'
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, UserProfile } from '../../storage'
-import { DEV_STUB_PUZZLES, puzzleMeta } from '../../content'
+import { quizMeta } from '../../content'
+// Deep-imported, not via the '../../content' barrel: a barrel re-export puts
+// the stub puzzles in the production entry chunk no matter what the
+// `import.meta.env.DEV` guards below do (module inclusion is per-file, not
+// per-binding). Same precedent as devTools/devPuzzleMode.ts.
+import { DEV_STUB_PUZZLES } from '../../content/devPuzzles'
 import { isDevPuzzleModeEnabled } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle, PatternSlug, QuizPuzzle } from '../../content'
 import { trackAttempt, trackError, trackStreakPause } from '../../telemetry'
@@ -70,21 +75,25 @@ function toEnginePuzzle(puzzle: ContentPuzzle): EnginePuzzle {
 }
 
 /**
- * The real (non-dev-mode) selection pool: `puzzleMeta` filtered to
- * quiz interactions (excludes scrubber — Trace's own pool, mirroring the
- * pre-existing `quizPool` split at content/index.ts) and the given
+ * The real (non-dev-mode) selection pool: `quizMeta` (the centrally-derived
+ * "everything except scrubber" metadata view — content/index.ts, the
+ * metadata counterpart of `quizPool`) narrowed by the given
  * pattern/interaction filters, which combine (AND), not mutually exclusive
  * — a pattern and an interaction filter can both be active at once.
  * Metadata-only: no puzzle body is read or loaded here.
+ *
+ * The scrubber exclusion is `quizMeta`'s job, not this function's: an
+ * earlier version of this file re-implemented `interaction !== 'scrubber'`
+ * inline here, which is exactly the per-call-site filtering that produced
+ * Phase 2's P0 (see `quizMeta`'s own comment).
  */
 function poolForFilters(
   pattern: PatternSlug | null,
   interaction: InteractionFilter,
 ): EnginePuzzle[] {
-  return puzzleMeta
+  return quizMeta
     .filter(
       (meta) =>
-        meta.interaction !== 'scrubber' &&
         (pattern === null || meta.pattern === pattern) &&
         (interaction === null || meta.interaction === interaction),
     )

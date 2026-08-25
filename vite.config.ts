@@ -79,8 +79,9 @@ const RESOLVED_PUZZLE_META_VIRTUAL_ID = `\0${PUZZLE_META_VIRTUAL_ID}`
 // this file avoids importing from src/: an isolated tsconfig.node.json
 // project. Runs once at build/dev-server-start time, not per-request.
 function puzzleMetaPlugin(): Plugin {
+  const puzzlesDir = join(process.cwd(), 'src/content/puzzles')
+
   function readPuzzleMeta(): string {
-    const puzzlesDir = join(process.cwd(), 'src/content/puzzles')
     const walk = (dir: string): string[] =>
       readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
         const fullPath = join(dir, entry.name)
@@ -115,6 +116,27 @@ function puzzleMetaPlugin(): Plugin {
     load(id) {
       if (id === RESOLVED_PUZZLE_META_VIRTUAL_ID) return readPuzzleMeta()
       return undefined
+    },
+    // Dev-only convenience (final-review finding): `load()`'s result is
+    // cached by Vite, and a virtual module has no file of its own for the
+    // watcher to notice, so authoring a puzzle during `pnpm dev` was
+    // silently invisible to selection (which reads `puzzleMeta`) until the
+    // dev server was restarted — no error, the puzzle just never showed up.
+    // Watch the puzzle directory, drop the cached virtual module when
+    // anything under it changes, and full-reload so the browser re-fetches
+    // it. Full reload rather than HMR: `puzzleMeta` is read at module scope
+    // by several selection pools, none of which accept a hot update.
+    configureServer(server) {
+      server.watcher.add(puzzlesDir)
+      const invalidate = (file: string) => {
+        if (!file.startsWith(puzzlesDir) || !file.endsWith('.json')) return
+        const mod = server.moduleGraph.getModuleById(RESOLVED_PUZZLE_META_VIRTUAL_ID)
+        if (mod) server.moduleGraph.invalidateModule(mod)
+        server.ws.send({ type: 'full-reload' })
+      }
+      server.watcher.on('add', invalidate)
+      server.watcher.on('change', invalidate)
+      server.watcher.on('unlink', invalidate)
     },
   }
 }

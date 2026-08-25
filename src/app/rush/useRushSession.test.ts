@@ -91,6 +91,10 @@ vi.mock('../../content', async (importOriginal) => {
     // (harmless, unread by the hook itself) so any other module transitively
     // importing this same mocked '../../content' isn't left half-real.
     puzzleMeta: FIXTURE_PUZZLE_META,
+    // Derived exports must be re-derived from the SAME fixture, not left
+    // real — see usePracticeSession.test.ts's identical mock comment.
+    quizMeta: FIXTURE_PUZZLE_META.filter((meta) => meta.interaction !== 'scrubber'),
+    scrubberMeta: FIXTURE_PUZZLE_META.filter((meta) => meta.interaction === 'scrubber'),
     getPuzzleBody: vi.fn((id: string) => Promise.resolve(FIXTURE_BODY_BY_ID.get(id))),
   }
 })

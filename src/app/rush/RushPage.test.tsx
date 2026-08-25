@@ -38,6 +38,10 @@ vi.mock('../../content', async (importOriginal) => {
     puzzlePool: FIXTURE_POOL,
     quizPool: FIXTURE_POOL,
     puzzleMeta: FIXTURE_PUZZLE_META,
+    // Derived exports must be re-derived from the SAME fixture, not left
+    // real — see usePracticeSession.test.ts's identical mock comment.
+    quizMeta: FIXTURE_PUZZLE_META.filter((meta) => meta.interaction !== 'scrubber'),
+    scrubberMeta: FIXTURE_PUZZLE_META.filter((meta) => meta.interaction === 'scrubber'),
     getPuzzleBody: vi.fn((id: string) => Promise.resolve(FIXTURE_BODY_BY_ID.get(id))),
   }
 })

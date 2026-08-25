@@ -25,7 +25,8 @@
  *
  * Puzzle bodies (content-metadata-lazy-load Task 5): mirrors
  * usePracticeSession.ts's own doc comment exactly — puzzle *selection* runs
- * synchronously over `puzzleMeta` (filtered to `interaction === 'scrubber'`,
+ * synchronously over `scrubberMeta` (`puzzleMeta` filtered to
+ * `interaction === 'scrubber'` once, centrally, in content/index.ts —
  * the metadata-only counterpart of the pre-existing `scrubberPool`), and the
  * selected id's full body is then loaded via the shared `loadPuzzleBody`
  * cache, stale-while-revalidate (`puzzle` keeps showing the previous body
@@ -55,7 +56,10 @@ import {
 import type { CheckpointResult, Puzzle as EnginePuzzle, SelectionSource } from '../../engine'
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, UserProfile } from '../../storage'
-import { DEV_STUB_PUZZLES, puzzleMeta } from '../../content'
+import { scrubberMeta } from '../../content'
+// Deep-imported, not via the '../../content' barrel — see
+// usePracticeSession.ts's identical import comment.
+import { DEV_STUB_PUZZLES } from '../../content/devPuzzles'
 import { isDevPuzzleModeEnabled } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle, ScrubberPuzzle } from '../../content'
 import { trackError, trackStreakPause, trackTraceAttempt } from '../../telemetry'
@@ -141,11 +145,15 @@ function toEnginePuzzle(puzzle: ScrubberPuzzle): EnginePuzzle {
   return { id: puzzle.id, rating: puzzle.difficulty_rating }
 }
 
-/** The real (non-dev-mode) selection pool: `puzzleMeta` filtered to `interaction === 'scrubber'` — the metadata-only counterpart of the pre-existing `scrubberPool`. No puzzle body is read or loaded here. */
+/**
+ * The real (non-dev-mode) selection pool: `scrubberMeta` (content/index.ts),
+ * the centrally-derived metadata counterpart of `scrubberPool`. No puzzle
+ * body is read or loaded here. The `interaction === 'scrubber'` filter lives
+ * in `scrubberMeta`, not inline here — see `quizMeta`'s comment for why
+ * that partition is derived once centrally rather than per call site.
+ */
 function poolForFilters(): EnginePuzzle[] {
-  return puzzleMeta
-    .filter((meta) => meta.interaction === 'scrubber')
-    .map((meta) => ({ id: meta.id, rating: meta.difficulty_rating }))
+  return scrubberMeta.map((meta) => ({ id: meta.id, rating: meta.difficulty_rating }))
 }
 
 /**
@@ -320,8 +328,9 @@ export function useTraceSession(): TraceSession {
         if (selectionTokenRef.current !== token) return // superseded by a newer selection
         if (!fullPuzzle || !isScrubberPuzzle(fullPuzzle)) {
           // The second half of this condition should be unreachable in
-          // practice — puzzleMeta's own `interaction === 'scrubber'` filter
-          // (poolForFilters above) is what selectNext chose this id from —
+          // practice — `scrubberMeta`'s own `interaction === 'scrubber'`
+          // filter (poolForFilters above) is what selectNext chose this id
+          // from —
           // but getPuzzleBody's return type is the full Puzzle union, not
           // narrowed to scrubber, so this guard is what lets `setPuzzle`
           // below type-check without an unsafe cast, and it's cheap

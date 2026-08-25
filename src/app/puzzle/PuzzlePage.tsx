@@ -7,9 +7,10 @@
  *
  * Puzzle bodies are fetched on demand via `getPuzzleBody` (Task 6 of the
  * content-metadata-lazy-load follow-up) rather than read from the eager
- * `puzzlePool` — a genuine async hop, so this file renders a distinct
- * loading state while the id resolves, before falling back to the
- * not-found state for a genuinely missing id.
+ * `puzzlePool` — a genuine async hop, so this file renders three distinct
+ * terminal states the synchronous lookup never needed: loading, a retryable
+ * "couldn't load" state for a rejected fetch, and the pre-existing not-found
+ * state for a genuinely missing id (`getPuzzleBody` resolving `undefined`).
  *
  * Split the same way TraceRunner.tsx is (outer owns the wouter param, inner
  * is pure props) so the dispatch/unrated logic is directly testable without
@@ -66,6 +67,11 @@ const PAGE_SHELL_CLASS =
   'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[var(--space-4)] px-4 pb-4'
 const CTA_CLASS =
   'inline-flex self-start items-center min-h-11 py-2 px-3 rounded-sm border border-border bg-surface-1 text-accent font-semibold no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+// The "Try again" button on the load-failure state — same classname
+// DailyPage/RushPage use for theirs, so every retry affordance in the app
+// reads identically.
+const RETRY_CLASS =
+  'min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer'
 
 function isScrubberPuzzle(puzzle: Puzzle): puzzle is ScrubberPuzzle {
   return puzzle.interaction === 'scrubber'
@@ -190,6 +196,22 @@ export function PuzzlePageForId({ id }: PuzzlePageForIdProps) {
   // "genuinely missing" the way it could when the lookup was synchronous.
   const [puzzle, setPuzzle] = useState<Puzzle | undefined>(undefined)
   const [loading, setLoading] = useState(true)
+  // Final-review finding: a rejected `getPuzzleBody` used to fall through to
+  // the not-found state below, telling a player their link was "wrong, or the
+  // puzzle was removed" when the real cause was usually a dropped connection.
+  // This surface is a *shared link* destination — arriving on mobile, on a
+  // flaky network, is its most common case, not an edge case — and that copy
+  // is both wrong and unactionable there (it sends them away from a link that
+  // works fine). Tracked separately from `puzzle === undefined` so the two
+  // genuinely different failures can render differently; every other surface
+  // this branch converted (Boss/Practice/Trace/Rush/Daily) already has this
+  // distinction via its session hook's `status: 'error'`.
+  const [failed, setFailed] = useState(false)
+  // Bumped by the "Try again" button; part of the effect's dep array, so
+  // incrementing it re-runs the whole fetch. The lightweight equivalent of
+  // useBossSession's `retryLoad` — this page has one fetch and no session
+  // state to reset, so it needs no shared load()/retryLoad() machinery.
+  const [retryCount, setRetryCount] = useState(0)
   // Review fix (post-Task-6): a single shared `useRef(false)`, reset to
   // `false` at the TOP of every effect run and set `true` only in that
   // run's own cleanup, cannot distinguish "the run that got cancelled" from
@@ -230,6 +252,7 @@ export function PuzzlePageForId({ id }: PuzzlePageForIdProps) {
       // timing, different syntactic position.
       setLoading(true)
       setPuzzle(undefined)
+      setFailed(false)
       try {
         const result = await getPuzzleBody(id)
         if (runTokenRef.current !== token) return // superseded — see runTokenRef's doc comment
@@ -248,13 +271,15 @@ export function PuzzlePageForId({ id }: PuzzlePageForIdProps) {
         // getPuzzleBody can reject (a failed dynamic import — offline, or a
         // deploy-invalidated chunk — or the zod validation throw on
         // invalid content, which now runs in production too, unlike
-        // puzzlePool's DEV-only validation). Without this catch the page
-        // would hang in `loading` forever. `puzzle` is already reset to
-        // undefined above, so clearing `loading` here falls through to the
-        // existing not-found state — reused as this surface's only
-        // "genuinely couldn't load" state rather than inventing a new one.
+        // ./pools's puzzlePool's DEV-only validation). Without this catch
+        // the page would hang in `loading` forever. Renders the retryable
+        // error state, NOT the not-found state — see `failed`'s comment.
+        // Note there's no trackPuzzleLinkView here: the lookup never
+        // settled, so "found: false" would be a lie, and a retry that
+        // succeeds fires the real view event then.
         if (runTokenRef.current !== token) return
         trackError(error, 'PuzzlePage: getPuzzleBody failed')
+        setFailed(true)
         setLoading(false)
       }
     })()
@@ -265,12 +290,31 @@ export function PuzzlePageForId({ id }: PuzzlePageForIdProps) {
       // this run's token — this cleanup is the only chance to do that.
       runTokenRef.current += 1
     }
-  }, [id])
+  }, [id, retryCount])
 
   if (loading) {
     return (
       <div className={PAGE_SHELL_CLASS}>
         <p className="text-center text-text-1 py-8">Loading puzzle…</p>
+      </div>
+    )
+  }
+
+  if (failed) {
+    return (
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">
+          We couldn&apos;t load this puzzle. Please check your connection and try again.
+        </p>
+        <button
+          type="button"
+          className={RETRY_CLASS}
+          onClick={() => {
+            setRetryCount((count) => count + 1)
+          }}
+        >
+          Try again
+        </button>
       </div>
     )
   }

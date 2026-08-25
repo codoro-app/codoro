@@ -54,7 +54,14 @@ import {
 import type { RushInteraction, RushPuzzle } from '../../engine'
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, RushStats, UserProfile } from '../../storage'
-import { puzzleMeta, DEV_STUB_PUZZLES } from '../../content'
+// `puzzleMeta`, not `quizMeta`: Rush's eligibility is a positive allow-list
+// (mcq/swipe-binary/tap-line — `isRushEligible` below), not "everything
+// except scrubber", so `quizMeta` isn't the right base here. See its comment
+// in content/index.ts.
+import { puzzleMeta } from '../../content'
+// Deep-imported, not via the '../../content' barrel — see
+// usePracticeSession.ts's identical import comment.
+import { DEV_STUB_PUZZLES } from '../../content/devPuzzles'
 import { isDevPuzzleModeEnabled } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle } from '../../content'
 import { trackError, trackRushAttempt, trackRushRunEnd } from '../../telemetry'

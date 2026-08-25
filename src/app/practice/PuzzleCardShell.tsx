@@ -442,7 +442,7 @@ export function PuzzleCardShell({
       break
     case 'scrubber':
       // Structurally excluded from Practice/Daily/Rush (they all serve from
-      // quizPool, not puzzlePool — see src/content/index.ts). Reaching this
+      // quizPool, not puzzlePool — see src/content/pools.ts). Reaching this
       // case means that guarantee broke somewhere upstream; fail loudly
       // instead of silently rendering the empty, un-escapable interaction
       // div this switch replaces (docs/v2-phase2-review.md, P0). Scrubber

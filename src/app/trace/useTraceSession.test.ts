@@ -51,6 +51,15 @@ vi.mock('../../content', async (importOriginal) => {
     puzzlePool: FIXTURE_SCRUBBER_POOL,
     scrubberPool: FIXTURE_SCRUBBER_POOL,
     puzzleMeta: FIXTURE_PUZZLE_META,
+    // Derived exports must be re-derived from the SAME fixture, not left
+    // real — see usePracticeSession.test.ts's identical mock comment.
+    // `scrubberMeta` is the SAME array reference, not a copy: every
+    // fixture entry here is a scrubber puzzle (so the filter would be a
+    // no-op anyway), and several tests below narrow the pool by mutating
+    // FIXTURE_PUZZLE_META in place (`.length = 0; push(...)`) — a filtered
+    // copy would silently stop tracking those mutations.
+    quizMeta: [],
+    scrubberMeta: FIXTURE_PUZZLE_META,
     getPuzzleBody: vi.fn((id: string) => Promise.resolve(FIXTURE_BODY_BY_ID.get(id))),
   }
 })

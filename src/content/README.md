@@ -2,24 +2,77 @@
 
 Puzzle data + Zod schema + validation. Built out in Phase 3.
 
-Public API is `src/content/index.ts` — the only file anything outside this
-folder should import from: `puzzlePool` (every validated puzzle, aggregated
-at build time), its `quizPool`/`scrubberPool` derivatives (see below),
-`PATTERN_SLUGS`/`PATTERN_LABELS`, `PuzzleSchema`, and the
-`Puzzle`/`McqPuzzle`/`SwipeBinaryPuzzle`/`TapLinePuzzle`/`DragOrderPuzzle`/
-`ScrubberPuzzle`/`QuizPuzzle` types. `schema.ts` and `patterns.ts` are
-internal, same barrel convention as `storage/`.
+## Three entry points, not one
 
-`quizPool` and `scrubberPool` partition `puzzlePool` by interaction —
-Practice, Daily, and Rush consume `quizPool` (scrubber has its own mode,
-Phase 3); the scrubber mode and the dev debug harness consume
-`scrubberPool`. Reach for `puzzlePool` itself only where the full union is
-genuinely correct: content-wide tooling (`contentStats.ts`,
-`validateContent.ts`) and pattern/mastery lookups that must resolve _any_
-puzzle id regardless of interaction (`mastery.ts`'s callers). Prefer the
-split pools everywhere else — see docs/v2-phase2-review.md (P0) for why an
-unfiltered pool reaching a quiz surface is a live bug class, not a style
-preference.
+The default entry point is the barrel `src/content/index.ts`:
+`puzzleMeta` (every puzzle's id/pattern/difficulty_rating/interaction, and
+nothing else), its `quizMeta`/`scrubberMeta` derivatives (see below),
+`getPuzzleBody(id)`, `PATTERN_SLUGS`/`PATTERN_LABELS`, `PuzzleSchema`, and
+the `Puzzle`/`McqPuzzle`/`SwipeBinaryPuzzle`/`TapLinePuzzle`/
+`DragOrderPuzzle`/`ScrubberPuzzle`/`QuizPuzzle` types. `schema.ts` and
+`patterns.ts` stay internal, same barrel convention as `storage/`.
+
+Two files are deliberately **excluded** from that barrel and must be
+deep-imported instead — `src/content/pools.ts` and
+`src/content/devPuzzles.ts`. This is not a style preference and not
+negotiable; re-exporting either one from `index.ts` reintroduces a measured
+performance regression:
+
+- **`pools.ts`** — `puzzlePool` (every _fully-loaded_ puzzle, aggregated
+  eagerly at build time) plus `quizPool`/`scrubberPool`. Import from
+  `'../../content/pools'` (adjust depth), never from the barrel.
+- **`devPuzzles.ts`** — `DEV_STUB_PUZZLES`. Import from
+  `'../../content/devPuzzles'`, never from the barrel.
+
+Why: ES modules evaluate per _file_, not per binding. A re-export like
+`export { puzzlePool } from './pools'` makes `pools.ts` reachable from every
+chunk that imports _anything_ from the barrel, so its eager 214-file glob —
+and every puzzle body — lands on every route's critical path, even where
+nothing reads the binding. Measured, not assumed: with the re-export
+`dist/assets/content-*.js` was 79.74 KB and statically imported all 214
+puzzle chunks; without it, 53.84 KB and zero. The same mechanism defeats
+`import.meta.env.DEV` guards around `DEV_STUB_PUZZLES` — a guard can gate
+whether code _runs_, never whether a file is _included_. See
+`pools.ts`'s and `index.ts`'s own header comments, and
+docs/superpowers/plans/2026-08-24-content-metadata-lazy-load.md.
+
+`barrelBoundary.test.ts` enforces this mechanically: it scans every file
+under `src/` and fails if any of the four names is imported from a path
+ending at `content`. An eslint `no-restricted-imports` rule would be
+strictly better (it would flag this in-editor rather than at test time) and
+should replace that test if `eslint.config.js` is ever opened for it — the
+config is write-protected in this repo's tooling, which is why the check
+lives in a test. Either way, understand the reason above rather than working
+around the check.
+
+## Choosing a pool
+
+Prefer **metadata** (`puzzleMeta`/`quizMeta`/`scrubberMeta`) plus
+`getPuzzleBody(id)` for anything player-facing. Selection, mastery
+bucketing, and pattern counts only need id/pattern/rating/interaction; going
+through metadata means a route loads exactly the one puzzle body it serves,
+not all 214.
+
+`quizMeta`/`scrubberMeta` partition `puzzleMeta` by interaction exactly as
+`quizPool`/`scrubberPool` partition `puzzlePool` — Practice and Daily select
+from `quizMeta` (scrubber has its own mode, Phase 3); Trace selects from
+`scrubberMeta`. Rush is the one deliberate exception: its eligibility is a
+positive allow-list (mcq/swipe-binary/tap-line, so drag-order is out too),
+which is a genuinely different rule, so it filters `puzzleMeta` with its own
+`isRushEligible` predicate rather than building on `quizMeta`.
+
+Do **not** re-implement `interaction !== 'scrubber'` at a call site. That
+partition is derived once, centrally, for a reason: Phase 2's scrubber
+puzzles were servable — and unplayable — in Practice precisely because an
+unfiltered pool was passed straight through with no filter at the call site.
+See docs/v2-phase2-review.md (P0) for why an unfiltered pool reaching a quiz
+surface is a live bug class, not a style preference.
+
+Reach for the eager `puzzlePool`/`quizPool`/`scrubberPool` only where a full
+body genuinely is needed for _every_ puzzle at once and the cost is
+acceptable: content-wide tooling (`contentStats.ts`, `validateContent.ts`),
+the dev debug harness, and pool-level tests (see the testing standard
+below). Application routes should not.
 
 `PATTERNS.md` and `CALIBRATION.md` are the product-facing docs behind the
 schema — the pattern taxonomy and the difficulty-rating rubric,
@@ -57,7 +110,7 @@ isn't wired into any manifest logic this phase).
 
 Node-side CLI scripts — not imported by app code, read puzzle files straight
 off disk via `fs` rather than through Vite's `import.meta.glob` (see
-`index.ts`'s doc comment for why the two paths are kept separate).
+`pools.ts`'s doc comment for why the two paths are kept separate).
 
 - **`pnpm validate:content`** — schema-validates every file under
   `puzzles/` plus pool-wide `id` uniqueness (the one check no single file's
@@ -77,7 +130,7 @@ the same 100%-branches bar. Revisit if that tradeoff stops feeling right.
 
 Any test asserting what a player actually sees at a Trace checkpoint — a
 choice label, a masked value, a reveal string — must run against the real
-`scrubberPool` export from `src/content/index.ts`, not a hand-built fixture.
+`scrubberPool` export from `src/content/pools.ts`, not a hand-built fixture.
 A fixture puzzle is written by whoever writes the test, so it silently
 encodes the author's own assumptions about the content shape; it cannot
 catch a defect that only exists because real content violates one of those

@@ -305,6 +305,50 @@ describe('PuzzlePageForId — review-fix regression coverage (async id-change ra
     })
     expect(trackError).toHaveBeenCalledWith(failure, 'PuzzlePage: getPuzzleBody failed')
   })
+
+  // Final-review finding: a rejected fetch used to render the not-found
+  // copy ("the link may be wrong, or the puzzle was removed"), which is
+  // actively misleading on this surface — it's a shared-link destination, so
+  // a dropped connection is its most common failure, and that copy tells the
+  // player to give up on a link that works.
+  it('renders a distinct, retryable error state — not the not-found copy — when getPuzzleBody rejects', async () => {
+    vi.mocked(getPuzzleBody).mockRejectedValue(new Error('chunk load failed'))
+
+    render(<PuzzlePageForId id="con-005" />)
+
+    expect(await screen.findByText(/couldn.t load this puzzle/i)).toBeInTheDocument()
+    expect(screen.queryByText(/couldn.t find that puzzle/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument()
+  })
+
+  it('re-fetches and renders the puzzle when "Try again" is clicked after a failure', async () => {
+    const user = userEvent.setup()
+    // Fails once, then the real lookup takes over — the recovery a player on
+    // a flaky connection actually gets from the retry button.
+    vi.mocked(getPuzzleBody)
+      .mockRejectedValueOnce(new Error('chunk load failed'))
+      .mockImplementation(realGetPuzzleBody)
+
+    render(<PuzzlePageForId id="con-005" />)
+    const retry = await screen.findByRole('button', { name: /try again/i })
+    // This file has no global mock reset, so earlier tests' view events are
+    // still on the spy — clear it here so the assertion below can only be
+    // satisfied by the retry's own fetch.
+    trackPuzzleLinkView.mockClear()
+    await user.click(retry)
+
+    // The real puzzle renders, and the view event the failed attempt
+    // deliberately suppressed fires now, with the real result.
+    expect(
+      await screen.findByRole('link', { name: /practice more like this/i }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/couldn.t load this puzzle/i)).not.toBeInTheDocument()
+    expect(trackPuzzleLinkView).toHaveBeenCalledWith({
+      puzzle_id: 'con-005',
+      interaction: 'mcq',
+      found: true,
+    })
+  })
 })
 
 describe('PuzzlePageForId — not-found state', () => {

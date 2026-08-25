@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getPuzzleBody, puzzleMeta } from './index'
+import { getPuzzleBody, puzzleMeta, quizMeta, scrubberMeta } from './index'
 // The three eager pools moved to ./pools (and are deliberately not
 // re-exported by the barrel) — see index.ts's own note for why.
 import { puzzlePool, quizPool, scrubberPool } from './pools'
@@ -83,6 +83,47 @@ describe('puzzleMeta', () => {
       expect(meta.pattern).toBe(full?.pattern)
       expect(meta.difficulty_rating).toBe(full?.difficulty_rating)
       expect(meta.interaction).toBe(full?.interaction)
+    }
+  })
+})
+
+/**
+ * The metadata partition must agree with the body partition exactly. Both
+ * exist for the same reason (docs/v2-phase2-review.md's P0: an unfiltered
+ * pool reaching a quiz surface), so a drift between them — a predicate
+ * loosened or inverted on one side only — is the same live bug class the
+ * pools were introduced to close. Asserted against the real, shipped
+ * content, not a fixture, and cross-checked against `quizPool`/
+ * `scrubberPool`'s own ids rather than just re-stating the filter.
+ */
+describe('quizMeta / scrubberMeta — metadata pool split', () => {
+  it('quizMeta contains no scrubber puzzles and matches quizPool exactly', () => {
+    expect(quizMeta.length).toBeGreaterThan(0)
+    expect(quizMeta.map((meta) => meta.interaction)).not.toContain('scrubber')
+    // Compared as sorted id lists, not in-order: `puzzleMeta` is sorted by
+    // absolute OS path (vite.config.ts's file walk) while `puzzlePool` is
+    // sorted by the glob's './puzzles/...' keys, so the two can legitimately
+    // disagree on ordering without disagreeing on membership.
+    expect([...quizMeta.map((meta) => meta.id)].sort()).toEqual(
+      [...quizPool.map((puzzle) => puzzle.id)].sort(),
+    )
+  })
+
+  it('scrubberMeta contains only scrubber puzzles and matches scrubberPool exactly', () => {
+    expect(scrubberMeta.length).toBeGreaterThan(0)
+    for (const meta of scrubberMeta) {
+      expect(meta.interaction).toBe('scrubber')
+    }
+    expect([...scrubberMeta.map((meta) => meta.id)].sort()).toEqual(
+      [...scrubberPool.map((puzzle) => puzzle.id)].sort(),
+    )
+  })
+
+  it('partitions puzzleMeta — every entry lands in exactly one side, none lost', () => {
+    expect(quizMeta.length + scrubberMeta.length).toBe(puzzleMeta.length)
+    const quizIds = new Set(quizMeta.map((meta) => meta.id))
+    for (const meta of scrubberMeta) {
+      expect(quizIds.has(meta.id)).toBe(false)
     }
   })
 })
