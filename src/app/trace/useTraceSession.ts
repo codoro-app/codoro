@@ -148,8 +148,18 @@ function poolForFilters(): EnginePuzzle[] {
     .map((meta) => ({ id: meta.id, rating: meta.difficulty_rating }))
 }
 
-/** DEV puzzle-mode's selection pool — see this file's module doc comment for why it's currently always empty. */
+/**
+ * DEV puzzle-mode's selection pool — see this file's module doc comment for
+ * why it's currently always empty. Fix-round finding #6: guards this
+ * function's own `DEV_STUB_PUZZLES` reference behind the same build-time-
+ * foldable check `resolvePool` (devPuzzleMode.ts) uses internally — see
+ * usePracticeSession.ts's identical `devPoolForFilters` comment for why the
+ * runtime `isDevPuzzleModeEnabled()` check at this function's call site
+ * isn't by itself enough for Rollup/terser to tree-shake this reference out
+ * of a production bundle.
+ */
 function devPoolForFilters(): EnginePuzzle[] {
+  if (!import.meta.env.DEV) return []
   return DEV_STUB_PUZZLES.filter(isScrubberPuzzle).map(toEnginePuzzle)
 }
 
@@ -215,10 +225,20 @@ export function useTraceSession(): TraceSession {
   // usePracticeSession.ts's identical refs for the full rationale (this
   // file's structural mirror of that one).
   const lastSelectedIdRef = useRef<string | null>(null)
+  // Fix-round finding #6: guarded behind `import.meta.env.DEV`, matching
+  // `resolvePool`'s own pattern — see usePracticeSession.ts's identical
+  // `devStubById` comment for the full rationale (this ran unconditionally
+  // before, keeping DEV_STUB_PUZZLES reachable in production bundles).
   const devStubById = useRef(
-    new Map(DEV_STUB_PUZZLES.filter(isScrubberPuzzle).map((p) => [p.id, p])),
+    import.meta.env.DEV
+      ? new Map(DEV_STUB_PUZZLES.filter(isScrubberPuzzle).map((p) => [p.id, p]))
+      : new Map<string, ContentPuzzle & { interaction: 'scrubber' }>(),
   )
   const selectionTokenRef = useRef(0)
+  // Fix-round finding #1: true once a puzzle has EVER actually been
+  // displayed — see usePracticeSession.ts's identical ref for the full
+  // rationale.
+  const hasDisplayedRef = useRef(false)
   // Trace has no pattern/interaction filters, so the pool is fixed for a
   // given dev-mode setting — but `traceRecentIdsWindow` (handleContinue)
   // still needs its size, and the pool itself is metadata-only now (no
@@ -229,6 +249,11 @@ export function useTraceSession(): TraceSession {
   const poolSizeRef = useRef(0)
 
   const serveNext = useCallback((currentProfile: UserProfile) => {
+    // Fix-round finding #2: bumped FIRST, before the null-pool early return
+    // below — see usePracticeSession.ts's identical comment for the full
+    // rationale (an older in-flight body-load's captured token must be
+    // invalidated regardless of which branch this call takes).
+    const token = ++selectionTokenRef.current
     const devMode = isDevPuzzleModeEnabled()
     const pool = devMode ? devPoolForFilters() : poolForFilters()
     poolSizeRef.current = pool.length
@@ -281,6 +306,7 @@ export function useTraceSession(): TraceSession {
         throw new Error(`selectNext returned unknown dev-stub puzzle id "${result.puzzle.id}"`)
       }
       setPuzzle(fullPuzzle)
+      hasDisplayedRef.current = true
       servedAtRef.current = Date.now()
       setStatus('ready')
       return
@@ -289,7 +315,6 @@ export function useTraceSession(): TraceSession {
     // Real path: `puzzle` is left untouched here — stale-while-revalidate,
     // mirroring usePracticeSession.ts's serveNext exactly. Only true cold
     // boot has no stale puzzle to fall back on.
-    const token = ++selectionTokenRef.current
     loadPuzzleBody(result.puzzle.id)
       .then((fullPuzzle) => {
         if (selectionTokenRef.current !== token) return // superseded by a newer selection
@@ -305,15 +330,27 @@ export function useTraceSession(): TraceSession {
             new Error(`getPuzzleBody: unknown or non-scrubber puzzle id "${result.puzzle.id}"`),
             'useTraceSession: serveNext body lookup miss',
           )
+          // Fix-round finding #1: cold boot has no stale puzzle to fall
+          // back on — see usePracticeSession.ts's identical comment for the
+          // full rationale.
+          if (!hasDisplayedRef.current) {
+            setStatus('error')
+          }
           return
         }
         setPuzzle(fullPuzzle)
+        hasDisplayedRef.current = true
         servedAtRef.current = Date.now()
         setStatus('ready')
       })
       .catch((error: unknown) => {
         if (selectionTokenRef.current !== token) return
         trackError(error, 'useTraceSession: serveNext body fetch failed')
+        // Same cold-boot-only recovery path as the `!fullPuzzle` branch
+        // above — see its comment.
+        if (!hasDisplayedRef.current) {
+          setStatus('error')
+        }
       })
   }, [])
 

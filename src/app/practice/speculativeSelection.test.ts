@@ -84,29 +84,52 @@ describe('speculativeNextIds', () => {
     }
   })
 
-  it('respects the requeue starvation guard: when lastSource is "requeue", the first draw cannot itself be a requeue serve', () => {
-    // A due requeue entry for w0, with lastSource already 'requeue' — per
-    // selection.ts, the very next selectNext call must skip the requeue
-    // branch entirely and fall through to the window pick, so w0 must not be
-    // guaranteed as the first draw here the way it would be without the
-    // guard. This exercises speculativeNextIds' pass-through of lastSource,
-    // not selection.ts's own guard logic (already covered by selection.test.ts).
-    const requeueState = [{ puzzleId: 'w0', stage: 0 as const, served: 3 }]
+  it('respects the requeue starvation guard: draw 1 is the due entry when lastSource is null, and is NOT the due entry when lastSource is "requeue"', () => {
+    // Fix-round finding #5: the previous version of this test only proved
+    // `lastSource: 'requeue'` doesn't crash or get silently dropped on the
+    // way into `selectNext` — it never actually asserted the guard's real
+    // behaviour (a due entry MUST win draw 1 when eligible, and MUST NOT
+    // when starved), so a regression that broke `lastSource` pass-through
+    // entirely would have gone undetected.
+    //
+    // w0 due after exactly one `advance()` tick: stage 0's ladder interval
+    // is 3 (requeue.ts's LADDER_INTERVALS), so `served: 2` becomes `3` (due)
+    // on draw 1's own internal `advance()` call.
+    const requeueState = [{ puzzleId: 'w0', stage: 0 as const, served: 2 }]
+    // w0 rated far outside the ±200 rating window (and the rest of the pool
+    // already supplies >= MIN_ELIGIBLE (10) within that window, so widening
+    // never reaches out to it) — isolates the requeue-priority path from
+    // window-sampling noise: w0 can only ever be draw 1's pick via the
+    // requeue branch, never as an ordinary window candidate.
+    const poolWithFarOutlier: typeof WIDE_POOL = [
+      { id: 'w0', rating: 1200 + 5000 },
+      ...WIDE_POOL.slice(1),
+    ]
 
-    const ids = speculativeNextIds({
-      pool: WIDE_POOL,
+    const whenEligible = speculativeNextIds({
+      pool: poolWithFarOutlier,
+      rating: 1200,
+      requeueState,
+      lastSource: null,
+      recentIds: [],
+    })
+    // No randomness on the requeue path (selection.ts's `due` loop returns
+    // the first in-pool due entry directly, no `sample()` call) — draw 1
+    // must be exactly w0, not just "eventually" one of the 3 draws.
+    expect(whenEligible[0]).toBe('w0')
+
+    const whenStarved = speculativeNextIds({
+      pool: poolWithFarOutlier,
       rating: 1200,
       requeueState,
       lastSource: 'requeue',
       recentIds: [],
     })
-
-    expect(ids.length).toBeGreaterThan(0)
-    // Every returned id must be a real pool member — the guard being honored
-    // or not doesn't change that; this call only proves lastSource: 'requeue'
-    // doesn't crash or get dropped on the way into selectNext.
-    for (const id of ids) {
-      expect(WIDE_POOL.some((p) => p.id === id)).toBe(true)
-    }
+    // Only draw 1 is asserted here, not the whole array: the starvation
+    // guard is a PER-TICK check (selection.ts's own `lastSource` doc
+    // comment), so draw 2 legitimately reopens the requeue branch once
+    // draw 1's own result carries `source: 'window'` forward — w0
+    // reappearing later in the chain is correct, not a guard failure.
+    expect(whenStarved[0]).not.toBe('w0')
   })
 })

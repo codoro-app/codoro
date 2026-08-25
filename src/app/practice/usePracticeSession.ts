@@ -102,6 +102,14 @@ function devPoolForFilters(
   pattern: PatternSlug | null,
   interaction: InteractionFilter,
 ): EnginePuzzle[] {
+  // Fix-round finding #6: guards this function's own `DEV_STUB_PUZZLES`
+  // reference behind the same build-time-foldable check `resolvePool`
+  // (devPuzzleMode.ts) uses internally — its call site here (`serveNext`,
+  // gated on the runtime `isDevPuzzleModeEnabled()`) is NOT by itself
+  // something Rollup/terser can constant-fold, so without this the
+  // `DEV_STUB_PUZZLES` reference stayed reachable (and un-tree-shakeable)
+  // in a production bundle even though it could never actually run there.
+  if (!import.meta.env.DEV) return []
   return DEV_STUB_PUZZLES.filter(
     (puzzle) =>
       (pattern === null || puzzle.pattern === pattern) &&
@@ -181,21 +189,53 @@ export function usePracticeSession(): PracticeSession {
   const lastSelectedIdRef = useRef<string | null>(null)
   // A dev-mode DEV_STUB_PUZZLES lookup — the DEV-only counterpart to the
   // real path's `loadPuzzleBody` cache. Stub ids don't exist in real content
-  // files, so they can never go through `getPuzzleBody`; this Map is tiny
-  // (a handful of entries) and built once, unconditionally (cheap either
-  // way), but only ever read when `isDevPuzzleModeEnabled()`.
-  const devStubById = useRef(new Map(DEV_STUB_PUZZLES.map((p) => [p.id, p])))
-  // Bumped every time `serveNext` selects a new id. A body-load promise's
-  // `.then`/`.catch` only applies its result if this still matches the
-  // token it captured — guards the same class of race Task 6's
+  // files, so they can never go through `getPuzzleBody`; only ever read when
+  // `isDevPuzzleModeEnabled()`. Fix-round finding #6: this line ran
+  // unconditionally on every mount regardless of dev mode — a plain runtime
+  // `if` inside a hook body isn't something Rollup/terser can constant-fold
+  // the way `import.meta.env.DEV` itself can, so `DEV_STUB_PUZZLES` (and the
+  // ~12 stub puzzles it holds) stayed reachable in the production bundle.
+  // Guarded the same way `resolvePool` (devPuzzleMode.ts) guards its own
+  // `DEV_STUB_PUZZLES` reference, so the `true`-branch — and the stub
+  // puzzles themselves — dead-code-eliminate out of a production build.
+  const devStubById = useRef(
+    import.meta.env.DEV
+      ? new Map(DEV_STUB_PUZZLES.map((p) => [p.id, p]))
+      : new Map<string, ContentPuzzle>(),
+  )
+  // Bumped every time `serveNext` runs. A body-load promise's `.then`/
+  // `.catch` only applies its result if this still matches the token it
+  // captured — guards the same class of race Task 6's
   // useBossSession.ts/PuzzlePage.tsx fix (an older selection's slower fetch
   // landing after a newer selection's faster one) — reachable here too: two
   // `handleContinue` calls close enough together that the first's body
   // fetch is still in flight when the second selects a different id.
   const selectionTokenRef = useRef(0)
+  // Fix-round finding #1: true once a puzzle has EVER actually been
+  // displayed (`setPuzzle` called with a real body — dev-stub or resolved
+  // fetch), for the lifetime of the hook instance. Cold boot is exactly
+  // "this is still false" — the only state with no stale puzzle to fall
+  // back on if the body-load fails, so it's the only case that needs to
+  // surface an 'error' status at all (mid-session, a failed background
+  // refresh just leaves the stale puzzle on screen — see the `.then`/
+  // `.catch` branches below).
+  const hasDisplayedRef = useRef(false)
 
   const serveNext = useCallback(
     (currentProfile: UserProfile, pattern: PatternSlug | null, interaction: InteractionFilter) => {
+      // Fix-round finding #2: bumped FIRST, before the null-pool early
+      // return below (or anything else) — an older selection's still-
+      // in-flight body-load promise captured the PREVIOUS token value, so
+      // bumping it here immediately invalidates that promise's eventual
+      // `.then`/`.catch` no matter which branch THIS call takes, including
+      // the early `result === null` return. Without this, that early
+      // return skipped the bump entirely (it lived after the null check),
+      // so a stale in-flight fetch could still resolve later and overwrite
+      // the 'empty' status this call is about to set with a stale puzzle —
+      // reachable via PracticePage's `?pattern=&interaction=` URL effect
+      // landing on an empty intersection while a cold-boot fetch is still
+      // in flight.
+      const token = ++selectionTokenRef.current
       const devMode = isDevPuzzleModeEnabled()
       const pool = devMode
         ? devPoolForFilters(pattern, interaction)
@@ -241,6 +281,7 @@ export function usePracticeSession(): PracticeSession {
           throw new Error(`selectNext returned unknown dev-stub puzzle id "${result.puzzle.id}"`)
         }
         setPuzzle(fullPuzzle)
+        hasDisplayedRef.current = true
         servedAtRef.current = Date.now()
         setStatus('ready')
         return
@@ -252,33 +293,45 @@ export function usePracticeSession(): PracticeSession {
       // ever been displayed, `status` still 'loading') has no stale puzzle
       // to fall back on; PracticePage.tsx renders a RouteSkeleton for that
       // one case.
-      const token = ++selectionTokenRef.current
       loadPuzzleBody(result.puzzle.id)
         .then((fullPuzzle) => {
           if (selectionTokenRef.current !== token) return // superseded by a newer selection
           if (!fullPuzzle) {
             // puzzleMeta and getPuzzleBody's loaders are both generated from
             // the same on-disk content at build time, so this should be
-            // unreachable in practice — reported, not thrown, so a stale
-            // puzzle (if any) stays on screen rather than crashing the
-            // session over it.
+            // unreachable in practice — reported via trackError either way.
             trackError(
               new Error(`getPuzzleBody: unknown puzzle id "${result.puzzle.id}"`),
               'usePracticeSession: serveNext body lookup miss',
             )
+            // Fix-round finding #1: cold boot (nothing ever displayed) has
+            // no stale puzzle to fall back on — without this the page would
+            // hang on RouteSkeleton forever with no way to recover. Reuses
+            // the existing 'error' status + retryLoad path (same recovery
+            // loadProfile failures already use), mirroring Task 6's
+            // useBossSession.ts prefetch-failure handling. Mid-session, the
+            // stale puzzle (if any) is left exactly as it was — SWR's whole
+            // point is that a fetch failure doesn't blank/replace it.
+            if (!hasDisplayedRef.current) {
+              setStatus('error')
+            }
             return
           }
           setPuzzle(fullPuzzle)
+          hasDisplayedRef.current = true
           servedAtRef.current = Date.now()
           setStatus('ready')
         })
         .catch((error: unknown) => {
           if (selectionTokenRef.current !== token) return
           // A failed dynamic import (offline, deploy-invalidated chunk) or
-          // the zod validation throw on invalid content. Whatever was
-          // displayed before (if anything) stays displayed — SWR's whole
-          // point is that a fetch failure doesn't blank the screen.
+          // the zod validation throw on invalid content.
           trackError(error, 'usePracticeSession: serveNext body fetch failed')
+          // Same cold-boot-only recovery path as the `!fullPuzzle` branch
+          // above — see its comment.
+          if (!hasDisplayedRef.current) {
+            setStatus('error')
+          }
         })
     },
     [],
