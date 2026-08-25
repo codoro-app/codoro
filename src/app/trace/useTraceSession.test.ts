@@ -9,7 +9,7 @@ import {
 import type { Puzzle } from '../../content'
 import { useTraceSession } from './useTraceSession'
 
-const { FIXTURE_SCRUBBER_POOL } = vi.hoisted(() => {
+const { FIXTURE_SCRUBBER_POOL, FIXTURE_PUZZLE_META, FIXTURE_BODY_BY_ID } = vi.hoisted(() => {
   const pool = Array.from({ length: 12 }, (_, i) => ({
     id: `s${String(i)}`,
     pattern: i % 2 === 0 ? 'off-by-one' : 'null-undefined',
@@ -29,12 +29,30 @@ const { FIXTURE_SCRUBBER_POOL } = vi.hoisted(() => {
       { afterStep: 1, question: 'next-line', choices: ['1', '2'], correct: 1 },
     ],
   })) as unknown as Puzzle[]
-  return { FIXTURE_SCRUBBER_POOL: pool }
+  return {
+    FIXTURE_SCRUBBER_POOL: pool,
+    // content-metadata-lazy-load Task 5: useTraceSession now selects from
+    // `puzzleMeta` (filtered to interaction === 'scrubber' internally) and
+    // loads bodies via `getPuzzleBody`, not `scrubberPool` directly.
+    FIXTURE_PUZZLE_META: pool.map((p) => ({
+      id: p.id,
+      pattern: p.pattern,
+      difficulty_rating: p.difficulty_rating,
+      interaction: p.interaction,
+    })),
+    FIXTURE_BODY_BY_ID: new Map(pool.map((p) => [p.id, p])),
+  }
 })
 
 vi.mock('../../content', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../content')>()
-  return { ...actual, puzzlePool: FIXTURE_SCRUBBER_POOL, scrubberPool: FIXTURE_SCRUBBER_POOL }
+  return {
+    ...actual,
+    puzzlePool: FIXTURE_SCRUBBER_POOL,
+    scrubberPool: FIXTURE_SCRUBBER_POOL,
+    puzzleMeta: FIXTURE_PUZZLE_META,
+    getPuzzleBody: vi.fn((id: string) => Promise.resolve(FIXTURE_BODY_BY_ID.get(id))),
+  }
 })
 
 vi.mock('../../storage', async (importOriginal) => {
@@ -56,6 +74,8 @@ vi.mock('../../telemetry', () => ({
 const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
   await import('../../storage')
 const { trackTraceAttempt, trackStreakPause, trackError } = await import('../../telemetry')
+const { getPuzzleBody } = await import('../../content')
+const { resetPuzzleBodyCacheForTests } = await import('../practice/puzzleBodyCache')
 
 /** Answers every checkpoint on the currently-served puzzle, in order. */
 function answerAllCheckpoints(
@@ -85,6 +105,7 @@ describe('useTraceSession', () => {
     vi.mocked(loadProfile).mockResolvedValue(createDefaultProfile())
     vi.mocked(saveProfile).mockResolvedValue(undefined)
     vi.mocked(appendAttempt).mockResolvedValue(undefined)
+    resetPuzzleBodyCacheForTests()
   })
 
   afterEach(() => {
@@ -497,6 +518,113 @@ describe('useTraceSession', () => {
       expect(result.current.streakPause).toBeNull()
       expect(result.current.puzzle?.id).toBe(puzzleAtPause)
       expect(result.current.isComplete).toBe(true) // still showing the solved puzzle's own solve panel
+    })
+  })
+
+  describe('content-metadata-lazy-load Task 5: stale-while-revalidate + speculative prefetch', () => {
+    it("keeps the previous puzzle displayed while the next selection's body is still loading (SWR), and never flips status back to loading mid-session", async () => {
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0)
+
+      const { result } = renderHook(() => useTraceSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+      const firstPuzzleId = result.current.puzzle?.id
+      if (!firstPuzzleId) throw new Error('expected a puzzle to be served')
+
+      // Intercepts exactly the next getPuzzleBody call (the one serveNext's
+      // real selection triggers below) with a promise this test controls.
+      let resolveBody: (() => void) | undefined
+      vi.mocked(getPuzzleBody).mockImplementationOnce(
+        (id: string) =>
+          new Promise((resolve) => {
+            resolveBody = () => {
+              resolve(FIXTURE_BODY_BY_ID.get(id))
+            }
+          }),
+      )
+
+      answerAllCheckpoints(result, true)
+      act(() => {
+        result.current.handleContinue()
+      })
+
+      // Selection is synchronous — a new id was picked — but the body
+      // hasn't resolved, so the DISPLAYED puzzle is still the previous one.
+      expect(result.current.puzzle?.id).toBe(firstPuzzleId)
+      expect(result.current.status).toBe('ready')
+
+      resolveBody?.()
+      await waitFor(() => {
+        expect(result.current.puzzle?.id).not.toBe(firstPuzzleId)
+      })
+      expect(result.current.status).toBe('ready')
+
+      randomSpy.mockRestore()
+    })
+
+    it('handleCheckpointAnswered speculatively prefetches candidate body/bodies for the likely next puzzle, once the final checkpoint lands', async () => {
+      const { result } = renderHook(() => useTraceSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+
+      const callsBefore = vi.mocked(getPuzzleBody).mock.calls.length
+      answerAllCheckpoints(result, true)
+
+      // No handleContinue call anywhere above — the prefetch fires purely
+      // off the puzzle's final checkpoint landing.
+      expect(vi.mocked(getPuzzleBody).mock.calls.length).toBeGreaterThan(callsBefore)
+    })
+
+    it('does not re-fetch a body that was already prefetched, once that same id becomes the real next selection', async () => {
+      // Narrows the pool to exactly one puzzle — with only one eligible
+      // candidate, every speculative draw AND the real next selectNext call
+      // are guaranteed to land on that same id (selection.ts's own
+      // no-repeat-within-window soft-preference falls back to the full
+      // eligible set once it would otherwise go empty), making this
+      // deterministic without controlling the speculative draws' internal
+      // throwaway rng directly. Restored in `finally` so later tests in
+      // this file (if any ran after, and re-runs of this same suite) still
+      // see the full 12-puzzle fixture.
+      const originalMeta = [...FIXTURE_PUZZLE_META]
+      const onlyEntry = originalMeta[0]
+      if (!onlyEntry) throw new Error('expected at least one fixture puzzleMeta entry')
+      FIXTURE_PUZZLE_META.length = 0
+      FIXTURE_PUZZLE_META.push(onlyEntry)
+
+      try {
+        const { result } = renderHook(() => useTraceSession())
+        await waitFor(() => {
+          expect(result.current.status).toBe('ready')
+        })
+        expect(result.current.puzzle?.id).toBe(onlyEntry.id)
+
+        vi.mocked(getPuzzleBody).mockClear()
+
+        answerAllCheckpoints(result, true)
+        // The prefetch may internally call loadPuzzleBody(onlyEntry.id) more
+        // than once (3 speculative draws, all landing on the same sole
+        // candidate) — the shared cache is what collapses those into at
+        // most one real getPuzzleBody call.
+        expect(vi.mocked(getPuzzleBody).mock.calls.length).toBeLessThanOrEqual(1)
+        const callsAfterPrefetch = vi.mocked(getPuzzleBody).mock.calls.length
+
+        act(() => {
+          result.current.handleContinue()
+        })
+
+        // The real selection landed on the exact id already prefetched —
+        // getPuzzleBody must not have been called again.
+        expect(vi.mocked(getPuzzleBody).mock.calls.length).toBe(callsAfterPrefetch)
+
+        await waitFor(() => {
+          expect(result.current.puzzle?.id).toBe(onlyEntry.id)
+        })
+      } finally {
+        FIXTURE_PUZZLE_META.length = 0
+        FIXTURE_PUZZLE_META.push(...originalMeta)
+      }
     })
   })
 })

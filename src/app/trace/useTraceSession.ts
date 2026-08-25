@@ -22,6 +22,24 @@
  * the completed trace/explanation before advancing. handleContinue is what
  * actually serves the next puzzle, same as every other session hook's
  * Continue button.
+ *
+ * Puzzle bodies (content-metadata-lazy-load Task 5): mirrors
+ * usePracticeSession.ts's own doc comment exactly — puzzle *selection* runs
+ * synchronously over `puzzleMeta` (filtered to `interaction === 'scrubber'`,
+ * the metadata-only counterpart of the pre-existing `scrubberPool`), and the
+ * selected id's full body is then loaded via the shared `loadPuzzleBody`
+ * cache, stale-while-revalidate (`puzzle` keeps showing the previous body
+ * until the new one resolves; only true cold boot has no stale body to fall
+ * back on — see TraceRunner.tsx's `RouteSkeleton` branch).
+ * `handleCheckpointAnswered` fires the same post-answer speculative prefetch
+ * Practice does, once this puzzle's final checkpoint lands and its rating/
+ * requeue effects are known.
+ *
+ * DEV puzzle-mode: `DEV_STUB_PUZZLES` (devPuzzles.ts) currently has no
+ * scrubber-interaction stubs, so this path already serves an empty pool
+ * (`status: 'empty'`) whenever the dev switch is on — unchanged by this
+ * task, preserved here (rather than silently ignoring the switch) so Trace
+ * still respects it if a scrubber stub is ever added.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
@@ -34,15 +52,17 @@ import {
   TRACE_K_MULTIPLIER,
   updateRating,
 } from '../../engine'
-import type { CheckpointResult, SelectionSource } from '../../engine'
+import type { CheckpointResult, Puzzle as EnginePuzzle, SelectionSource } from '../../engine'
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, UserProfile } from '../../storage'
-import { scrubberPool } from '../../content'
-import { resolvePool } from '../devTools/devPuzzleMode'
+import { DEV_STUB_PUZZLES, puzzleMeta } from '../../content'
+import { isDevPuzzleModeEnabled } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle, ScrubberPuzzle } from '../../content'
 import { trackError, trackStreakPause, trackTraceAttempt } from '../../telemetry'
 import { resolveStreakPause } from '../streakPauseLogic'
 import type { StreakPauseState } from '../streakPauseLogic'
+import { loadPuzzleBody } from '../practice/puzzleBodyCache'
+import { speculativeNextIds } from '../practice/speculativeSelection'
 
 // Practice's own no-repeat-within-20 convention (src/engine/selection.ts) —
 // kept here as the upper bound, not the value actually used. See
@@ -117,8 +137,20 @@ function isScrubberPuzzle(
   return puzzle.interaction === 'scrubber'
 }
 
-function toEnginePuzzle(puzzle: ScrubberPuzzle): { id: string; rating: number } {
+function toEnginePuzzle(puzzle: ScrubberPuzzle): EnginePuzzle {
   return { id: puzzle.id, rating: puzzle.difficulty_rating }
+}
+
+/** The real (non-dev-mode) selection pool: `puzzleMeta` filtered to `interaction === 'scrubber'` — the metadata-only counterpart of the pre-existing `scrubberPool`. No puzzle body is read or loaded here. */
+function poolForFilters(): EnginePuzzle[] {
+  return puzzleMeta
+    .filter((meta) => meta.interaction === 'scrubber')
+    .map((meta) => ({ id: meta.id, rating: meta.difficulty_rating }))
+}
+
+/** DEV puzzle-mode's selection pool — see this file's module doc comment for why it's currently always empty. */
+function devPoolForFilters(): EnginePuzzle[] {
+  return DEV_STUB_PUZZLES.filter(isScrubberPuzzle).map(toEnginePuzzle)
 }
 
 export type TraceSessionStatus = 'loading' | 'ready' | 'empty' | 'error'
@@ -179,13 +211,29 @@ export function useTraceSession(): TraceSession {
   // like recentIdsRef/lastSourceRef above.
   const checkpointResultsRef = useRef<CheckpointResult[]>([])
 
-  const activePool = resolvePool(scrubberPool).filter(isScrubberPuzzle)
-  const contentById = useRef(new Map(activePool.map((p) => [p.id, p])))
-  const tracePool = useRef(activePool.map(toEnginePuzzle))
+  // Most-recently-SELECTED id / dev-stub lookup / selection-race token — see
+  // usePracticeSession.ts's identical refs for the full rationale (this
+  // file's structural mirror of that one).
+  const lastSelectedIdRef = useRef<string | null>(null)
+  const devStubById = useRef(
+    new Map(DEV_STUB_PUZZLES.filter(isScrubberPuzzle).map((p) => [p.id, p])),
+  )
+  const selectionTokenRef = useRef(0)
+  // Trace has no pattern/interaction filters, so the pool is fixed for a
+  // given dev-mode setting — but `traceRecentIdsWindow` (handleContinue)
+  // still needs its size, and the pool itself is metadata-only now (no
+  // reason to keep a full array of bodies around just to read `.length`).
+  // Recomputed on every serveNext call rather than cached once: cheap
+  // (Array#filter/#map over 214 metadata entries), and keeps this correct if
+  // dev-mode is ever toggled without a remount in some future change.
+  const poolSizeRef = useRef(0)
 
   const serveNext = useCallback((currentProfile: UserProfile) => {
+    const devMode = isDevPuzzleModeEnabled()
+    const pool = devMode ? devPoolForFilters() : poolForFilters()
+    poolSizeRef.current = pool.length
     const result = selectNext({
-      pool: tracePool.current,
+      pool,
       rating: currentProfile.rating,
       recentIds: recentIdsRef.current,
       requeueState: currentProfile.requeueState,
@@ -204,6 +252,7 @@ export function useTraceSession(): TraceSession {
     }
 
     lastSourceRef.current = result.source
+    lastSelectedIdRef.current = result.puzzle.id
 
     // selectNext advances the requeue ladder as a side effect of being
     // called (one call == one puzzle served) even when the tick isn't
@@ -212,17 +261,60 @@ export function useTraceSession(): TraceSession {
     // saveProfile call), same as usePracticeSession's serveNext.
     setProfile({ ...currentProfile, requeueState: result.newRequeueState })
 
-    const fullPuzzle = contentById.current.get(result.puzzle.id)
-    if (!fullPuzzle) {
-      throw new Error(`selectNext returned unknown puzzle id "${result.puzzle.id}"`)
-    }
-    setPuzzle(fullPuzzle)
+    // Cleared synchronously, for both paths, regardless of when the new
+    // puzzle's BODY resolves — this is "a new attempt has started" state,
+    // not part of the puzzle card's own content, so there's no reason to
+    // keep showing the previous attempt's solve panel just because the
+    // stale puzzle body is still on screen. (Only `puzzle` itself is
+    // stale-while-revalidate — see below. `isComplete`, derived from
+    // `checkpointResults.length >= puzzle.checkpoints.length`, is correctly
+    // `false` against however many checkpoints the STALE puzzle happens to
+    // have, for however briefly it's still displayed.)
     checkpointResultsRef.current = []
     setCheckpointResults([])
     setSolved(null)
     setRatingDelta(null)
-    servedAtRef.current = Date.now()
-    setStatus('ready')
+
+    if (devMode) {
+      const fullPuzzle = devStubById.current.get(result.puzzle.id)
+      if (!fullPuzzle) {
+        throw new Error(`selectNext returned unknown dev-stub puzzle id "${result.puzzle.id}"`)
+      }
+      setPuzzle(fullPuzzle)
+      servedAtRef.current = Date.now()
+      setStatus('ready')
+      return
+    }
+
+    // Real path: `puzzle` is left untouched here — stale-while-revalidate,
+    // mirroring usePracticeSession.ts's serveNext exactly. Only true cold
+    // boot has no stale puzzle to fall back on.
+    const token = ++selectionTokenRef.current
+    loadPuzzleBody(result.puzzle.id)
+      .then((fullPuzzle) => {
+        if (selectionTokenRef.current !== token) return // superseded by a newer selection
+        if (!fullPuzzle || !isScrubberPuzzle(fullPuzzle)) {
+          // The second half of this condition should be unreachable in
+          // practice — puzzleMeta's own `interaction === 'scrubber'` filter
+          // (poolForFilters above) is what selectNext chose this id from —
+          // but getPuzzleBody's return type is the full Puzzle union, not
+          // narrowed to scrubber, so this guard is what lets `setPuzzle`
+          // below type-check without an unsafe cast, and it's cheap
+          // insurance against a genuinely corrupt/mismatched id.
+          trackError(
+            new Error(`getPuzzleBody: unknown or non-scrubber puzzle id "${result.puzzle.id}"`),
+            'useTraceSession: serveNext body lookup miss',
+          )
+          return
+        }
+        setPuzzle(fullPuzzle)
+        servedAtRef.current = Date.now()
+        setStatus('ready')
+      })
+      .catch((error: unknown) => {
+        if (selectionTokenRef.current !== token) return
+        trackError(error, 'useTraceSession: serveNext body fetch failed')
+      })
   }, [])
 
   const cancelledRef = useRef(false)
@@ -315,6 +407,25 @@ export function useTraceSession(): TraceSession {
         ? profile.requeueState
         : recordMiss(profile.requeueState, puzzle.id)
 
+      // Speculative prefetch — mirrors usePracticeSession.ts's
+      // handleAnswered exactly (see its doc comment for the "rating drift"
+      // reasoning for firing here, once newRating/newRequeueState are known,
+      // rather than at serve time). Skipped in DEV puzzle-mode for the same
+      // reason: stub ids aren't real content.
+      if (!isDevPuzzleModeEnabled()) {
+        const recentIdsWindow = traceRecentIdsWindow(poolSizeRef.current)
+        const candidateIds = speculativeNextIds({
+          pool: poolForFilters(),
+          rating: newRating,
+          requeueState: newRequeueState,
+          lastSource: lastSourceRef.current,
+          recentIds: [puzzle.id, ...recentIdsRef.current].slice(0, recentIdsWindow),
+        })
+        for (const id of candidateIds) {
+          loadPuzzleBody(id).catch(() => undefined)
+        }
+      }
+
       // Phase 5b Item 7/8: computed explicitly (not via setStreak's own
       // functional updater) since the streak-pause check right below needs
       // the actual new value synchronously, in this same closure — mirrors
@@ -389,8 +500,12 @@ export function useTraceSession(): TraceSession {
   const handleContinue = useCallback(() => {
     if (!profile || !puzzle) return
     if (checkpointResults.length < puzzle.checkpoints.length) return // not complete yet
-    const recentIdsWindow = traceRecentIdsWindow(tracePool.current.length)
-    recentIdsRef.current = [puzzle.id, ...recentIdsRef.current].slice(0, recentIdsWindow)
+    const recentIdsWindow = traceRecentIdsWindow(poolSizeRef.current)
+    // Excludes the id most recently SELECTED, not necessarily `puzzle.id` —
+    // see usePracticeSession.ts's identical handleContinue comment for the
+    // narrow race this matters for.
+    const justServedId = lastSelectedIdRef.current ?? puzzle.id
+    recentIdsRef.current = [justServedId, ...recentIdsRef.current].slice(0, recentIdsWindow)
     serveNext(profile)
   }, [profile, puzzle, checkpointResults, serveNext])
 
