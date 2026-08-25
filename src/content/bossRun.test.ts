@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { quizPool } from './index'
+import { quizPool } from './pools'
 import { BOSS_SETS, resolveActiveBossSet } from './bossRun'
 
 describe('BOSS_SETS — every set against the real content pool', () => {

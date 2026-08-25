@@ -18,8 +18,21 @@
  * live-swapping an in-progress session's pool, so every consumer just reads
  * the flag once, synchronously, at module/hook-init time.
  */
-import { DEV_STUB_PUZZLES } from '../../content'
-import type { Puzzle as ContentPuzzle } from '../../content'
+// Deep import into src/content/, deliberately bypassing the content/ barrel
+// (the one documented exception to that convention — see content/index.ts's
+// header). ES modules evaluate per *file*, not per binding: importing
+// anything at all from '../../content' forces content/index.ts's top-level
+// eager `import.meta.glob('./puzzles/**/*.json', { eager: true })` to run,
+// which statically pulls all 214 puzzle bodies into the bundle. AppShell
+// renders <DevPuzzleToggle /> unconditionally, and DevPuzzleToggle imports
+// this file — so the barrel import made every puzzle body eagerly reachable
+// from *every* route's entry chunk, confirmed in dist/ (214
+// `<link rel="modulepreload">` hints off index.html). devPuzzles.ts itself
+// only imports `type { Puzzle } from './schema'`, so this path costs nothing
+// beyond the stub data — which resolvePool's `!import.meta.env.DEV` early
+// return still lets Rollup fold away entirely in a production build.
+import { DEV_STUB_PUZZLES } from '../../content/devPuzzles'
+import type { Puzzle as ContentPuzzle } from '../../content/schema'
 
 const STORAGE_KEY = 'codoro:dev-stub-puzzles'
 

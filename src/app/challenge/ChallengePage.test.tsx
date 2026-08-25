@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { puzzlePool } from '../../content'
+import { puzzlePool } from '../../content/pools'
 import {
   CHALLENGE_PAYLOAD_VERSION,
   buildChallengePayload,
@@ -152,7 +152,14 @@ describe('ChallengePageForHash — broken link states', () => {
     await waitFor(() => {
       expect(screen.getByText(/challenge link is broken/i)).toBeInTheDocument()
     })
-    expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: false })
+    // The telemetry assertion needs its own waitFor, not a bare expect after
+    // the DOM one: since Task 6 made resolution async, this fires from a
+    // passive effect, which waitFor's committed-DOM check can outrun under
+    // full-suite load (observed flaking as "Number of calls: 0"). Same shape
+    // as the found: true case below, which already waits.
+    await waitFor(() => {
+      expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: false })
+    })
   })
 })
 
@@ -329,7 +336,10 @@ describe('ChallengePage — the wrapper reads the real URL fragment', () => {
       expect(container.querySelector('.puzzle-card')).toBeInTheDocument()
     })
     expect(screen.queryByText(/challenge link is broken/i)).not.toBeInTheDocument()
-    expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: true })
+    // Own waitFor, same passive-effect race as the broken-state test above.
+    await waitFor(() => {
+      expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: true })
+    })
   })
 
   it('remounts a fresh session when the URL fragment is edited', async () => {

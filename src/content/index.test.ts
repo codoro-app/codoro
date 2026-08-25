@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { getPuzzleBody, puzzleMeta, puzzlePool, quizPool, scrubberPool } from './index'
+import { getPuzzleBody, puzzleMeta } from './index'
+// The three eager pools moved to ./pools (and are deliberately not
+// re-exported by the barrel) — see index.ts's own note for why.
+import { puzzlePool, quizPool, scrubberPool } from './pools'
 
 /**
  * Rating-integrity regression: a `swipe-binary` puzzle whose `correct_direction`

@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { puzzlePool } from '../../content'
+import { puzzlePool } from '../../content/pools'
 
 vi.mock('../../storage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../storage')>()
