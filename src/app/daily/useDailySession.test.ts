@@ -4,7 +4,7 @@ import { updateRating, roundForDisplay, getDailyNumber, getDailyCalendarIndex } 
 import type { Puzzle } from '../../content'
 import { useDailySession } from './useDailySession'
 
-const { FIXTURE_POOL, FIXTURE_CALENDAR } = vi.hoisted(() => {
+const { FIXTURE_POOL, FIXTURE_CALENDAR, FIXTURE_BODY_BY_ID } = vi.hoisted(() => {
   const pool = Array.from({ length: 12 }, (_, i) => ({
     id: `p${String(i)}`,
     pattern: i % 2 === 0 ? 'off-by-one' : 'null-undefined',
@@ -24,6 +24,7 @@ const { FIXTURE_POOL, FIXTURE_CALENDAR } = vi.hoisted(() => {
   return {
     FIXTURE_POOL: pool,
     FIXTURE_CALENDAR: [...pool].reverse().map((p) => p.id),
+    FIXTURE_BODY_BY_ID: new Map(pool.map((p) => [p.id, p])),
   }
 })
 
@@ -34,6 +35,11 @@ vi.mock('../../content', async (importOriginal) => {
     puzzlePool: FIXTURE_POOL,
     quizPool: FIXTURE_POOL,
     DAILY_CALENDAR: FIXTURE_CALENDAR,
+    // content-metadata-lazy-load Task 5b: useDailySession now resolves
+    // today's id from DAILY_CALENDAR (unchanged) but loads its BODY via
+    // getPuzzleBody (through the shared puzzleBodyCache), not a synchronous
+    // quizPool.find.
+    getPuzzleBody: vi.fn((id: string) => Promise.resolve(FIXTURE_BODY_BY_ID.get(id))),
   }
 })
 
@@ -50,8 +56,21 @@ vi.mock('../../storage', async (importOriginal) => {
 
 vi.mock('../../telemetry', () => ({ trackAttempt: vi.fn(), trackError: vi.fn() }))
 
+// Real implementations by default (`resolveDailyStubPuzzle` needs the real
+// DEV_STUB_PUZZLES to return a genuine puzzle) — only `isDevPuzzleModeEnabled`
+// is overridden per-test, to exercise the dev-puzzle-mode branch without
+// touching localStorage.
+vi.mock('../devTools/devPuzzleMode', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../devTools/devPuzzleMode')>()
+  return { ...actual, isDevPuzzleModeEnabled: vi.fn(actual.isDevPuzzleModeEnabled) }
+})
+
 const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
   await import('../../storage')
+const { getPuzzleBody } = await import('../../content')
+const { trackError } = await import('../../telemetry')
+const { isDevPuzzleModeEnabled } = await import('../devTools/devPuzzleMode')
+const { resetPuzzleBodyCacheForTests } = await import('../practice/puzzleBodyCache')
 
 function today(): string {
   const d = new Date()
@@ -72,6 +91,11 @@ describe('useDailySession', () => {
     vi.mocked(loadProfile).mockResolvedValue(createDefaultProfile())
     vi.mocked(saveProfile).mockResolvedValue(undefined)
     vi.mocked(appendAttempt).mockResolvedValue(undefined)
+    // The shared puzzleBodyCache is a module-level singleton — Vitest
+    // isolates modules per test FILE, not per `it()` within one, so without
+    // this a call-count assertion in one test could be silently satisfied by
+    // a promise this same cache resolved during an earlier test.
+    resetPuzzleBodyCacheForTests()
   })
 
   afterEach(() => {
@@ -182,5 +206,94 @@ describe('useDailySession', () => {
     expect(result.current.ratingDelta).not.toBeNull()
     expect(result.current.profile?.dailyCompletion?.date).toBe(today())
     expect(result.current.profile?.ratedAttemptCount).toBe(1)
+  })
+
+  describe('content-metadata-lazy-load Task 5b: async body load + dev-puzzle-mode', () => {
+    it("stays 'loading' (cold-boot RouteSkeleton) until today's puzzle body resolves, then flips to ready", async () => {
+      let resolveBody: (() => void) | undefined
+      vi.mocked(getPuzzleBody).mockImplementationOnce(
+        (id: string) =>
+          new Promise((resolve) => {
+            resolveBody = () => {
+              resolve(FIXTURE_BODY_BY_ID.get(id))
+            }
+          }),
+      )
+
+      const { result } = renderHook(() => useDailySession())
+      await waitFor(() => {
+        expect(result.current.profile).not.toBeNull()
+      })
+      // The profile has loaded but the body fetch is still pending — Daily
+      // has no stale puzzle to fall back on for its one-and-only puzzle, so
+      // status must stay 'loading' (DailyPage.tsx renders RouteSkeleton for
+      // this, not a bespoke "Loading…" message).
+      expect(result.current.status).toBe('loading')
+      expect(result.current.puzzle).toBeNull()
+
+      resolveBody?.()
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+      expect(result.current.puzzle?.id).toBe(expectedPuzzle().id)
+    })
+
+    it('a rejected getPuzzleBody transitions to error and reports via trackError', async () => {
+      // Note: unlike Practice/Trace/Rush's own equivalent tests, this
+      // deliberately does NOT also assert "retryLoad recovers." Daily's id is
+      // 100% deterministic (same DAILY_CALENDAR entry every call, this
+      // calendar day), and puzzleBodyCache.ts caches a promise per id
+      // forever, rejection included (see its own doc comment — "no
+      // eviction," locked by Task 5a) — so retryLoad would call
+      // loadPuzzleBody with the exact same id and get back the SAME
+      // already-rejected promise, not a fresh attempt. Practice/Trace/Rush's
+      // equivalent tests only "recover" because their retry's random
+      // reselection usually (not always) lands on a different, uncached id;
+      // Daily can't rely on that. This is a pre-existing property of the
+      // shared cache module (out of scope for this task to change — flagged
+      // in this task's own report), not something this hook can work around.
+      vi.mocked(getPuzzleBody).mockRejectedValueOnce(new Error('dynamic import failed'))
+
+      const { result } = renderHook(() => useDailySession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('error')
+      })
+      expect(trackError).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.stringContaining('puzzle body fetch failed'),
+      )
+      expect(result.current.puzzle).toBeNull()
+    })
+
+    it('getPuzzleBody resolving undefined (unknown id) also transitions to error, not a stuck skeleton', async () => {
+      vi.mocked(getPuzzleBody).mockResolvedValueOnce(undefined)
+
+      const { result } = renderHook(() => useDailySession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('error')
+      })
+      expect(trackError).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.stringContaining('puzzle body lookup miss'),
+      )
+      expect(result.current.puzzle).toBeNull()
+    })
+
+    it('DEV puzzle-mode serves a stub puzzle directly (synchronously, no getPuzzleBody call) instead of the calendar id', async () => {
+      vi.mocked(isDevPuzzleModeEnabled).mockReturnValue(true)
+
+      const { result } = renderHook(() => useDailySession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+
+      expect(result.current.puzzle).not.toBeNull()
+      // Stub ids are never part of the (mocked) real calendar/pool.
+      expect(FIXTURE_CALENDAR.includes(result.current.puzzle?.id ?? '')).toBe(false)
+      // Dev-stub puzzles aren't real content — resolving one must never go
+      // through getPuzzleBody (it would only ever resolve `undefined` for a
+      // stub id).
+      expect(getPuzzleBody).not.toHaveBeenCalled()
+    })
   })
 })

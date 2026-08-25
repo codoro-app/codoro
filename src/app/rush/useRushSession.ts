@@ -26,6 +26,21 @@
  * (including wrong answers) and asserts zero calls — the guard the build
  * plan requires at the orchestration layer, not just at shouldRateAttempt's
  * own unit test.
+ *
+ * Puzzle bodies (content-metadata-lazy-load Task 5b): mirrors
+ * usePracticeSession.ts's own doc comment — `selectRushPuzzle` runs
+ * synchronously over `puzzleMeta` (filtered to Rush-eligible interactions,
+ * the metadata-only counterpart of the pre-existing eager
+ * `resolvePool(quizPool)` scan), and the selected id's full body is then
+ * loaded via the shared `loadPuzzleBody` cache — stale-while-revalidate
+ * (`puzzle` keeps showing the previous body until the new one resolves;
+ * only true cold boot has no stale body to fall back on — see RushPage.tsx's
+ * `RouteSkeleton` branch). `handleAnswered` fires a speculative prefetch
+ * (`speculativeRushSelection.ts`) for the id(s) the NEXT `selectRushPuzzle`
+ * call is likely to pick, using `pendingDifficultyRef.current` (already
+ * computed there — the audit's "single best prefetch signal in the
+ * codebase") — skipped entirely when the run is about to end
+ * (`pendingEndRef.current`), since no puzzle will be served next.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
@@ -39,12 +54,14 @@ import {
 import type { RushInteraction, RushPuzzle } from '../../engine'
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, RushStats, UserProfile } from '../../storage'
-import { quizPool } from '../../content'
-import { resolvePool } from '../devTools/devPuzzleMode'
+import { puzzleMeta, DEV_STUB_PUZZLES } from '../../content'
+import { isDevPuzzleModeEnabled } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle } from '../../content'
 import { trackError, trackRushAttempt, trackRushRunEnd } from '../../telemetry'
 import type { ChallengeAttemptInput } from '../../challenge'
 import type { CommitPayload } from '../practice/interactionTypes'
+import { loadPuzzleBody } from '../practice/puzzleBodyCache'
+import { speculativeRushIds } from './speculativeRushSelection'
 
 /**
  * Flat per-puzzle clock (Phase 5b Item 6, decision 4/5) — untuned: no
@@ -69,6 +86,22 @@ function todayDateString(date = new Date()): string {
 }
 
 /**
+ * Minimal shape `isRushEligible`/`toRushPuzzle` need — satisfied by both
+ * `PuzzleMeta` (the real, metadata-only pool) and `ContentPuzzle`
+ * (`DEV_STUB_PUZZLES`, which are full bodies already held in memory).
+ * Content-metadata-lazy-load Task 5b: this used to be typed as
+ * `ContentPuzzle` alone, requiring a full body just to decide eligibility —
+ * now it only ever reads id/rating/interaction, so the real pool below can
+ * be built from `puzzleMeta` without pulling a single puzzle body into the
+ * eager pool-build.
+ */
+interface RushEligibleSource {
+  readonly id: string
+  readonly difficulty_rating: number
+  readonly interaction: ContentPuzzle['interaction']
+}
+
+/**
  * Rush is quiz-only — scrubber's multi-checkpoint attempt shape doesn't fit
  * Rush's single strike-or-solve-and-move-on loop (Phase 2/3 build plan).
  * RushInteraction's own union already excludes 'scrubber'; this guard is
@@ -76,9 +109,17 @@ function todayDateString(date = new Date()): string {
  * toRushPuzzle in the first place, rather than relying on the type error
  * `tsc` would otherwise raise at the call site to catch it.
  */
-function isRushEligible(
-  puzzle: ContentPuzzle,
-): puzzle is ContentPuzzle & { interaction: RushInteraction } {
+// Generic over `T extends RushEligibleSource` (rather than a plain
+// `RushEligibleSource` parameter) so `Array<T>.filter(isRushEligible)`
+// actually narrows: TS's type-predicate `filter` overload only applies when
+// the asserted type extends the array's element type, which a fixed
+// `RushEligibleSource & {...}` return type would NOT for a `PuzzleMeta[]`
+// (it's missing `PuzzleMeta`'s `pattern` field) — `T & {...}` always
+// extends `T`, so this form narrows correctly for both `puzzleMeta` and
+// `DEV_STUB_PUZZLES` (a `PuzzleMeta[]`/`ContentPuzzle[]` respectively).
+function isRushEligible<T extends RushEligibleSource>(
+  puzzle: T,
+): puzzle is T & { interaction: RushInteraction } {
   return (
     puzzle.interaction === 'mcq' ||
     puzzle.interaction === 'swipe-binary' ||
@@ -86,7 +127,7 @@ function isRushEligible(
   )
 }
 
-function toRushPuzzle(puzzle: ContentPuzzle & { interaction: RushInteraction }): RushPuzzle {
+function toRushPuzzle(puzzle: RushEligibleSource & { interaction: RushInteraction }): RushPuzzle {
   return { id: puzzle.id, rating: puzzle.difficulty_rating, interaction: puzzle.interaction }
 }
 
@@ -174,13 +215,49 @@ export function useRushSession(): RushSession {
   // read by endRun to report `ended_reason` on the run that miss ends.
   const lastMissTimedOutRef = useRef(false)
 
-  const activePool = resolvePool(quizPool)
-  const contentById = useRef(new Map(activePool.map((p) => [p.id, p])))
-  const rushPool = useRef(activePool.filter(isRushEligible).map(toRushPuzzle))
+  // Task 5b (content-metadata-lazy-load): was `resolvePool(quizPool)` — an
+  // eager Map/array built from every puzzle's FULL body. `rushPool` now
+  // builds from `puzzleMeta` (id/pattern/rating/interaction only); a
+  // separate `devRushPool` mirrors it over `DEV_STUB_PUZZLES`, guarded
+  // behind `import.meta.env.DEV` the same way usePracticeSession.ts's own
+  // `devStubById`/`devPoolForFilters` are — so Rollup can dead-code-
+  // eliminate the `DEV_STUB_PUZZLES` reference (and the stub puzzles
+  // themselves) out of a production bundle. `devStubById` is the DEV-only
+  // counterpart to the real path's `loadPuzzleBody` cache: stub ids don't
+  // exist in real content files, so they can never go through
+  // `getPuzzleBody`.
+  const rushPool = useRef(puzzleMeta.filter(isRushEligible).map(toRushPuzzle))
+  const devRushPool = useRef(
+    import.meta.env.DEV ? DEV_STUB_PUZZLES.filter(isRushEligible).map(toRushPuzzle) : [],
+  )
+  const devStubById = useRef(
+    import.meta.env.DEV
+      ? new Map(DEV_STUB_PUZZLES.map((p) => [p.id, p]))
+      : new Map<string, ContentPuzzle>(),
+  )
+  // Bumped every time `serveNext` runs — an in-flight body-load promise only
+  // applies its result if this still matches the token it captured. Same
+  // idiom as Task 6's useBossSession.ts/PuzzlePage.tsx and Task 5a's
+  // usePracticeSession.ts: an ever-incrementing per-selection token compared
+  // after the await, not a shared boolean "cancelled" flag (which has a
+  // proven defect — a later run's setup can silently re-arm an earlier run's
+  // guard). Reachable here too: two `handleContinue` calls (or a fast repeat
+  // "Run it back") close enough together that an older selection's body
+  // fetch is still in flight when a newer selection lands.
+  const selectionTokenRef = useRef(0)
+  // True once a puzzle has EVER actually been displayed (dev-stub or
+  // resolved fetch), for the lifetime of the hook instance — cold boot is
+  // exactly "this is still false," the only case with no stale puzzle to
+  // fall back on if a body-load fails. Mirrors usePracticeSession.ts's own
+  // `hasDisplayedRef` exactly.
+  const hasDisplayedRef = useRef(false)
 
   const serveNext = useCallback((atDifficulty: number) => {
+    const token = ++selectionTokenRef.current
+    const devMode = isDevPuzzleModeEnabled()
+    const pool = devMode ? devRushPool.current : rushPool.current
     const result = selectRushPuzzle({
-      pool: rushPool.current,
+      pool,
       difficulty: atDifficulty,
       usedIds: usedIdsRef.current,
       rng: Math.random,
@@ -190,20 +267,62 @@ export function useRushSession(): RushSession {
       setStatus('empty')
       return
     }
-    const fullPuzzle = contentById.current.get(result.puzzle.id)
-    if (!fullPuzzle) {
-      throw new Error(`selectRushPuzzle returned unknown puzzle id "${result.puzzle.id}"`)
+
+    const applyServed = (fullPuzzle: ContentPuzzle) => {
+      positionRef.current += 1
+      setPuzzle(fullPuzzle)
+      setDifficulty(atDifficulty)
+      servedAtRef.current = Date.now()
+      deadlineRef.current = Date.now() + RUSH_PUZZLE_TIME_LIMIT_MS
+      answeredRef.current = false
+      setRemainingMs(RUSH_PUZZLE_TIME_LIMIT_MS)
+      setForcedCommit(undefined)
+      setWillEndOnContinue(false)
+      hasDisplayedRef.current = true
+      setStatus('ready')
     }
-    positionRef.current += 1
-    setPuzzle(fullPuzzle)
-    setDifficulty(atDifficulty)
-    servedAtRef.current = Date.now()
-    deadlineRef.current = Date.now() + RUSH_PUZZLE_TIME_LIMIT_MS
-    answeredRef.current = false
-    setRemainingMs(RUSH_PUZZLE_TIME_LIMIT_MS)
-    setForcedCommit(undefined)
-    setWillEndOnContinue(false)
-    setStatus('ready')
+
+    if (devMode) {
+      const fullPuzzle = devStubById.current.get(result.puzzle.id)
+      if (!fullPuzzle) {
+        throw new Error(
+          `selectRushPuzzle returned unknown dev-stub puzzle id "${result.puzzle.id}"`,
+        )
+      }
+      applyServed(fullPuzzle)
+      return
+    }
+
+    // Real path: `puzzle` state is left untouched here (stale-while-
+    // revalidate) — the previously-displayed puzzle keeps showing until this
+    // id's body resolves below. Only true cold boot (no puzzle has ever been
+    // displayed, `status` still 'loading') has no stale puzzle to fall back
+    // on; RushPage.tsx renders a RouteSkeleton for that one case.
+    loadPuzzleBody(result.puzzle.id)
+      .then((fullPuzzle) => {
+        if (selectionTokenRef.current !== token) return // superseded by a newer selection
+        if (!fullPuzzle) {
+          // puzzleMeta and getPuzzleBody's loaders are both generated from
+          // the same on-disk content at build time, so this should be
+          // unreachable in practice — reported via trackError either way.
+          trackError(
+            new Error(`getPuzzleBody: unknown puzzle id "${result.puzzle.id}"`),
+            'useRushSession: serveNext body lookup miss',
+          )
+          if (!hasDisplayedRef.current) {
+            setStatus('error')
+          }
+          return
+        }
+        applyServed(fullPuzzle)
+      })
+      .catch((error: unknown) => {
+        if (selectionTokenRef.current !== token) return
+        trackError(error, 'useRushSession: serveNext body fetch failed')
+        if (!hasDisplayedRef.current) {
+          setStatus('error')
+        }
+      })
   }, [])
 
   const startRun = useCallback(
@@ -397,7 +516,32 @@ export function useRushSession(): RushSession {
       const willEnd = newStrikes >= RUSH_STRIKE_LIMIT
       pendingEndRef.current = willEnd
       setWillEndOnContinue(willEnd)
-      pendingDifficultyRef.current = payload.correct ? stepDifficulty(difficulty) : difficulty
+      const nextDifficulty = payload.correct ? stepDifficulty(difficulty) : difficulty
+      pendingDifficultyRef.current = nextDifficulty
+
+      // Speculative prefetch (content-metadata-lazy-load Task 5b): fired
+      // HERE, the instant the answer commits — `pendingDifficultyRef.current`
+      // is already known at this point (the audit's "single best prefetch
+      // signal in the codebase," available well before the Continue tap),
+      // and `usedIdsRef.current` already includes this puzzle's id (added
+      // above). Skipped entirely when the run is about to end (`willEnd`) —
+      // no puzzle will be served next, so prefetching would be pure waste —
+      // and in DEV puzzle-mode, where stub ids aren't real content and would
+      // only ever resolve `undefined` via `getPuzzleBody`.
+      if (!willEnd && !isDevPuzzleModeEnabled()) {
+        const candidateIds = speculativeRushIds({
+          pool: rushPool.current,
+          difficulty: nextDifficulty,
+          usedIds: usedIdsRef.current,
+        })
+        for (const id of candidateIds) {
+          // Swallowed here, not reported: a speculative miss is expected and
+          // routine — a real failure only matters if the id is later
+          // actually served, and that path (serveNext) already reports it
+          // via trackError.
+          loadPuzzleBody(id).catch(() => undefined)
+        }
+      }
     },
     [profile, puzzle, phase, solvedCount, currentStreak, bestStreakThisRun, strikes, difficulty],
   )
