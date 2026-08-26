@@ -23,7 +23,9 @@ const { FIXTURE_POOL, BOSS_RUN_IDS } = vi.hoisted(() => {
 })
 
 // See useBossSession.test.ts's identical mock for why resolveActiveBossSet
-// must be stubbed alongside BOSS_SETS, not just the constant.
+// (and, since Task 6, getPuzzleBody) must be stubbed alongside BOSS_SETS,
+// not just the constant — the real getPuzzleBody would look these fixture
+// ids up against the real bundled content, where none of them exist.
 vi.mock('../../content', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../content')>()
   return {
@@ -32,6 +34,7 @@ vi.mock('../../content', async (importOriginal) => {
     quizPool: FIXTURE_POOL,
     BOSS_SETS: [BOSS_RUN_IDS],
     resolveActiveBossSet: () => BOSS_RUN_IDS,
+    getPuzzleBody: (id: string) => Promise.resolve(FIXTURE_POOL.find((puzzle) => puzzle.id === id)),
   }
 })
 

@@ -4,8 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { decodeChallengePayload } from '../../challenge'
 import type { Puzzle } from '../../content'
 
-const { FIXTURE_POOL } = vi.hoisted(() => ({
-  FIXTURE_POOL: Array.from({ length: 12 }, (_, i) => ({
+const { FIXTURE_POOL, FIXTURE_PUZZLE_META, FIXTURE_BODY_BY_ID } = vi.hoisted(() => {
+  const FIXTURE_POOL = Array.from({ length: 12 }, (_, i) => ({
     id: `p${String(i)}`,
     pattern: i % 2 === 0 ? 'off-by-one' : 'null-undefined',
     difficulty_rating: 700 + i * 20,
@@ -16,12 +16,34 @@ const { FIXTURE_POOL } = vi.hoisted(() => ({
     interaction: 'mcq',
     choices: ['a', 'b'],
     correct_choice: 0,
-  })) as unknown as Puzzle[],
-}))
+  })) as unknown as Puzzle[]
+
+  // content-metadata-lazy-load Task 5b: useRushSession now selects from
+  // `puzzleMeta` and loads bodies via `getPuzzleBody`.
+  const FIXTURE_PUZZLE_META = FIXTURE_POOL.map((p) => ({
+    id: p.id,
+    pattern: p.pattern,
+    difficulty_rating: p.difficulty_rating,
+    interaction: p.interaction,
+  }))
+  const FIXTURE_BODY_BY_ID = new Map(FIXTURE_POOL.map((p) => [p.id, p]))
+
+  return { FIXTURE_POOL, FIXTURE_PUZZLE_META, FIXTURE_BODY_BY_ID }
+})
 
 vi.mock('../../content', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../content')>()
-  return { ...actual, puzzlePool: FIXTURE_POOL, quizPool: FIXTURE_POOL }
+  return {
+    ...actual,
+    puzzlePool: FIXTURE_POOL,
+    quizPool: FIXTURE_POOL,
+    puzzleMeta: FIXTURE_PUZZLE_META,
+    // Derived exports must be re-derived from the SAME fixture, not left
+    // real — see usePracticeSession.test.ts's identical mock comment.
+    quizMeta: FIXTURE_PUZZLE_META.filter((meta) => meta.interaction !== 'scrubber'),
+    scrubberMeta: FIXTURE_PUZZLE_META.filter((meta) => meta.interaction === 'scrubber'),
+    getPuzzleBody: vi.fn((id: string) => Promise.resolve(FIXTURE_BODY_BY_ID.get(id))),
+  }
 })
 
 vi.mock('../../storage', async (importOriginal) => {
@@ -45,6 +67,7 @@ vi.mock('../../telemetry', () => ({
 const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
   await import('../../storage')
 const { trackShareClick, trackChallengeCreate } = await import('../../telemetry')
+const { resetPuzzleBodyCacheForTests } = await import('../practice/puzzleBodyCache')
 const { RushPage } = await import('./RushPage')
 
 /** correct_choice is always 0 -> choice text 'a'; 'b' is always wrong. */
@@ -59,6 +82,7 @@ describe('RushPage', () => {
     vi.mocked(loadProfile).mockResolvedValue(createDefaultProfile())
     vi.mocked(saveProfile).mockResolvedValue(undefined)
     vi.mocked(appendAttempt).mockResolvedValue(undefined)
+    resetPuzzleBodyCacheForTests()
   })
 
   it('shows the strikes indicator and a puzzle once ready', async () => {

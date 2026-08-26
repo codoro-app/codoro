@@ -5,7 +5,7 @@ import {
   resolvePool,
   setDevPuzzleMode,
 } from './devPuzzleMode'
-import { DEV_STUB_PUZZLES } from '../../content'
+import { DEV_STUB_PUZZLES } from '../../content/devPuzzles'
 
 describe('devPuzzleMode', () => {
   beforeEach(() => {

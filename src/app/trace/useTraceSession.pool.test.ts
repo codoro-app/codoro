@@ -4,25 +4,20 @@ import type { Puzzle } from '../../content'
 import { useTraceSession } from './useTraceSession'
 
 /**
- * Pool-invariant test — mirrors src/content/index.test.ts's own idiom
- * (quizPool/scrubberPool partition tests): the assertion has to fail if
- * useTraceSession ever derives its serving pool from `puzzlePool` (or
- * `quizPool`) instead of importing the dedicated `scrubberPool` export
- * directly. Checking "the served puzzle's interaction === 'scrubber'"
- * alone would NOT catch that regression here, because the real
- * `scrubberPool` is itself just `puzzlePool.filter(interaction ===
- * 'scrubber')` — a `puzzlePool.filter(...)` call at the hook's own call
- * site would produce an identical-looking result against real content.
- *
- * So the fixture below deliberately makes `scrubberPool` DIVERGE from
- * `puzzlePool`'s scrubber-interaction subset: `leaked-scrubber` has
- * interaction 'scrubber' and sits in the mocked `puzzlePool`, but is
- * absent from the mocked `scrubberPool` export. If useTraceSession ever
- * re-derives its pool via `puzzlePool.filter(...)` instead of reading
- * `scrubberPool` directly, this leaked puzzle becomes servable and the
- * assertions below go red.
+ * Pool-invariant test — content-metadata-lazy-load Task 5 update: the hook
+ * no longer reads a dedicated `scrubberPool` export at all; it selects
+ * directly from `puzzleMeta`, filtered inline to `interaction === 'scrubber'`
+ * (see useTraceSession.ts's own `poolForFilters`). The regression this file
+ * guards against shifts accordingly: the fixture `puzzleMeta` below is a MIX
+ * of interactions (one non-scrubber `mcq` entry plus five real scrubber
+ * entries), with the non-scrubber entry placed at index 0. With `Math.random`
+ * mocked to 0 (selection.ts's `sample()` picks index 0 of the eligible
+ * candidate list), if useTraceSession's own `interaction === 'scrubber'`
+ * filter were ever dropped, the very first serve would deterministically be
+ * the non-scrubber entry — a hard, non-probabilistic catch, same technique
+ * as usePracticeSession's own P0 regression test.
  */
-const { FIXTURE_SCRUBBER_POOL, FIXTURE_PUZZLE_POOL, FIXTURE_QUIZ_POOL, LEAKED_SCRUBBER_ID } =
+const { FIXTURE_SCRUBBER_POOL, FIXTURE_PUZZLE_META, FIXTURE_BODY_BY_ID, LEAKED_NON_SCRUBBER_ID } =
   vi.hoisted(() => {
     const makeScrubber = (id: string, rating: number) => ({
       id,
@@ -47,48 +42,55 @@ const { FIXTURE_SCRUBBER_POOL, FIXTURE_PUZZLE_POOL, FIXTURE_QUIZ_POOL, LEAKED_SC
       makeScrubber(`trace-${String(i)}`, 1000 + i * 100),
     )
 
-    // Present in `puzzlePool` with a scrubber interaction, deliberately
-    // absent from the mocked `scrubberPool` export above — see this file's
-    // module doc comment. Placed at index 0 of a naive
-    // `puzzlePool.filter(interaction === 'scrubber')` derivation so a
-    // regression is a hard deterministic catch (rng mocked to 0 below),
-    // not a probabilistic one — same technique as usePracticeSession's own
-    // P0 regression test.
-    const leaked = makeScrubber('leaked-scrubber', 1000)
-
-    const quizPool = Array.from({ length: 3 }, (_, i) => ({
-      id: `quiz-${String(i)}`,
+    // Placed at index 0 of the `puzzleMeta` fixture (below) — see this
+    // file's own module doc comment for why.
+    const leakedMeta = {
+      id: 'leaked-non-scrubber',
       pattern: 'off-by-one',
-      difficulty_rating: 1000 + i * 100,
-      explanation: `quiz explanation ${String(i)}`,
-      prompt: `quiz prompt ${String(i)}`,
-      language: 'javascript',
-      snippet: 'const y = 1',
+      difficulty_rating: 1000,
       interaction: 'mcq',
-      choices: ['a', 'b'],
-      correct_choice: 0,
-    }))
+    }
 
     return {
       FIXTURE_SCRUBBER_POOL: scrubberPool,
-      FIXTURE_PUZZLE_POOL: [leaked, ...quizPool, ...scrubberPool],
-      FIXTURE_QUIZ_POOL: quizPool,
-      LEAKED_SCRUBBER_ID: leaked.id,
+      FIXTURE_PUZZLE_META: [
+        leakedMeta,
+        ...scrubberPool.map((p) => ({
+          id: p.id,
+          pattern: p.pattern,
+          difficulty_rating: p.difficulty_rating,
+          interaction: p.interaction,
+        })),
+      ],
+      FIXTURE_BODY_BY_ID: new Map(scrubberPool.map((p) => [p.id, p])),
+      LEAKED_NON_SCRUBBER_ID: leakedMeta.id,
     }
   }) as unknown as {
     FIXTURE_SCRUBBER_POOL: Puzzle[]
-    FIXTURE_PUZZLE_POOL: Puzzle[]
-    FIXTURE_QUIZ_POOL: Puzzle[]
-    LEAKED_SCRUBBER_ID: string
+    FIXTURE_PUZZLE_META: {
+      id: string
+      pattern: string
+      difficulty_rating: number
+      interaction: string
+    }[]
+    FIXTURE_BODY_BY_ID: Map<string, Puzzle>
+    LEAKED_NON_SCRUBBER_ID: string
   }
 
 vi.mock('../../content', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../content')>()
   return {
     ...actual,
-    puzzlePool: FIXTURE_PUZZLE_POOL,
-    quizPool: FIXTURE_QUIZ_POOL,
     scrubberPool: FIXTURE_SCRUBBER_POOL,
+    puzzleMeta: FIXTURE_PUZZLE_META,
+    // Derived exports must be re-derived from the SAME fixture, not left
+    // real — see usePracticeSession.test.ts's identical mock comment.
+    // Filtered with the real predicate, deliberately: this fixture
+    // includes a non-scrubber entry, and the point of these tests is that
+    // the hook selects from `scrubberMeta` rather than raw `puzzleMeta`.
+    quizMeta: FIXTURE_PUZZLE_META.filter((meta) => meta.interaction !== 'scrubber'),
+    scrubberMeta: FIXTURE_PUZZLE_META.filter((meta) => meta.interaction === 'scrubber'),
+    getPuzzleBody: vi.fn((id: string) => Promise.resolve(FIXTURE_BODY_BY_ID.get(id))),
   }
 })
 
@@ -110,9 +112,9 @@ vi.mock('../../telemetry', () => ({
 
 const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
   await import('../../storage')
+const { resetPuzzleBodyCacheForTests } = await import('../practice/puzzleBodyCache')
 
 const scrubberIds = new Set(FIXTURE_SCRUBBER_POOL.map((p) => p.id))
-const quizIds = new Set(FIXTURE_QUIZ_POOL.map((p) => p.id))
 
 describe('useTraceSession — pool invariant', () => {
   beforeEach(() => {
@@ -120,9 +122,10 @@ describe('useTraceSession — pool invariant', () => {
     vi.mocked(loadProfile).mockResolvedValue(createDefaultProfile())
     vi.mocked(saveProfile).mockResolvedValue(undefined)
     vi.mocked(appendAttempt).mockResolvedValue(undefined)
+    resetPuzzleBodyCacheForTests()
   })
 
-  it('serves only from the dedicated scrubberPool export, never puzzlePool/quizPool, even when a scrubber-interaction puzzle leaks through puzzlePool only', async () => {
+  it('serves only scrubber-interaction puzzleMeta entries, never a leaked non-scrubber one', async () => {
     const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0)
 
     const { result } = renderHook(() => useTraceSession())
@@ -131,15 +134,14 @@ describe('useTraceSession — pool invariant', () => {
     })
 
     expect(result.current.puzzle).not.toBeNull()
-    expect(result.current.puzzle?.id).not.toBe(LEAKED_SCRUBBER_ID)
+    expect(result.current.puzzle?.id).not.toBe(LEAKED_NON_SCRUBBER_ID)
     expect(result.current.puzzle?.id).toBe('trace-0')
     expect(scrubberIds.has(result.current.puzzle?.id ?? '')).toBe(true)
-    expect(quizIds.has(result.current.puzzle?.id ?? '')).toBe(false)
 
     randomSpy.mockRestore()
   })
 
-  it('never serves a quizPool puzzle across several completed puzzles', async () => {
+  it('never serves the leaked non-scrubber puzzleMeta entry across several completed puzzles', async () => {
     const { result } = renderHook(() => useTraceSession())
     await waitFor(() => {
       expect(result.current.status).toBe('ready')
@@ -149,7 +151,7 @@ describe('useTraceSession — pool invariant', () => {
       const puzzle = result.current.puzzle
       if (!puzzle) throw new Error('expected a puzzle to be served')
       expect(scrubberIds.has(puzzle.id)).toBe(true)
-      expect(puzzle.id).not.toBe(LEAKED_SCRUBBER_ID)
+      expect(puzzle.id).not.toBe(LEAKED_NON_SCRUBBER_ID)
 
       act(() => {
         puzzle.checkpoints.forEach(() => {
@@ -158,6 +160,15 @@ describe('useTraceSession — pool invariant', () => {
       })
       act(() => {
         result.current.handleContinue()
+      })
+      // Body resolution for the next puzzle is asynchronous
+      // (content-metadata-lazy-load Task 5) — flushed here so each loop
+      // iteration actually reads a freshly-resolved puzzle, not the same
+      // stale one 8 times over. Same two-microtask-flush idiom
+      // useRushSession.test.ts/useBossSession.test.ts already use.
+      await act(async () => {
+        await Promise.resolve()
+        await Promise.resolve()
       })
     }
   })

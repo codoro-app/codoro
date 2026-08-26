@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { decodeChallengePayload } from '../../challenge'
 import type { Puzzle } from '../../content'
 
-const { FIXTURE_POOL, FIXTURE_CALENDAR } = vi.hoisted(() => {
+const { FIXTURE_POOL, FIXTURE_CALENDAR, FIXTURE_BODY_BY_ID } = vi.hoisted(() => {
   const pool = Array.from({ length: 12 }, (_, i) => ({
     id: `p${String(i)}`,
     pattern: i % 2 === 0 ? 'off-by-one' : 'null-undefined',
@@ -18,7 +18,11 @@ const { FIXTURE_POOL, FIXTURE_CALENDAR } = vi.hoisted(() => {
     correct_choice: 0,
   })) as unknown as Puzzle[]
 
-  return { FIXTURE_POOL: pool, FIXTURE_CALENDAR: pool.map((p) => p.id) }
+  return {
+    FIXTURE_POOL: pool,
+    FIXTURE_CALENDAR: pool.map((p) => p.id),
+    FIXTURE_BODY_BY_ID: new Map(pool.map((p) => [p.id, p])),
+  }
 })
 
 vi.mock('../../content', async (importOriginal) => {
@@ -28,6 +32,9 @@ vi.mock('../../content', async (importOriginal) => {
     puzzlePool: FIXTURE_POOL,
     quizPool: FIXTURE_POOL,
     DAILY_CALENDAR: FIXTURE_CALENDAR,
+    // content-metadata-lazy-load Task 5b: useDailySession now loads today's
+    // puzzle body via getPuzzleBody (through the shared puzzleBodyCache).
+    getPuzzleBody: vi.fn((id: string) => Promise.resolve(FIXTURE_BODY_BY_ID.get(id))),
   }
 })
 
@@ -52,11 +59,13 @@ vi.mock('../../telemetry', () => ({
 const { loadProfile, saveProfile, appendAttempt, listAttempts, createDefaultProfile } =
   await import('../../storage')
 const { trackShareClick, trackChallengeCreate } = await import('../../telemetry')
+const { resetPuzzleBodyCacheForTests } = await import('../practice/puzzleBodyCache')
 const { DailyPage } = await import('./DailyPage')
 
 describe('DailyPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resetPuzzleBodyCacheForTests()
     vi.mocked(loadProfile).mockResolvedValue(createDefaultProfile())
     vi.mocked(saveProfile).mockResolvedValue(undefined)
     vi.mocked(appendAttempt).mockResolvedValue(undefined)

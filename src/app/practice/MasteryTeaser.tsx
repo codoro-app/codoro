@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'wouter'
-import { PATTERN_LABELS, puzzlePool } from '../../content'
+import { PATTERN_LABELS, puzzleMeta } from '../../content'
 import { listAttempts } from '../../storage'
 import type { Attempt } from '../../storage'
 import { computeMastery } from './mastery'
@@ -46,7 +46,7 @@ export function MasteryTeaser({ refreshKey }: { refreshKey: number }) {
     void (async () => {
       const attempts: Attempt[] = await listAttempts()
       if (cancelledRef.current) return
-      setRows(computeMastery(attempts, puzzlePool))
+      setRows(computeMastery(attempts, puzzleMeta))
     })()
     return () => {
       cancelledRef.current = true

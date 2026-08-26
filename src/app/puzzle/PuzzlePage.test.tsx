@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { puzzlePool } from '../../content'
+import { puzzlePool } from '../../content/pools'
 
 vi.mock('../../storage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../storage')>()
@@ -17,6 +17,7 @@ vi.mock('../../storage', async (importOriginal) => {
 
 const trackPuzzleLinkView = vi.fn()
 const trackPuzzleLinkAttempt = vi.fn()
+const trackError = vi.fn()
 
 vi.mock('../../telemetry', () => ({
   trackPuzzleLinkView: (...args: unknown[]) => {
@@ -25,14 +26,43 @@ vi.mock('../../telemetry', () => ({
   trackPuzzleLinkAttempt: (...args: unknown[]) => {
     trackPuzzleLinkAttempt(...args)
   },
-  trackError: vi.fn(),
+  trackError: (...args: unknown[]) => {
+    trackError(...args)
+  },
 }))
 
+// Review-fix regression coverage (race + rejection tests below) needs a
+// controllable getPuzzleBody — wrapped in a vi.fn whose DEFAULT
+// implementation is the real one (every other test in this file still
+// exercises the real, bundled content), overridden per-test via
+// mockImplementation/mockImplementationOnce only where needed.
+vi.mock('../../content', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../content')>()
+  return { ...actual, getPuzzleBody: vi.fn(actual.getPuzzleBody) }
+})
+
 const { appendAttempt, saveProfile } = await import('../../storage')
+const { getPuzzleBody } = await import('../../content')
+const { getPuzzleBody: realGetPuzzleBody } =
+  await vi.importActual<typeof import('../../content')>('../../content')
 const { PuzzlePageForId } = await import('./PuzzlePage')
+
+afterEach(() => {
+  // Any race/rejection test below that overrides getPuzzleBody's
+  // implementation must not leak that override into later tests, which all
+  // assume the real, bundled lookup.
+  vi.mocked(getPuzzleBody).mockImplementation(realGetPuzzleBody)
+})
 
 /** Drives a mounted scrubber puzzle to full completion via the real UI: repeatedly answers whichever checkpoint is pending and advances via "Next step" until every checkpoint has a result. Generic over checkpoint count/placement so it works for any real scrubberPool puzzle. */
 async function solveScrubberToCompletion(user: ReturnType<typeof userEvent.setup>) {
+  // Task 6: the puzzle body now resolves via a real async getPuzzleBody
+  // call — wait past the loading state, or the loop below finds no
+  // checkpoint buttons yet and returns immediately, mistaking "not rendered
+  // yet" for "already complete".
+  await waitFor(() => {
+    expect(screen.queryByText(/loading puzzle/i)).not.toBeInTheDocument()
+  })
   for (let i = 0; i < 200; i++) {
     const choiceButtons = screen.queryAllByRole('button', {
       name: /./,
@@ -58,15 +88,21 @@ describe('PuzzlePageForId — dispatch against the real puzzlePool', () => {
   // The corrective's own P0 (docs/v2-phase2-review.md) was exactly "a puzzle
   // interaction type reachable with nothing to render it" — cheap, real
   // coverage: every bundled puzzle renders its native interaction and
-  // nothing throws. Not a fixture — the real, shipped content pool.
+  // nothing throws. Not a fixture — the real, shipped content pool. Task 6:
+  // the puzzle body now resolves via a real async getPuzzleBody call, so
+  // this waits for the resolved render instead of asserting synchronously.
   it.each(puzzlePool.map((puzzle) => [puzzle.id, puzzle.interaction] as const))(
     'renders %s (%s) without throwing',
-    (id, interaction) => {
+    async (id, interaction) => {
       const { container } = render(<PuzzlePageForId id={id} />)
       if (interaction === 'scrubber') {
-        expect(container.querySelector('.trace-runner')).toBeInTheDocument()
+        await waitFor(() => {
+          expect(container.querySelector('.trace-runner')).toBeInTheDocument()
+        })
       } else {
-        expect(container.querySelector('.puzzle-card')).toBeInTheDocument()
+        await waitFor(() => {
+          expect(container.querySelector('.puzzle-card')).toBeInTheDocument()
+        })
       }
     },
   )
@@ -116,10 +152,14 @@ describe('PuzzlePageForId — unrated (asserted at the storage boundary)', () =>
 })
 
 describe('PuzzlePageForId — telemetry', () => {
-  it('fires puzzle_link_view once with found: true and the real interaction for a real id', () => {
+  it('fires puzzle_link_view once with found: true and the real interaction for a real id', async () => {
     trackPuzzleLinkView.mockClear()
     render(<PuzzlePageForId id="con-005" />)
-    expect(trackPuzzleLinkView).toHaveBeenCalledTimes(1)
+    // Task 6: fires once the real async getPuzzleBody call settles, not on
+    // mount.
+    await waitFor(() => {
+      expect(trackPuzzleLinkView).toHaveBeenCalledTimes(1)
+    })
     expect(trackPuzzleLinkView).toHaveBeenCalledWith({
       puzzle_id: 'con-005',
       interaction: 'mcq',
@@ -127,13 +167,15 @@ describe('PuzzlePageForId — telemetry', () => {
     })
   })
 
-  it('fires puzzle_link_view with found: false and a null interaction for an unknown id', () => {
+  it('fires puzzle_link_view with found: false and a null interaction for an unknown id', async () => {
     trackPuzzleLinkView.mockClear()
     render(<PuzzlePageForId id="not-a-real-puzzle-id" />)
-    expect(trackPuzzleLinkView).toHaveBeenCalledWith({
-      puzzle_id: 'not-a-real-puzzle-id',
-      interaction: null,
-      found: false,
+    await waitFor(() => {
+      expect(trackPuzzleLinkView).toHaveBeenCalledWith({
+        puzzle_id: 'not-a-real-puzzle-id',
+        interaction: null,
+        found: false,
+      })
     })
   })
 
@@ -183,20 +225,154 @@ describe('PuzzlePageForId — telemetry', () => {
   })
 })
 
+describe('PuzzlePageForId — review-fix regression coverage (async id-change race + rejection)', () => {
+  // Critical review finding: a single shared `useRef(false)` reset to
+  // `false` at the top of every effect run couldn't distinguish "the run
+  // that got cancelled" from "the run that replaced it" — an id change
+  // (real app: navigating link-to-link on this un-keyed route, App.tsx's
+  // `<Route path="/puzzle/:id">`) whose OLDER fetch resolves AFTER its
+  // NEWER one would let the older result win, rendering the wrong puzzle
+  // with `loading: false`. Reproduces the exact race: id 'con-005' is
+  // deliberately held pending while id 'tc-009' is allowed to resolve and
+  // render first, then the held-back 'con-005' fetch is released — it must
+  // not clobber the already-rendered 'tc-009'.
+  it('does not render a stale puzzle when getPuzzleBody resolves out of order across an id change', async () => {
+    trackPuzzleLinkView.mockClear()
+    let releaseFirst!: (puzzle: Awaited<ReturnType<typeof realGetPuzzleBody>>) => void
+    const firstFetch = new Promise<Awaited<ReturnType<typeof realGetPuzzleBody>>>((resolve) => {
+      releaseFirst = resolve
+    })
+    vi.mocked(getPuzzleBody).mockImplementation((id: string) => {
+      if (id === 'con-005') return firstFetch
+      return realGetPuzzleBody(id)
+    })
+
+    const { container, rerender } = render(<PuzzlePageForId id="con-005" />)
+    expect(screen.getByText(/loading puzzle/i)).toBeInTheDocument()
+
+    // The id changes before the first fetch has resolved — same prop
+    // change a real un-keyed route navigation produces, no remount.
+    rerender(<PuzzlePageForId id="tc-009" />)
+    await waitFor(() => {
+      expect(container.querySelector('.trace-runner')).toBeInTheDocument()
+    })
+
+    // Now let the stale, superseded 'con-005' fetch resolve.
+    releaseFirst(await realGetPuzzleBody('con-005'))
+    await waitFor(() => {
+      // Still tc-009 — the stale result must not have won.
+      expect(container.querySelector('.trace-runner')).toBeInTheDocument()
+      expect(container.querySelector('.puzzle-card')).not.toBeInTheDocument()
+    })
+    // And it must not have fired its own (stale) telemetry either.
+    expect(trackPuzzleLinkView).not.toHaveBeenCalledWith(
+      expect.objectContaining({ puzzle_id: 'con-005' }),
+    )
+  })
+
+  // Important #3: PuzzlePage had no double-fire guard on trackPuzzleLinkView
+  // (unlike useChallengeSession.ts's viewTrackedRef) — under StrictMode's
+  // dev-only double-invoke, the same disarmed-guard mechanism as the
+  // Critical finding let both effect invocations reach it. The runTokenRef
+  // fix (each invocation gets its own token, even repeat invocations for
+  // the same id) closes this for free.
+  it('fires puzzle_link_view exactly once for a given id under StrictMode', async () => {
+    trackPuzzleLinkView.mockClear()
+    render(<PuzzlePageForId id="con-005" />, { wrapper: StrictMode })
+    await waitFor(() => {
+      expect(trackPuzzleLinkView).toHaveBeenCalled()
+    })
+    expect(trackPuzzleLinkView).toHaveBeenCalledTimes(1)
+    expect(trackPuzzleLinkView).toHaveBeenCalledWith({
+      puzzle_id: 'con-005',
+      interaction: 'mcq',
+      found: true,
+    })
+  })
+
+  // Important #2: a rejected getPuzzleBody (failed dynamic import, or the
+  // zod validation throw on invalid content) must not hang the page in
+  // `loading` forever.
+  it('clears the loading state and reports the error instead of hanging when getPuzzleBody rejects', async () => {
+    const failure = new Error('chunk load failed')
+    vi.mocked(getPuzzleBody).mockRejectedValue(failure)
+
+    render(<PuzzlePageForId id="con-005" />)
+    expect(screen.getByText(/loading puzzle/i)).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.queryByText(/loading puzzle/i)).not.toBeInTheDocument()
+    })
+    expect(trackError).toHaveBeenCalledWith(failure, 'PuzzlePage: getPuzzleBody failed')
+  })
+
+  // Final-review finding: a rejected fetch used to render the not-found
+  // copy ("the link may be wrong, or the puzzle was removed"), which is
+  // actively misleading on this surface — it's a shared-link destination, so
+  // a dropped connection is its most common failure, and that copy tells the
+  // player to give up on a link that works.
+  it('renders a distinct, retryable error state — not the not-found copy — when getPuzzleBody rejects', async () => {
+    vi.mocked(getPuzzleBody).mockRejectedValue(new Error('chunk load failed'))
+
+    render(<PuzzlePageForId id="con-005" />)
+
+    expect(await screen.findByText(/couldn.t load this puzzle/i)).toBeInTheDocument()
+    expect(screen.queryByText(/couldn.t find that puzzle/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument()
+  })
+
+  it('re-fetches and renders the puzzle when "Try again" is clicked after a failure', async () => {
+    const user = userEvent.setup()
+    // Fails once, then the real lookup takes over — the recovery a player on
+    // a flaky connection actually gets from the retry button.
+    vi.mocked(getPuzzleBody)
+      .mockRejectedValueOnce(new Error('chunk load failed'))
+      .mockImplementation(realGetPuzzleBody)
+
+    render(<PuzzlePageForId id="con-005" />)
+    const retry = await screen.findByRole('button', { name: /try again/i })
+    // This file has no global mock reset, so earlier tests' view events are
+    // still on the spy — clear it here so the assertion below can only be
+    // satisfied by the retry's own fetch.
+    trackPuzzleLinkView.mockClear()
+    await user.click(retry)
+
+    // The real puzzle renders, and the view event the failed attempt
+    // deliberately suppressed fires now, with the real result.
+    expect(
+      await screen.findByRole('link', { name: /practice more like this/i }),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/couldn.t load this puzzle/i)).not.toBeInTheDocument()
+    expect(trackPuzzleLinkView).toHaveBeenCalledWith({
+      puzzle_id: 'con-005',
+      interaction: 'mcq',
+      found: true,
+    })
+  })
+})
+
 describe('PuzzlePageForId — not-found state', () => {
-  it('renders a real in-app not-found state for an unknown id, not a crash', () => {
+  it('renders a loading state, then the real in-app not-found state for an unknown id, not a crash', async () => {
     render(<PuzzlePageForId id="definitely-not-a-real-id" />)
-    expect(screen.getByText(/couldn.t find that puzzle/i)).toBeInTheDocument()
+    // Task 6: the lookup is now a real async getPuzzleBody call, so the
+    // page must render a distinct loading state first — an unresolved-yet
+    // id should never be briefly mistaken for a genuinely missing one.
+    expect(screen.getByText(/loading puzzle/i)).toBeInTheDocument()
+    expect(screen.queryByText(/couldn.t find that puzzle/i)).not.toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.getByText(/couldn.t find that puzzle/i)).toBeInTheDocument()
+    })
     expect(screen.getByRole('link', { name: /go to practice/i })).toBeInTheDocument()
   })
 })
 
 describe('PuzzlePageForId — "practice more like this" CTA', () => {
-  it("links into /practice filtered to the puzzle's own pattern", () => {
+  it("links into /practice filtered to the puzzle's own pattern", async () => {
     const puzzle = puzzlePool.find((candidate) => candidate.id === 'con-005')
     if (!puzzle) throw new Error('expected con-005 to exist in puzzlePool')
     render(<PuzzlePageForId id="con-005" />)
-    const cta = screen.getByRole('link', { name: /practice more like this/i })
+    const cta = await screen.findByRole('link', { name: /practice more like this/i })
     expect(cta).toHaveAttribute('href', `/practice?pattern=${puzzle.pattern}`)
   })
 })
