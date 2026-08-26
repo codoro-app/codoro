@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { TraceRunner } from './TraceRunner'
-import { scrubberPool } from '../../content'
+import { scrubberPool } from '../../content/pools'
 import type { TraceSession } from './useTraceSession'
 import type { CheckpointResult } from '../../engine'
 import { createDefaultProfile } from '../../storage'

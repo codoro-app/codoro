@@ -34,6 +34,7 @@ import { RushActivePlay } from './RushActivePlay'
 import { buildRushShareText, buildRushChallengeText } from './shareText'
 import { ShareMenu } from '../ShareMenu'
 import type { ShareAction } from '../ShareMenu'
+import { RouteSkeleton } from '../RouteSkeleton'
 import { trackShareClick, trackChallengeCreate } from '../../telemetry'
 import { truncateToChallengeLimit } from '../../challenge'
 // 2b.0: was `.rush-page` in rushPage.css (max-width breakpoint matches
@@ -61,12 +62,12 @@ export function RushPage() {
     )
   }
 
+  // True cold boot only (content-metadata-lazy-load Task 5b) — see
+  // usePracticeSession.ts's identical branch/RouteSkeleton reasoning;
+  // useRushSession.ts's own stale-while-revalidate keeps this from being
+  // re-entered on a mid-run puzzle change, including "Run it back."
   if (session.status === 'loading' || session.profile === null) {
-    return (
-      <div className={PAGE_SHELL_CLASS}>
-        <p className="text-center text-text-1 py-8">Loading Rush…</p>
-      </div>
-    )
+    return <RouteSkeleton />
   }
 
   if (session.status === 'empty') {

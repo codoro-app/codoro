@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildShareText, buildDailyChallengeText } from './shareText'
 import { decodeChallengePayload } from '../../challenge'
 import type { ChallengeAttemptInput } from '../../challenge'
-import { puzzlePool } from '../../content'
+import { puzzlePool } from '../../content/pools'
 
 // A real, bundled puzzle id (v2 Phase 1b) — asserted against the real pool
 // rather than an arbitrary fixture string, so the generated URL is

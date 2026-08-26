@@ -68,7 +68,7 @@ import { useMediaQuery } from './useMediaQuery'
 import { MasteryTeaser } from './practice/MasteryTeaser'
 import { getActivityCalendar } from './stats/statsData'
 import { computeMastery } from './practice/mastery'
-import { PATTERN_LABELS, puzzlePool } from '../content'
+import { PATTERN_LABELS, puzzleMeta } from '../content'
 
 // 2b.5: mode -> display label for the recent-activity recap. Kept local to
 // Home rather than added to AttemptMode itself — this is presentation-only,
@@ -225,7 +225,7 @@ export function Home() {
   )
   // Desktop-only "practice this next" nudge — same weakest-pattern lookup
   // StatsPage.tsx already built, reused verbatim rather than re-derived.
-  const weakestPattern = computeMastery(attempts, puzzlePool)
+  const weakestPattern = computeMastery(attempts, puzzleMeta)
     .filter((row) => row.accuracy !== null)
     .sort((a, b) => (a.accuracy ?? 0) - (b.accuracy ?? 0))[0]
 

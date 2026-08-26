@@ -5,15 +5,6 @@ import { PwaPrompts } from './pwa/PwaPrompts'
 import { AppShell } from './AppShell'
 import { RouteSkeleton } from './RouteSkeleton'
 import { useRouteMeta } from './useRouteMeta'
-// Static import, not lazy() — mirrors devPuzzleMode.ts's own proven pattern:
-// import.meta.env.DEV is a Vite build-time constant, inlined as literal
-// `false` in a production build, so Rollup can dead-code-eliminate the
-// `import.meta.env.DEV && <Route>...</Route>` branch below — and everything
-// only reachable from it, including this whole component — rather than
-// leaving it as a real, if unreachable, code-split chunk in dist/. Verified
-// by grepping dist/ after a production build, not just by reasoning about
-// it (see the Phase 2 go/no-go amendment).
-import { ScrubberDebugPage } from './devTools/ScrubberDebugPage'
 
 // Confirmed live on production (see the Phase 1b build-plan amendment): a
 // hosting-level redirect rewrites a direct load of a real route (e.g.
@@ -90,6 +81,23 @@ const LegalPage = lazy(async () => ({ default: (await legalImporter()).LegalPage
 const PuzzlePage = lazy(async () => ({ default: (await puzzleImporter()).PuzzlePage }))
 const ChallengePage = lazy(async () => ({ default: (await challengeImporter()).ChallengePage }))
 const SettingsPage = lazy(async () => ({ default: (await settingsImporter()).SettingsPage }))
+// Dev-only route target, and the one page that isn't just `lazy(...)`: it
+// reads `scrubberPool` (real puzzle bodies) from content/pools, and ES
+// modules evaluate per file, not per binding — a plain static import of it
+// here dragged all 214 puzzle bodies into the entry chunk on *every* route,
+// which is exactly the regression this file's previous
+// "static import, not lazy()" comment assumed couldn't happen. Rollup can
+// dead-code-eliminate a component *reference*, but not another module's
+// top-level side effects. Wrapping the lazy() in the same
+// `import.meta.env.DEV` build-time constant the route below uses keeps the
+// old guarantee too: in a production build this folds to the stub, the
+// `import()` arrow becomes unreachable, and Rollup emits no chunk for the
+// page at all (verified against dist/, not just reasoned about).
+const ScrubberDebugPage = import.meta.env.DEV
+  ? lazy(async () => ({
+      default: (await import('./devTools/ScrubberDebugPage')).ScrubberDebugPage,
+    }))
+  : () => null
 
 /**
  * '/' always renders Home — first-ever visit and every visit after that
