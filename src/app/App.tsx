@@ -15,8 +15,6 @@ import { useRouteMeta } from './useRouteMeta'
 // it (see the Phase 2 go/no-go amendment).
 import { ScrubberDebugPage } from './devTools/ScrubberDebugPage'
 
-const VISITED_KEY = 'codoro:has-visited'
-
 // Confirmed live on production (see the Phase 1b build-plan amendment): a
 // hosting-level redirect rewrites a direct load of a real route (e.g.
 // /puzzle/<id>) to bare '/', discarding the original path before this app
@@ -93,92 +91,48 @@ const PuzzlePage = lazy(async () => ({ default: (await puzzleImporter()).PuzzleP
 const ChallengePage = lazy(async () => ({ default: (await challengeImporter()).ChallengePage }))
 const SettingsPage = lazy(async () => ({ default: (await settingsImporter()).SettingsPage }))
 
-type BootMode = 'practice' | 'home'
-
-const bootImporters: Record<BootMode, () => Promise<unknown>> = {
-  practice: practiceImporter,
-  home: homeImporter,
-}
-
 /**
- * A brand-new device's very first launch still boots straight into Practice
- * — the "solving within ~10 seconds" cold-start promise stays intact for a
- * first-time user. Every launch after that opens Home instead. Unlike
- * NavRail's readCollapsed/writeCollapsed (read and write kept as two
- * separate functions, called from different places), this decision has to
- * be made and persisted atomically at boot — there's no later user action
- * to hang a separate write off — so read-and-mark-in-one-pass is
- * deliberate here, not a shortcut. Called once, from App's useState lazy
- * initializer, so it runs exactly once per mount.
+ * '/' always renders Home — first-ever visit and every visit after that
+ * alike (2026-08-26: previously a brand-new device's very first launch
+ * boots straight into Practice instead, for the "solving within ~10
+ * seconds" cold-start promise; removed per explicit product decision —
+ * landing new visitors somewhere other than Home was confusing them more
+ * than the faster cold start helped). Home's chunk is prefetched
+ * immediately from the useState initializer below, in parallel with the
+ * rest of app startup, rather than waiting for Suspense to discover it
+ * during the first render — same reasoning the old first-visit boot
+ * prefetch used, just always pointed at Home now.
  */
-function resolveBootMode(): BootMode {
-  try {
-    if (localStorage.getItem(VISITED_KEY) === '1') {
-      return 'home'
-    }
-    localStorage.setItem(VISITED_KEY, '1')
-    return 'practice'
-  } catch {
-    // Safari private browsing (and similar) can throw — worst case every
-    // launch looks like a first visit and boots to Practice, which is fine.
-    return 'practice'
-  }
-}
-
 export function App() {
   const [, navigate] = useLocation()
   useRouteMeta()
 
-  // The boot decision only applies to the '/' route, and only for the
-  // browser's very first paint of this app instance — not every time '/'
-  // is visited. It's computed once here (App itself only mounts once per
-  // page load; Route children unmount/remount as the user navigates, but
-  // this state doesn't), so clicking the Home logo later to get back to
-  // '/' renders Home directly instead of re-triggering the redirect.
-  // Deep-linking straight into another route (e.g. /legal) skips this
-  // entirely: resolveBootMode's has-visited flag exists solely to decide
-  // what '/' shows, and that route's own lazy()/Suspense pair already
-  // requests its own chunk without help.
-  // Computed once, alongside bootMode below: an intended path recovered from
-  // ?redirect= takes priority over the normal first-visit decision (and,
-  // like bootMode, must not itself consume resolveBootMode's has-visited
-  // flag — recovering from an upstream redirect isn't a real "first visit").
+  // ?redirect= recovery (see resolveIntendedPath's own comment) takes
+  // priority over the normal '/' render — computed once, on mount (App
+  // itself only mounts once per page load; Route children unmount/remount
+  // as the user navigates, but this state doesn't).
   const [intendedPath] = useState(resolveIntendedPath)
 
-  const [bootMode] = useState<BootMode | null>(() => {
-    if (window.location.pathname !== '/' || intendedPath !== null) {
-      return null
+  useState(() => {
+    if (window.location.pathname === '/' && intendedPath === null) {
+      void homeImporter()
     }
-    const mode = resolveBootMode()
-    // Fire the boot mode's chunk fetch immediately, in parallel with the
-    // rest of app startup, rather than waiting for Suspense to discover it
-    // during the first render.
-    void bootImporters[mode]()
-    return mode
+    return null
   })
 
-  // "First-ever visitor" (bootMode === 'practice') and "currently
-  // redirecting" are different conditions — bootMode stays 'practice' for
-  // this App instance's whole lifetime, but the redirect itself only needs
-  // to suppress '/' for the one render before the layout effect below
-  // fires. Gating the '/' route on bootMode === 'practice' alone would keep
-  // it permanently blank: a later logo click back to '/' still has
-  // bootMode === 'practice' (state set once, never reset) but is no longer
-  // mid-redirect and should render Home like any other visit. intendedPath
-  // pending-gates the same way, for the same reason.
-  const [bootRedirectPending, setBootRedirectPending] = useState(
-    () => bootMode === 'practice' || intendedPath !== null,
-  )
+  // bootRedirectPending is true for exactly the one render between mount
+  // and the layout effect below committing an ?redirect= navigation —
+  // Home must not mount (and its lazy() ctor must not fire, which is what
+  // actually requests its chunk) for that single frame when a redirect is
+  // pending.
+  const [bootRedirectPending, setBootRedirectPending] = useState(() => intendedPath !== null)
 
-  // useLayoutEffect (not useEffect) so a first-ever visitor's redirect to
-  // /practice is applied before the browser paints — otherwise Home would
-  // flash for one frame first. Runs once, on mount only: the boot decision
-  // above is already frozen for this app instance.
+  // useLayoutEffect (not useEffect) so a pending ?redirect= is applied
+  // before the browser paints — otherwise Home would flash for one frame
+  // first. Runs once, on mount only.
   useLayoutEffect(() => {
     if (intendedPath !== null) {
       navigate(intendedPath, { replace: true })
-    } else if (bootMode === 'practice') {
-      navigate('/practice', { replace: true })
     }
     // react-hooks/set-state-in-effect assumes setState-in-effect means
     // "derive state from a prop/external source on every relevant change."

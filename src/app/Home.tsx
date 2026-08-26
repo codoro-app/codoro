@@ -1,8 +1,7 @@
 /**
- * Home screen — reachable only via the logo (desktop rail / mobile app
- * bar). Boot behavior lives in App.tsx's resolveBootMode: a device's
- * first-ever launch still goes straight to Practice (the "solving within
- * ~10 seconds" cold start), every launch after that opens here instead.
+ * Home screen — the landing page at '/' for every visit (first-ever and
+ * returning alike, see App.tsx's own comment), also reachable any time via
+ * the logo (desktop rail / mobile app bar).
  *
  * Composed from existing v2 tokens, recombined into a bolder arrangement
  * than a bare reuse of StatusBar's pills: a large-type hero stat (using the
