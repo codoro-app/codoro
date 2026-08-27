@@ -66,4 +66,20 @@
     align-items: start;
     grid-template-areas: 'main sidebar';
   }
+
+  /* v4 Phase 4.0 (todo 26): confirmed defect — `self-start` alone (the
+   * Tailwind utility every consumer's own <aside> already carries) pins
+   * the sidebar's cross-axis *start* position but does nothing to keep it
+   * in the viewport once .app-shell__main scrolls past the sidebar's own
+   * height. One rule here fixes every one of .app-shell__sidebar's
+   * consumers at once. A sidebar taller than the viewport scrolls
+   * internally via its own overflow-y, rather than clipping or pushing
+   * the page taller.
+   */
+  .app-shell__sidebar {
+    position: sticky;
+    top: 0;
+    max-height: 100vh;
+    overflow-y: auto;
+  }
 }
