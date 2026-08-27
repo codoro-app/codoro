@@ -74,13 +74,29 @@ function writeCollapsed(collapsed: boolean): void {
 // per link (was `.nav-rail__item`/`--active` in app.css). The collapsed
 // variant swaps px-4→px-3 and adds justify-center (icon-only, was the
 // `.nav-rail--collapsed .nav-rail__item` descendant rule).
+//
+// 2026-08-26 fix: ITEM_BASE used to carry `bg-transparent text-text-1`
+// unconditionally, with the active state appending `bg-accent
+// text-accent-ink` after it — relying on class-string order to win the
+// cascade. That assumption broke silently in the Tailwind v4 migration
+// (2b.0): v4's generated stylesheet doesn't preserve className order, and
+// in the built output `.bg-transparent`/`.text-text-1` land *after*
+// `.bg-accent`/`.text-accent-ink`, so the base pair always won regardless
+// of DOM order — the active nav item never actually looked different
+// (confirmed via the deployed preview's computed styles: bg stayed
+// transparent, text stayed text-text-1's grey). Fixed by never letting
+// both pairs coexist on one element — ITEM_BASE now carries only the
+// properties that don't vary by state, and the active/inactive pair is
+// chosen once, not layered on top of a competing default.
 const ITEM_BASE =
-  'flex items-center gap-2.5 min-h-11 py-3 rounded-sm bg-transparent text-text-1 text-md font-semibold text-left no-underline cursor-pointer'
+  'flex items-center gap-2.5 min-h-11 py-3 rounded-sm text-md font-semibold text-left no-underline cursor-pointer'
+const ITEM_INACTIVE = 'bg-transparent text-text-1'
 const ITEM_ACTIVE = 'bg-accent text-accent-ink'
 
 function itemClass(collapsed: boolean, active: boolean): string {
   const width = collapsed ? 'px-3 justify-center' : 'px-4'
-  return active ? `${ITEM_BASE} ${width} ${ITEM_ACTIVE}` : `${ITEM_BASE} ${width}`
+  const state = active ? ITEM_ACTIVE : ITEM_INACTIVE
+  return `${ITEM_BASE} ${width} ${state}`
 }
 
 export function NavRail() {

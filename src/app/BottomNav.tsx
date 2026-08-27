@@ -34,12 +34,19 @@ import { Link, useLocation } from 'wouter'
 import { DailyIcon, HomeIcon, PracticeIcon, StatsIcon } from './Icons'
 import { ROUTES } from './routes'
 
+// 2026-08-26 fix: ITEM_BASE used to carry `text-text-1` unconditionally,
+// with the active state appending `text-accent` after it — relying on
+// class-string order to win the cascade, which Tailwind v4's generated
+// stylesheet doesn't guarantee (see NavRail.tsx's own comment on the same
+// bug — `.text-text-1` lands after `.text-accent` in the built CSS, so the
+// base color always won). Fixed the same way: the two never coexist.
 const ITEM_BASE =
-  'flex-1 flex flex-col items-center justify-center gap-0.5 min-h-11 py-1.5 bg-transparent text-text-1 text-xs font-semibold no-underline cursor-pointer'
+  'flex-1 flex flex-col items-center justify-center gap-0.5 min-h-11 py-1.5 bg-transparent text-xs font-semibold no-underline cursor-pointer'
+const ITEM_INACTIVE = 'text-text-1'
 const ITEM_ACTIVE = 'text-accent'
 
 function itemClass(active: boolean): string {
-  return active ? `${ITEM_BASE} ${ITEM_ACTIVE}` : ITEM_BASE
+  return `${ITEM_BASE} ${active ? ITEM_ACTIVE : ITEM_INACTIVE}`
 }
 
 export function BottomNav() {
