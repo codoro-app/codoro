@@ -131,6 +131,24 @@ describe('CheckpointPanel — unanswered', () => {
   })
 })
 
+describe('CheckpointPanel — keyboard navigation', () => {
+  it('arrow-key navigation moves focus between choices', () => {
+    render(
+      <CheckpointPanel
+        checkpoint={varValueCheckpoint}
+        steps={steps}
+        result={undefined}
+        onAnswer={vi.fn()}
+      />,
+    )
+    const buttons = screen.getAllByRole('button')
+    buttons[0].focus()
+
+    fireEvent.keyDown(buttons[0], { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(buttons[1])
+  })
+})
+
 describe('CheckpointPanel — answered (reveal)', () => {
   it('var-value: colors the chosen-wrong/correct choices and shows the previous -> new value diff', () => {
     render(

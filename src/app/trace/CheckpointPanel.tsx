@@ -33,6 +33,7 @@ import type { CheckpointResult } from '../../engine'
 import type { ScrubberPuzzle } from '../../content'
 import type { AnswerState } from '../practice/answerState'
 import { shuffledIndices } from '../practice/interactions/shuffleChoices'
+import { useRovingFocus } from '../practice/useRovingFocus'
 
 type Checkpoint = ScrubberPuzzle['checkpoints'][number]
 
@@ -210,6 +211,7 @@ export function CheckpointPanel({ checkpoint, steps, result, onAnswer }: Checkpo
   const lockedRef = useRef(false)
   const [locked, setLocked] = useState(false)
   const committed = result !== undefined
+  const { itemProps } = useRovingFocus(displayOrder.length, committed || locked)
 
   const handleClick = (index: number) => {
     if (committed || lockedRef.current) return
@@ -238,6 +240,7 @@ export function CheckpointPanel({ checkpoint, steps, result, onAnswer }: Checkpo
           }
           const state = stateFor(originalIndex)
           const className = choiceClass(committed, state)
+          const roving = itemProps(position)
           return (
             <button
               key={originalIndex}
@@ -247,6 +250,10 @@ export function CheckpointPanel({ checkpoint, steps, result, onAnswer }: Checkpo
                 handleClick(originalIndex)
               }}
               disabled={committed || locked}
+              tabIndex={roving.tabIndex}
+              ref={roving.ref}
+              onFocus={roving.onFocus}
+              onKeyDown={roving.onKeyDown}
             >
               <ChoiceBadge state={state} letter={String.fromCharCode(65 + position)} />
               {displayChoiceText(checkpoint.question, choiceText)}
