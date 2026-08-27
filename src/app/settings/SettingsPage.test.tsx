@@ -182,4 +182,11 @@ describe('SettingsPage', () => {
     expect(stored.bestRunStreak).toBe(9)
     expect(await listAttempts()).toEqual([incomingAttempt])
   })
+
+  it('lists keyboard shortcuts (v4 Phase 4.0, todo 24)', () => {
+    render(<SettingsPage />)
+    expect(screen.getByRole('heading', { name: 'Keyboard shortcuts' })).toBeInTheDocument()
+    expect(screen.getByText('Enter')).toBeInTheDocument()
+    expect(screen.getByText(/commit your answer, then advance/i)).toBeInTheDocument()
+  })
 })
