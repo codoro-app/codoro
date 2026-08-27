@@ -11,8 +11,8 @@ import { cleanup, configure } from '@testing-library/react'
 // waitFor/findBy* in the suite the same way.
 //
 // Raised 5000 -> 10000, Phase 8: 5000 itself still flaked (App.test.tsx's
-// and App.bootHomeChunk.test.tsx's own initial-render waitFor calls, both
-// already carrying a 15s outer `it()` timeout for the same reason) when run
+// own initial-render waitFor calls, already carrying a 15s outer `it()`
+// timeout for the same reason) when run
 // as part of the full `pnpm validate` chain specifically — typecheck+lint
 // finishing right before `test` starts appears to leave enough residual
 // contention that 5s isn't always enough, even though every one of these

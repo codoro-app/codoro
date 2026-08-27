@@ -1,11 +1,16 @@
 /**
  * `/puzzle/:id` — Codoro's shareable puzzle link (v2 Phase 1b). Renders any
- * bundled puzzle from `puzzlePool` (the full union — every interaction type;
- * see content/index.ts's own doc comment for why that export exists
- * alongside `quizPool`/`scrubberPool`) in its native interaction, entirely
- * unrated: no `appendAttempt`, no `saveProfile`, no rating math that reaches
- * storage anywhere in this file. A displayed `ratingDelta` is always `null`
- * here, never a computed-but-discarded number.
+ * bundled puzzle (the full union — every interaction type) in its native
+ * interaction, entirely unrated: no `appendAttempt`, no `saveProfile`, no
+ * rating math that reaches storage anywhere in this file. A displayed
+ * `ratingDelta` is always `null` here, never a computed-but-discarded number.
+ *
+ * Puzzle bodies are fetched on demand via `getPuzzleBody` (Task 6 of the
+ * content-metadata-lazy-load follow-up) rather than read from the eager
+ * `puzzlePool` — a genuine async hop, so this file renders three distinct
+ * terminal states the synchronous lookup never needed: loading, a retryable
+ * "couldn't load" state for a rejected fetch, and the pre-existing not-found
+ * state for a genuinely missing id (`getPuzzleBody` resolving `undefined`).
  *
  * Split the same way TraceRunner.tsx is (outer owns the wouter param, inner
  * is pure props) so the dispatch/unrated logic is directly testable without
@@ -45,13 +50,13 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'wouter'
-import { puzzlePool } from '../../content'
+import { getPuzzleBody } from '../../content'
 import type { Puzzle, QuizPuzzle, ScrubberPuzzle } from '../../content'
 import { scoreScrubberAttempt } from '../../engine'
 import type { CheckpointResult } from '../../engine'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { TraceRunnerPuzzle } from '../trace/TraceRunner'
-import { trackPuzzleLinkAttempt, trackPuzzleLinkView } from '../../telemetry'
+import { trackError, trackPuzzleLinkAttempt, trackPuzzleLinkView } from '../../telemetry'
 import type { CommitPayload } from '../practice/interactionTypes'
 import '../tokens.css'
 
@@ -62,6 +67,11 @@ const PAGE_SHELL_CLASS =
   'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[var(--space-4)] px-4 pb-4'
 const CTA_CLASS =
   'inline-flex self-start items-center min-h-11 py-2 px-3 rounded-sm border border-border bg-surface-1 text-accent font-semibold no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+// The "Try again" button on the load-failure state — same classname
+// DailyPage/RushPage use for theirs, so every retry affordance in the app
+// reads identically.
+const RETRY_CLASS =
+  'min-h-11 py-2 px-3 border-0 bg-transparent text-accent text-md font-semibold cursor-pointer'
 
 function isScrubberPuzzle(puzzle: Puzzle): puzzle is ScrubberPuzzle {
   return puzzle.interaction === 'scrubber'
@@ -177,21 +187,137 @@ export interface PuzzlePageForIdProps {
   id: string
 }
 
-/** Pure, props-driven inner component — exported so tests can drive it directly against the real puzzlePool without a Router wrapper. */
+/** Pure, props-driven inner component — exported so tests can drive it directly, by id, without a Router wrapper. */
 export function PuzzlePageForId({ id }: PuzzlePageForIdProps) {
-  const puzzle = puzzlePool.find((candidate) => candidate.id === id)
+  // Task 6 (content-metadata-lazy-load follow-up): was a synchronous
+  // `puzzlePool.find(...)` against the eager pool. `getPuzzleBody` is a
+  // genuine async hop, so lookup state and "not found" state must render
+  // distinctly — `puzzle === undefined` alone can't tell "still loading" from
+  // "genuinely missing" the way it could when the lookup was synchronous.
+  const [puzzle, setPuzzle] = useState<Puzzle | undefined>(undefined)
+  const [loading, setLoading] = useState(true)
+  // Final-review finding: a rejected `getPuzzleBody` used to fall through to
+  // the not-found state below, telling a player their link was "wrong, or the
+  // puzzle was removed" when the real cause was usually a dropped connection.
+  // This surface is a *shared link* destination — arriving on mobile, on a
+  // flaky network, is its most common case, not an edge case — and that copy
+  // is both wrong and unactionable there (it sends them away from a link that
+  // works fine). Tracked separately from `puzzle === undefined` so the two
+  // genuinely different failures can render differently; every other surface
+  // this branch converted (Boss/Practice/Trace/Rush/Daily) already has this
+  // distinction via its session hook's `status: 'error'`.
+  const [failed, setFailed] = useState(false)
+  // Bumped by the "Try again" button; part of the effect's dep array, so
+  // incrementing it re-runs the whole fetch. The lightweight equivalent of
+  // useBossSession's `retryLoad` — this page has one fetch and no session
+  // state to reset, so it needs no shared load()/retryLoad() machinery.
+  const [retryCount, setRetryCount] = useState(0)
+  // Review fix (post-Task-6): a single shared `useRef(false)`, reset to
+  // `false` at the TOP of every effect run and set `true` only in that
+  // run's own cleanup, cannot distinguish "the run that got cancelled" from
+  // "the run that replaced it" — when `id` changes, React runs the OLD
+  // run's cleanup (sets the shared ref true) and then the NEW run's setup
+  // (immediately resets that same shared ref back to false), which
+  // re-arms the guard the old run's own in-flight fetch was relying on. A
+  // slower-to-resolve fetch for an earlier id can then land AFTER a
+  // faster-to-resolve fetch for a later id and win, rendering the wrong
+  // puzzle at the current URL (this route has no `key`, so a link-to-link
+  // navigation changes `id` without a remount — App.tsx's
+  // `<Route path="/puzzle/:id">` — so this is reachable in the real app,
+  // not just synthetically).
+  //
+  // Fix: an ever-incrementing counter. Each run captures its own token by
+  // incrementing it in setup; each run's cleanup ALSO increments it — so
+  // an older run's token can never again equal the counter's current
+  // value, whether it was superseded by a newer run (whose own setup
+  // bumps the counter again right after) or the component simply
+  // unmounted (nothing else will ever bump the counter again, but this
+  // run's own cleanup already did). Comparing "is my token still the
+  // latest" — not a boolean flag — is what makes this survive re-runs,
+  // repeats (React StrictMode's dev-only double-invoke of the same id
+  // produces two distinct tokens too, so only the second, "real", run's
+  // fetch can ever pass the check and fire trackPuzzleLinkView below).
+  const runTokenRef = useRef(0)
 
   useEffect(() => {
-    trackPuzzleLinkView({
-      puzzle_id: id,
-      interaction: puzzle?.interaction ?? null,
-      found: puzzle !== undefined,
-    })
-    // Fire once per id, not on every render/puzzle-object-identity-change —
-    // puzzlePool entries are stable module-level objects, so `id` alone is
-    // the correct dependency.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id])
+    const token = ++runTokenRef.current
+    void (async () => {
+      // The loading/puzzle reset lives here, as the first synchronous work
+      // inside the async callback (not as the effect body's own first
+      // statement) — react-hooks/set-state-in-effect reads a bare
+      // "first-statement setState" as the resetting-state-on-prop-change
+      // anti-pattern react.dev warns about. This still runs synchronously,
+      // in the same tick as every other call in this effect (JS runs an
+      // async function's body up to its first `await` immediately) — same
+      // timing, different syntactic position.
+      setLoading(true)
+      setPuzzle(undefined)
+      setFailed(false)
+      try {
+        const result = await getPuzzleBody(id)
+        if (runTokenRef.current !== token) return // superseded — see runTokenRef's doc comment
+        setPuzzle(result)
+        setLoading(false)
+        // Fires once per id, the instant its lookup settles (found or
+        // not) — same "once per id" contract as before, just decided
+        // after the fetch resolves instead of synchronously against the
+        // eager puzzlePool.
+        trackPuzzleLinkView({
+          puzzle_id: id,
+          interaction: result?.interaction ?? null,
+          found: result !== undefined,
+        })
+      } catch (error) {
+        // getPuzzleBody can reject (a failed dynamic import — offline, or a
+        // deploy-invalidated chunk — or the zod validation throw on
+        // invalid content, which now runs in production too, unlike
+        // ./pools's puzzlePool's DEV-only validation). Without this catch
+        // the page would hang in `loading` forever. Renders the retryable
+        // error state, NOT the not-found state — see `failed`'s comment.
+        // Note there's no trackPuzzleLinkView here: the lookup never
+        // settled, so "found: false" would be a lie, and a retry that
+        // succeeds fires the real view event then.
+        if (runTokenRef.current !== token) return
+        trackError(error, 'PuzzlePage: getPuzzleBody failed')
+        setFailed(true)
+        setLoading(false)
+      }
+    })()
+    return () => {
+      // Bump the token here too, not just in the next run's own setup:
+      // setup-side bumping alone handles the re-run case (a new id) fine,
+      // but on a genuine unmount no further setup ever runs to invalidate
+      // this run's token — this cleanup is the only chance to do that.
+      runTokenRef.current += 1
+    }
+  }, [id, retryCount])
+
+  if (loading) {
+    return (
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">Loading puzzle…</p>
+      </div>
+    )
+  }
+
+  if (failed) {
+    return (
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">
+          We couldn&apos;t load this puzzle. Please check your connection and try again.
+        </p>
+        <button
+          type="button"
+          className={RETRY_CLASS}
+          onClick={() => {
+            setRetryCount((count) => count + 1)
+          }}
+        >
+          Try again
+        </button>
+      </div>
+    )
+  }
 
   if (!puzzle) {
     return (

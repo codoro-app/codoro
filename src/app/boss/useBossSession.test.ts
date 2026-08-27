@@ -46,6 +46,22 @@ vi.mock('../../content', async (importOriginal) => {
     BOSS_SETS: FIXTURE_SETS,
     resolveActiveBossSet: (runsCompleted: number) =>
       FIXTURE_SETS[runsCompleted % FIXTURE_SETS.length],
+    // Task 6 (content-metadata-lazy-load follow-up): useBossSession now
+    // resolves puzzle bodies via getPuzzleBody, not the eager quizPool Map —
+    // the real getPuzzleBody would look ids up against the real bundled
+    // content, where none of FIXTURE_POOL's ids ('b0'/'c1'/...) exist, so
+    // this stub resolves them against FIXTURE_POOL instead, same as the
+    // other content stubs above. Genuinely async (a resolved Promise, not a
+    // bare return) so this exercises the hook's real await, not a papered-
+    // over synchronous call. Wrapped in vi.fn (same pattern as updateRating
+    // below) so review-fix regression tests can override its behavior
+    // per-test via mockImplementation/mockRejectedValue — restoreAllMocks
+    // in the outer afterEach below already reverts any such override back
+    // to this default implementation after every test, exactly like it
+    // already does for updateRating.
+    getPuzzleBody: vi.fn((id: string) =>
+      Promise.resolve(FIXTURE_POOL.find((puzzle) => puzzle.id === id)),
+    ),
   }
 })
 
@@ -73,7 +89,8 @@ vi.mock('../../engine', async (importOriginal) => {
 const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
   await import('../../storage')
 const { updateRating } = await import('../../engine')
-const { trackBossAttempt, trackBossRunEnd } = await import('../../telemetry')
+const { trackError, trackBossAttempt, trackBossRunEnd } = await import('../../telemetry')
+const { getPuzzleBody } = await import('../../content')
 
 function answerAndContinue(
   result: { current: ReturnType<typeof useBossSession> },
@@ -444,8 +461,12 @@ describe('useBossSession', () => {
       result.current.handleRunItBack()
     })
 
+    // Task 6: `phase` flips to 'playing' synchronously at the top of
+    // startRun, but the run's puzzle bodies are now prefetched via
+    // getPuzzleBody before its first puzzle is actually served — wait for
+    // `status` to come back 'ready' (not just phase) before reading `puzzle`.
     await waitFor(() => {
-      expect(result.current.phase).toBe('playing')
+      expect(result.current.status).toBe('ready')
     })
     // 'c0': BOSS_SETS rotation means "Run it back" resolves the NEXT set
     // (bossStats.runs was incremented by the run that just ended) — see the
@@ -546,8 +567,10 @@ describe('useBossSession', () => {
         result.current.handleRunItBack()
       })
 
+      // Task 6: wait for `status` ('ready'), not just `phase` — see the
+      // sibling "Run it back" reset test above for why.
       await waitFor(() => {
-        expect(result.current.phase).toBe('playing')
+        expect(result.current.status).toBe('ready')
       })
       expect(result.current.puzzle?.id).toBe('c0')
     })
@@ -586,19 +609,25 @@ describe('useBossSession', () => {
       vi.useRealTimers()
     })
 
-    async function flushMountEffect() {
-      // Flushes the mount effect's async loadProfile().then(startRun) — a
-      // microtask, not a timer — same pattern as useRushSession.test.ts's
-      // own fake-timer describe block.
-      await act(async () => {
-        await Promise.resolve()
-        await Promise.resolve()
-      })
+    // Flushes the mount effect's async loadProfile().then(startRun).then(
+    // prefetch bodies via getPuzzleBody) chain — plain microtasks, not
+    // timers, same pattern as useRushSession.test.ts's own fake-timer
+    // describe block. Task 6 added an extra microtask hop (the body
+    // prefetch) on top of the pre-existing loadProfile hop, so this polls
+    // status out of 'loading' rather than assuming a fixed number of
+    // `Promise.resolve()` ticks — correct regardless of exactly how many
+    // microtask turns either hop takes.
+    async function flushAsyncStart(result: { current: ReturnType<typeof useBossSession> }) {
+      for (let i = 0; i < 20 && result.current.status === 'loading'; i++) {
+        await act(async () => {
+          await Promise.resolve()
+        })
+      }
     }
 
     it("captures this run's own elapsed-ms-per-position splits, exactly", async () => {
       const { result } = renderHook(() => useBossSession())
-      await flushMountEffect()
+      await flushAsyncStart(result)
       expect(result.current.status).toBe('ready')
 
       act(() => {
@@ -648,7 +677,7 @@ describe('useBossSession', () => {
         },
       })
       const { result } = renderHook(() => useBossSession())
-      await flushMountEffect()
+      await flushAsyncStart(result)
       expect(result.current.status).toBe('ready')
 
       // Strikes out at depth 3 — well short of the stored bestDepth of 5.
@@ -683,7 +712,7 @@ describe('useBossSession', () => {
         },
       })
       const { result } = renderHook(() => useBossSession())
-      await flushMountEffect()
+      await flushAsyncStart(result)
       expect(result.current.status).toBe('ready')
 
       // 3 strikes at depth 3 — beats the stored bestDepth of 2.
@@ -711,7 +740,7 @@ describe('useBossSession', () => {
 
     it('a fresh profile with no prior bossStats reports previousBestSplits: null', async () => {
       const { result } = renderHook(() => useBossSession())
-      await flushMountEffect()
+      await flushAsyncStart(result)
 
       for (let i = 0; i < 3; i++) {
         act(() => {
@@ -731,7 +760,7 @@ describe('useBossSession', () => {
 
     it('"Run it back" resets split tracking — the next run\'s first split reflects only its own elapsed time', async () => {
       const { result } = renderHook(() => useBossSession())
-      await flushMountEffect()
+      await flushAsyncStart(result)
 
       // Run 1: strike out after a long elapsed time.
       for (let i = 0; i < 3; i++) {
@@ -754,6 +783,12 @@ describe('useBossSession', () => {
       act(() => {
         result.current.handleRunItBack()
       })
+      // Task 6: "Run it back" re-enters startRun, which prefetches the new
+      // run's puzzle bodies via getPuzzleBody before serving its first
+      // puzzle — flush that microtask chain (status 'loading' -> 'ready')
+      // before driving answers, or handleAnswered is a no-op against a
+      // still-null puzzle.
+      await flushAsyncStart(result)
 
       // A short elapsed time on run 2's first puzzle — if runStartAtRef
       // weren't reset by startRun, this split would instead reflect
@@ -787,6 +822,44 @@ describe('useBossSession', () => {
       })
 
       expect(result.current.runSummary?.splits).toEqual([300, 600, 900])
+    })
+  })
+
+  describe('review-fix regression coverage (prefetch rejection)', () => {
+    // Important #2 (Boss called out as "the clearest gap"): a rejected
+    // getPuzzleBody (failed dynamic import, or the zod validation throw on
+    // invalid content) must not hang the run in `status: 'loading'`
+    // forever. Before the fix, this prefetch's `void`-ed IIFE ran textually
+    // inside loadAndStart's own try/catch but its rejection escaped that
+    // catch entirely (a `void`-ed async function's rejection is not caught
+    // by an enclosing sync try/catch) — status stayed 'loading' with no
+    // error path and no telemetry.
+    it('reports status: error instead of hanging when the prefetch rejects, and retryLoad recovers', async () => {
+      const failure = new Error('chunk load failed')
+      vi.mocked(getPuzzleBody).mockRejectedValue(failure)
+
+      const { result } = renderHook(() => useBossSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('error')
+      })
+      expect(trackError).toHaveBeenCalledWith(
+        failure,
+        'useBossSession: puzzle body prefetch failed',
+      )
+
+      // The existing retryLoad recovery path (already wired to BossPage's
+      // "Try again" button) must still work once the transient failure
+      // clears.
+      vi.mocked(getPuzzleBody).mockImplementation((id: string) =>
+        Promise.resolve(FIXTURE_POOL.find((puzzle) => puzzle.id === id)),
+      )
+      act(() => {
+        result.current.retryLoad()
+      })
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+      expect(result.current.puzzle?.id).toBe('b0')
     })
   })
 })

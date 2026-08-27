@@ -138,3 +138,149 @@ without the redundant runtime validation.
   (Chrome's own temp profile directory briefly still file-locked at
   deletion time) — cosmetic log noise, doesn't affect the script's exit
   code or its reported numbers, not fixed in this pass.
+
+## Metadata/body split (follow-up, 2026-08-25)
+
+This follow-up plan (`docs/superpowers/plans/2026-08-24-content-metadata-lazy-load.md`)
+implements the harder half of finding #2 that the prior pass explicitly deferred:
+splitting puzzle content into an eager metadata index (`puzzleMeta`) plus
+per-puzzle lazy-loaded bodies (`getPuzzleBody`), with stale-while-revalidate
+and speculative prefetch so the async fetch is invisible in the common case.
+
+**The honest story has two parts.** The per-consumer conversion (Tasks 4–6)
+worked correctly the first time — every real hook (Practice/Trace/Rush/Daily/
+Boss/Challenge/direct-link) genuinely selects from `puzzleMeta` and resolves
+bodies via `getPuzzleBody`, with real regression coverage for the async
+races this class of change is prone to (a Critical race condition and 5
+Important async-correctness bugs were found and fixed across two review
+cycles before landing — see the SDD ledger for detail). But the first
+re-measurement (this task's own Step 1) found the plan's **central goal was
+not yet achieved**: puzzle content was still 100% eagerly reachable from
+every route, and total content payload had gotten _larger_, not smaller,
+because the real per-puzzle chunk split sat _alongside_ a still-fully-eager
+copy of the whole pool, not instead of it. Root cause, traced through the
+actual built import graph: `src/content/index.ts`'s `puzzlePool` was built
+via an _unconditional_ `import.meta.glob({eager:true})` (a deliberate,
+correct choice at the time — Task 3 of this plan was constrained to leave
+that export's shape untouched), and two small, unrelated dev-tool imports
+(`AppShell → DevPuzzleToggle → devPuzzleMode.ts`, and `App.tsx`'s own
+static import of `ScrubberDebugPage.tsx`) each pulled in one binding from
+that same barrel file — which, per ES module semantics, forces the whole
+file's top-level code to evaluate, glob included. This is the same bug
+shape the prior pass's own reviewer already found and deferred for zod
+(see the bundle-size table above); this plan's changes just gave it far
+more to drag along.
+
+That was fixed as an emergent follow-up task (not in the original plan,
+ruled and dispatched once the regression was found): the two small
+dev-tool imports were corrected (one now imports the underlying data file
+directly instead of through the barrel; the other switched to the same
+`lazy()` pattern every real route page already used), and — empirically
+found to be additionally necessary, not just sufficient in theory —
+`puzzlePool`/`quizPool`/`scrubberPool` were moved out of `content/index.ts`
+into their own file (`src/content/pools.ts`), specifically because
+re-exporting them from the barrel (the smaller, "safer" fix) was measured
+to defeat the split entirely (Rollup keeps a re-exported module's
+side-effectful code alive in every importer). The fix was verified
+empirically, independently, twice — once by the implementer, once by an
+independent reviewer who rebuilt from the same checkout and reproduced
+every number — not just claimed:
+
+| Metric                                                 | Before this fix                                          | After this fix                             |
+| ------------------------------------------------------ | -------------------------------------------------------- | ------------------------------------------ |
+| Static puzzle-chunk imports across `dist/assets`       | 214                                                      | **0**                                      |
+| `dist/index.html` `<link rel="modulepreload">` entries | 221 (214 of them puzzle chunks)                          | **2 (zero puzzle chunks)**                 |
+| `content-*.js` (glue chunk)                            | 84.56 KB / 14.99 KB gzip, contains all 214 puzzle bodies | **49.36 KB / 7.70 KB gzip, contains none** |
+| Puzzle bodies precached for offline (`dist/sw.js`)     | 214                                                      | 214 (unaffected either way)                |
+
+The fixed `content-*.js` (49.36 KB / 7.70 KB gzip, glue only) is now
+smaller than the _original pre-this-plan_ single eager chunk (285.86 KB /
+67.52 KB gzip, from the "Bundle sizes after Tasks 3–4" table above) by a
+wide margin, and the 214 puzzle bodies are now genuinely deferred —
+downloaded on demand, one small chunk (mean 1551 B raw) per puzzle
+actually played, not on every page load.
+
+### PWA offline play — re-verified live (Task 8, Step 2)
+
+Same rigor as the prior pass, done live in a real, connected browser, not
+a devtools-simulated toggle: built fresh against the fixed HEAD, started
+the local preview server, loaded `/practice`, waited for the service
+worker to install and confirmed it took control of the page
+(`navigator.serviceWorker.controller`), then **killed the preview server
+process entirely** and confirmed via `curl` the origin was genuinely
+unreachable (connection refused) before touching anything else. With the
+server dead for the remainder of the check, all six required surfaces
+still rendered real, working content from the service-worker precache:
+
+- `/practice` — a real tap-line puzzle rendered fully.
+- `/daily` — "Codoro Daily #237" with a real puzzle body.
+- `/rush` — the live countdown ran and served a real puzzle.
+- `/boss` — "Puzzle 1 of 10" with a real puzzle body.
+- `/puzzle/con-001` (direct link) — a real puzzle body resolved.
+- `/challenge` (shared link) — a validly-encoded challenge URL, built by
+  hand against the app's own codec (`src/challenge/codec.ts`) to avoid
+  needing a live share-flow click-through, resolved to a real puzzle body.
+
+No route fell back to a broken-link or perpetual-loading state. The
+per-puzzle body chunks this plan adds are covered by the same
+pattern-based `globPatterns` the prior pass's Global Constraint predicted
+— confirmed directly, not assumed: all 214 puzzle-body chunks are present
+in `dist/sw.js`'s `precacheAndRoute([...])` manifest alongside the app
+shell and every other route's assets.
+
+### Lighthouse (`pnpm perf:lighthouse`, local build+preview, against the fixed HEAD)
+
+**Important caveat, same as the prior pass's own post-fix table: these are
+LOCAL build+preview numbers, not production.** Re-run
+`pnpm perf:lighthouse -- --prod` after this branch is reviewed, merged,
+and deployed to get real, comparable-to-Clean-baseline production numbers;
+this doc should be updated again at that point.
+
+| Metric      | Mobile (median of 3) | Desktop (median of 3) |
+| ----------- | -------------------- | --------------------- |
+| Performance | 82                   | 98                    |
+| FCP         | 2185 ms              | 530 ms                |
+| LCP         | 4509 ms              | 1052 ms               |
+| TBT         | 37 ms                | 0 ms                  |
+| CLS         | 0.000                | 0.000                 |
+
+Compared to the prior pass's own local post-fix numbers (mobile
+Performance 79–80, LCP 4648–4716 ms — the numbers left "borderline/not
+clearly met" specifically because content was still on the critical path
+at that point): **mobile Performance improved to 82, mobile LCP improved
+to 4509 ms.** Desktop stayed at its prior clean 98/no-CLS state. This is a
+real but modest improvement, not the dramatic swing the bundle-size table
+above might suggest — LCP is dominated by more than one chunk (`schemas-*.js`,
+`module-*.js`, `PuzzleCardShell-*.js`, `index-*.js` are all still eager
+and, combined, still substantially larger than `content-*.js` ever was),
+and this pass's own Global Constraints explicitly kept those out of scope.
+
+**Targets status (against these local numbers, re-verify against
+production once deployed):**
+
+| Target             | Mobile  | Status                                                                                                                                                                                                                                                                     |
+| ------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Performance ≥ 0.80 | 0.82    | **Met.** Crosses the line the prior pass left borderline (0.79–0.80), for the first time in either pass.                                                                                                                                                                   |
+| CLS ≤ 0.05         | 0.000   | **Met, decisively** — unchanged from the prior pass, not touched by this one.                                                                                                                                                                                              |
+| TBT ≤ 300 ms       | 37 ms   | **Met, decisively.**                                                                                                                                                                                                                                                       |
+| LCP ≤ 2.5 s        | 4.509 s | **Still not met**, though improved from the prior pass's 4.648–4.716 s. `content-*.js` is no longer part of the reason — the remaining gap is the other still-eager chunks noted above, which this plan never targeted (finding #2's _puzzle content_ half, specifically). |
+
+| Target             | Desktop | Status               |
+| ------------------ | ------- | -------------------- |
+| Performance ≥ 0.95 | 0.98    | **Met.**             |
+| CLS ≤ 0.05         | 0.000   | **Met, decisively.** |
+
+**Bottom line, stated plainly:** this plan achieves what it set out to do —
+puzzle content is genuinely, verifiably off every route's critical path,
+confirmed by rebuilding and re-tracing the import graph independently
+twice (once by the fix's own implementer, once by a reviewer who
+reproduced every number from a clean checkout), and live PWA offline play
+for all six real-world entry points is confirmed working with the server
+genuinely killed, not simulated. Mobile Performance crosses its 0.80
+target for the first time across either perf pass. Mobile LCP, while
+improved, still doesn't meet its 2.5 s target — the remaining gap is
+explicitly other, larger, still-eager chunks (zod's schema-construction
+graph, posthog, framer-motion-pulling `PuzzleCardShell`, the
+react-dom/wouter/framer-motion `index-*.js`) that were out of scope for
+_this_ plan's finding (#2, puzzle content specifically) and remain
+real, separate, documented follow-ups.

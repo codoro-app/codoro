@@ -1,10 +1,13 @@
 /**
  * Orchestrates a `/challenge` run (v2 Phase 5c): decodes the payload from the
- * URL fragment (via src/challenge's codec), resolves every id against the full
- * `puzzlePool` (same full-union reasoning as `/puzzle/:id`), then sequences
- * the recipient through the same puzzles the challenger played, accumulating
- * per-puzzle correct/time results for the comparison screen and a
- * counter-challenge.
+ * URL fragment (via src/challenge's codec), resolves every id via
+ * `getPuzzleBody` (Task 6 of the content-metadata-lazy-load follow-up — same
+ * full-union reasoning as `/puzzle/:id`, just fetched on demand instead of
+ * read from the eager `puzzlePool`), then sequences the recipient through the
+ * same puzzles the challenger played, accumulating per-puzzle correct/time
+ * results for the comparison screen and a counter-challenge. `status:
+ * 'loading'` covers the brief window between mount and every id settling —
+ * see the `Resolution` type below.
  *
  * Structurally unrated, same standard as `/puzzle/:id` (Phase 1b Decision 1):
  * no `appendAttempt`, no `saveProfile`, no rating math anywhere in this hook.
@@ -28,17 +31,31 @@
  * page load without any reset effect.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { puzzlePool } from '../../content'
+import { getPuzzleBody } from '../../content'
 import type { Puzzle } from '../../content'
 import { scoreScrubberAttempt } from '../../engine'
 import type { CheckpointResult } from '../../engine'
 import { decodeChallengePayload } from '../../challenge'
 import type { ChallengeAttemptInput, ChallengePayload } from '../../challenge'
-import { trackChallengeLinkComplete, trackChallengeLinkView } from '../../telemetry'
+import { trackChallengeLinkComplete, trackChallengeLinkView, trackError } from '../../telemetry'
 import { resolveChallengeOutcome } from './challengeOutcome'
 import type { CommitPayload } from '../practice/interactionTypes'
 
-export type ChallengeSessionStatus = 'broken' | 'playing' | 'done'
+export type ChallengeSessionStatus = 'loading' | 'broken' | 'playing' | 'done'
+
+/**
+ * Puzzle-body resolution state, kept as one discriminated value (not
+ * separate `status`/`puzzles` state pairs) so TS narrows `puzzles` for free
+ * everywhere it's read below — the two are always set together. `loading`
+ * covers the async `getPuzzleBody` hop this hook now has (Task 6 of the
+ * content-metadata-lazy-load follow-up): every id in the payload used to
+ * resolve synchronously against the eager `puzzlePool`; now each is fetched
+ * on demand, in parallel, and only decided once every id has settled —
+ * still reject-wholesale, matching the codec's own standard (see this
+ * file's module doc comment).
+ */
+type Resolution =
+  { status: 'loading' } | { status: 'broken' } | { status: 'resolved'; puzzles: readonly Puzzle[] }
 
 export interface ChallengeSession {
   status: ChallengeSessionStatus
@@ -78,33 +95,111 @@ export interface ChallengeSession {
 export function useChallengeSession(hash: string): ChallengeSession {
   const payload = useMemo(() => decodeChallengePayload(hash), [hash])
 
-  // Resolve every id up front; any unresolvable id is the broken state, not
-  // a partial run (reject-wholesale, mirroring the codec).
-  const puzzles = useMemo<readonly Puzzle[] | null>(() => {
-    if (!payload) return null
-    const resolved: Puzzle[] = []
-    for (const id of payload.ids) {
-      const puzzle = puzzlePool.find((candidate) => candidate.id === id)
-      if (!puzzle) return null
-      resolved.push(puzzle)
+  const [fetchResolution, setFetchResolution] = useState<Resolution>(() =>
+    payload === null ? { status: 'broken' } : { status: 'loading' },
+  )
+  // Review fix (post-Task-6): a single shared `useRef(false)`, reset to
+  // `false` at the TOP of every effect run and set `true` only in that
+  // run's own cleanup, cannot distinguish "the run that got cancelled" from
+  // "the run that replaced it" — when `payload` changes, React runs the OLD
+  // run's cleanup (sets the shared ref true) and then the NEW run's setup
+  // (immediately resets that same shared ref back to false), re-arming the
+  // guard the old run's own in-flight fetch was relying on. `ChallengePage`
+  // remounts on hash change (key={hash}), so this exact race isn't
+  // reachable through that page today — but this hook's own tests drive it
+  // directly by hash, and the module doc comment below claims the hook
+  // stays correct standalone; that claim needs to actually be true, not
+  // just true in the one call site that happens to remount around it.
+  //
+  // Fix: an ever-incrementing counter, same shape as PuzzlePage.tsx's own
+  // fix for the identical pattern. Each run captures its own token by
+  // incrementing it in setup; each run's cleanup ALSO increments it — so an
+  // older run's token can never again equal the counter's current value,
+  // whether superseded by a newer run or the component unmounting outright.
+  // This also fixes trackChallengeLinkView's exposure to the same class of
+  // bug for free — see viewTrackedRef below, which already correctly
+  // guarded against a double-fire, but only once resolution itself stopped
+  // racing.
+  const runTokenRef = useRef(0)
+
+  // Resolve every id in parallel via getPuzzleBody; any unresolvable id
+  // collapses the whole payload to the broken state, not a partial run
+  // (reject-wholesale, mirroring the codec) — same standard as before, just
+  // decided once every fetch settles instead of synchronously against the
+  // eager puzzlePool. Re-runs whenever `payload` changes identity (a new
+  // hash).
+  useEffect(() => {
+    // A decode failure is a pure function of `payload` alone — no fetch
+    // involved, so it's derived in `resolution` below rather than stored
+    // here (react-hooks/set-state-in-effect: an effect branch that does
+    // nothing but set state and return belongs in render, not an effect).
+    if (payload === null) return
+    const token = ++runTokenRef.current
+    void (async () => {
+      // The loading reset lives here, as the first synchronous work inside
+      // the async callback (not as the effect body's own first statement) —
+      // react-hooks/set-state-in-effect reads a bare "first-statement
+      // setState" as the resetting-state-on-prop-change anti-pattern
+      // react.dev warns about. This still runs synchronously, in the same
+      // tick as everything else in this effect (JS runs an async function's
+      // body up to its first `await` immediately) — same timing, different
+      // syntactic position.
+      setFetchResolution({ status: 'loading' })
+      try {
+        const results = await Promise.all(payload.ids.map((id) => getPuzzleBody(id)))
+        if (runTokenRef.current !== token) return // superseded — see runTokenRef's doc comment
+        if (results.some((puzzle) => puzzle === undefined)) {
+          setFetchResolution({ status: 'broken' })
+          return
+        }
+        setFetchResolution({ status: 'resolved', puzzles: results as Puzzle[] })
+      } catch (error) {
+        // getPuzzleBody can reject (a failed dynamic import — offline, or a
+        // deploy-invalidated chunk — or the zod validation throw on
+        // invalid content, which now runs in production too, unlike
+        // puzzlePool's DEV-only validation). Without this catch the run
+        // would hang in `loading` forever. Collapsed into the existing
+        // `'broken'` state — reject-wholesale already treats "this
+        // challenge can't be played" as one legible state; a fetch failure
+        // is just one more way to reach it, not a new state to invent.
+        if (runTokenRef.current !== token) return
+        trackError(error, 'useChallengeSession: getPuzzleBody failed')
+        setFetchResolution({ status: 'broken' })
+      }
+    })()
+    return () => {
+      // Bump the token here too, not just in the next run's own setup:
+      // setup-side bumping alone handles the re-run case (a new payload)
+      // fine, but on a genuine unmount no further setup ever runs to
+      // invalidate this run's token — this cleanup is the only chance to
+      // do that.
+      runTokenRef.current += 1
     }
-    return resolved
   }, [payload])
 
-  // Defined as the disjunction of both null-cases (not just `puzzles ===
-  // null`) so TS's const-alias narrowing carries `payload` through to
-  // handleContinue's done branch too, where the complete-event telemetry
-  // reads `payload.totalMs`/`payload.results`.
-  const broken = payload === null || puzzles === null
+  // Derived, not stored: a decode failure is knowable synchronously from
+  // `payload` alone (see the effect above) — only the fetch outcome
+  // (loading/broken-by-missing-id/resolved) actually needs state. Memoized
+  // so its identity is stable across renders that don't change either
+  // input — several hooks/effects below depend on it.
+  const resolution: Resolution = useMemo(
+    () => (payload === null ? { status: 'broken' } : fetchResolution),
+    [payload, fetchResolution],
+  )
 
+  // Fires exactly once per page load, only once resolution has actually
+  // settled (broken or resolved) — never while still 'loading', so an
+  // unresolved-yet id can't be miscounted as `found: false`. Guarded by a
+  // ref (not just an empty deps array, since this effect must react to
+  // `resolution` changing) against firing twice if resolution somehow
+  // settles more than once in a single mount.
+  const viewTrackedRef = useRef(false)
   useEffect(() => {
-    trackChallengeLinkView({ found: !broken })
-    // ChallengePage keys this component by hash, so a change of hash remounts
-    // it — a mount-only effect fires exactly once per page load. `broken` is
-    // derived solely from `hash` (via payload → puzzles), so omitting it from
-    // the deps is sound: it cannot change without a new mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (resolution.status === 'loading') return
+    if (viewTrackedRef.current) return
+    viewTrackedRef.current = true
+    trackChallengeLinkView({ found: resolution.status === 'resolved' })
+  }, [resolution])
 
   // puzzleIndex is the current puzzle's position in `puzzles`; it only
   // advances on Continue (never on answer — the shells need to show their
@@ -131,16 +226,23 @@ export function useChallengeSession(hash: string): ChallengeSession {
   const runCompleteRef = useRef(false)
 
   useEffect(() => {
+    if (resolution.status !== 'resolved') return
     servedAtRef.current = Date.now()
-    // Mount-only: the first puzzle is served synchronously (puzzlePool is
-    // bundled — no async load like the other hooks'), so its timestamp is
-    // stamped here rather than in a render-time initializer — Date.now() is
-    // impure during render (react-hooks/purity), and every other hook's
-    // servedAtRef starts at 0 for the same reason. (No reactive deps: the
-    // effect only touches a ref.)
-  }, [])
+    // Fires once, the instant the ids resolve and the first puzzle actually
+    // becomes servable — NOT at mount, unlike before (Task 6: puzzle bodies
+    // are now fetched via getPuzzleBody, a genuine async hop puzzlePool
+    // never had). Only fires once per mount even though the effect depends
+    // on `resolution.status`: that string only ever transitions into
+    // 'resolved' a single time (loading -> broken or loading -> resolved,
+    // never back), so this doesn't re-stamp on every render while playing —
+    // every subsequent puzzle's timestamp comes from handleContinue below,
+    // same as before. Date.now() is impure during render
+    // (react-hooks/purity), hence stamping it here rather than in a
+    // render-time initializer.
+  }, [resolution.status])
 
-  const currentPuzzle = broken ? null : (puzzles[puzzleIndex] ?? null)
+  const currentPuzzle =
+    resolution.status === 'resolved' ? (resolution.puzzles[puzzleIndex] ?? null) : null
   // A puzzle's result lands in `results` the moment it's fully answered —
   // at quiz commit, or at the last scrubber checkpoint — so "is the current
   // puzzle answered" is exactly `results.length === puzzleIndex + 1`.
@@ -157,8 +259,8 @@ export function useChallengeSession(hash: string): ChallengeSession {
 
   const handleAnswered = useCallback(
     (commit: CommitPayload) => {
-      if (broken || currentAnswered) return
-      const puzzle = puzzles[puzzleIndex]
+      if (resolution.status !== 'resolved' || currentAnswered) return
+      const puzzle = resolution.puzzles[puzzleIndex]
       if (!puzzle || puzzle.interaction === 'scrubber') return
       setResults((prev) => [
         ...prev,
@@ -169,13 +271,13 @@ export function useChallengeSession(hash: string): ChallengeSession {
         },
       ])
     },
-    [broken, currentAnswered, puzzles, puzzleIndex],
+    [resolution, currentAnswered, puzzleIndex],
   )
 
   const handleCheckpointAnswered = useCallback(
     (result: CheckpointResult) => {
-      if (broken) return
-      const puzzle = puzzles[puzzleIndex]
+      if (resolution.status !== 'resolved') return
+      const puzzle = resolution.puzzles[puzzleIndex]
       // Optional-chain guard: `puzzle?.interaction !== 'scrubber'` collapses
       // "no puzzle here" (index past the end) and "quiz puzzle" into the same
       // return — `undefined !== 'scrubber'` is true, so both bail. TS then
@@ -198,16 +300,18 @@ export function useChallengeSession(hash: string): ChallengeSession {
         ])
       }
     },
-    [broken, puzzles, puzzleIndex],
+    [resolution, puzzleIndex],
   )
 
   const handleContinue = useCallback(() => {
-    if (broken || !isComplete) return
+    if (resolution.status !== 'resolved' || !isComplete) return
+    // Unreachable in practice: `resolution` only ever reaches 'resolved' via
+    // the effect above, which requires `payload !== null` before it starts
+    // fetching — this check exists purely so TS narrows `payload` for the
+    // reads below.
+    if (payload === null) return
     const nextIndex = puzzleIndex + 1
-    // `puzzles`/`payload` are narrowed to non-null here by the `broken`
-    // guard above (const-alias narrowing — `broken` is `payload === null ||
-    // puzzles === null`).
-    if (nextIndex >= puzzles.length) {
+    if (nextIndex >= resolution.puzzles.length) {
       // Run complete. The comparison screen owns everything from here; the
       // complete-event fires on this exact transition — once, in the same
       // event handler that ends the run (the convention every other session
@@ -236,15 +340,16 @@ export function useChallengeSession(hash: string): ChallengeSession {
     setCheckpointResults([])
     checkpointResultsRef.current = []
     servedAtRef.current = Date.now()
-  }, [broken, isComplete, puzzleIndex, puzzles, payload, results])
+  }, [resolution, isComplete, puzzleIndex, payload, results])
 
-  const status: ChallengeSessionStatus = broken
-    ? 'broken'
-    : // `puzzles` is narrowed to non-null in this branch, same const-alias
-      // narrowing as handleContinue.
-      puzzleIndex >= puzzles.length
-      ? 'done'
-      : 'playing'
+  const status: ChallengeSessionStatus =
+    resolution.status === 'loading'
+      ? 'loading'
+      : resolution.status === 'broken'
+        ? 'broken'
+        : puzzleIndex >= resolution.puzzles.length
+          ? 'done'
+          : 'playing'
 
   return {
     status,

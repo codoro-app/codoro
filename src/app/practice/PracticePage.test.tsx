@@ -35,8 +35,8 @@ vi.mock('../../engine', async (importOriginal) => {
 
 const practicePagePath = join(dirname(fileURLToPath(import.meta.url)), 'PracticePage.tsx')
 
-const { FIXTURE_POOL } = vi.hoisted(() => ({
-  FIXTURE_POOL: Array.from({ length: 12 }, (_, i) => ({
+const { FIXTURE_POOL, FIXTURE_BODY_BY_ID } = vi.hoisted(() => {
+  const pool = Array.from({ length: 12 }, (_, i) => ({
     id: `p${String(i)}`,
     pattern: i % 2 === 0 ? 'off-by-one' : 'null-undefined',
     difficulty_rating: 1150 + i * 10,
@@ -47,12 +47,32 @@ const { FIXTURE_POOL } = vi.hoisted(() => ({
     interaction: 'mcq',
     choices: ['a', 'b'],
     correct_choice: 0,
-  })),
-}))
+  }))
+  return { FIXTURE_POOL: pool, FIXTURE_BODY_BY_ID: new Map(pool.map((p) => [p.id, p])) }
+})
 
 vi.mock('../../content', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../content')>()
-  return { ...actual, puzzlePool: FIXTURE_POOL, quizPool: FIXTURE_POOL }
+  // puzzleMeta needs the same override as puzzlePool/quizPool (perf pass,
+  // 2026-08-24) — MasteryTeaser now reads puzzleMeta, not puzzlePool, to
+  // compute mastery; without this the fixture ids (p0/p1/...) never resolve
+  // to a pattern via the real (unmocked) puzzleMeta, and any test exercising
+  // MasteryTeaser inside PracticePage silently never sees an accuracy update.
+  // getPuzzleBody: usePracticeSession now loads puzzle bodies on demand
+  // (content-metadata-lazy-load Task 5) — without this override, real
+  // getPuzzleBody would look for these fixture ids among real on-disk
+  // content and never find them.
+  return {
+    ...actual,
+    puzzlePool: FIXTURE_POOL,
+    quizPool: FIXTURE_POOL,
+    puzzleMeta: FIXTURE_POOL,
+    // Derived exports must be re-derived from the SAME fixture, not left
+    // real — see usePracticeSession.test.ts's identical mock comment.
+    quizMeta: FIXTURE_POOL.filter((meta) => meta.interaction !== 'scrubber'),
+    scrubberMeta: FIXTURE_POOL.filter((meta) => meta.interaction === 'scrubber'),
+    getPuzzleBody: vi.fn((id: string) => Promise.resolve(FIXTURE_BODY_BY_ID.get(id))),
+  }
 })
 
 vi.mock('../../storage', async (importOriginal) => {
@@ -77,6 +97,7 @@ const { loadProfile, saveProfile, appendAttempt, listAttempts, createDefaultProf
   await import('../../storage')
 const { trackShareClick, trackChallengeCreate } = await import('../../telemetry')
 const { PracticePage } = await import('./PracticePage')
+const { resetPuzzleBodyCacheForTests } = await import('./puzzleBodyCache')
 
 describe('PracticePage', () => {
   beforeEach(() => {
@@ -84,6 +105,7 @@ describe('PracticePage', () => {
     vi.mocked(saveProfile).mockResolvedValue(undefined)
     vi.mocked(appendAttempt).mockResolvedValue(undefined)
     vi.mocked(listAttempts).mockResolvedValue([])
+    resetPuzzleBodyCacheForTests()
     // /browse is a real route now (v2 Phase 1a) — PracticePage reads it via
     // wouter's useLocation, which (unlike component state) reads the real
     // window.location and survives across tests in this file. Reset to
@@ -102,7 +124,7 @@ describe('PracticePage', () => {
   it('loads a puzzle and renders the status bar + card after startup', async () => {
     render(<PracticePage />)
 
-    expect(screen.getByText(/loading/i)).toBeInTheDocument()
+    expect(screen.getByTestId('route-skeleton')).toBeInTheDocument()
 
     await waitFor(() => {
       expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
@@ -283,7 +305,7 @@ describe('PracticePage', () => {
 
     // Still loading — session.profile is null, so the effect must not have
     // latched "applied" yet.
-    expect(screen.getByText(/loading your practice session/i)).toBeInTheDocument()
+    expect(screen.getByTestId('route-skeleton')).toBeInTheDocument()
 
     resolveLoadProfile?.(createDefaultProfile())
 

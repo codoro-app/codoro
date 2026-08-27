@@ -476,7 +476,7 @@ export type DragOrderPuzzle = z.infer<typeof DragOrderSchema>
 export type ScrubberPuzzle = z.infer<typeof ScrubberSchema>
 
 /**
- * The element type of `quizPool` (src/content/index.ts) — every interaction
+ * The element type of `quizPool` (src/content/pools.ts) — every interaction
  * except scrubber. Scrubber is deliberately excluded from this union: it
  * gets its own mode/route/renderer (Phase 3), not a fourth branch in the
  * quiz shell, per the Phase 2 corrective review's "own mode with shared

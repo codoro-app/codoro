@@ -62,6 +62,7 @@ import { MasteryTeaser } from './MasteryTeaser'
 import { buildPracticeShareText, buildPracticeChallengeText } from './shareText'
 import { usePracticeSession } from './usePracticeSession'
 import { useMediaQuery } from '../useMediaQuery'
+import { RouteSkeleton } from '../RouteSkeleton'
 import { StreakPause } from '../StreakPause'
 import { PATTERN_LABELS, PATTERN_SLUGS } from '../../content'
 import type { PatternSlug } from '../../content'
@@ -230,12 +231,15 @@ export function PracticePage() {
     )
   }
 
+  // True cold boot only (content-metadata-lazy-load Task 5): status stays
+  // 'loading' until the very first puzzle of the session has ever been
+  // displayed — every subsequent puzzle change is stale-while-revalidate
+  // (usePracticeSession.ts keeps showing the previous puzzle), so this
+  // branch is not re-entered on a Continue/filter change. RouteSkeleton, not
+  // a bespoke loading message, per the locked "one shared skeleton" pattern
+  // — see RouteSkeleton.tsx's own doc comment.
   if (session.status === 'loading' || session.profile === null) {
-    return (
-      <div className={PAGE_SHELL_CLASS}>
-        <p className="text-center text-text-1 py-8">Loading your practice session…</p>
-      </div>
-    )
+    return <RouteSkeleton />
   }
 
   if (isBrowseRoute && !isDesktop) {
