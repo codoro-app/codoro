@@ -1,166 +1,185 @@
-# Codoro v4 — build plan (accounts, identity, comeback channel)
+# Codoro v4 — build plan (feel & control: the polish version)
 
-v4 gives players an identity and — the part that actually serves retention — a **channel to call them back**. Login + sync alone retains no one; the game does that (v5's job). What accounts uniquely buy is cross-device continuity, named competition, and email re-engagement. All three are in scope; anything account-shaped that doesn't serve one of them is not.
+v4 is the version that makes Codoro stop feeling like a prototype. It builds nothing new to play — it makes what already exists **controllable** (keyboard, desktop, settings), **trustworthy** (report a bad puzzle, filter by difficulty), and **finished** (affordances, the mobile defects, the QA pass v3 never ran). Its whole scope is `docs/todo.md`'s open items; anything not traceable to one of them is out.
 
-**Strategic reframe, 2026-08-26 (direct user decision).** The launch moves behind v5. The honest reason, recorded: the current app plays like a flashcard exam, not a game — launching it now would spend the one-shot launch audience on a product that doesn't retain. So the sequence is now **v3 (build, done) → v4 (accounts) → v5 (make it a game people return to, then launch)**. Two consequences owned in writing:
+**Inserted 2026-08-27 (direct user decision).** This version did not exist a day ago. The accounts plan written on 2026-08-26 was v4; it is now **v5** (`docs/v5-build-plan.md`, unchanged in substance), gamification/launch is **v6**, multiplayer is **v7**. The reasoning, recorded rather than implied:
 
-1. **The roadmap's evidence gate for v4 is consciously waived.** v4 was gated on retention data proving demand for identity; that data cannot exist pre-launch. v4 opens on conviction, not evidence — a deliberate exception to sequencing principle 1, recorded here rather than papered over. Mitigation: v5 includes a closed beta that produces the retention evidence *before* the loud launch spends anything.
-2. **v3 Phase 4 (anonymous-only backend) is superseded, not built.** With accounts landing before any public traffic, building an anonymous leaderboard API only to rewrite its identity story weeks later is throwaway work. The backend is built **once, authenticated from day one**, in this plan. Every v3 Phase 4 work item lands here (traceability table at bottom); guests keep the full local-first play experience.
+1. **Nothing here needs a backend.** Every item is client-only and ships to production the day it merges. v5 is 10–14 sessions of infrastructure during which nothing a player can see improves; putting a shippable polish version in front of it means the app gets better continuously instead of in one distant step.
+2. **v5 would otherwise build on surfaces this version rebuilds.** v5's 5.1 adds an account section to Settings — but Settings today is an export/import page reachable only from a footer link, and todo item 22 asks for a real one. v5's 5.3 carries "optimistic rendering" (todo item 11) for leaderboard display. Doing accounts first means building both twice.
+3. **The launch is behind v6 anyway.** The 2026-08-26 resequence already bought the time this version spends. It does not delay the launch; it improves what the launch eventually shows.
 
-**Entry gate: open** — `perf/content-metadata-lazy-load` merged, v3 declared build-complete (its 2b.8 QA pass and Thomas's device-verification backlog run in parallel with early v4 phases; they gate v5's launch tail, not this build).
+**Entry gate: open.** Same gate v5 inherited from the 2026-08-26 decision — `perf/content-metadata-lazy-load` merged and v3 build-complete — with nothing added. This version is a prerequisite for v5, not the reverse.
 
 ## Locked decisions
 
 | Decision | Choice | Why |
 | --- | --- | --- |
-| Launch position | **After v5.** v3's launch machinery (readiness checks, scaling gate, distribution, growth loop) moves to v5's tail | Direct user decision, 2026-08-26. Launch when the game retains, not before. |
-| Backend shape | **One backend: Cloudflare Workers + D1 on the existing account, authenticated from day one.** v3 Phase 4's anonymous-only layer is not built | Streamlined path, direct user decision 2026-08-26. No throwaway anonymous API. Rate limiting, plausibility validation, load testing carry over unchanged — an authenticated API still gets poked at. |
-| Auth | **Clerk** (re-confirmed 2026-08-26 against Better Auth / Supabase Auth) | Buys the entire deferred v1 security block as managed product: 2FA/OTP, disposable-email handling, session/token storage, password hygiene. Free tier covers pre-launch and early growth. Accepted trade-offs: vendor dependency, JWT-verification wiring in Workers, real cost at scale — revisit only if pricing bites. **Server-side authorization stays ours**: Clerk authenticates; every Worker endpoint authorizes. |
-| Guest-first is law | **An account is never required to play.** Local-first behavior is byte-identical signed out; account features are additive (sync, named leaderboard, email). Signup prompts appear only at value moments, frequency-capped | v2's local-first design is the app's scaling and resilience story; v4 must not quietly convert it into a login wall. A signup gate in front of a game nobody knows yet is a retention killer, not a feature. |
-| Sync payload | **The versioned export format is the sync payload** — the seam v2 built deliberately | Roadmap v4.1 unchanged. One serialization, one schema-version story, one migration path; export/import tests double as sync-payload tests. |
-| Email channel | **In scope** (direct user decision, 2026-08-26): streak-at-risk nudge, challenge-answered notify, weekly digest — via Resend from Workers, with preferences + one-click unsubscribe from day one | The comeback lever accounts uniquely enable, and the hook v5's retention mechanics plug into at launch. Without it v4 is infrastructure with no retention payoff. |
-| Client bundle discipline | Clerk (and anything else v4 adds client-side) **stays off the play loop's critical chunks** — lazy-loaded at its own surfaces | The perf pass that just landed (PR #80 + lazy puzzle bodies) is not to be regressed by an auth SDK on boot. The posthog-js lesson generalizes. |
-| Sizing | Phases sized in **Claude sessions**, same convention as v2/v3 | Unchanged. |
-| Practices | Every binding practice from v3's "Coding practices carried from v2" applies, including practice 9 (server code holds the same bar) — plus a new one below for PII | Unchanged discipline, wider surface. |
-
-**New binding practice — PII handling.** v4 is the first time real PII (email, at minimum) exists in this system. Rules: PII lives in Clerk, not D1, unless a feature forces otherwise (D1 stores Clerk user IDs, usernames, scores, sync blobs); no PII in telemetry events, ever (PostHog stays `identified_only` keyed on IDs, not emails); account deletion deletes server-side data verifiably; every new stored field is justified in the phase amendment that adds it.
+| Scope boundary | **`docs/todo.md`'s open items and nothing else.** Every phase below traces to a numbered item (table at bottom); every open item traces to a phase or to a written "not here, and here's where" | This version's job is closing a list, not opening a design space. The moment it grows a feature nobody wrote down, it stops being the cheap version that goes in front of accounts. |
+| Skeletons / caching / optimistic rendering (todo 9, 10, 11) | **Not built here.** Deferred to v5, where a network first exists | `src/app/RouteSkeleton.tsx`'s own doc comment already settled this in v2: Codoro is local-first — puzzles ship in the bundle, profile/attempt reads resolve off IndexedDB in single-digit milliseconds. A skeleton over a synchronous read makes the app feel *slower*; there is no network response to cache and nothing to render optimistically. The one genuine loading boundary (the lazy route chunk) already has its skeleton. These three items become real work the day sync and leaderboards exist — v5's 5.2/5.3 — and the v5 plan already claims item 11. Building them now would mean inventing fake latency to decorate. |
+| Difficulty filter (todo 17) | **Browse only, never the rated flow** | `difficulty_rating` is already in the lazy metadata index (`src/content/index.ts`), so the filter itself is cheap — but Practice's rated selection uses an Elo rating window. Letting a player pin "easy" either breaks rating convergence (farm easy, rating means nothing) or does nothing (the window already bounds difficulty). In Browse, where the player is exploring content rather than being rated, the filter has a real job. Thomas's own instinct on this item was "not sure if that is a great one" — this is the version of it that is. |
+| Daily's interaction mix (todo 21) | **Rebuild the calendar around scrubber / drag-order / tap-line; drop mcq and swipe-binary** — and treat the content shortfall as part of the item, not a surprise | Measured, not assumed: of 214 puzzles, 45 are rated ≥1600 (Daily's floor) — and only 22 of those are scrubber (13), tap-line (6) or drag-order (3). Today's 16-entry `DAILY_CALENDAR` is **100% mcq/swipe/tap-line with zero scrubber entries**. So this is not a filter change; it is a curation pass plus a content ask. The one piece of luck: `DAILY_EPOCH` is still the `2026-01-01` placeholder, so the append-only contract is not yet binding and the calendar can be rebuilt freely. **That stops being true at launch — this is the last cheap moment to do it.** |
+| Report button (todo 18) | **Not in v4 — moved to v5** (endpoint in 5.0, client control in 5.1), decided 2026-08-27 | The backend-free version was a `mailto:` hack; once Workers and D1 exist the real thing costs about an hour, and it is live *at* launch — the highest-signal content-feedback window this project will ever get. Deferring it also keeps 4.2 to a single, clean item. One design note carried to v5: reports must work signed-out (guest-first is law, and most reporters won't have accounts), which makes it the one write endpoint accepting anonymous input, and therefore an abuse surface v5's rate limiting and 5.6's hardening must both cover. |
+| Desktop rails vs. page scroll (todo 26) | **Sticky sidebar, one page scroll container.** `.app-shell__sidebar` gets `position: sticky` so it pins the way `NavRail` already does. The independent-scroll restructure — viewport-height shell, middle column its own `overflow-y: auto` — was **considered and rejected for v4** | The provable defect is the right rail: it is `self-start` with no sticky, so it scrolls away with the middle column. That's a ~10-line fix. The full three-region restructure is what `PageShell.tsx` deliberately avoided, and it would drag in `useRouteFocusAndScroll` (scrolls the page today, would have to scroll a container), the footer's placement, and re-verification of the perf pass's CLS fixes — destabilizing the shell immediately before v5 has to build an account surface on it. If the app-like shell is still wanted, it belongs in v6, where the desktop experience gets rethought anyway. |
+| Preference storage | **Every new preference goes into the versioned export format** (schema version bump), not a loose `localStorage` key | The export format is v5's sync payload — the seam v2 built deliberately. A preference stored outside it silently fails to sync the moment accounts land, and that bug surfaces as "my settings didn't follow me to my phone" months later. One serialization, one migration path, same as every other stored field. |
+| Bundle discipline | Carried from v5's table, unchanged: nothing this version adds lands on the play loop's critical chunks | PR #80 + the metadata/body lazy-load split are the baseline. A tooltip library or a settings surface on the boot path would regress a pass that was expensive to earn. Prefer no new runtime dependency at all here. |
+| Sizing | Phases sized in **Claude sessions**, same convention as v2/v3/v5 | Unchanged. |
+| Practices | Every binding practice carried from v3 applies unchanged | This version touches no PII, so v5's new PII practice does not yet bind. |
 
 ## Phase map
 
 | Phase | What | Est. sessions |
 | --- | --- | --- |
-| 4.0 | Backend foundation: `workers/` package, Clerk JWT verification, D1 schema + migrations, rate limiting, CI deploy | 2 |
-| 4.1 | Client auth: Clerk React wiring, guest-first UX, account settings (incl. delete account) | 1–2 |
-| 4.2 | Progress sync: export-format payload, anonymous→account migration, merge rules, multi-device | 2–3 |
-| 4.3 | Public identity: usernames, profiles, named leaderboards (Daily/Rush/Boss), privacy controls | 2 |
-| 4.4 | Edge OG meta injection (carried v3 Phase 4 item, unchanged) | 1 |
-| 4.5 | Email re-engagement: Resend + domain auth, 3 templates, preferences/unsubscribe, cron scheduling | 1–2 |
-| 4.6 | Hardening: load test + cost curve, authz test suite, `/legal` accounts delta, lawyer review engaged | 1–2 |
+| 4.0 | Desktop & keyboard control: submit/advance on Enter, arrow-key interaction, the desktop rails (sticky sidebar), Practice scroll | 1–2 |
+| 4.1 | Settings, for real: a first-class route with actual preferences, export/import folded in, versioned storage | 1–2 |
+| 4.2 | Browse difficulty filter (deliberately *not* the rated flow) | 1 |
+| 4.3 | Daily, made hard: calendar rebuilt around scrubber/drag-order/tap-line — **gated on a content batch**, so it runs last | 1–2 + content |
+| 4.4 | Affordances: drag-handle target and hint, tooltips where a control isn't self-evident | 1 |
+| 4.5 | The verification tail: v3's 2b.8 QA pass, the mobile defects, Thomas's device backlog | 1–2 |
 
-**Sequencing.** 4.0 first — everything else stands on it. 4.1 → 4.2 → 4.3 in order (no sync without sessions; no named leaderboard without usernames). 4.4 is independent after 4.0 and can interleave anywhere. 4.5 needs 4.1 (accounts to email) and its digest content improves after 4.3, but can start on the nudge/notify templates early. 4.6 closes the version and is only meaningful against the finished build. Thomas's v3 verification backlog (device regression, soak, PWA checks) runs in parallel throughout — none of it blocks v4 code, all of it blocks v5's launch tail.
+**Sequencing.** 4.0 first — it is the largest behavioral change and the one most likely to shake loose regressions in the interaction components everything else sits on. 4.1 next, because it establishes the preference-storage seam 4.2's filter default and 4.4's hint-dismissal both write into. 4.2 and 4.4 are independent after 4.1 and can interleave. **4.3 runs last, and its content batch is commissioned on day one of 4.0** — the decision to gate it on real content (rather than ship a short calendar) makes content authoring the long pole of this whole version, so the authoring must run in parallel with every other phase or 4.3 becomes a stall at the end. 4.5 closes the version and is only meaningful against the finished build.
 
-## Phase 4.0 — Backend foundation (2 sessions)
+**The one scheduling risk in this plan, named up front:** content authoring is the slowest activity in this project, and 4.3 is now gated on it by choice. If the batch isn't moving by the time 4.4 is done, the honest options are to ship the short calendar after all (append later — the append-only contract permits growth) or to let v4 close without 4.3 and carry it. Deciding that at the end, under pressure, is how a version slips quietly; deciding it in writing here is why it's written here.
 
-**Build:**
+## Phase 4.0 — Desktop & keyboard control (1–2 sessions)
 
-1. **`workers/` workspace package**: TypeScript, `wrangler`, its own vitest suite, wired into root `pnpm validate` (typecheck + lint + tests) and CI deploy on merge — v3 Phase 4 item 1, verbatim. Shared API payload types in one package importable by client and worker; no drifting duplicates.
-2. **D1 schema v1 + migrations discipline**: `users` (Clerk user ID PK, username nullable until 4.3, created_at), `profiles` (sync blob + client schema version + updated_at), `scores` (user_id, mode, day, score — one row per user/mode/day, upsert-keep-best). Server-side migrations get the same isolated-test convention as the client's `MIGRATIONS`.
-3. **Clerk JWT verification middleware**: JWKS-based session-token verification on every authenticated route; explicit 401/403 split; forged/expired/aud-mismatch tokens covered by tests. Authorization checks (this user owns this row) live server-side only — the deferred v1 security item, closed structurally.
-4. **Rate limiting**: per-IP (pre-auth) and per-user (post-auth), on Workers. Still load-bearing (v3's words) — burst-tested in 4.6, unit-tested now.
-
-**DoD:**
-
-- [ ] Worker deployed to a staging route from CI; `pnpm validate` runs the workers suite from a fresh clone
-- [ ] Auth middleware rejects forged/expired/mismatched tokens (tested); authz helper enforces row ownership (tested)
-- [ ] D1 migrations have isolated tests; schema documented in `workers/README.md`
-- [ ] Rate limiter unit-tested for both keys; limits recorded as config, not magic numbers
-
-## Phase 4.1 — Client auth, guest-first (1–2 sessions)
+Codoro is a keyboard-less mobile game running on desktop. This phase is the largest single jump in how the app feels to the audience most likely to try it from a link — and the one that plays worst in a screen recording today.
 
 **Build:**
 
-1. Clerk React provider + sign-in/up surface, themed to the arena palette (dark surfaces, lime accent) — custom-styled Clerk components, not a stock white modal in a dark game.
-2. **Guest-first UX**: play loop untouched signed out. Signup prompts only at value moments — end of a boss clear, a streak milestone, viewing the leaderboard — with a hard frequency cap and a permanent quiet path ("maybe later" is respected, not nagged). The exact moments + cap: settle in the build prompt.
-3. Settings: account section — signed-in state, sign out, **delete account** (calls a Worker endpoint that deletes D1 rows and the Clerk user; verifiably gone).
-4. Bundle discipline: Clerk SDK lazy-loaded at auth surfaces only; play-path chunks unchanged (verified against the perf baseline, not asserted).
+1. **Enter to submit, Enter to advance** (todo 23). One binding, two states: with an answer staged, Enter commits it; on the result state, Enter advances to the next puzzle. Applies across every interaction type (mcq, swipe-binary, tap-line, drag-order, scrubber) through the shared commit path, not per-component. Must not fire while focus is in a text input or a dialog.
+2. **Arrow-key interaction** (todo 24). Per interaction type, the obvious mapping: mcq = ↑/↓ (or 1–4) to select; swipe-binary = ←/→ to answer; tap-line = ↑/↓ to move the line cursor; drag-order = ↑/↓ to move the focused item (`DragOrder.tsx` already has key handling — extend, don't replace); scrubber = ←/→ to step, already partially present in `Scrubber.tsx`. Every mapping discoverable, not secret: see 4.4's tooltips and a keyboard-shortcut list in Settings (4.1).
+3. **Desktop rails must not scroll with the middle column** (todo 26, clarified 2026-08-27 to cover the right rail too). Two halves, and only one of them is a confirmed defect:
+   - **Right sidebar — confirmed defect, fix it.** `.app-shell__sidebar` is `align-items: start` + `self-start` with no `position: sticky` (see `app.css` and `PracticePage.tsx`'s `<aside>`), so it scrolls out of view with the middle column. Give it `position: sticky; top: 0`, a `max-height` of the viewport, and its own `overflow-y: auto` for the case where sidebar content is taller than the screen. Both consumers (`PracticePage`, `DailyPage`) share the class, so this is one change, not two.
+   - **NavRail — verify before touching.** It is already `sticky top-0 h-screen`, which should hold it; the usual way that silently breaks is an ancestor with `overflow` or `transform`. Reproduce at ≥1024px with a screenshot first. If it holds, close this half as not-reproducible **in writing** and do not "fix" it.
+   - **Out of scope, recorded:** the full three-region restructure (viewport-height shell, middle column its own scroll container). Locked decision above says why, and where it goes if it's still wanted.
+4. **Practice page scroll** (todo 25). Reproduce and fix the reported scrolling-down defect on `/practice`. Likely candidates given the shell: `PageShell`'s pinned header/sticky-action interaction with the page scroll container, or the bottom-nav height offset in `AppShell.tsx`. Capture the failing case in a test, not just a fix.
 
 **DoD:**
 
-- [ ] Signed-out play loop behaviorally and performance-identical (bundle diff + Lighthouse re-check against the perf/content-metadata-lazy-load baseline)
-- [ ] Create → sign out → sign in → delete account round-trip verified on staging; deletion confirmed server-side
-- [ ] Signup prompts appear only at the settled value moments, frequency cap tested
+- [ ] Every interaction type is fully playable with keyboard only, verified per type; Enter never fires inside inputs or dialogs (tested)
+- [ ] Keyboard mappings documented in one place and surfaced in Settings
+- [ ] Practice-page scroll defect has a failing-then-passing test, not just a visual fix
+- [ ] Right sidebar stays pinned while the middle column scrolls, at ≥1024px, on both `/practice` and `/daily`, with a before/after screenshot; a sidebar taller than the viewport scrolls internally rather than clipping
+- [ ] NavRail either fixed with a before/after screenshot, or closed as not-reproducible **in writing**
+- [ ] Page still has exactly one scroll container — the restructure stayed out (grep: no new `overflow: hidden` on `.app-shell`)
+- [ ] No regression to touch/pointer paths — the OD-6 swipe suite and the drag/scrubber suites stay green
 - [ ] `pnpm validate` green
 
-## Phase 4.2 — Progress sync (2–3 sessions)
+## Phase 4.1 — Settings, for real (1–2 sessions)
+
+Settings today is an export/import page reachable only from a footer link (`src/app/settings/SettingsPage.tsx` says so in its own header comment). Todo item 22 asks for a settings page; v5's 5.1 then bolts an account section onto whatever exists. This phase builds the thing both are pointing at.
 
 **Build:**
 
-1. **Payload**: the versioned export format, unchanged — schema version travels with every push; the server stores the blob + version, never interprets fields it doesn't need to.
-2. **Sync model**: push after meaningful boundaries (attempt/run end, debounced), pull on boot and sign-in. Fire-and-forget with a retry queue; offline behavior unchanged; the play loop never blocks on sync — the local-first lock, held.
-3. **Anonymous → account migration**: first sign-in uploads the local profile; rating and history survive (the roadmap's promise); the v2 `anonId` is linked to the account for telemetry continuity.
-4. **Merge rules** (the hard part — settle the detail in the build prompt, against real export fixtures): monotonic data merges (best scores = max, attempt history = append-by-id union, streaks = recomputed from merged history); true preferences = last-write-wins; **no silent data loss** — a merge that would discard attempts is a bug by definition. Property-style merge tests with real v9+ fixtures.
-5. Conflict UX: silent for clean merges; the rare true conflict (two devices played offline simultaneously) resolves by merge, never by prompt — a game should not ask users to pick a winning save file.
+1. **A first-class route**: `/settings` reachable from the nav (rail on desktop, an obvious path on mobile — settle placement against the 2b shell rather than inventing a new pattern), not only from a footer link.
+2. **Real preferences**, sectioned. Candidate set — settle the exact list in the build prompt, and justify each one that costs a stored field: timer visibility (todo 14's "no timer on regular trace mode" is already shipped; make it a preference rather than a hardcode if that's cheap), reduced motion / animation intensity, sound if any exists, code font size, keyboard-shortcut reference (4.0's output), theme if more than one exists. **A preference nobody will change is a maintenance cost, not a feature** — a short honest list beats a long aspirational one.
+3. **Storage through the versioned export format**: schema version bump, migration written and tested with the existing `MIGRATIONS` convention, preferences travel in export/import. This is the locked decision above; it is what makes v5's sync pick these up for free.
+4. **Export/import folded in** as a section of the new page, behavior and tests unchanged — the confirm-overwrite contract and the four named bad-input states carry over intact. This is a re-home, not a rewrite.
+5. **Leave the account-shaped hole**: no auth UI, no placeholder "Sign in" button. v5's 5.1 adds its section; this phase just makes sure the page has a natural place for it.
 
 **DoD:**
 
-- [ ] Two-device test: play on A, sign in on B, B shows A's rating/history; play both offline, reconnect, merged state provably loses nothing (fixture-based test + real staging pass)
-- [ ] Anonymous → account migration keeps rating + history, verified against a real pre-v4 export
-- [ ] Airplane-mode pass: signed-in offline behavior identical to v3's
-- [ ] Schema-version skew handled: older client vs newer blob and vice versa both defined and tested, not accidental
+- [ ] `/settings` reachable from primary nav at both breakpoints; old footer link still resolves
+- [ ] Every preference round-trips through export → import (test), and the schema migration has an isolated test
+- [ ] Existing `SettingsPage.test.tsx` assertions on export/import all still pass, unmodified where possible
+- [ ] Each shipped preference is justified in one line in the phase amendment; the ones considered and dropped are named too
+- [ ] `pnpm validate` green
 
-## Phase 4.3 — Public identity + named leaderboards (2 sessions)
+## Phase 4.2 — Browse difficulty filter (1 session)
 
 **Build:**
 
-1. **Usernames**: unique, case-insensitive, reserved-word + profanity denylist (allowlist thinking per the OD-2 lesson: strict charset, length bounds), rate-limited changes.
-2. **Profile** (`/u/:username`, opt-in public): rating, streak, per-mode bests, badge slots (empty until v5 fills them). Private by default — settle default-vs-prompt in the build prompt.
-3. **Named leaderboards**: Daily / Rush / Boss bests, keyed to accounts; participation is opt-out-able; guests see leaderboards read-only (a designed value moment, not a wall). Server plausibility validation carried from v3 Phase 4: score bounds per mode, one write per user/mode/day, upsert-keep-best.
-4. Windows: daily + all-time now; seasons deliberately deferred to v5's reward systems.
+1. **Browse difficulty filter** (todo 17): easy / medium / hard chips on the Browse surface, alongside the existing patterns/mastery filter row (#77's compact row — extend it, don't add a second row). Bands derived from `difficulty_rating` with the cut points **recorded as named constants with reasoning**, not magic numbers; reads from the lazy metadata index only, so no puzzle body loads. **Not added to the rated Practice flow** — locked decision above; write the reason into the code comment so the next session doesn't "helpfully" add it.
+2. Empty-state handling: a band × pattern × mastery combination that matches nothing must say so, not render a blank list.
 
 **DoD:**
 
-- [ ] Leaderboard live behind a flag on staging; out-of-bounds scores rejected (tested); a second account cannot write the first's rows (authz test)
-- [ ] Username validation covered by tests incl. the denylist; profile opt-in/out verified
-- [ ] Nothing beyond the chosen username is ever publicly displayed (checked against the PII practice)
+- [ ] Filter narrows Browse correctly at every band incl. combinations with the existing pattern/mastery filters (tested); band cut points documented
+- [ ] Zero puzzle bodies loaded by filtering — verified against the metadata/body split, not assumed
+- [ ] Empty combination renders a named empty state (tested)
+- [ ] Rated Practice selection provably unchanged (its existing selection tests untouched and green)
 
-## Phase 4.4 — Edge OG meta injection (1 session)
+## Phase 4.3 — Daily, made hard (1–2 sessions + a content batch)
 
-v3 Phase 4 item 5, carried unchanged: per-route and per-puzzle `<title>`/description/OG tags injected at the edge — covers `/challenge` (dynamic payload, unreachable by build-time prerender; the "until a v3 edge function exists" note comes due here). Per-puzzle OG **images** stay deferred unless trivially cheap — decide in the build prompt, record the decision.
+The item behind this phase is "no swipe or mcq for daily, make daily better." **No mcq and no swipe-binary in the Daily pool is firm** (re-confirmed 2026-08-27). The measurement that makes this a phase rather than a line change: dropping those two takes Daily's eligible ≥1600 pool from 45 puzzles to 22 — scrubber 13, tap-line 6, drag-order 3 — and today's 16-entry `DAILY_CALENDAR` is **100% mcq/swipe/tap-line with zero scrubber entries**.
 
-**DoD:**
-
-- [ ] Unfurls verified with real debuggers (Slack/Discord/X) against staging `/puzzle/:id` and `/challenge` URLs
-
-## Phase 4.5 — Email re-engagement (1–2 sessions)
+**Gated on content, by decision (2026-08-27).** The alternative — ship a 22-entry calendar now and append as content lands — was considered and rejected in favour of rebuilding the calendar once, at full length, from real content. That makes authoring this phase's blocking prerequisite, and content authoring is the slowest activity in the project. **Commission the batch on day one of 4.0, not at the start of this phase.** The lowered rating floor was also considered and rejected: leaving the ≥1600 floor alone keeps Daily's difficulty story consistent with the calibration the whole pool was rated against.
 
 **Build:**
 
-1. **Resend** via HTTP API from Workers; sending domain authenticated (SPF/DKIM on the getcodoro.com domain); Workers Cron triggers for scheduled sends.
-2. **Three templates, no more**: streak-at-risk nudge, challenge-answered notification, weekly digest (your week in numbers + what's new). Plain, honest, dark-theme-friendly HTML; every template renders acceptably in the big clients.
-3. **Preferences + one-click unsubscribe** from the first email ever sent: per-category toggles in Settings, `List-Unsubscribe` header, suppression respected server-side. Defaults (which categories are on at signup): settle in the build prompt with deliverability and consent-law caution — when in doubt, opt-in.
-4. Telemetry: send/open-proxy/unsubscribe events (no PII in events — IDs only).
+0. **Content prerequisite (starts first, finishes last):** author hard scrubber and drag-order puzzles until the eligible ≥1600 non-mcq/non-swipe pool supports a full calendar without duplicates. Target length is an open question below; the gap today is 22 against roughly 40. This runs through `GENERATING_PUZZLES.md` and the normal calibration path — no shortcuts that would put uncalibrated puzzles in the hardest surface the app has.
+1. **Rebuild `DAILY_CALENDAR`** from scrubber / drag-order / tap-line puzzles only, hardest-first-biased, no duplicates. Legal right now precisely because `DAILY_EPOCH` is still the `2026-01-01` placeholder — `dailyCalendar.ts`'s own pre-launch note authorizes this, and the day the real epoch is frozen it becomes forbidden. Update the test pin accordingly.
+2. **Enforce the rule in code, not in a comment**: `validate:content` (or `dailyCalendar.test.ts`) fails the build if any calendar entry is mcq or swipe-binary. A convention that only lives in a doc comment gets violated by the next content batch — and this one is a locked decision, not a preference.
+3. **"Make daily better" beyond the interaction mix** is explicitly *out of scope here* and belongs to v6's game-feel definition session — the session shape, the stakes, the payoff of a Daily are exactly what that session exists to define. This phase changes what Daily asks you to do; v6 changes what Daily *is*.
 
 **DoD:**
 
-- [ ] All three templates sent from staging and verified in real inboxes; unsubscribe works from the email itself and suppresses future sends (tested)
-- [ ] No email ever goes to an unverified address; category defaults recorded in an amendment with reasoning
-- [ ] Cron schedules deployed and observable
+- [ ] Every calendar entry is scrubber / drag-order / tap-line; **enforced by a failing build**, not a comment (tested with a deliberately-bad fixture)
+- [ ] Calendar reaches the agreed target length with no duplicate ids and every id resolving (existing `validate:content` gates hold)
+- [ ] Every newly authored puzzle went through the normal calibration path; none added to the calendar uncalibrated
+- [ ] The pre-launch editing window is called out in the amendment with the exact condition that closes it (`DAILY_EPOCH` frozen)
 
-## Phase 4.6 — Hardening, cost, legal (1–2 sessions)
+## Phase 4.4 — Affordances (1 session)
 
 **Build:**
 
-1. **Load test + cost curve** (carried v3 Phase 4 item 6): write path at spike rates against D1's real limits; rate-limit burst test proves the limiter holds; **cost curve recorded at 1×/10×/100×** expected load — including Clerk MAU and Resend volume, not just Cloudflare.
-2. **Security pass**: authz test suite across every endpoint (user A vs user B), dependency audit, secrets hygiene, the PII practice checked against what actually got stored.
-3. **`/legal` accounts delta**: privacy policy + ToS now cover real PII (email), sync storage, leaderboard display, marketing email. **The lawyer review carried from v3 Phase 3 is engaged during this phase** — one review covering accounts + email + sync + the eventual launch surface; it must land before v5's distribution tail, and it's calendar time, so it starts here, not there.
-4. Account-deletion verification: delete → confirm D1 rows, Clerk user, and email suppression list entry are gone.
+1. **Drag-handle target + hint** (todo 20): larger hit target on `DragOrder`'s handles (the 2b.6 affordance work is the precedent — check what actually landed on `main` before re-doing it), plus a first-use hint that says the row is draggable. Hint dismissal persists through 4.1's preference storage, so it does not nag.
+2. **Tooltips** (todo 12): there is no tooltip anywhere in the codebase today. Add them **only where a control is not self-evident** — icon-only buttons, the new difficulty bands, keyboard shortcuts on hover. Build the minimum yourself rather than adding a runtime dependency (bundle-discipline decision); must work on touch (long-press or tap-to-reveal) and be reachable by keyboard, or it is an accessibility regression rather than a polish win.
+3. Audit pass: any icon-only control with no accessible name is a defect this phase closes on the way past.
 
 **DoD:**
 
-- [ ] Load/burst numbers + 3-point cost curve recorded here as an amendment
-- [ ] Authz suite green; zero endpoints without an ownership check
-- [ ] `/legal` updated; lawyer review engaged with the full delta list in writing
-- [ ] Deletion round-trip verified and documented
+- [ ] Drag handles meet the touch-target minimum at mobile widths (measured); hint appears once and stays dismissed across reloads
+- [ ] Tooltips keyboard-reachable and touch-usable (tested), and add no new runtime dependency
+- [ ] Every icon-only control has an accessible name (grep/axe-style check, not eyeballed)
+- [ ] Bundle diff shows no growth on play-path chunks
 
-## Open design questions (settle in build prompts, not here)
+## Phase 4.5 — The verification tail (1–2 sessions)
 
-- Signup-prompt value moments + frequency cap (4.1)
-- Merge-rule detail per field + schema-skew policy (4.2)
-- Profile public-by-default vs opt-in prompt (4.3)
-- Per-puzzle OG images: build or re-defer (4.4)
-- Email category defaults at signup (4.5)
+This phase absorbs work v3 left open. It sits here rather than in v5 because it is the same class of work as the rest of this version, and because it is the honest place to notice the mobile defects that todo item 19 names.
 
-## Traceability — v3 Phase 4 (superseded) and other carryovers
+**Build:**
 
-| Item | Source | Disposition here |
+1. **v3's 2b.8 QA pass**, carried verbatim: batched screenshot review of every route at mobile and desktop widths, plus a Lighthouse re-check; absorbs the visual-verification boxes 2b.0/2b.1/2b.3/2b.4 left open because those sessions ran headless.
+2. **Mobile defects** (todo 19): the Lighthouse and swipe items, re-checked against the current build. The swipe half may already be closed by OD-6 and the August hardening wave — **verify before fixing**; a re-fix of a fixed bug is how regressions get introduced.
+3. **Thomas's device-verification backlog**, unchanged and still his: two-phone interaction regression (incl. boss/missions), PWA install/offline/SW-update, live telemetry check, week-long storage soak, cross-device Daily, boss/missions playthroughs. This runs on real hardware and cannot be done from a session.
+4. **Regression sweep over 4.0–4.4**: the keyboard work touched every interaction component; the QA pass is where that gets checked at both breakpoints, not asserted.
+
+**DoD:**
+
+- [ ] Every route reviewed at both breakpoints with screenshots attached to the amendment
+- [ ] Lighthouse re-checked against the `perf/content-metadata-lazy-load` baseline; any regression from 4.0–4.4 named and fixed or written-waived
+- [ ] Todo item 19's two halves each closed as fixed, already-fixed, or not-reproducible — in writing
+- [ ] Device backlog either run or explicitly carried into v5 with a date
+
+## Open questions (settle in build prompts, not here)
+
+- Exact keyboard mappings per interaction type, and where the shortcut reference lives (4.0)
+- The final preference list, and which ones are worth a stored field (4.1)
+- Difficulty band cut points, and whether "easy/medium/hard" or the rating numbers are shown (4.2)
+- **Daily's target calendar length** — and therefore the size of the content batch 4.3 is gated on (4.3). This is the number that decides how long v4 runs; settle it before commissioning the batch, not after
+- Tooltip touch interaction: long-press vs tap-to-reveal (4.4)
+
+## Traceability — every open `docs/todo.md` item
+
+| # | Item | Disposition |
 | --- | --- | --- |
-| `workers/` workspace in `pnpm validate` + CI | v3 Phase 4 item 1 | **4.0**, verbatim |
-| Leaderboard API + plausibility validation | v3 Phase 4 item 2 | **4.3**, authenticated instead of anonymous |
-| Rate limiting (load-bearing) | v3 Phase 4 item 3 | **4.0** build, **4.6** burst-proof |
-| Fire-and-forget client integration | v3 Phase 4 item 4 | **4.2** (sync) + **4.3** (leaderboard display) |
-| Edge OG meta (covers `/challenge`) | v3 Phase 4 item 5 | **4.4**, unchanged |
-| Load test + cost curve | v3 Phase 4 item 6 | **4.6**, widened to Clerk/Resend costs |
-| `/legal` delta + lawyer review | v3 Phase 3 item 4 / Phase 4 item 7 | **4.6** — one review, full delta |
-| v1 security block (2FA/OTP, disposable email, token storage, password hygiene) | v1 → v2 → v3 deferral chain | **Clerk** (4.0/4.1); server-side authorization ours (4.0) |
-| Optimistic rendering ("first network round-trip") | v2 todo item 11 deferral | **4.3** leaderboard display — decide in build prompt |
-| Anonymous leaderboard (as shipped surface) | v3 Phase 4 item 2 / roadmap 3.1 | **Not built** — superseded 2026-08-26, recorded at top |
+| 9 | Skeleton loaders | **Not built** — the one real loading boundary already has one; the rest would be fake latency (locked decision). Revisit in v5 |
+| 10 | Caching | **v5** — nothing to cache until there is a network |
+| 11 | Optimistic rendering | **v5 (5.3)** — already claimed by the v5 plan's traceability table |
+| 12 | Tooltips | **4.4** |
+| 14 | No timer on regular trace mode | **Done** (v3). 4.1 may make it a preference if cheap |
+| 15 | Privacy policy | **v5 (5.6)** — the lawyer review is engaged there, covering accounts + email + sync at once |
+| 16 | Terms of service | **v5 (5.6)**, same review |
+| 17 | Tiered answers easy/medium/hard | **4.2**, scoped to Browse only (locked decision) |
+| 18 | Report question button | **v5** — endpoint in 5.0, client control in 5.1. Moved out of v4 on 2026-08-27: the real thing is an hour once Workers exist, and it's live at launch |
+| 19 | Mobile errors (Lighthouse, swipe) | **4.5**, verify-before-fix |
+| 20 | Drag-and-drop handle bigger / hint | **4.4** |
+| 21 | No swipe or mcq for Daily; make Daily better | **4.3** for the interaction mix + calendar rebuild (firm; gated on a content batch); **v6** for what a Daily *is* (game-feel definition session) |
+| 22 | Settings page | **4.1** |
+| 23 | Press Enter to submit and go next | **4.0** |
+| 24 | Use arrows/keys on computer | **4.0** |
+| 25 | Practice tab scrolling down | **4.0** |
+| 26 | Desktop nav bar not floating | **4.0** — right sidebar sticky (confirmed defect); NavRail repro-required-before-fix; full shell restructure out of scope |
+
+Items 1–8 and 13 are already dispositioned in `docs/todo.md`'s original 2026-08-02 fold-in (all landed in v2/v3, or carried to v6); 13 was never written.
