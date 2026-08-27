@@ -83,6 +83,7 @@ import type { CheckpointResult } from '../../engine'
 import type { ScrubberPuzzle } from '../../content'
 import { StreakPause } from '../StreakPause'
 import { useMediaQuery } from '../useMediaQuery'
+import { RouteSkeleton } from '../RouteSkeleton'
 import '../tokens.css'
 
 // 2b.0: was `.feedback-panel--correct`/`--wrong` + descendant color
@@ -574,12 +575,10 @@ export function TraceRunner({ timed = true }: TraceRunnerProps = {}) {
     )
   }
 
+  // True cold boot only — see usePracticeSession.ts's identical branch/
+  // RouteSkeleton reasoning; useTraceSession.ts mirrors it exactly.
   if (session.status === 'loading' || session.profile === null) {
-    return (
-      <div className="text-center text-text-1 py-8">
-        <p>Loading your trace session…</p>
-      </div>
-    )
+    return <RouteSkeleton />
   }
 
   if (session.status === 'empty' || session.puzzle === null) {

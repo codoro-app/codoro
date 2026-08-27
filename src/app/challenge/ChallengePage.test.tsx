@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { puzzlePool } from '../../content'
+import { puzzlePool } from '../../content/pools'
 import {
   CHALLENGE_PAYLOAD_VERSION,
   buildChallengePayload,
@@ -107,24 +107,33 @@ describe('ChallengePageForHash — dispatch against the real puzzlePool', () => 
   // The same "every bundled puzzle renders its native interaction" P0 that
   // PuzzlePage.test.tsx guards, applied to challenge play: a challenge link
   // can carry any interaction type, and each must render through its shell.
+  // Task 6: puzzle bodies now resolve via a real async getPuzzleBody call,
+  // so this waits for the resolved render instead of asserting synchronously.
   it.each(puzzlePool.map((puzzle) => [puzzle.id, puzzle.interaction] as const))(
     'renders %s (%s) without throwing',
-    (id, interaction) => {
+    async (id, interaction) => {
       const { container } = render(
         <ChallengePageForHash
           hash={fragmentFor([{ puzzleId: id, correct: false, time_ms: 1000 }])}
         />,
       )
       if (interaction === 'scrubber') {
-        expect(container.querySelector('.trace-runner')).toBeInTheDocument()
+        await waitFor(() => {
+          expect(container.querySelector('.trace-runner')).toBeInTheDocument()
+        })
       } else {
-        expect(container.querySelector('.puzzle-card')).toBeInTheDocument()
+        await waitFor(() => {
+          expect(container.querySelector('.puzzle-card')).toBeInTheDocument()
+        })
       }
     },
   )
 })
 
 describe('ChallengePageForHash — broken link states', () => {
+  // A payload that fails to decode is known to be broken synchronously —
+  // no getPuzzleBody call is ever made, so this state (and its telemetry)
+  // still renders on the first pass, no waitFor needed.
   it('renders the broken state when the fragment does not decode', () => {
     render(<ChallengePageForHash hash="!not-valid-base64url!" />)
     expect(screen.getByText(/challenge link is broken/i)).toBeInTheDocument()
@@ -132,21 +141,34 @@ describe('ChallengePageForHash — broken link states', () => {
     expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: false })
   })
 
-  it('renders the broken state when an id does not resolve to a bundled puzzle', () => {
+  // An id that fails to resolve is only known after the real async
+  // getPuzzleBody call settles — this renders 'loading' first.
+  it('renders the broken state when an id does not resolve to a bundled puzzle', async () => {
     render(
       <ChallengePageForHash
         hash={fragmentFor([{ puzzleId: 'not-a-real-puzzle-id', correct: true, time_ms: 1000 }])}
       />,
     )
-    expect(screen.getByText(/challenge link is broken/i)).toBeInTheDocument()
-    expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: false })
+    await waitFor(() => {
+      expect(screen.getByText(/challenge link is broken/i)).toBeInTheDocument()
+    })
+    // The telemetry assertion needs its own waitFor, not a bare expect after
+    // the DOM one: since Task 6 made resolution async, this fires from a
+    // passive effect, which waitFor's committed-DOM check can outrun under
+    // full-suite load (observed flaking as "Number of calls: 0"). Same shape
+    // as the found: true case below, which already waits.
+    await waitFor(() => {
+      expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: false })
+    })
   })
 })
 
 describe('ChallengePageForHash — telemetry', () => {
-  it('fires challenge_link_view once with found: true for a real challenge', () => {
+  it('fires challenge_link_view once with found: true for a real challenge', async () => {
     render(<ChallengePageForHash hash={twoPuzzleHash()} />)
-    expect(trackChallengeLinkView).toHaveBeenCalledTimes(1)
+    await waitFor(() => {
+      expect(trackChallengeLinkView).toHaveBeenCalledTimes(1)
+    })
     expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: true })
   })
 
@@ -305,19 +327,27 @@ describe('ChallengePage — the wrapper reads the real URL fragment', () => {
   // with a raw hash prop — only these tests exercise the actual
   // window.location.hash path a real browser load hits (Finding 4: what a
   // green suite can't see, a cold browser load can).
-  it('renders the challenge puzzle from a real URL fragment, not the broken state', () => {
+  it('renders the challenge puzzle from a real URL fragment, not the broken state', async () => {
     window.history.pushState({}, '', `/challenge#${twoPuzzleHash()}`)
     const { container } = render(<ChallengePage />)
 
-    expect(container.querySelector('.puzzle-card')).toBeInTheDocument()
+    // Task 6: puzzle bodies resolve via a real async getPuzzleBody call now.
+    await waitFor(() => {
+      expect(container.querySelector('.puzzle-card')).toBeInTheDocument()
+    })
     expect(screen.queryByText(/challenge link is broken/i)).not.toBeInTheDocument()
-    expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: true })
+    // Own waitFor, same passive-effect race as the broken-state test above.
+    await waitFor(() => {
+      expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: true })
+    })
   })
 
   it('remounts a fresh session when the URL fragment is edited', async () => {
     window.history.pushState({}, '', `/challenge#${twoPuzzleHash()}`)
     const { container } = render(<ChallengePage />)
-    expect(container.querySelector('.puzzle-card')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(container.querySelector('.puzzle-card')).toBeInTheDocument()
+    })
 
     // Editing the hash mid-session navigates the URL without a page load —
     // the same-document navigation a player does to "get a different

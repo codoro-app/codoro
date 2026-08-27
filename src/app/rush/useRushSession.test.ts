@@ -3,8 +3,8 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import type { Puzzle } from '../../content'
 import { RUSH_PUZZLE_TIME_LIMIT_MS, useRushSession } from './useRushSession'
 
-const { FIXTURE_POOL } = vi.hoisted(() => ({
-  FIXTURE_POOL: [
+const { FIXTURE_POOL, FIXTURE_PUZZLE_META, FIXTURE_BODY_BY_ID } = vi.hoisted(() => {
+  const FIXTURE_POOL = [
     ...Array.from({ length: 12 }, (_, i) => ({
       id: `p${String(i)}`,
       pattern: i % 2 === 0 ? 'off-by-one' : 'null-undefined',
@@ -62,12 +62,41 @@ const { FIXTURE_POOL } = vi.hoisted(() => ({
       blocks: ['first', 'second', 'third'],
       correct_order: [1, 2, 0],
     })),
-  ] as unknown as Puzzle[],
-}))
+  ] as unknown as Puzzle[]
+
+  // content-metadata-lazy-load Task 5b: useRushSession now selects from
+  // `puzzleMeta` (metadata for the WHOLE fixture pool, scrubber/drag-order
+  // included — `isRushEligible`'s own filter, not a separately-pre-filtered
+  // export, is what excludes them) and loads bodies via `getPuzzleBody`.
+  const FIXTURE_PUZZLE_META = FIXTURE_POOL.map((p) => ({
+    id: p.id,
+    pattern: p.pattern,
+    difficulty_rating: p.difficulty_rating,
+    interaction: p.interaction,
+  }))
+  const FIXTURE_BODY_BY_ID = new Map(FIXTURE_POOL.map((p) => [p.id, p]))
+
+  return { FIXTURE_POOL, FIXTURE_PUZZLE_META, FIXTURE_BODY_BY_ID }
+})
 
 vi.mock('../../content', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../content')>()
-  return { ...actual, puzzlePool: FIXTURE_POOL, quizPool: FIXTURE_POOL }
+  return {
+    ...actual,
+    puzzlePool: FIXTURE_POOL,
+    quizPool: FIXTURE_POOL,
+    // The two the hook actually reads now (content-metadata-lazy-load Task
+    // 5b) — selection runs over `puzzleMeta`, bodies resolve via
+    // `getPuzzleBody`. `puzzlePool`/`quizPool` above are left mocked too
+    // (harmless, unread by the hook itself) so any other module transitively
+    // importing this same mocked '../../content' isn't left half-real.
+    puzzleMeta: FIXTURE_PUZZLE_META,
+    // Derived exports must be re-derived from the SAME fixture, not left
+    // real — see usePracticeSession.test.ts's identical mock comment.
+    quizMeta: FIXTURE_PUZZLE_META.filter((meta) => meta.interaction !== 'scrubber'),
+    scrubberMeta: FIXTURE_PUZZLE_META.filter((meta) => meta.interaction === 'scrubber'),
+    getPuzzleBody: vi.fn((id: string) => Promise.resolve(FIXTURE_BODY_BY_ID.get(id))),
+  }
 })
 
 vi.mock('../../storage', async (importOriginal) => {
@@ -95,9 +124,21 @@ const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
   await import('../../storage')
 const { updateRating } = await import('../../engine')
 const { trackRushAttempt, trackRushRunEnd } = await import('../../telemetry')
+const { getPuzzleBody } = await import('../../content')
+const { resetPuzzleBodyCacheForTests } = await import('../practice/puzzleBodyCache')
 
-/** Drives one commit + Continue through the hook, exactly like PuzzleCardShell's onAnswered/onContinue would. */
-function answerAndContinue(
+/**
+ * Drives one commit + Continue through the hook, exactly like
+ * PuzzleCardShell's onAnswered/onContinue would. `handleContinue`'s
+ * `serveNext` now resolves the next puzzle's body asynchronously
+ * (content-metadata-lazy-load Task 5b — the mocked `getPuzzleBody` above
+ * resolves on a microtask), so this flushes the microtask queue afterward —
+ * same two-`Promise.resolve()` flush this file's own fake-timer tests
+ * already use for the mount effect — before returning, so callers that
+ * immediately read `result.current.puzzle` see the SWR update, not the
+ * stale pre-Continue puzzle.
+ */
+async function answerAndContinue(
   result: { current: ReturnType<typeof useRushSession> },
   correct: boolean,
 ) {
@@ -107,6 +148,10 @@ function answerAndContinue(
   act(() => {
     result.current.handleContinue()
   })
+  await act(async () => {
+    await Promise.resolve()
+    await Promise.resolve()
+  })
 }
 
 describe('useRushSession', () => {
@@ -115,6 +160,20 @@ describe('useRushSession', () => {
     vi.mocked(loadProfile).mockResolvedValue(createDefaultProfile())
     vi.mocked(saveProfile).mockResolvedValue(undefined)
     vi.mocked(appendAttempt).mockResolvedValue(undefined)
+    // Re-establishes the default resolve-from-fixture implementation on
+    // every test: unlike `mockResolvedValueOnce`/`mockImplementationOnce`,
+    // `vi.clearAllMocks()` does NOT undo a persistent `mockImplementation`
+    // override (the stale-while-revalidate test below installs one) — without
+    // this, a later test would silently inherit that override's forever-
+    // pending promises and hang.
+    vi.mocked(getPuzzleBody).mockImplementation((id: string) =>
+      Promise.resolve(FIXTURE_BODY_BY_ID.get(id)),
+    )
+    // The shared puzzleBodyCache is a module-level singleton — Vitest
+    // isolates modules per test FILE, not per `it()` within one, so without
+    // this a call-count assertion in one test could be silently satisfied by
+    // a promise this same cache resolved during an earlier test.
+    resetPuzzleBodyCacheForTests()
   })
 
   afterEach(() => {
@@ -141,7 +200,7 @@ describe('useRushSession', () => {
     const pattern = [true, true, false, true, false, true, false]
     for (const correct of pattern) {
       if (result.current.phase === 'ended') break
-      answerAndContinue(result, correct)
+      await answerAndContinue(result, correct)
     }
 
     expect(result.current.phase).toBe('ended')
@@ -161,12 +220,12 @@ describe('useRushSession', () => {
       expect(result.current.status).toBe('ready')
     })
 
-    answerAndContinue(result, true) // solved 1, streak 1
-    answerAndContinue(result, true) // solved 2, streak 2
-    answerAndContinue(result, false) // strike 1
-    answerAndContinue(result, false) // strike 2
+    await answerAndContinue(result, true) // solved 1, streak 1
+    await answerAndContinue(result, true) // solved 2, streak 2
+    await answerAndContinue(result, false) // strike 1
+    await answerAndContinue(result, false) // strike 2
     expect(result.current.phase).toBe('playing')
-    answerAndContinue(result, false) // strike 3 -> ends
+    await answerAndContinue(result, false) // strike 3 -> ends
 
     expect(result.current.phase).toBe('ended')
     expect(result.current.runSummary).toEqual({
@@ -256,8 +315,8 @@ describe('useRushSession', () => {
       })
       expect(result.current.status).toBe('ready')
 
-      answerAndContinue(result, false) // strike 1, real tap
-      answerAndContinue(result, false) // strike 2, real tap
+      await answerAndContinue(result, false) // strike 1, real tap
+      await answerAndContinue(result, false) // strike 2, real tap
 
       act(() => {
         vi.advanceTimersByTime(RUSH_PUZZLE_TIME_LIMIT_MS)
@@ -323,7 +382,7 @@ describe('useRushSession', () => {
     })
     const firstPuzzleId = result.current.puzzle?.id
 
-    answerAndContinue(result, false)
+    await answerAndContinue(result, false)
 
     expect(result.current.strikes).toBe(1)
     expect(result.current.phase).toBe('playing')
@@ -338,7 +397,7 @@ describe('useRushSession', () => {
 
     for (let i = 0; i < 12; i++) {
       expect(result.current.puzzle?.interaction).not.toBe('scrubber')
-      answerAndContinue(result, true)
+      await answerAndContinue(result, true)
     }
     expect(result.current.puzzle?.interaction).not.toBe('scrubber')
   })
@@ -351,7 +410,7 @@ describe('useRushSession', () => {
 
     for (let i = 0; i < 12; i++) {
       expect(result.current.puzzle?.interaction).not.toBe('drag-order')
-      answerAndContinue(result, true)
+      await answerAndContinue(result, true)
     }
     expect(result.current.puzzle?.interaction).not.toBe('drag-order')
   })
@@ -362,9 +421,9 @@ describe('useRushSession', () => {
       expect(result.current.status).toBe('ready')
     })
 
-    answerAndContinue(result, false)
-    answerAndContinue(result, false)
-    answerAndContinue(result, false)
+    await answerAndContinue(result, false)
+    await answerAndContinue(result, false)
+    await answerAndContinue(result, false)
     expect(result.current.phase).toBe('ended')
 
     act(() => {
@@ -384,11 +443,11 @@ describe('useRushSession', () => {
       expect(result.current.status).toBe('ready')
     })
 
-    answerAndContinue(result, true) // solved 1
-    answerAndContinue(result, true) // solved 2
-    answerAndContinue(result, false) // strike 1
-    answerAndContinue(result, false) // strike 2
-    answerAndContinue(result, false) // strike 3 -> ends
+    await answerAndContinue(result, true) // solved 1
+    await answerAndContinue(result, true) // solved 2
+    await answerAndContinue(result, false) // strike 1
+    await answerAndContinue(result, false) // strike 2
+    await answerAndContinue(result, false) // strike 3 -> ends
 
     expect(result.current.phase).toBe('ended')
     expect(result.current.runAttempts).toHaveLength(5)
@@ -405,5 +464,146 @@ describe('useRushSession', () => {
       result.current.handleRunItBack()
     })
     expect(result.current.runAttempts).toHaveLength(0)
+  })
+
+  describe('content-metadata-lazy-load Task 5b: stale-while-revalidate + speculative prefetch', () => {
+    it("keeps the previous puzzle displayed while the next selection's body is still loading (stale-while-revalidate), and never flips status back to loading mid-run", async () => {
+      const { result } = renderHook(() => useRushSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+      const firstPuzzleId = result.current.puzzle?.id
+      if (!firstPuzzleId) throw new Error('expected a puzzle to be served')
+
+      // Every getPuzzleBody call (prefetch AND the real serve alike) now
+      // returns a promise this test controls, so the assertions below don't
+      // depend on guessing which specific call is "the real one" — only the
+      // id that's actually SELECTED by serveNext ever reaches `setPuzzle`,
+      // so resolving every pending promise at once is safe and simpler.
+      const pendingResolvers: (() => void)[] = []
+      vi.mocked(getPuzzleBody).mockImplementation(
+        (id: string) =>
+          new Promise((resolve) => {
+            pendingResolvers.push(() => {
+              resolve(FIXTURE_BODY_BY_ID.get(id))
+            })
+          }),
+      )
+
+      act(() => {
+        result.current.handleAnswered({ correct: true, choiceIndex: 0 })
+      })
+      act(() => {
+        result.current.handleContinue()
+      })
+
+      // Selection itself is synchronous — usedIds already advanced — but
+      // every body fetch is still pending, so the DISPLAYED puzzle is still
+      // the previous one.
+      expect(result.current.puzzle?.id).toBe(firstPuzzleId)
+      expect(result.current.status).toBe('ready')
+
+      act(() => {
+        pendingResolvers.forEach((resolve) => {
+          resolve()
+        })
+      })
+      await waitFor(() => {
+        expect(result.current.puzzle?.id).not.toBe(firstPuzzleId)
+      })
+      expect(result.current.status).toBe('ready')
+    })
+
+    it('handleAnswered speculatively prefetches candidate body/bodies for the likely next puzzle, before Continue is ever pressed', async () => {
+      const { result } = renderHook(() => useRushSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+
+      const callsBeforeAnswer = vi.mocked(getPuzzleBody).mock.calls.length
+
+      act(() => {
+        result.current.handleAnswered({ correct: true, choiceIndex: 0 })
+      })
+
+      // No handleContinue call anywhere above — the prefetch fires purely
+      // off the answer itself, using pendingDifficultyRef.current (already
+      // computed inside handleAnswered).
+      expect(vi.mocked(getPuzzleBody).mock.calls.length).toBeGreaterThan(callsBeforeAnswer)
+    })
+
+    it('skips the speculative prefetch entirely when the answer ends the run (3rd strike) — no puzzle will be served next', async () => {
+      const { result } = renderHook(() => useRushSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+
+      await answerAndContinue(result, false) // strike 1
+      await answerAndContinue(result, false) // strike 2
+
+      const callsBeforeFinalStrike = vi.mocked(getPuzzleBody).mock.calls.length
+
+      act(() => {
+        result.current.handleAnswered({ correct: false, choiceIndex: 1 }) // strike 3 -> ends
+      })
+
+      expect(result.current.willEndOnContinue).toBe(true)
+      // pendingEndRef.current (mirrored here by willEndOnContinue) being
+      // true must suppress the prefetch entirely — no puzzle will be served
+      // next, so a prefetch would be pure waste.
+      expect(vi.mocked(getPuzzleBody).mock.calls.length).toBe(callsBeforeFinalStrike)
+    })
+
+    it('does not re-fetch a body that was already prefetched, once that same id becomes the real next selection', async () => {
+      const { result } = renderHook(() => useRushSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+
+      // Exhausts 10 of the fixture's 12 rush-eligible (mcq) puzzles from
+      // usedIdsRef, then answers the 11th too (without Continue yet) — at
+      // that point exactly ONE rush-eligible id remains unused across the
+      // whole fixture pool: a puzzle that has never yet been the real
+      // selection this run, only ever (if at all) a speculative prefetch
+      // candidate from an earlier round. Deliberately not controlling either
+      // rng (real or the prefetch's throwaway one): rush.ts's own `usedIds`
+      // no-repeat filter (MIN_ELIGIBLE=1) narrows the pool down to that one
+      // candidate regardless of any rng draw, so the real `selectRushPuzzle`
+      // call after Continue below is forced onto it deterministically.
+      for (let i = 0; i < 10; i++) {
+        await answerAndContinue(result, true)
+      }
+      act(() => {
+        result.current.handleAnswered({ correct: true, choiceIndex: 0 }) // 11th, no Continue yet
+      })
+
+      // Every getPuzzleBody call up to this point — the cold-boot serve,
+      // every prior round's real serve, and every round's speculative
+      // prefetch (including this 11th answer's own) — is fair game for
+      // having already resolved the one remaining candidate; this doesn't
+      // pin down exactly which round did it, only that SOME call before
+      // Continue did.
+      const idsFetchedBeforeContinue = new Set(
+        vi.mocked(getPuzzleBody).mock.calls.map(([id]) => id),
+      )
+      vi.mocked(getPuzzleBody).mockClear()
+
+      act(() => {
+        result.current.handleContinue()
+      })
+      await act(async () => {
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+
+      // The real selection deterministically lands on the one remaining
+      // candidate — it must already be in the cache from an earlier
+      // speculative prefetch, so Continue triggers zero NEW getPuzzleBody
+      // calls, and the puzzle actually displayed was already fetched.
+      expect(vi.mocked(getPuzzleBody).mock.calls.length).toBe(0)
+      const servedId = result.current.puzzle?.id
+      expect(servedId).toBeDefined()
+      expect(idsFetchedBeforeContinue.has(servedId ?? '')).toBe(true)
+    })
   })
 })

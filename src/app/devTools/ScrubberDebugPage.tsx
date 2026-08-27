@@ -20,7 +20,12 @@
  * commits, which is Phase 3's reshaping job once the real UI is in hand.
  */
 import { useState } from 'react'
-import { scrubberPool } from '../../content'
+// From '../../content/pools', not the barrel: the eager pools deliberately
+// aren't re-exported by content/index.ts (see its note) so that importing
+// the barrel can't drag all 214 puzzle bodies into a chunk. This page is the
+// one dev tool that genuinely needs real puzzle bodies, and App.tsx keeps it
+// behind a DEV-gated lazy() so this import can't reach a production chunk.
+import { scrubberPool } from '../../content/pools'
 import type { ScrubberPuzzle } from '../../content'
 import { scoreScrubberAttempt } from '../../engine'
 import type { CheckpointResult } from '../../engine'

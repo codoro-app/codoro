@@ -19,6 +19,7 @@ import { useDailySession } from './useDailySession'
 import { useMediaQuery } from '../useMediaQuery'
 import { ShareMenu } from '../ShareMenu'
 import type { ShareAction } from '../ShareMenu'
+import { RouteSkeleton } from '../RouteSkeleton'
 import { buildShareText, buildDailyChallengeText } from './shareText'
 import { trackShareClick, trackChallengeCreate } from '../../telemetry'
 
@@ -64,12 +65,10 @@ export function DailyPage() {
     )
   }
 
+  // True cold boot only (content-metadata-lazy-load Task 5b) — see
+  // usePracticeSession.ts's identical branch/RouteSkeleton reasoning.
   if (session.status === 'loading' || session.profile === null) {
-    return (
-      <div className={PAGE_SHELL_CLASS}>
-        <p className="text-center text-text-1 py-8">Loading today&apos;s puzzle…</p>
-      </div>
-    )
+    return <RouteSkeleton />
   }
 
   if (session.status === 'empty' || session.puzzle === null) {

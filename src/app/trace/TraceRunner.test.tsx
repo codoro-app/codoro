@@ -102,10 +102,10 @@ beforeEach(() => {
 })
 
 describe('TraceRunner status branches', () => {
-  it('shows a loading message while the session is loading', () => {
+  it('shows the shared RouteSkeleton (cold boot) while the session is loading', () => {
     useTraceSessionMock.mockReturnValue(makeSession({ status: 'loading', profile: null }))
     render(<TraceRunner />)
-    expect(screen.getByText(/Loading your trace session/)).toBeInTheDocument()
+    expect(screen.getByTestId('route-skeleton')).toBeInTheDocument()
   })
 
   it('shows a retry control on error and calls retryLoad', () => {

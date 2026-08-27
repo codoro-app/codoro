@@ -22,7 +22,7 @@
  * damping the earliest noise.
  */
 import type { Attempt } from '../../storage'
-import type { Puzzle, PatternSlug } from '../../content'
+import type { PatternSlug } from '../../content'
 import { PATTERN_SLUGS } from '../../content'
 
 export const MASTERY_WINDOW = 20
@@ -52,7 +52,7 @@ export interface PatternMastery {
  */
 export function computeMastery(
   attempts: readonly Attempt[],
-  pool: readonly Puzzle[],
+  pool: readonly { readonly id: string; readonly pattern: PatternSlug }[],
 ): PatternMastery[] {
   const patternByPuzzleId = new Map<string, PatternSlug>(
     pool.map((puzzle) => [puzzle.id, puzzle.pattern]),

@@ -5,6 +5,28 @@
  * telemetry. This is pure orchestration — no rating/selection/streak/requeue
  * logic is reimplemented here, it all comes from src/engine/ (see the
  * barrel-only imports below).
+ *
+ * Puzzle bodies (content-metadata-lazy-load Task 5): puzzle *selection*
+ * (`selectNext`) runs synchronously over `puzzleMeta` — id/pattern/rating/
+ * interaction only, never a full body — exactly as it used to run over
+ * `quizPool`. The selected id's full `Puzzle` body is then loaded via
+ * `loadPuzzleBody` (the shared cache in `puzzleBodyCache.ts`), a genuine
+ * async hop. `puzzle` state is stale-while-revalidate: it keeps showing
+ * whatever was displayed before until the new id's body resolves, so it is
+ * never `null`/`undefined` mid-session — only on true cold boot (the very
+ * first puzzle of a session, before anything has ever been displayed) does
+ * `status` stay `'loading'` with no puzzle to show (see PracticePage.tsx's
+ * `RouteSkeleton` branch). `handleAnswered` additionally fires a best-effort
+ * speculative prefetch (`speculativeSelection.ts`) for the puzzle(s) the
+ * NEXT real `selectNext` call is likely to pick, once the answer's rating/
+ * requeue effects are known (not at serve time — see this task's own report
+ * for why serve-time would use the wrong, pre-answer rating).
+ *
+ * DEV puzzle-mode (`devTools/devPuzzleMode.ts`) is unaffected by any of the
+ * above: its stub puzzles are plain in-memory objects, not real content
+ * files, so they can't be looked up via `getPuzzleBody`/`puzzleMeta` at all
+ * — that whole path keeps selecting from and serving `DEV_STUB_PUZZLES`
+ * directly and synchronously, same as before this task.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
@@ -14,11 +36,16 @@ import {
   shouldRateAttempt,
   updateRating,
 } from '../../engine'
-import type { SelectionSource } from '../../engine'
+import type { Puzzle as EnginePuzzle, SelectionSource } from '../../engine'
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, UserProfile } from '../../storage'
-import { quizPool } from '../../content'
-import { resolvePool } from '../devTools/devPuzzleMode'
+import { quizMeta } from '../../content'
+// Deep-imported, not via the '../../content' barrel: a barrel re-export puts
+// the stub puzzles in the production entry chunk no matter what the
+// `import.meta.env.DEV` guards below do (module inclusion is per-file, not
+// per-binding). Same precedent as devTools/devPuzzleMode.ts.
+import { DEV_STUB_PUZZLES } from '../../content/devPuzzles'
+import { isDevPuzzleModeEnabled } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle, PatternSlug, QuizPuzzle } from '../../content'
 import { trackAttempt, trackError, trackStreakPause } from '../../telemetry'
 import type { ChallengeAttemptInput } from '../../challenge'
@@ -26,6 +53,8 @@ import type { CommitPayload } from './interactionTypes'
 import { hapticTick } from './haptics'
 import { resolveStreakPause } from '../streakPauseLogic'
 import type { StreakPauseState } from '../streakPauseLogic'
+import { loadPuzzleBody } from './puzzleBodyCache'
+import { speculativeNextIds } from './speculativeSelection'
 
 type InteractionFilter = QuizPuzzle['interaction'] | null
 
@@ -41,21 +70,60 @@ function todayDateString(date = new Date()): string {
   return `${String(year)}-${month}-${day}`
 }
 
-function toEnginePuzzle(puzzle: ContentPuzzle): { id: string; rating: number } {
+function toEnginePuzzle(puzzle: ContentPuzzle): EnginePuzzle {
   return { id: puzzle.id, rating: puzzle.difficulty_rating }
 }
 
-/** Filters combine (AND), not mutually exclusive — a pattern and an interaction filter can both be active at once. */
+/**
+ * The real (non-dev-mode) selection pool: `quizMeta` (the centrally-derived
+ * "everything except scrubber" metadata view — content/index.ts, the
+ * metadata counterpart of `quizPool`) narrowed by the given
+ * pattern/interaction filters, which combine (AND), not mutually exclusive
+ * — a pattern and an interaction filter can both be active at once.
+ * Metadata-only: no puzzle body is read or loaded here.
+ *
+ * The scrubber exclusion is `quizMeta`'s job, not this function's: an
+ * earlier version of this file re-implemented `interaction !== 'scrubber'`
+ * inline here, which is exactly the per-call-site filtering that produced
+ * Phase 2's P0 (see `quizMeta`'s own comment).
+ */
 function poolForFilters(
   pattern: PatternSlug | null,
   interaction: InteractionFilter,
-): ContentPuzzle[] {
-  const pool = resolvePool(quizPool) as ContentPuzzle[]
-  return pool.filter(
+): EnginePuzzle[] {
+  return quizMeta
+    .filter(
+      (meta) =>
+        (pattern === null || meta.pattern === pattern) &&
+        (interaction === null || meta.interaction === interaction),
+    )
+    .map((meta) => ({ id: meta.id, rating: meta.difficulty_rating }))
+}
+
+/**
+ * DEV puzzle-mode's selection pool — `DEV_STUB_PUZZLES` (full bodies, held
+ * in memory already) filtered the same way `poolForFilters` filters the real
+ * pool. Kept entirely separate from the metadata/lazy-body path above: stub
+ * ids don't exist in `puzzleMeta` or in the real content files
+ * `getPuzzleBody` loads from, so this branch must never touch either.
+ */
+function devPoolForFilters(
+  pattern: PatternSlug | null,
+  interaction: InteractionFilter,
+): EnginePuzzle[] {
+  // Fix-round finding #6: guards this function's own `DEV_STUB_PUZZLES`
+  // reference behind the same build-time-foldable check `resolvePool`
+  // (devPuzzleMode.ts) uses internally — its call site here (`serveNext`,
+  // gated on the runtime `isDevPuzzleModeEnabled()`) is NOT by itself
+  // something Rollup/terser can constant-fold, so without this the
+  // `DEV_STUB_PUZZLES` reference stayed reachable (and un-tree-shakeable)
+  // in a production bundle even though it could never actually run there.
+  if (!import.meta.env.DEV) return []
+  return DEV_STUB_PUZZLES.filter(
     (puzzle) =>
       (pattern === null || puzzle.pattern === pattern) &&
       (interaction === null || puzzle.interaction === interaction),
-  )
+  ).map(toEnginePuzzle)
 }
 
 // 'error': loadProfile() rejected on mount (e.g. IndexedDB blocked in private
@@ -119,11 +187,68 @@ export function usePracticeSession(): PracticeSession {
   // two requeue entries can never be served back-to-back.
   const lastSourceRef = useRef<SelectionSource | null>(null)
 
-  const contentById = useRef(new Map(poolForFilters(null, null).map((p) => [p.id, p])))
+  // The most recently SELECTED id (set synchronously, the instant
+  // `selectNext` picks it) — distinct from `puzzle.id`, which only updates
+  // once that selection's body has actually resolved (stale-while-
+  // revalidate). Selection-bookkeeping (recentIds, prefetch) must key off
+  // this, not off the possibly-stale displayed puzzle, so a second
+  // handleContinue landing before the first's body resolves can't push the
+  // same id into recentIds twice while never recording the one actually
+  // selected in between.
+  const lastSelectedIdRef = useRef<string | null>(null)
+  // A dev-mode DEV_STUB_PUZZLES lookup — the DEV-only counterpart to the
+  // real path's `loadPuzzleBody` cache. Stub ids don't exist in real content
+  // files, so they can never go through `getPuzzleBody`; only ever read when
+  // `isDevPuzzleModeEnabled()`. Fix-round finding #6: this line ran
+  // unconditionally on every mount regardless of dev mode — a plain runtime
+  // `if` inside a hook body isn't something Rollup/terser can constant-fold
+  // the way `import.meta.env.DEV` itself can, so `DEV_STUB_PUZZLES` (and the
+  // ~12 stub puzzles it holds) stayed reachable in the production bundle.
+  // Guarded the same way `resolvePool` (devPuzzleMode.ts) guards its own
+  // `DEV_STUB_PUZZLES` reference, so the `true`-branch — and the stub
+  // puzzles themselves — dead-code-eliminate out of a production build.
+  const devStubById = useRef(
+    import.meta.env.DEV
+      ? new Map(DEV_STUB_PUZZLES.map((p) => [p.id, p]))
+      : new Map<string, ContentPuzzle>(),
+  )
+  // Bumped every time `serveNext` runs. A body-load promise's `.then`/
+  // `.catch` only applies its result if this still matches the token it
+  // captured — guards the same class of race Task 6's
+  // useBossSession.ts/PuzzlePage.tsx fix (an older selection's slower fetch
+  // landing after a newer selection's faster one) — reachable here too: two
+  // `handleContinue` calls close enough together that the first's body
+  // fetch is still in flight when the second selects a different id.
+  const selectionTokenRef = useRef(0)
+  // Fix-round finding #1: true once a puzzle has EVER actually been
+  // displayed (`setPuzzle` called with a real body — dev-stub or resolved
+  // fetch), for the lifetime of the hook instance. Cold boot is exactly
+  // "this is still false" — the only state with no stale puzzle to fall
+  // back on if the body-load fails, so it's the only case that needs to
+  // surface an 'error' status at all (mid-session, a failed background
+  // refresh just leaves the stale puzzle on screen — see the `.then`/
+  // `.catch` branches below).
+  const hasDisplayedRef = useRef(false)
 
   const serveNext = useCallback(
     (currentProfile: UserProfile, pattern: PatternSlug | null, interaction: InteractionFilter) => {
-      const pool = poolForFilters(pattern, interaction).map(toEnginePuzzle)
+      // Fix-round finding #2: bumped FIRST, before the null-pool early
+      // return below (or anything else) — an older selection's still-
+      // in-flight body-load promise captured the PREVIOUS token value, so
+      // bumping it here immediately invalidates that promise's eventual
+      // `.then`/`.catch` no matter which branch THIS call takes, including
+      // the early `result === null` return. Without this, that early
+      // return skipped the bump entirely (it lived after the null check),
+      // so a stale in-flight fetch could still resolve later and overwrite
+      // the 'empty' status this call is about to set with a stale puzzle —
+      // reachable via PracticePage's `?pattern=&interaction=` URL effect
+      // landing on an empty intersection while a cold-boot fetch is still
+      // in flight.
+      const token = ++selectionTokenRef.current
+      const devMode = isDevPuzzleModeEnabled()
+      const pool = devMode
+        ? devPoolForFilters(pattern, interaction)
+        : poolForFilters(pattern, interaction)
       const result = selectNext({
         pool,
         rating: currentProfile.rating,
@@ -141,6 +266,7 @@ export function usePracticeSession(): PracticeSession {
       }
 
       lastSourceRef.current = result.source
+      lastSelectedIdRef.current = result.puzzle.id
 
       // selectNext advances the requeue ladder as a side effect of being
       // called (one call == one puzzle served, per its own doc comment) even
@@ -150,14 +276,72 @@ export function usePracticeSession(): PracticeSession {
       // "Per-attempt flow" persistence step rather than writing on every serve.
       setProfile({ ...currentProfile, requeueState: result.newRequeueState })
 
-      const fullPuzzle = contentById.current.get(result.puzzle.id)
-      if (!fullPuzzle) {
-        throw new Error(`selectNext returned unknown puzzle id "${result.puzzle.id}"`)
-      }
-      setPuzzle(fullPuzzle)
+      // Cleared synchronously, for both paths, regardless of when the new
+      // puzzle's BODY resolves: this is "the previous attempt's feedback is
+      // gone now that a new one has started" state, not part of the puzzle
+      // card's own content — there's no reason to keep showing a stale
+      // rating delta just because the stale puzzle body is still on screen.
+      // (Only `puzzle` itself is stale-while-revalidate — see below.)
       setRatingDelta(null)
-      servedAtRef.current = Date.now()
-      setStatus('ready')
+
+      if (devMode) {
+        const fullPuzzle = devStubById.current.get(result.puzzle.id)
+        if (!fullPuzzle) {
+          throw new Error(`selectNext returned unknown dev-stub puzzle id "${result.puzzle.id}"`)
+        }
+        setPuzzle(fullPuzzle)
+        hasDisplayedRef.current = true
+        servedAtRef.current = Date.now()
+        setStatus('ready')
+        return
+      }
+
+      // Real path: `puzzle` state is left untouched here (stale-while-
+      // revalidate) — the previously-displayed puzzle keeps showing until
+      // this id's body resolves below. Only true cold boot (no puzzle has
+      // ever been displayed, `status` still 'loading') has no stale puzzle
+      // to fall back on; PracticePage.tsx renders a RouteSkeleton for that
+      // one case.
+      loadPuzzleBody(result.puzzle.id)
+        .then((fullPuzzle) => {
+          if (selectionTokenRef.current !== token) return // superseded by a newer selection
+          if (!fullPuzzle) {
+            // puzzleMeta and getPuzzleBody's loaders are both generated from
+            // the same on-disk content at build time, so this should be
+            // unreachable in practice — reported via trackError either way.
+            trackError(
+              new Error(`getPuzzleBody: unknown puzzle id "${result.puzzle.id}"`),
+              'usePracticeSession: serveNext body lookup miss',
+            )
+            // Fix-round finding #1: cold boot (nothing ever displayed) has
+            // no stale puzzle to fall back on — without this the page would
+            // hang on RouteSkeleton forever with no way to recover. Reuses
+            // the existing 'error' status + retryLoad path (same recovery
+            // loadProfile failures already use), mirroring Task 6's
+            // useBossSession.ts prefetch-failure handling. Mid-session, the
+            // stale puzzle (if any) is left exactly as it was — SWR's whole
+            // point is that a fetch failure doesn't blank/replace it.
+            if (!hasDisplayedRef.current) {
+              setStatus('error')
+            }
+            return
+          }
+          setPuzzle(fullPuzzle)
+          hasDisplayedRef.current = true
+          servedAtRef.current = Date.now()
+          setStatus('ready')
+        })
+        .catch((error: unknown) => {
+          if (selectionTokenRef.current !== token) return
+          // A failed dynamic import (offline, deploy-invalidated chunk) or
+          // the zod validation throw on invalid content.
+          trackError(error, 'usePracticeSession: serveNext body fetch failed')
+          // Same cold-boot-only recovery path as the `!fullPuzzle` branch
+          // above — see its comment.
+          if (!hasDisplayedRef.current) {
+            setStatus('error')
+          }
+        })
     },
     [],
   )
@@ -244,6 +428,36 @@ export function usePracticeSession(): PracticeSession {
         ? profile.requeueState
         : recordMiss(profile.requeueState, puzzle.id)
 
+      // Speculative prefetch (content-metadata-lazy-load Task 5, carried-
+      // forward Task 1 finding #1 — "rating drift"): fired HERE, once the
+      // answer's rating/requeue effects are known, not at serve time. A
+      // prefetch fired when this puzzle was originally served would have to
+      // guess using the PRE-answer rating, but the real next `selectNext`
+      // call (handleContinue -> serveNext) reads `profile.rating` AFTER this
+      // answer updates it — so a serve-time prefetch would silently predict
+      // against the wrong rating window for every rated attempt. Using
+      // `newRating`/`newRequeueState` here instead means every speculative
+      // draw models the exact state the next real call will actually see.
+      // Skipped in DEV puzzle-mode: stub ids aren't real content, so
+      // prefetching them via getPuzzleBody would only ever resolve
+      // `undefined` — wasted work with nothing to show for it.
+      if (!isDevPuzzleModeEnabled()) {
+        const candidateIds = speculativeNextIds({
+          pool: poolForFilters(patternFilter, interactionFilter),
+          rating: newRating,
+          requeueState: newRequeueState,
+          lastSource: lastSourceRef.current,
+          recentIds: [puzzle.id, ...recentIdsRef.current],
+        })
+        for (const id of candidateIds) {
+          // Swallowed here, not reported: a speculative miss is expected and
+          // routine (see the selection audit's hit-rate caveat) — a real
+          // failure only matters if the id is later actually served, and
+          // that path (serveNext) already reports it via trackError.
+          loadPuzzleBody(id).catch(() => undefined)
+        }
+      }
+
       // Phase 5b Item 7/8: computed explicitly (not via setCombo's own
       // functional updater) since the streak-pause check right below needs
       // the actual new value synchronously, in this same closure.
@@ -317,12 +531,17 @@ export function usePracticeSession(): PracticeSession {
 
       hapticTick()
     },
-    [profile, puzzle, combo],
+    [profile, puzzle, combo, patternFilter, interactionFilter],
   )
 
   const handleContinue = useCallback(() => {
     if (!profile || !puzzle) return
-    recentIdsRef.current = [puzzle.id, ...recentIdsRef.current].slice(0, RECENT_IDS_WINDOW)
+    // Excludes the id most recently SELECTED, not necessarily `puzzle.id`
+    // (the id most recently DISPLAYED) — see lastSelectedIdRef's own doc
+    // comment for the narrow race this matters for. The two are the same id
+    // in every normal flow (answer, see feedback, tap Continue once).
+    const justServedId = lastSelectedIdRef.current ?? puzzle.id
+    recentIdsRef.current = [justServedId, ...recentIdsRef.current].slice(0, RECENT_IDS_WINDOW)
     serveNext(profile, patternFilter, interactionFilter)
   }, [profile, puzzle, patternFilter, interactionFilter, serveNext])
 
@@ -349,7 +568,8 @@ export function usePracticeSession(): PracticeSession {
       // that exclusion should carry over across entry points, not just
       // within one, so it's preserved here instead.
       if (puzzle) {
-        recentIdsRef.current = [puzzle.id, ...recentIdsRef.current].slice(0, RECENT_IDS_WINDOW)
+        const justServedId = lastSelectedIdRef.current ?? puzzle.id
+        recentIdsRef.current = [justServedId, ...recentIdsRef.current].slice(0, RECENT_IDS_WINDOW)
       }
       setPatternFilterState(pattern)
       serveNext(profile, pattern, interactionFilter)
@@ -364,7 +584,8 @@ export function usePracticeSession(): PracticeSession {
     (interaction: InteractionFilter) => {
       if (!profile) return
       if (puzzle) {
-        recentIdsRef.current = [puzzle.id, ...recentIdsRef.current].slice(0, RECENT_IDS_WINDOW)
+        const justServedId = lastSelectedIdRef.current ?? puzzle.id
+        recentIdsRef.current = [justServedId, ...recentIdsRef.current].slice(0, RECENT_IDS_WINDOW)
       }
       setInteractionFilterState(interaction)
       serveNext(profile, patternFilter, interaction)
@@ -385,7 +606,8 @@ export function usePracticeSession(): PracticeSession {
     (pattern: PatternSlug | null, interaction: InteractionFilter) => {
       if (!profile) return
       if (puzzle) {
-        recentIdsRef.current = [puzzle.id, ...recentIdsRef.current].slice(0, RECENT_IDS_WINDOW)
+        const justServedId = lastSelectedIdRef.current ?? puzzle.id
+        recentIdsRef.current = [justServedId, ...recentIdsRef.current].slice(0, RECENT_IDS_WINDOW)
       }
       setPatternFilterState(pattern)
       setInteractionFilterState(interaction)

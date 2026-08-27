@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { buildPracticeShareText, buildPracticeChallengeText } from './shareText'
 import { decodeChallengePayload, MAX_CHALLENGE_PUZZLES } from '../../challenge'
 import type { ChallengeAttemptInput } from '../../challenge'
-import { puzzlePool } from '../../content'
+import { puzzlePool } from '../../content/pools'
 
 // A real, bundled puzzle id (v2 Phase 1b) — asserted against the real pool
 // rather than an arbitrary fixture string.

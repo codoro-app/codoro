@@ -36,3 +36,6 @@ coverage
 .claude/
 
 todo.md
+
+# Superpowers skill workspaces (SDD ledgers/briefs, brainstorm sessions) — scratch, not source
+.superpowers/

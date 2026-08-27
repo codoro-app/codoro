@@ -10,7 +10,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { CheckpointPanel } from './CheckpointPanel'
-import { scrubberPool } from '../../content'
+import { scrubberPool } from '../../content/pools'
 
 describe('CheckpointPanel — real scrubberPool next-line checkpoints', () => {
   for (const puzzle of scrubberPool) {

@@ -54,6 +54,19 @@ export interface ChallengePageForHashProps {
 export function ChallengePageForHash({ hash }: ChallengePageForHashProps) {
   const session = useChallengeSession(hash)
 
+  // Task 6 (content-metadata-lazy-load follow-up): puzzle bodies now resolve
+  // via getPuzzleBody, a genuine async hop the eager puzzlePool never had —
+  // this must render distinctly from 'broken' so an unresolved-yet id isn't
+  // briefly mistaken for a dead link. Same plain-text-in-the-page-shell
+  // pattern BossPage.tsx already uses for its own profile-load window.
+  if (session.status === 'loading') {
+    return (
+      <div className={PAGE_SHELL_CLASS}>
+        <p className="text-center text-text-1 py-8">Loading challenge…</p>
+      </div>
+    )
+  }
+
   if (session.status === 'broken') {
     return (
       <div className={PAGE_SHELL_CLASS}>
