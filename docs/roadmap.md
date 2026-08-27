@@ -34,14 +34,14 @@ Originally "Launch: get users" — the launch machinery it carried (readiness ga
 
 | Phase | What |
 | --- | --- |
-| 4.0 | Desktop & keyboard control: Enter to submit/advance, arrow-key interaction per type, the desktop-nav defect, the Practice scroll defect |
+| 4.0 | Desktop & keyboard control: Enter to submit/advance, arrow-key interaction per type, the desktop rails (right sidebar sticky), the Practice scroll defect |
 | 4.1 | Settings, for real: a first-class route with actual preferences, export/import folded in, preferences stored in the versioned export format so v5's sync gets them free |
-| 4.2 | Content trust: difficulty filter on Browse (deliberately *not* the rated flow), report-a-puzzle (backend-free until v5) |
-| 4.3 | Daily, made hard: calendar rebuilt around scrubber/drag-order/tap-line, mcq and swipe-binary dropped and the rule enforced in CI; opens the content ask the thin ≥1600 pool exposes |
+| 4.2 | Difficulty filter on Browse (deliberately *not* the rated flow) |
+| 4.3 | Daily, made hard: mcq and swipe-binary dropped (firm), calendar rebuilt around scrubber/drag-order/tap-line, rule enforced in CI. **Gated on a content batch** — commissioned on day one, so this phase lands last |
 | 4.4 | Affordances: drag-handle target + first-use hint, tooltips where a control isn't self-evident, accessible names on icon-only controls |
 | 4.5 | The verification tail: v3's 2b.8 QA pass, todo item 19's mobile defects (verify before fixing), Thomas's device backlog, regression sweep over 4.0–4.4 |
 
-Deliberately **not** in v4: skeleton loaders, caching and optimistic rendering (todo 9/10/11) — local-first means there is no latency to mask and no response to cache; they become real work in v5. Privacy policy and ToS (todo 15/16) stay in v5's single lawyer review. "Make Daily better" beyond its interaction mix belongs to v6's game-feel definition session.
+Deliberately **not** in v4: skeleton loaders, caching and optimistic rendering (todo 9/10/11) — local-first means there is no latency to mask and no response to cache; they become real work in v5. Report-a-puzzle (todo 18) moved to v5, where a real endpoint costs an hour instead of a `mailto:` hack. Privacy policy and ToS (todo 15/16) stay in v5's single lawyer review. "Make Daily better" beyond its interaction mix belongs to v6's game-feel definition session. The full independent-scroll desktop shell was considered for 4.0 and rejected — it destabilizes the shell right before v5 builds on it; if still wanted, it belongs in v6.
 
 ## v5 — Accounts, identity, comeback channel (`docs/v5-build-plan.md`)
 
@@ -49,8 +49,8 @@ Deliberately **not** in v4: skeleton loaders, caching and optimistic rendering (
 
 | Phase | What |
 | --- | --- |
-| 5.0 | Backend foundation: `workers/` package, Clerk JWT verification, D1 schema, rate limiting, CI deploy |
-| 5.1 | Client auth: Clerk React, guest-first UX (signup only at value moments), account settings + deletion |
+| 5.0 | Backend foundation: `workers/` package, Clerk JWT verification, D1 schema, rate limiting, CI deploy, puzzle-report endpoint (unauthenticated by design) |
+| 5.1 | Client auth: Clerk React, guest-first UX (signup only at value moments), account settings + deletion, report-a-puzzle control |
 | 5.2 | Progress sync: versioned export format as payload, anonymous→account migration keeps rating/history, merge rules, multi-device |
 | 5.3 | Public identity: usernames, opt-in profiles, named Daily/Rush/Boss leaderboards, privacy controls |
 | 5.4 | Edge OG meta injection (carried v3 item — covers `/challenge` unfurls) |

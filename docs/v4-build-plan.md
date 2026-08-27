@@ -18,7 +18,8 @@ v4 is the version that makes Codoro stop feeling like a prototype. It builds not
 | Skeletons / caching / optimistic rendering (todo 9, 10, 11) | **Not built here.** Deferred to v5, where a network first exists | `src/app/RouteSkeleton.tsx`'s own doc comment already settled this in v2: Codoro is local-first — puzzles ship in the bundle, profile/attempt reads resolve off IndexedDB in single-digit milliseconds. A skeleton over a synchronous read makes the app feel *slower*; there is no network response to cache and nothing to render optimistically. The one genuine loading boundary (the lazy route chunk) already has its skeleton. These three items become real work the day sync and leaderboards exist — v5's 5.2/5.3 — and the v5 plan already claims item 11. Building them now would mean inventing fake latency to decorate. |
 | Difficulty filter (todo 17) | **Browse only, never the rated flow** | `difficulty_rating` is already in the lazy metadata index (`src/content/index.ts`), so the filter itself is cheap — but Practice's rated selection uses an Elo rating window. Letting a player pin "easy" either breaks rating convergence (farm easy, rating means nothing) or does nothing (the window already bounds difficulty). In Browse, where the player is exploring content rather than being rated, the filter has a real job. Thomas's own instinct on this item was "not sure if that is a great one" — this is the version of it that is. |
 | Daily's interaction mix (todo 21) | **Rebuild the calendar around scrubber / drag-order / tap-line; drop mcq and swipe-binary** — and treat the content shortfall as part of the item, not a surprise | Measured, not assumed: of 214 puzzles, 45 are rated ≥1600 (Daily's floor) — and only 22 of those are scrubber (13), tap-line (6) or drag-order (3). Today's 16-entry `DAILY_CALENDAR` is **100% mcq/swipe/tap-line with zero scrubber entries**. So this is not a filter change; it is a curation pass plus a content ask. The one piece of luck: `DAILY_EPOCH` is still the `2026-01-01` placeholder, so the append-only contract is not yet binding and the calendar can be rebuilt freely. **That stops being true at launch — this is the last cheap moment to do it.** |
-| Report button's destination (todo 18) | **No backend. A prefilled `mailto:`/hosted-form link carrying the puzzle id, upgraded to a real endpoint in v5** | There is no server until v5, and inventing one for this item would drag v5's whole foundation forward. Flagged honestly: with the current user count this is the lowest-yield item on the list — its value is a trust signal and a content-quality channel that costs an hour, not a feature anyone is waiting for. |
+| Report button (todo 18) | **Not in v4 — moved to v5** (endpoint in 5.0, client control in 5.1), decided 2026-08-27 | The backend-free version was a `mailto:` hack; once Workers and D1 exist the real thing costs about an hour, and it is live *at* launch — the highest-signal content-feedback window this project will ever get. Deferring it also keeps 4.2 to a single, clean item. One design note carried to v5: reports must work signed-out (guest-first is law, and most reporters won't have accounts), which makes it the one write endpoint accepting anonymous input, and therefore an abuse surface v5's rate limiting and 5.6's hardening must both cover. |
+| Desktop rails vs. page scroll (todo 26) | **Sticky sidebar, one page scroll container.** `.app-shell__sidebar` gets `position: sticky` so it pins the way `NavRail` already does. The independent-scroll restructure — viewport-height shell, middle column its own `overflow-y: auto` — was **considered and rejected for v4** | The provable defect is the right rail: it is `self-start` with no sticky, so it scrolls away with the middle column. That's a ~10-line fix. The full three-region restructure is what `PageShell.tsx` deliberately avoided, and it would drag in `useRouteFocusAndScroll` (scrolls the page today, would have to scroll a container), the footer's placement, and re-verification of the perf pass's CLS fixes — destabilizing the shell immediately before v5 has to build an account surface on it. If the app-like shell is still wanted, it belongs in v6, where the desktop experience gets rethought anyway. |
 | Preference storage | **Every new preference goes into the versioned export format** (schema version bump), not a loose `localStorage` key | The export format is v5's sync payload — the seam v2 built deliberately. A preference stored outside it silently fails to sync the moment accounts land, and that bug surfaces as "my settings didn't follow me to my phone" months later. One serialization, one migration path, same as every other stored field. |
 | Bundle discipline | Carried from v5's table, unchanged: nothing this version adds lands on the play loop's critical chunks | PR #80 + the metadata/body lazy-load split are the baseline. A tooltip library or a settings surface on the boot path would regress a pass that was expensive to earn. Prefer no new runtime dependency at all here. |
 | Sizing | Phases sized in **Claude sessions**, same convention as v2/v3/v5 | Unchanged. |
@@ -28,14 +29,16 @@ v4 is the version that makes Codoro stop feeling like a prototype. It builds not
 
 | Phase | What | Est. sessions |
 | --- | --- | --- |
-| 4.0 | Desktop & keyboard control: submit/advance on Enter, arrow-key interaction, the desktop nav defect, Practice scroll | 1–2 |
+| 4.0 | Desktop & keyboard control: submit/advance on Enter, arrow-key interaction, the desktop rails (sticky sidebar), Practice scroll | 1–2 |
 | 4.1 | Settings, for real: a first-class route with actual preferences, export/import folded in, versioned storage | 1–2 |
-| 4.2 | Content trust: Browse difficulty filter, report-a-puzzle | 1 |
-| 4.3 | Daily, made hard: calendar rebuilt around scrubber/drag-order/tap-line, plus the content ask it exposes | 1–2 |
+| 4.2 | Browse difficulty filter (deliberately *not* the rated flow) | 1 |
+| 4.3 | Daily, made hard: calendar rebuilt around scrubber/drag-order/tap-line — **gated on a content batch**, so it runs last | 1–2 + content |
 | 4.4 | Affordances: drag-handle target and hint, tooltips where a control isn't self-evident | 1 |
 | 4.5 | The verification tail: v3's 2b.8 QA pass, the mobile defects, Thomas's device backlog | 1–2 |
 
-**Sequencing.** 4.0 first — it is the largest behavioral change and the one most likely to shake loose regressions in the interaction components everything else sits on. 4.1 next, because it establishes the preference-storage seam 4.2's filter default and 4.4's hint-dismissal both write into. 4.2 and 4.4 are independent after 4.1 and can interleave. 4.3 is independent of all of them and is the one phase with an external dependency (content authoring) — start its content ask early so authoring runs in parallel. 4.5 closes the version and is only meaningful against the finished build.
+**Sequencing.** 4.0 first — it is the largest behavioral change and the one most likely to shake loose regressions in the interaction components everything else sits on. 4.1 next, because it establishes the preference-storage seam 4.2's filter default and 4.4's hint-dismissal both write into. 4.2 and 4.4 are independent after 4.1 and can interleave. **4.3 runs last, and its content batch is commissioned on day one of 4.0** — the decision to gate it on real content (rather than ship a short calendar) makes content authoring the long pole of this whole version, so the authoring must run in parallel with every other phase or 4.3 becomes a stall at the end. 4.5 closes the version and is only meaningful against the finished build.
+
+**The one scheduling risk in this plan, named up front:** content authoring is the slowest activity in this project, and 4.3 is now gated on it by choice. If the batch isn't moving by the time 4.4 is done, the honest options are to ship the short calendar after all (append later — the append-only contract permits growth) or to let v4 close without 4.3 and carry it. Deciding that at the end, under pressure, is how a version slips quietly; deciding it in writing here is why it's written here.
 
 ## Phase 4.0 — Desktop & keyboard control (1–2 sessions)
 
@@ -45,7 +48,10 @@ Codoro is a keyboard-less mobile game running on desktop. This phase is the larg
 
 1. **Enter to submit, Enter to advance** (todo 23). One binding, two states: with an answer staged, Enter commits it; on the result state, Enter advances to the next puzzle. Applies across every interaction type (mcq, swipe-binary, tap-line, drag-order, scrubber) through the shared commit path, not per-component. Must not fire while focus is in a text input or a dialog.
 2. **Arrow-key interaction** (todo 24). Per interaction type, the obvious mapping: mcq = ↑/↓ (or 1–4) to select; swipe-binary = ←/→ to answer; tap-line = ↑/↓ to move the line cursor; drag-order = ↑/↓ to move the focused item (`DragOrder.tsx` already has key handling — extend, don't replace); scrubber = ←/→ to step, already partially present in `Scrubber.tsx`. Every mapping discoverable, not secret: see 4.4's tooltips and a keyboard-shortcut list in Settings (4.1).
-3. **Desktop nav defect** (todo 26, "Desktop nav bar not floating"). **Needs a repro before a fix** — `NavRail.tsx` is `sticky top-0 h-screen` today, which is the intended behavior, so either the sticky is being defeated by an ancestor's `overflow`/`transform` (the usual cause) or the item means something else. Reproduce at ≥1024px, screenshot the wrong state, then fix. Do not "fix" a defect that cannot be reproduced — record it as not-reproducible and close it.
+3. **Desktop rails must not scroll with the middle column** (todo 26, clarified 2026-08-27 to cover the right rail too). Two halves, and only one of them is a confirmed defect:
+   - **Right sidebar — confirmed defect, fix it.** `.app-shell__sidebar` is `align-items: start` + `self-start` with no `position: sticky` (see `app.css` and `PracticePage.tsx`'s `<aside>`), so it scrolls out of view with the middle column. Give it `position: sticky; top: 0`, a `max-height` of the viewport, and its own `overflow-y: auto` for the case where sidebar content is taller than the screen. Both consumers (`PracticePage`, `DailyPage`) share the class, so this is one change, not two.
+   - **NavRail — verify before touching.** It is already `sticky top-0 h-screen`, which should hold it; the usual way that silently breaks is an ancestor with `overflow` or `transform`. Reproduce at ≥1024px with a screenshot first. If it holds, close this half as not-reproducible **in writing** and do not "fix" it.
+   - **Out of scope, recorded:** the full three-region restructure (viewport-height shell, middle column its own scroll container). Locked decision above says why, and where it goes if it's still wanted.
 4. **Practice page scroll** (todo 25). Reproduce and fix the reported scrolling-down defect on `/practice`. Likely candidates given the shell: `PageShell`'s pinned header/sticky-action interaction with the page scroll container, or the bottom-nav height offset in `AppShell.tsx`. Capture the failing case in a test, not just a fix.
 
 **DoD:**
@@ -53,7 +59,9 @@ Codoro is a keyboard-less mobile game running on desktop. This phase is the larg
 - [ ] Every interaction type is fully playable with keyboard only, verified per type; Enter never fires inside inputs or dialogs (tested)
 - [ ] Keyboard mappings documented in one place and surfaced in Settings
 - [ ] Practice-page scroll defect has a failing-then-passing test, not just a visual fix
-- [ ] Desktop nav item either fixed with a before/after screenshot, or closed as not-reproducible **in writing**
+- [ ] Right sidebar stays pinned while the middle column scrolls, at ≥1024px, on both `/practice` and `/daily`, with a before/after screenshot; a sidebar taller than the viewport scrolls internally rather than clipping
+- [ ] NavRail either fixed with a before/after screenshot, or closed as not-reproducible **in writing**
+- [ ] Page still has exactly one scroll container — the restructure stayed out (grep: no new `overflow: hidden` on `.app-shell`)
 - [ ] No regression to touch/pointer paths — the OD-6 swipe suite and the drag/scrubber suites stay green
 - [ ] `pnpm validate` green
 
@@ -77,37 +85,39 @@ Settings today is an export/import page reachable only from a footer link (`src/
 - [ ] Each shipped preference is justified in one line in the phase amendment; the ones considered and dropped are named too
 - [ ] `pnpm validate` green
 
-## Phase 4.2 — Content trust: difficulty filter + report (1 session)
+## Phase 4.2 — Browse difficulty filter (1 session)
 
 **Build:**
 
 1. **Browse difficulty filter** (todo 17): easy / medium / hard chips on the Browse surface, alongside the existing patterns/mastery filter row (#77's compact row — extend it, don't add a second row). Bands derived from `difficulty_rating` with the cut points **recorded as named constants with reasoning**, not magic numbers; reads from the lazy metadata index only, so no puzzle body loads. **Not added to the rated Practice flow** — locked decision above; write the reason into the code comment so the next session doesn't "helpfully" add it.
-2. **Report a puzzle** (todo 18): a low-prominence control on the puzzle surface that opens a prefilled report carrying the puzzle id, the interaction type, and the app version. No backend (locked decision); pick `mailto:` or a hosted form in the build prompt and record which and why. Must degrade gracefully where `mailto:` has no handler.
+2. Empty-state handling: a band × pattern × mastery combination that matches nothing must say so, not render a blank list.
 
 **DoD:**
 
 - [ ] Filter narrows Browse correctly at every band incl. combinations with the existing pattern/mastery filters (tested); band cut points documented
 - [ ] Zero puzzle bodies loaded by filtering — verified against the metadata/body split, not assumed
-- [ ] Report control produces a message containing the puzzle id, verified end-to-end once by hand
+- [ ] Empty combination renders a named empty state (tested)
 - [ ] Rated Practice selection provably unchanged (its existing selection tests untouched and green)
 
-## Phase 4.3 — Daily, made hard (1–2 sessions)
+## Phase 4.3 — Daily, made hard (1–2 sessions + a content batch)
 
-The item behind this phase is "no swipe or mcq for daily, make daily better." The measurement that makes it a phase rather than a line change is in the locked decisions: dropping mcq and swipe-binary takes Daily's eligible ≥1600 pool from 45 puzzles to 22, and the current 16-entry calendar contains zero scrubber puzzles.
+The item behind this phase is "no swipe or mcq for daily, make daily better." **No mcq and no swipe-binary in the Daily pool is firm** (re-confirmed 2026-08-27). The measurement that makes this a phase rather than a line change: dropping those two takes Daily's eligible ≥1600 pool from 45 puzzles to 22 — scrubber 13, tap-line 6, drag-order 3 — and today's 16-entry `DAILY_CALENDAR` is **100% mcq/swipe/tap-line with zero scrubber entries**.
+
+**Gated on content, by decision (2026-08-27).** The alternative — ship a 22-entry calendar now and append as content lands — was considered and rejected in favour of rebuilding the calendar once, at full length, from real content. That makes authoring this phase's blocking prerequisite, and content authoring is the slowest activity in the project. **Commission the batch on day one of 4.0, not at the start of this phase.** The lowered rating floor was also considered and rejected: leaving the ≥1600 floor alone keeps Daily's difficulty story consistent with the calibration the whole pool was rated against.
 
 **Build:**
 
+0. **Content prerequisite (starts first, finishes last):** author hard scrubber and drag-order puzzles until the eligible ≥1600 non-mcq/non-swipe pool supports a full calendar without duplicates. Target length is an open question below; the gap today is 22 against roughly 40. This runs through `GENERATING_PUZZLES.md` and the normal calibration path — no shortcuts that would put uncalibrated puzzles in the hardest surface the app has.
 1. **Rebuild `DAILY_CALENDAR`** from scrubber / drag-order / tap-line puzzles only, hardest-first-biased, no duplicates. Legal right now precisely because `DAILY_EPOCH` is still the `2026-01-01` placeholder — `dailyCalendar.ts`'s own pre-launch note authorizes this, and the day the real epoch is frozen it becomes forbidden. Update the test pin accordingly.
-2. **Enforce the rule in code, not in a comment**: `validate:content` (or `dailyCalendar.test.ts`) fails the build if a future entry is mcq or swipe-binary. A convention that only lives in a doc comment gets violated by the next content batch.
-3. **Content ask, opened early**: the eligible pool is thin (22 candidates for a calendar that wants ~40). Nominate a target — hard scrubber and drag-order puzzles — and start authoring in parallel with this phase rather than discovering the shortfall at the end. Record the shortfall number in the amendment so it is a tracked gap, not a vibe.
-4. **"Make daily better" beyond the interaction mix** is explicitly *out of scope here* and belongs to v6's game-feel definition session — the session shape, the stakes, the payoff of a Daily are exactly what that session exists to define. This phase changes what Daily asks you to do; v6 changes what Daily *is*.
+2. **Enforce the rule in code, not in a comment**: `validate:content` (or `dailyCalendar.test.ts`) fails the build if any calendar entry is mcq or swipe-binary. A convention that only lives in a doc comment gets violated by the next content batch — and this one is a locked decision, not a preference.
+3. **"Make daily better" beyond the interaction mix** is explicitly *out of scope here* and belongs to v6's game-feel definition session — the session shape, the stakes, the payoff of a Daily are exactly what that session exists to define. This phase changes what Daily asks you to do; v6 changes what Daily *is*.
 
 **DoD:**
 
-- [ ] Every calendar entry is scrubber / drag-order / tap-line; enforced by a failing build, not a comment (tested)
-- [ ] Calendar has no duplicate ids and every id resolves (existing `validate:content` gates hold)
+- [ ] Every calendar entry is scrubber / drag-order / tap-line; **enforced by a failing build**, not a comment (tested with a deliberately-bad fixture)
+- [ ] Calendar reaches the agreed target length with no duplicate ids and every id resolving (existing `validate:content` gates hold)
+- [ ] Every newly authored puzzle went through the normal calibration path; none added to the calendar uncalibrated
 - [ ] The pre-launch editing window is called out in the amendment with the exact condition that closes it (`DAILY_EPOCH` frozen)
-- [ ] Content shortfall recorded as a number with a named target
 
 ## Phase 4.4 — Affordances (1 session)
 
@@ -147,8 +157,7 @@ This phase absorbs work v3 left open. It sits here rather than in v5 because it 
 - Exact keyboard mappings per interaction type, and where the shortcut reference lives (4.0)
 - The final preference list, and which ones are worth a stored field (4.1)
 - Difficulty band cut points, and whether "easy/medium/hard" or the rating numbers are shown (4.2)
-- `mailto:` vs hosted form for reports (4.2)
-- Daily's target calendar length and the content-authoring ask (4.3)
+- **Daily's target calendar length** — and therefore the size of the content batch 4.3 is gated on (4.3). This is the number that decides how long v4 runs; settle it before commissioning the batch, not after
 - Tooltip touch interaction: long-press vs tap-to-reveal (4.4)
 
 ## Traceability — every open `docs/todo.md` item
@@ -163,14 +172,14 @@ This phase absorbs work v3 left open. It sits here rather than in v5 because it 
 | 15 | Privacy policy | **v5 (5.6)** — the lawyer review is engaged there, covering accounts + email + sync at once |
 | 16 | Terms of service | **v5 (5.6)**, same review |
 | 17 | Tiered answers easy/medium/hard | **4.2**, scoped to Browse only (locked decision) |
-| 18 | Report question button | **4.2**, backend-free; upgraded to a real endpoint in v5 |
+| 18 | Report question button | **v5** — endpoint in 5.0, client control in 5.1. Moved out of v4 on 2026-08-27: the real thing is an hour once Workers exist, and it's live at launch |
 | 19 | Mobile errors (Lighthouse, swipe) | **4.5**, verify-before-fix |
 | 20 | Drag-and-drop handle bigger / hint | **4.4** |
-| 21 | No swipe or mcq for Daily; make Daily better | **4.3** for the interaction mix + calendar rebuild; **v6** for what a Daily *is* (game-feel definition session) |
+| 21 | No swipe or mcq for Daily; make Daily better | **4.3** for the interaction mix + calendar rebuild (firm; gated on a content batch); **v6** for what a Daily *is* (game-feel definition session) |
 | 22 | Settings page | **4.1** |
 | 23 | Press Enter to submit and go next | **4.0** |
 | 24 | Use arrows/keys on computer | **4.0** |
 | 25 | Practice tab scrolling down | **4.0** |
-| 26 | Desktop nav bar not floating | **4.0**, repro required before fix |
+| 26 | Desktop nav bar not floating | **4.0** — right sidebar sticky (confirmed defect); NavRail repro-required-before-fix; full shell restructure out of scope |
 
 Items 1–8 and 13 are already dispositioned in `docs/todo.md`'s original 2026-08-02 fold-in (all landed in v2/v3, or carried to v6); 13 was never written.

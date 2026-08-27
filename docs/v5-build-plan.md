@@ -31,8 +31,8 @@ v5 gives players an identity and — the part that actually serves retention —
 
 | Phase | What | Est. sessions |
 | --- | --- | --- |
-| 5.0 | Backend foundation: `workers/` package, Clerk JWT verification, D1 schema + migrations, rate limiting, CI deploy | 2 |
-| 5.1 | Client auth: Clerk React wiring, guest-first UX, account settings (incl. delete account) | 1–2 |
+| 5.0 | Backend foundation: `workers/` package, Clerk JWT verification, D1 schema + migrations, rate limiting, CI deploy, puzzle-report endpoint | 2 |
+| 5.1 | Client auth: Clerk React wiring, guest-first UX, account settings (incl. delete account), report-a-puzzle control | 1–2 |
 | 5.2 | Progress sync: export-format payload, anonymous→account migration, merge rules, multi-device | 2–3 |
 | 5.3 | Public identity: usernames, profiles, named leaderboards (Daily/Rush/Boss), privacy controls | 2 |
 | 5.4 | Edge OG meta injection (carried v3 Phase 4 item, unchanged) | 1 |
@@ -49,6 +49,7 @@ v5 gives players an identity and — the part that actually serves retention —
 2. **D1 schema v1 + migrations discipline**: `users` (Clerk user ID PK, username nullable until 5.3, created_at), `profiles` (sync blob + client schema version + updated_at), `scores` (user_id, mode, day, score — one row per user/mode/day, upsert-keep-best). Server-side migrations get the same isolated-test convention as the client's `MIGRATIONS`.
 3. **Clerk JWT verification middleware**: JWKS-based session-token verification on every authenticated route; explicit 401/403 split; forged/expired/aud-mismatch tokens covered by tests. Authorization checks (this user owns this row) live server-side only — the deferred v1 security item, closed structurally.
 4. **Rate limiting**: per-IP (pre-auth) and per-user (post-auth), on Workers. Still load-bearing (v3's words) — burst-tested in 5.6, unit-tested now.
+5. **Puzzle-report endpoint** (todo item 18, moved here from v4 on 2026-08-27): `POST /api/report` taking a puzzle id, a reason from a **fixed enum** (not free text on the first cut), and the app version; writes to a `reports` table. **Unauthenticated by design** — guest-first is law and most reporters will not have accounts, which makes this the one write endpoint in the system that accepts anonymous input, and therefore its sharpest abuse surface. Consequences, not optional: strict per-IP rate limiting, a bounded payload with no free-form string that reaches storage unvalidated, puzzle id validated against real content, and no PII stored (the PII practice above binds here too). This is roughly an hour's work on top of the foundation; it does not get its own phase, and it does not get to grow a moderation UI in this version.
 
 **DoD:**
 
@@ -56,6 +57,7 @@ v5 gives players an identity and — the part that actually serves retention —
 - [ ] Auth middleware rejects forged/expired/mismatched tokens (tested); authz helper enforces row ownership (tested)
 - [ ] D1 migrations have isolated tests; schema documented in `workers/README.md`
 - [ ] Rate limiter unit-tested for both keys; limits recorded as config, not magic numbers
+- [ ] `/api/report` accepts a signed-out report, rejects an unknown puzzle id and an out-of-enum reason (tested), and is per-IP rate limited; stores no PII
 
 ## Phase 5.1 — Client auth, guest-first (1–2 sessions)
 
@@ -65,12 +67,14 @@ v5 gives players an identity and — the part that actually serves retention —
 2. **Guest-first UX**: play loop untouched signed out. Signup prompts only at value moments — end of a boss clear, a streak milestone, viewing the leaderboard — with a hard frequency cap and a permanent quiet path ("maybe later" is respected, not nagged). The exact moments + cap: settle in the build prompt.
 3. Settings: account section — signed-in state, sign out, **delete account** (calls a Worker endpoint that deletes D1 rows and the Clerk user; verifiably gone).
 4. Bundle discipline: Clerk SDK lazy-loaded at auth surfaces only; play-path chunks unchanged (verified against the perf baseline, not asserted).
+5. **Report-a-puzzle control** (todo item 18): a low-prominence control on the puzzle surface, posting to 5.0's endpoint with the puzzle id, the chosen reason, and the app version. Available signed-out — it is a content-quality channel, not an account feature, and gating it behind signup would defeat the point. Fire-and-forget with an honest confirmation; a failed post says so rather than silently pretending.
 
 **DoD:**
 
 - [ ] Signed-out play loop behaviorally and performance-identical (bundle diff + Lighthouse re-check against the perf/content-metadata-lazy-load baseline)
 - [ ] Create → sign out → sign in → delete account round-trip verified on staging; deletion confirmed server-side
 - [ ] Signup prompts appear only at the settled value moments, frequency cap tested
+- [ ] Report control works signed-out, round-trips to a real row on the dev env, and surfaces a failed post rather than swallowing it
 - [ ] `pnpm validate` green
 
 ## Phase 5.2 — Progress sync (2–3 sessions)
@@ -133,7 +137,7 @@ v3 Phase 4 item 5, carried unchanged: per-route and per-puzzle `<title>`/descrip
 **Build:**
 
 1. **Load test + cost curve** (carried v3 Phase 4 item 6): write path at spike rates against D1's real limits; rate-limit burst test proves the limiter holds; **cost curve recorded at 1×/10×/100×** expected load — including Clerk MAU and Resend volume, not just Cloudflare.
-2. **Security pass**: authz test suite across every endpoint (user A vs user B), dependency audit, secrets hygiene, the PII practice checked against what actually got stored.
+2. **Security pass**: authz test suite across every endpoint (user A vs user B), dependency audit, secrets hygiene, the PII practice checked against what actually got stored. **`POST /api/report` gets its own line here** — it is the only unauthenticated write in the system, so it is the one endpoint an authz suite structurally cannot cover; burst it, fuzz its payload bounds, and confirm the enum is enforced server-side rather than only in the client.
 3. **`/legal` accounts delta**: privacy policy + ToS now cover real PII (email), sync storage, leaderboard display, marketing email. **The lawyer review carried from v3 Phase 3 is engaged during this phase** — one review covering accounts + email + sync + the eventual launch surface; it must land before v6's distribution tail, and it's calendar time, so it starts here, not there.
 4. Account-deletion verification: delete → confirm D1 rows, Clerk user, and email suppression list entry are gone.
 
@@ -165,4 +169,6 @@ v3 Phase 4 item 5, carried unchanged: per-route and per-puzzle `<title>`/descrip
 | `/legal` delta + lawyer review | v3 Phase 3 item 4 / Phase 4 item 7 | **5.6** — one review, full delta |
 | v1 security block (2FA/OTP, disposable email, token storage, password hygiene) | v1 → v2 → v3 deferral chain | **Clerk** (5.0/5.1); server-side authorization ours (5.0) |
 | Optimistic rendering ("first network round-trip") | v2 todo item 11 deferral | **5.3** leaderboard display — decide in build prompt |
+| Skeleton loaders / caching | v2 todo items 9, 10 — deferred through v4 | **5.2/5.3** — the first real network latency in the app's history appears here; until then there was nothing to mask or cache (v4's decision table) |
+| Report a puzzle | v2 todo item 18 — moved out of v4, 2026-08-27 | **5.0** (endpoint) + **5.1** (control) — unauthenticated by design, which makes it 5.6's sharpest abuse-surface check |
 | Anonymous leaderboard (as shipped surface) | v3 Phase 4 item 2 / roadmap 3.1 | **Not built** — superseded 2026-08-26, recorded at top |
