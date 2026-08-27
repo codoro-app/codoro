@@ -317,6 +317,41 @@ describe('TraceRunner solve screen', () => {
     expect(screen.getByRole('button', { name: /Next puzzle/ })).toHaveFocus()
   })
 
+  it('moves keyboard focus to the desktop inline Continue button too, not just the mobile drawer one', () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query === '(min-width: 1024px)',
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    )
+    const onContinue = vi.fn()
+    const allCheckpointResults: CheckpointResult[] = [
+      { correct: true, choiceIndex: 1 },
+      { correct: true, choiceIndex: 0 },
+      { correct: true, choiceIndex: 1 },
+    ]
+    render(
+      <TraceRunnerPuzzle
+        puzzle={puzzle}
+        checkpointResults={allCheckpointResults}
+        isComplete={true}
+        solved={true}
+        ratingDelta={null}
+        onCheckpointAnswered={vi.fn()}
+        onContinue={onContinue}
+        timed={false}
+      />,
+    )
+    const continueButton = screen.getByRole('button', { name: /Next puzzle/ })
+    expect(continueButton.closest('.sticky.bottom-0')).toBeNull()
+    expect(continueButton).toHaveFocus()
+
+    vi.unstubAllGlobals()
+  })
+
   // Same fix as PuzzleCardShell.test.tsx's identically-named test — see that
   // file's comment for the full bug report / rationale.
   it('on desktop (>=1024px) Continue renders inline above the feedback panel, not the sticky bottom bar', () => {
