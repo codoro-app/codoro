@@ -6,6 +6,8 @@ This plan absorbs every v2 carryover (`docs/roadmap.md`'s v2-carryover section, 
 
 **Entry gate: open.** v2 Phase 8 is done (`pnpm validate` green from a fresh clone, re-verified 2026-08-10 in a clean environment; every defect-table row closed by commit or written waiver), and the decision to market Codoro is made.
 
+> **Resequencing note, 2026-08-26 (direct user decision — see `docs/roadmap.md`).** The launch moved behind v4 (accounts) and v5 (gamification/retention). Consequences for this doc: **Phase 4 (anonymous backend) is superseded, not built** — every one of its work items lands authenticated in `docs/v4-build-plan.md` (traceability table there); **Phases 3, 5, 6** (launch-readiness verification, distribution, growth loop) carry to v5's launch tail. Phases 0–2b remain this doc's record and are build-complete; the outstanding items are the 2b.8 QA pass and Thomas's device-verification backlog, listed under v3 in the roadmap.
+
 ## Locked decisions
 
 | Decision                 | Choice                                                                                                                                                                                              | Why                                                                                                                                                                                                                                             |
@@ -241,8 +243,8 @@ Sits between Phase 2 (Missions, merged as PR #57) and Phase 3 (Launch-readiness)
 
 **DoD:**
 
-- [ ] Current stage position is visible at all times during a run, not only at transition screens.
-- [ ] A first-time player can state what's about to happen next without guessing, per a quick Thomas walkthrough.
+- [x] Current stage position is visible at all times during a run, not only at transition screens — **met**: staging work merged as PR #62 (2026-08-13); box left unticked by that session, closed by the 2026-08-26 doc-hygiene pass.
+- [ ] A first-time player can state what's about to happen next without guessing, per a quick Thomas walkthrough — **still owed**: folded into the v3 device-verification backlog (roadmap), runs with the two-phone regression.
 
 ### 2b.4 — Sharing consolidation (1 session)
 
@@ -250,8 +252,8 @@ Sits between Phase 2 (Missions, merged as PR #57) and Phase 3 (Launch-readiness)
 
 **DoD:**
 
-- [ ] Verified on ≥1 real mobile browser (real share sheet opens) and desktop (clipboard fallback works).
-- [ ] Old inline share-text markup removed everywhere it was duplicated.
+- [ ] Verified on ≥1 real mobile browser (real share sheet opens) and desktop (clipboard fallback works) — **still owed**: folded into 2b.8's QA pass / the device-verification backlog. (PR #79 later replaced the buried popover with a bottom sheet, so the verify target is the current drawer, not #63's original UI.)
+- [x] Old inline share-text markup removed everywhere it was duplicated — **met**: ShareMenu consolidation merged as PR #63 (2026-08-13); box left unticked by that session, closed by the 2026-08-26 doc-hygiene pass.
 
 ### 2b.5 — Home redesign (1 session)
 

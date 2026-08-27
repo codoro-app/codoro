@@ -1,8 +1,10 @@
 # Codoro — project roadmap
 
-The whole arc, v1 through multiplayer. No dates — versions are gated by decisions and outcomes, not the calendar. Each version has an **entry gate**: the thing that must be true before its work starts. Detailed phase plans are written one version at a time (v2's is `docs/v2-build-plan.md`); later versions are sketched here at phase granularity and get their own build plan when their gate opens.
+The whole arc, v1 through multiplayer. No dates — versions are gated by decisions and outcomes, not the calendar. Each version has an **entry gate**: the thing that must be true before its work starts. Detailed phase plans are written one version at a time; later versions are sketched here at phase granularity and get their own build plan when their gate opens.
 
-The one-line strategy: **v2 makes the game worth playing, v3 finds out if anyone wants to play it, v4 gives players an identity, v5 lets them play each other.** Backend complexity is added strictly in that order — none before users, no accounts before demand, no realtime before accounts.
+The one-line strategy: **v2 makes the game worth playing, v3 polishes and hardens it, v4 gives players an identity and a comeback channel, v5 makes it a game people return to — and launches it, v6 lets them play each other.**
+
+> **Resequenced 2026-08-26 (direct user decision).** The launch moves from v3's tail to v5's. Reason, recorded honestly: the app in its current state plays like a flashcard exam, not a game — launching it would spend the one-shot launch audience on a product that doesn't retain. Accounts (v4) and gamification/retention (v5) are built first; the launch fires when the game earns it. This consciously waives the old evidence gates for v4 (retention data cannot exist pre-launch) — an exception to sequencing principle 1, mitigated by v5's closed beta, which produces retention evidence before any loud post. v3 Phase 4's anonymous-only backend is superseded: the backend is built once, authenticated, in v4 (`docs/v4-build-plan.md`). The prior version numbering (v4=accounts, v5=multiplayer) shifts: multiplayer is now v6.
 
 ---
 
@@ -10,88 +12,68 @@ The one-line strategy: **v2 makes the game worth playing, v3 finds out if anyone
 
 Live at getcodoro.com. Vite/React/TS PWA, local-first (IndexedDB), 108 puzzles across swipe/mcq/tap-line, Elo rating, Daily, Rush. Retro: `docs/v1-retro.md`. Central finding: the content is quiz questions, not puzzles — which is what v2 exists to fix.
 
-## v2 — The puzzle rebuild (planned — `docs/v2-build-plan.md`)
+## v2 — The puzzle rebuild (shipped)
 
-**Entry gate:** open (v1 complete).
-**Exit state:** a game good enough to put in front of strangers. Build-only, no marketing, still local-first.
+Scrubber flagship, 214 calibrated puzzles, challenge links, drag-and-drop, Rush escalation, export/import, PWA hardening. Full record: `docs/v2-build-plan.md`.
 
-| Phase | What                                                                                                                            |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------- |
-| 0     | Carryover bug fixes (swipe resolution + mobile swipe gesture, Browse Puzzles) + live-deploy verification                        |
-| 1     | URL routing + shareable `/puzzle/:id` links                                                                                     |
-| 2     | Scrubber spike: trace format, engine, execution-derived ground truth — **go/no-go checkpoint**                                  |
-| 3     | Scrubber UI                                                                                                                     |
-| 4     | Scrubber content pipeline + volume                                                                                              |
-| 5     | Quiz upgrades: drag-and-drop, Daily rating reveal, Rush escalation, timers, streak-pause + payoff moments (5a merged / 5b open) |
-| 5c    | Challenge links — URL-encoded, no backend (2026-08 addition; the seed distribution channel before v3)                           |
-| 6     | Content calibration + quiz + scrubber volume (~200 total puzzles) + interaction-mix target                                      |
-| 6b    | Boss challenges: 10-puzzle escalating run type (2026-08 addition; gated on Phase 6 volume)                                      |
-| 6c    | Missions (Trace → Speed → Boss → Elo) + click-meaningfulness UX pass (2026-08; needs definition session)                        |
-| 7     | Export/import UI + Lighthouse 90+                                                                                               |
-| 8     | Hardening + regression                                                                                                          |
+## v3 — Build-out & hardening (build complete; verification tail open)
 
-**2026-08 scope note:** phases 5c/6b/6c absorb `docs/todo.md` (dispositions table in `docs/v2-build-plan.md`). This widens v2 without changing v3's gate — marketing was already sequenced behind all of v2, so it moves back exactly as much as v2 grew, and no further. Challenge links are deliberately early (right after 5b): they're v5.0's async duel minus accounts, and the only acquisition channel the product has before v3 opens.
+Originally "Launch: get users" — the launch machinery it carried (readiness gate, anonymous backend, distribution, growth loop) moved out on 2026-08-26: the backend to v4, the launch tail to v5. What v3 actually delivered, all merged: OD-1 swipe closed by on-device captured evidence (5 rounds), Boss challenges + engagement pass, Missions + click-meaningfulness, the full 2b UI redesign (Tailwind migration, tokens/shell, game-feel, sharing, Home, stats page), the August mobile-hardening wave (bottom nav, OD-6, code-wrap, share drawer), and the practice-page performance pass. Full record: `docs/v3-build-plan.md`.
 
-## v3 — Launch: get users
+**Still open under v3's name** (none of it blocks v4 code; all of it blocks v5's launch tail):
 
-**Entry gate:** v2 Phase 8 done, and the decision to market Codoro (made — this roadmap assumes yes after v2).
-**Exit state:** real users, real retention data, and a working feedback loop. First backend code — minimal and anonymous, no accounts.
+1. Merge `perf/content-metadata-lazy-load` (review-complete).
+2. **2b.8 QA pass** — batched screenshot review of every route at mobile/desktop widths + Lighthouse re-check; absorbs the visual-verification boxes 2b.0/2b.1/2b.3/2b.4 left open (those sessions ran headless).
+3. **Thomas's device-verification backlog**: two-phone interaction regression (now incl. boss/missions), PWA install/offline/SW-update, live telemetry check, week-long storage soak, cross-device Daily, boss/missions playthroughs.
 
-### v2 carryovers (2026-08-10, direct user decision)
+## v4 — Accounts, identity, comeback channel (open — `docs/v4-build-plan.md`)
 
-Three items closed out of v2 by waiver rather than by fix, folded into v3 rather than left to hide in `docs/v2-build-plan.md` alone:
+**Entry gate: open** (2026-08-26 decision; the old retention-evidence gate is consciously waived — see the resequencing note). One backend, built once, authenticated from day one; guest-first stays law — an account is never required to play.
 
-1. **OD-1 — swipe gesture still unreliable on phone.** Four rounds of source/docs-grounded fixes across v2 (32ms kinematics staleness, zero touch `axisThreshold`, `touch-action: none`, then the corrected `touch-action: pan-y`) each fixed a real, confirmed mechanism — and the on-device symptom survived every one of them. The `pan-y` fix is merged (`main`, PR #52, `aa7674d`) as the best available state, not a claim of resolution. Whoever picks this up in v3 should start from an on-device instrumented capture of the actual `@use-gesture` state machine transitions during a failing gesture, not another source-reading pass — every hypothesis reachable that way has been tried. See `v2-build-plan.md`'s OD-1 section for the full four-round account.
-2. **Mobile Lighthouse performance, 84 → 90+.** Two Phase 7b fix rounds closed render-blocking requests and cache lifetimes; the remaining ~8.5 KiB gap is a `Math.trunc` polyfill baked into a third-party dependency's own bundle (`module-Cwtw1I8F.js`), not this app's source — `vite.config.ts`'s `build.target` has no effect on a dependency's own shipped code. Needs the offending dependency identified (not yet done) and either a modern/ESM entry point swap or an explicit exclude, before another fix attempt.
-3. **Boss challenges (v2 Phase 6b) + Missions (v2 Phase 6c).** Never built — Phase 6's content-volume gate opened (214 puzzles) but no session picked either phase up before v2 was declared feature-frozen at Phase 8. Both `todo.md` items (1 and 6) still need real ownership; 6c additionally still needs the "click-meaningfulness" definition session its own v2 section required and never got. Treat as unbuilt v2 scope carried forward, not new v3 ideation — the design sketches in `v2-build-plan.md`'s Phase 6b/6c sections are the starting point.
+| Phase | What |
+| --- | --- |
+| 4.0 | Backend foundation: `workers/` package, Clerk JWT verification, D1 schema, rate limiting, CI deploy |
+| 4.1 | Client auth: Clerk React, guest-first UX (signup only at value moments), account settings + deletion |
+| 4.2 | Progress sync: versioned export format as payload, anonymous→account migration keeps rating/history, merge rules, multi-device |
+| 4.3 | Public identity: usernames, opt-in profiles, named Daily/Rush/Boss leaderboards, privacy controls |
+| 4.4 | Edge OG meta injection (carried v3 item — covers `/challenge` unfurls) |
+| 4.5 | Email re-engagement: streak-at-risk nudge, challenge-answered notify, weekly digest (Resend; preferences + one-click unsubscribe from day one) |
+| 4.6 | Hardening: load test + 1×/10×/100× cost curve (incl. Clerk/Resend), authz suite, `/legal` PII delta, lawyer review engaged |
 
-| Phase | What                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 3.0   | Launch-readiness: the v1 checks that only matter with real users — week-long storage-survival soak, fresh-user walkthrough (stranger solves a puzzle in ~10s with zero instructions), cross-device Daily verification, growth dashboards prebuilt in PostHog (day-2 return, session length, puzzles/session), a real lawyer review of `/legal` (v2's own notice is deliberately good-faith developer-written, not lawyer-reviewed — see v2 Phase 7's amendment), **and the scaling validation gate below** |
-| 3.1   | Minimal backend: Cloudflare Workers + D1/KV on the existing account. Anonymous leaderboard (Daily + Rush best scores, keyed on the stable anon ID from v2's backend-ready seams), server-rendered OG share cards for puzzle links. No auth, no PII, aggressive rate limiting since it's anonymous                                                                                                                                                                                                          |
-| 3.2   | Distribution: launch posts (r/webdev, r/learnprogramming, HN Show, X), AI-generated reel/short videos (the backlog item — a scrubber solve is inherently watchable), SEO pass on puzzle pages                                                                                                                                                                                                                                                                                                              |
-| 3.3   | Growth loop: in-app feedback channel, watch the dashboards, weekly content drops (the pipeline makes this cheap), fix what real users actually hit. **This phase produces the v4 gate evidence**                                                                                                                                                                                                                                                                                                           |
+## v5 — Make it a game people return to — then launch
 
-### Scaling validation gate (v3.0 — launch assumes thousands of users on day one)
+**Entry gate:** v4 shipped (sync + identity + email live on staging). **Exit state: launched**, with retention evidence from a closed beta preceding any loud post. This is the version that answers the "flashcard exam" problem head-on; it gets its own build plan when the gate opens, preceded by a **game-feel definition session** (the repo's convention: no build without the definition on paper).
 
-The launch posts (3.2) can spike traffic in hours, not weeks — HN or a subreddit front page means thousands of concurrent users hitting a stack that has only ever served one. The working assumption is **the launch must survive thousands of users without intervention**, and that gets _validated before 3.2, not discovered during it_. The good news is structural: v2's local-first design means the client itself has no scaling surface at all — every user's state lives on their own device, so 10,000 users cost the app what 1 user costs. The surfaces that do scale, each with a pass condition:
+| Phase | What (sketch — the definition session binds, this doesn't) |
+| --- | --- |
+| 5.0 | **Game-feel definition session** (blocking): what "feels like a game, not an exam" means operationally — session shape, difficulty curve, reward cadence, failure UX; audits every current surface against it |
+| 5.1 | **Progression spine — curated tracks & levels**: named tracks (Interview Prep, JS Fundamentals, React, …) composed of short sessionized levels with a visible map, clear/CLEARED payoff moments, and mastery stars; Missions/Boss become structures inside tracks rather than parallel modes |
+| 5.2 | **New puzzle interactions**: fill-in-the-blank (cloze code), debug-it mode (a wrong answer drops you into a console to find *why* — the "X" becomes a puzzle), fix-the-bug; content pipeline + `validate:content` extended to the new formats |
+| 5.3 | **Reward systems**: streaks with freezes, badges/achievements (filling v4's profile slots), daily quests, leaderboard seasons — every reward wired to a real accomplishment (the no-fake-numbers rule holds) |
+| 5.4 | **Comeback loops**: daily quest + streak + new-content hooks plugged into v4's email channel; re-engagement measured, not assumed |
+| 5.5 | **Closed beta**: 10–20 real users, retention dashboards (day-2/day-7 return, session length, puzzles/session) — the evidence loop the waived v4 gate deferred; iterate until the numbers say "game," not "exam" |
+| 5.6 | **Launch tail** (carried from old v3): launch-readiness verification, scaling validation gate with measured numbers, SEO/prerender pass, staggered launch posts (r/webdev, r/learnprogramming, HN Show, X), reel videos, then the growth loop (feedback channel, weekly content drops, dashboard watch) |
 
-1. **Static delivery (Cloudflare Pages).** Effectively unbounded for a static PWA. Validate, don't assume: cache headers actually correct on production (Phase 7's `_headers` work verified live), and the SW precache doesn't force a full re-download per deploy for every returning user.
-2. **PostHog event volume.** The real near-term ceiling. Estimate events/session from real pre-launch data (Phase 0's telemetry verification must be done by then), multiply by the launch-spike scenario, check against the current plan's monthly quota _before_ launch day — blowing through the free tier mid-spike means silent data loss or a surprise bill, either of which destroys the one thing v3 exists to produce (retention evidence). Decide the over-quota behavior (drop vs. pay) in advance.
-3. **The v3.1 backend (Workers + D1/KV), before it takes public traffic.** The leaderboard is the only server-side state. Load-test the write path at launch-spike rates (D1 has real write-throughput limits; KV is eventually consistent — pick per use case), verify rate limiting actually holds under burst (load-bearing for an anonymous API, not a nice-to-have), and record the cost curve at 1×/10×/100× expected load so a spike is a number, not a mystery.
-4. **Challenge links (v2 Phase 5c) scale free by design** — the payload lives in the URL, no server touch. Worth stating because it's the acquisition mechanism most likely to spike: it's already validated at any scale.
+## v6 — Multiplayer
 
-Pass = all four recorded here as an amendment with measured numbers, before 3.2 posts anything anywhere.
+**Entry gate:** launched (v5) and an active player base — multiplayer with no one online is worse than no multiplayer.
 
-## v4 — Accounts & identity
-
-**Entry gate:** v3 retention data says people come back on their own (day-2 return is the honest signal), and anonymous users are visibly hitting the ceiling — asking for cross-device sync, or the anonymous leaderboard is active enough that named identity matters.
-
-| Phase | What                                                                                                                                                                                             |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 4.0   | Auth (Clerk) + the deferred v1 security block: disposable-email handling, session token storage, server-side authorization (no client-side admin checks), 2FA/OTP, rate limits, password hygiene |
-| 4.1   | Progress sync: the versioned export format becomes the sync payload (the v2 seam); migration path from anonymous → account keeps rating and history                                              |
-| 4.2   | Public identity: usernames, profiles, named leaderboards, streaks/badges. This is the social substrate multiplayer builds on                                                                     |
-
-## v5 — Multiplayer
-
-**Entry gate:** v4 shipped and there's an active player base — multiplayer with no one online is worse than no multiplayer.
-
-| Phase | What                                                                                                                                                                                                                                                                                        |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 5.0   | Async duels: upgrade v2 Phase 5c's URL-encoded challenge links with accounts + server-stored challenges — persistent challenge history, tamper-proof results, notifications when your challenge is answered. The interaction itself ships in v2; this phase gives it identity and integrity |
-| 5.1   | Live head-to-head: realtime Rush-style races (Durable Objects + WebSockets on the existing Cloudflare stack), Elo-based matchmaking reusing the rating engine                                                                                                                               |
-| 5.2   | Competitive structure: seasons, ladders, private rooms/clubs (classrooms and interview-prep groups are the obvious wedge)                                                                                                                                                                   |
+| Phase | What |
+| --- | --- |
+| 6.0 | Async duels: challenge links upgraded with accounts + server-stored challenges — persistent history, tamper-proof results, answered-challenge notifications (the v4 email/notify channel already carries these) |
+| 6.1 | Live head-to-head: realtime Rush-style races (Durable Objects + WebSockets on the existing Cloudflare stack), Elo-based matchmaking reusing the rating engine |
+| 6.2 | Competitive structure: seasons, ladders, private rooms/clubs (classrooms and interview-prep groups are the obvious wedge) |
 
 ---
 
 ## Continuous tracks (not version-bound)
 
-- **Content ops** — the pipeline runs every version; volume and calibration never stop mattering. More languages for the scrubber (Java/C traces) when demand justifies the tooling.
-- **AI features (the unspecified backlog item)** — stays parked until defined as a concrete feature. The scrubber content pipeline is the current AI investment; candidates like AI-generated hints or "explain my mistake" belong in v3+ once real users show where they get stuck.
+- **Content ops** — the pipeline runs every version; volume and calibration never stop mattering. v5.2's new interaction formats widen it. More languages for the scrubber (Java/C traces) when demand justifies the tooling.
+- **AI features** — parked until defined as a concrete feature. Candidates (AI hints, "explain my mistake") get real once beta/launch data shows where players actually get stuck; the debug-it mode (5.2) is the nearest structured cousin.
 
 ## Sequencing principles
 
-1. **Users before infrastructure.** v1 built nine phases before an external user existed; that mistake isn't repeated. Every backend layer (v3 anonymous → v4 accounts → v5 realtime) is gated on evidence from the layer before.
-2. **Each version is independently shippable.** If v3 shows nobody wants this, v4/v5 never get built and nothing was wasted on them.
-3. **The engine boundary carries the whole roadmap.** Pure `engine/` + versioned storage is what lets multiplayer reuse the same rating, selection, and rush logic untouched.
+1. **Users before infrastructure** — held from v1 through v3, **consciously excepted on 2026-08-26**: v4/v5 build identity and retention mechanics pre-launch, on the recorded conviction that launching the current experience would waste the one-shot audience. The exception is bounded: v5.5's closed beta restores the evidence loop before the loud launch, and if the beta says the retention isn't there, v5.6 waits until it is.
+2. **Each version is independently shippable.** If the beta shows nobody wants this, v6 never gets built and nothing was wasted on it.
+3. **The engine boundary carries the whole roadmap.** Pure `engine/` + versioned storage is what lets multiplayer reuse the same rating, selection, and rush logic untouched — and what made the export format the sync payload for free.
+4. **Guest-first is law from v4 on.** An account is never required to play; every account feature is additive.
