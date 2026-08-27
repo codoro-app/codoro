@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { Home } from './Home'
-import { loadProfile, listAttempts } from '../storage'
+import { loadProfile, listAttempts, DEFAULT_PREFERENCES } from '../storage'
 import type { UserProfile, Attempt } from '../storage'
 
 vi.mock('../storage', async (importOriginal) => {
@@ -43,6 +43,7 @@ function baseProfile(): UserProfile {
     bossStats: null,
     missionProgress: null,
     missionStats: null,
+    preferences: DEFAULT_PREFERENCES,
     anonId: 'test-anon-id',
   }
 }

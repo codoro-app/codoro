@@ -7,6 +7,7 @@
  * — which keeps every migration self-describing and unit-testable in isolation.
  */
 import { generateAnonId } from './anonId'
+import { DEFAULT_PREFERENCES } from './schema'
 
 export type Migration = (raw: Record<string, unknown>) => Record<string, unknown>
 
@@ -158,6 +159,18 @@ function migrateV8ToV9(raw: Record<string, unknown>): Record<string, unknown> {
 }
 
 /**
+ * v9 -> v10: v4 Phase 4.1 ("Settings, for real") adds `preferences` — see
+ * src/storage/schema.ts's PreferencesSchema doc comment. Every existing
+ * profile gets `DEFAULT_PREFERENCES`, which is defined to exactly match
+ * today's shipped behavior (timer off, full motion, medium code size,
+ * default palette) — an existing player sees and feels nothing different
+ * until they open Settings and change something.
+ */
+function migrateV9ToV10(raw: Record<string, unknown>): Record<string, unknown> {
+  return { ...raw, schema_version: 10, preferences: { ...DEFAULT_PREFERENCES } }
+}
+
+/**
  * Keyed by the version each migration migrates *from*. The first real entry:
  * schema v1 predates Daily mode, so any profile still on v1 gets a null
  * dailyCompletion (equivalent to "no Daily attempt recorded yet").
@@ -171,4 +184,5 @@ export const MIGRATIONS: Record<number, Migration> = {
   6: migrateV6ToV7,
   7: migrateV7ToV8,
   8: migrateV8ToV9,
+  9: migrateV9ToV10,
 }

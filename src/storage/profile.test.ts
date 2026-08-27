@@ -3,7 +3,7 @@ import { deleteDB } from 'idb'
 import type { IDBPDatabase } from 'idb'
 import { afterEach, describe, expect, it } from 'vitest'
 import { DB_NAME, PROFILE_KEY, PROFILE_STORE, getDb } from './db'
-import { CURRENT_SCHEMA_VERSION, createDefaultProfile } from './schema'
+import { CURRENT_SCHEMA_VERSION, DEFAULT_PREFERENCES, createDefaultProfile } from './schema'
 import type { UserProfile } from './schema'
 import { loadProfile, saveProfile } from './profile'
 
@@ -63,6 +63,7 @@ describe('loadProfile', () => {
       bossStats: null,
       missionProgress: null,
       missionStats: null,
+      preferences: DEFAULT_PREFERENCES,
       anonId: 'test-anon-id',
     }
     await saveProfile(profile)
@@ -175,6 +176,7 @@ describe('schema migration on load', () => {
       bossStats: null,
       missionProgress: null,
       missionStats: null,
+      preferences: DEFAULT_PREFERENCES,
     })
 
     // loadProfile now writes the migrated shape back to disk immediately

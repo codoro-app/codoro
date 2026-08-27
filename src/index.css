@@ -224,6 +224,120 @@
 }
 
 /*
+ * v4 Phase 4.1 ("Settings, for real"): the `theme` preference's app-wide
+ * effect. `data-app-theme` (set by applyPreferences.ts) is deliberately a
+ * separate attribute from the pre-existing, currently-unused
+ * `[data-theme='dark']` selector above (a no-op duplicate of :root's own
+ * defaults, wired to nothing) — that selector isn't part of this feature
+ * and is left untouched.
+ *
+ * 'default' needs no block here at all: it's exactly the :root tokens
+ * already declared above. 'blue'/'slate' are new dark directions — only
+ * surfaces/border/text/accent shift; danger/ok/warn keep their existing
+ * dark-appropriate values since these are still dark surfaces. 'light' is
+ * a genuinely different polarity, so it overrides the full set, including
+ * the syntax-highlight colors (the dark palette's light pastels would have
+ * poor contrast against a light code background) and every semantic
+ * "-dim" tint (a dark-tinted background token has to flip to a light tint,
+ * not just get skipped).
+ */
+[data-app-theme='blue'] {
+  --surface-0: #0a0e1a;
+  --surface-1: #101827;
+  --surface-2: #182338;
+  --surface-code: #0c1220;
+  --border: #223049;
+  --border-strong: #2f4266;
+  --text-0: #eef2fb;
+  --text-1: #93a2c2;
+  --text-2: #5c6b8c;
+  --accent: #3b82f6;
+  --accent-dim: #16233d;
+  --accent-dim-2: #0f1a30;
+  --accent-ink: #f8fafc;
+}
+
+[data-app-theme='slate'] {
+  --surface-0: #101214;
+  --surface-1: #17191c;
+  --surface-2: #212428;
+  --surface-code: #131517;
+  --border: #2b2f34;
+  --border-strong: #3c4147;
+  --text-0: #f0f1f2;
+  --text-1: #9aa0a6;
+  --text-2: #63696f;
+  --accent: #7c98c9;
+  --accent-dim: #1e2a3d;
+  --accent-dim-2: #141c29;
+  --accent-ink: #0d1218;
+}
+
+[data-app-theme='light'] {
+  color-scheme: light;
+  --surface-0: #f6f6f3;
+  --surface-1: #ffffff;
+  --surface-2: #edeee9;
+  --surface-code: #f1f1ec;
+  --border: #dcded8;
+  --border-strong: #c4c7bf;
+  --shadow-color: rgb(0 0 0 / 10%);
+  --text-0: #16171a;
+  --text-1: #565960;
+  --text-2: #83868d;
+  /* A deepened shade of the brand lime, not the raw #c6f83c neon — that
+   * accent is tuned for a near-black background and used both as a fill
+   * (with light accent-ink text) and, elsewhere, as plain foreground text
+   * (e.g. active-nav-item color); the raw neon fails 4.5:1 as text on a
+   * light surface, so light mode gets its own legible shade of the same
+   * hue instead of reusing the dark value. */
+  --accent: #5c7a12;
+  --accent-dim: #e7f0c9;
+  --accent-dim-2: #f1f6df;
+  --accent-ink: #ffffff;
+  --ok-dim: #e3f0d6;
+  /* Same reasoning as --accent above: #ff5470 is legible on near-black but
+   * fails as text on white, so light mode deepens it too. */
+  --danger: #d9294f;
+  --danger-dim: #fbe2e7;
+  --warn: #a6690a;
+  --warn-dim: #fbead0;
+  --syn-kw: #c2410c;
+  --syn-fn: #0369a1;
+  --syn-str: #15803d;
+  --syn-num: #b45309;
+  --syn-cm: #6b7280;
+}
+
+/* The `codeFontSize` preference — one global token, every code surface
+ * already reads it (see --font-size-code's own comment above), so this is
+ * the whole mechanism. 'md' is the existing 0.8125rem default; no override
+ * needed for it. */
+[data-code-font-size='sm'] {
+  --font-size-code: 0.7rem;
+}
+
+[data-code-font-size='lg'] {
+  --font-size-code: 0.9375rem;
+}
+
+/* The `reducedMotion` preference — an app-level override independent of
+ * the OS's own prefers-reduced-motion (the codebase has no media-query
+ * handling of that at all, grep-verified, so this is the first place
+ * reduced motion is respected here in any form). Mirrors the standard
+ * prefers-reduced-motion kill-switch pattern browsers apply automatically:
+ * collapse every animation/transition to effectively instant rather than
+ * disabling them outright, so end states still resolve correctly. */
+[data-reduced-motion='true'] *,
+[data-reduced-motion='true'] *::before,
+[data-reduced-motion='true'] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/*
  * Mobile PWA bug report, 2026-08-21: inside an installed iOS PWA, individual
  * lines of a code snippet rendered at visibly different sizes from their
  * neighbours in the SAME snippet -- the longest, overflowing line was

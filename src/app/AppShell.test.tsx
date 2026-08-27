@@ -112,6 +112,32 @@ describe('AppShell', () => {
     expect(screen.getByRole('link', { name: 'Legal' })).toHaveAttribute('href', '/legal')
   })
 
+  // v4 Phase 4.1 (Settings, for real): the mobile top-bar gear — this bar
+  // used to be logo-only. Both navs are always mounted (see this suite's
+  // first test), so this counts 3: NavRail's rail-footer gear, the mobile
+  // top-bar gear, and the original footer link.
+  it('the mobile top bar has a Settings gear link, in addition to NavRail and the footer link', () => {
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    )
+    const settingsLinks = screen.getAllByRole('link', { name: 'Settings', hidden: true })
+    expect(settingsLinks.length).toBe(3)
+    settingsLinks.forEach((link) => expect(link).toHaveAttribute('href', '/settings'))
+  })
+
+  it('marks the mobile Settings gear as the active route on /settings', () => {
+    window.history.pushState({}, '', '/settings')
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    )
+    const settingsLinks = screen.getAllByRole('link', { name: 'Settings', hidden: true })
+    expect(settingsLinks.some((link) => link.getAttribute('aria-current') === 'page')).toBe(true)
+  })
+
   // Regression test: <main> gets a programmatic .focus() on every route
   // change (see useRouteFocusAndScroll above) with tabIndex={-1}, so it's
   // never in the sighted tab order — but with no outline suppression, the

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Migration } from './migrations'
 import { MIGRATIONS, runMigrations } from './migrations'
+import { DEFAULT_PREFERENCES } from './schema'
 
 describe('runMigrations', () => {
   it('applies a single migration and stamps the new version + field', () => {
@@ -67,7 +68,7 @@ describe('runMigrations', () => {
 })
 
 describe('MIGRATIONS: full chain from v1 to the current version', () => {
-  it('v1 -> v9, stamping schema_version 9, adding null dailyCompletion + rushStats + bestRunStreak 0 + bossStats + missionProgress + missionStats + a generated anonId, and preserving every existing field untouched', () => {
+  it('v1 -> v10, stamping schema_version 10, adding null dailyCompletion + rushStats + bestRunStreak 0 + bossStats + missionProgress + missionStats + DEFAULT_PREFERENCES + a generated anonId, and preserving every existing field untouched', () => {
     const v1Profile = {
       schema_version: 1,
       rating: 1342.75,
@@ -84,13 +85,54 @@ describe('MIGRATIONS: full chain from v1 to the current version', () => {
     expect((anonId as string).length).toBeGreaterThan(0)
     expect(rest).toEqual({
       ...v1Profile,
-      schema_version: 9,
+      schema_version: 10,
       dailyCompletion: null,
       rushStats: null,
       bestRunStreak: 0,
       bossStats: null,
       missionProgress: null,
       missionStats: null,
+      preferences: DEFAULT_PREFERENCES,
+    })
+  })
+})
+
+describe('MIGRATIONS[9]: v9 -> v10 (v4 Phase 4.1: adds preferences)', () => {
+  it('stamps schema_version 10, adds DEFAULT_PREFERENCES, and preserves every existing field untouched', () => {
+    const v9Profile = {
+      schema_version: 9,
+      rating: 1642.0,
+      ratedAttemptCount: 51,
+      streak: { currentStreak: 7, longestStreak: 25, lastActiveDate: '2026-08-20' },
+      requeueState: [{ puzzleId: 'p11', stage: 1, served: 2 }],
+      storagePersisted: true,
+      dailyCompletion: { date: '2026-08-20', attemptId: 'a20', correct: true },
+      rushStats: { bestScore: 60, bestStreak: 33, runs: 14, lastRunAt: '2026-08-19T09:00:00.000Z' },
+      bestRunStreak: 18,
+      bossStats: {
+        bestDepth: 9,
+        clears: 3,
+        runs: 8,
+        lastRunAt: '2026-08-20T12:00:00.000Z',
+        bestRunSplits: [900, 1900, 2900],
+      },
+      missionProgress: null,
+      missionStats: {
+        completions: 2,
+        lastRunAt: '2026-08-18T10:00:00.000Z',
+        lastCompletedAt: '2026-08-18T10:05:00.000Z',
+      },
+      anonId: 'anon-pref-1',
+    }
+
+    const v9Migration = MIGRATIONS[9]
+    if (!v9Migration) throw new Error('MIGRATIONS[9] is not registered')
+    const migrated = v9Migration(v9Profile)
+
+    expect(migrated).toEqual({
+      ...v9Profile,
+      schema_version: 10,
+      preferences: DEFAULT_PREFERENCES,
     })
   })
 })
