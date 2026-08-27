@@ -276,7 +276,8 @@ export function TraceRunnerPuzzle({
   // `tabIndex=-1` landing point, not part of the Tab order) whenever focus
   // has actually been lost — see PuzzleCardShell.tsx for the full rationale,
   // including why the `document.body` guard keeps this from fighting
-  // useRouteFocusAndScroll's own focus-on-navigate.
+  // useRouteFocusAndScroll's own focus-on-navigate, and why `focus:outline-
+  // none` (below) is safe on a `tabIndex={-1}` element.
   const runnerRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     if (document.activeElement === document.body) {
@@ -417,7 +418,11 @@ export function TraceRunnerPuzzle({
 
   return (
     <>
-      <div ref={runnerRef} tabIndex={-1} className="trace-runner flex flex-col gap-4">
+      <div
+        ref={runnerRef}
+        tabIndex={-1}
+        className="trace-runner focus:outline-none flex flex-col gap-4"
+      >
         <p className="m-0 text-text-0 text-md font-semibold">{puzzle.prompt}</p>
 
         <Scrubber

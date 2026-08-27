@@ -403,7 +403,12 @@ export function PuzzleCardShell({
   // That guard is what keeps this from fighting useRouteFocusAndScroll's own
   // focus-on-navigate (a real route change focuses `<main>` in a parent
   // effect, which commits after this one and so wins) or stealing focus a
-  // user deliberately placed elsewhere (e.g. mid-Tab into the sidebar).
+  // user deliberately placed elsewhere (e.g. mid-Tab into the sidebar). The
+  // card's `focus:outline-none` class (below) is the same AppShell.tsx
+  // `<main>` convention: safe only because `tabIndex={-1}` keeps this div
+  // out of the sighted tab order, so no keyboard user can land here by
+  // tabbing and lose a visible indicator — without it, every puzzle advance
+  // would flash a stray outline around the whole card.
   const cardRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     if (document.activeElement === document.body) {
@@ -498,7 +503,7 @@ export function PuzzleCardShell({
       <div
         ref={cardRef}
         tabIndex={-1}
-        className="puzzle-card flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto p-4"
+        className="puzzle-card focus:outline-none flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto p-4"
       >
         <p className="m-0 text-center text-xl font-semibold text-text-0">{puzzle.prompt}</p>
 
