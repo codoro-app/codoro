@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
+import { nth } from '../../../test/nth'
 import { Mcq } from './Mcq'
 import type { McqPuzzle } from '../../../content'
 import type { CommitPayload } from '../interactionTypes'
@@ -124,5 +125,23 @@ describe('Mcq', () => {
     expect(onCommit).toHaveBeenCalledWith({ correct: true, choiceIndex: 0 })
 
     randomSpy.mockRestore()
+  })
+
+  it('arrow-key navigation moves focus between choices, and clicking the focused choice commits it', () => {
+    // Real Enter-key (native button activation) coverage lives at the
+    // PuzzleCardShell level (PuzzleCardShell.test.tsx) — this test's own
+    // title previously claimed Enter coverage it didn't have (final-review
+    // finding); `fireEvent.click` below tests commit-on-click, not
+    // Enter-activation.
+    const onCommit = vi.fn()
+    render(<Harness onCommit={onCommit} />)
+    const buttons = screen.getAllByRole('button')
+
+    nth(buttons, 0).focus()
+    fireEvent.keyDown(nth(buttons, 0), { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(nth(buttons, 1))
+
+    fireEvent.click(nth(buttons, 1))
+    expect(onCommit).toHaveBeenCalledTimes(1)
   })
 })

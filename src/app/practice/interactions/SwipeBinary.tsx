@@ -15,6 +15,7 @@ import type { GestureTrailSample, SwipeCommitDirection } from '../gestureThresho
 import { highlightSnippet } from '../highlightSnippet'
 import { CodeSnippet } from '../CodeSnippet'
 import { useGestureDebugOverlay } from './useGestureDebugOverlay'
+import { useRovingFocus } from '../useRovingFocus'
 
 /**
  * How far offscreen (px) the card animates on a successful drag commit —
@@ -1118,6 +1119,20 @@ export function SwipeBinary({
     void animate(x, 0, { type: 'spring', stiffness: 500, damping: 30 })
   }
 
+  const { itemProps } = useRovingFocus(2, committed, 'horizontal')
+  const {
+    tabIndex: leftTabIndex,
+    ref: leftRef,
+    onFocus: leftOnFocus,
+    onKeyDown: leftOnKeyDown,
+  } = itemProps(0)
+  const {
+    tabIndex: rightTabIndex,
+    ref: rightRef,
+    onFocus: rightOnFocus,
+    onKeyDown: rightOnKeyDown,
+  } = itemProps(1)
+
   return (
     <div className="swipe-fallback">
       <p className="swipe-fallback__hint">Drag the card, or tap a button.</p>
@@ -1146,6 +1161,10 @@ export function SwipeBinary({
               handlePick('left')
             }}
             disabled={committed}
+            tabIndex={leftTabIndex}
+            ref={leftRef}
+            onFocus={leftOnFocus}
+            onKeyDown={leftOnKeyDown}
           >
             {puzzle.left_label}
           </button>
@@ -1157,6 +1176,10 @@ export function SwipeBinary({
               handlePick('right')
             }}
             disabled={committed}
+            tabIndex={rightTabIndex}
+            ref={rightRef}
+            onFocus={rightOnFocus}
+            onKeyDown={rightOnKeyDown}
           >
             {puzzle.right_label}
           </button>

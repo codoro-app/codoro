@@ -297,6 +297,75 @@ describe('PuzzleCardShell', () => {
     vi.unstubAllGlobals()
   })
 
+  it('moves keyboard focus to the Continue button the instant a commit lands, so Enter advances without an extra Tab', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query === '(min-width: 1024px)',
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    )
+    const user = userEvent.setup()
+    render(
+      <PuzzleCardShell
+        puzzle={mcqPuzzle}
+        ratingDelta={null}
+        onAnswered={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+
+    expect(screen.getByRole('button', { name: /Next puzzle/ })).toHaveFocus()
+
+    vi.unstubAllGlobals()
+  })
+
+  it('Enter on a focused choice commits it via real native button activation, and Enter on Continue advances (todo 23, final-review finding)', async () => {
+    // Prior tests in this file exercise the *result* of Enter-activation
+    // (committing via user.click, then asserting focus moved) but never
+    // Enter-activation itself — the load-bearing mechanism this whole phase
+    // is built on (see PuzzleCardShell.tsx's doc comment on continueButtonRef:
+    // "falls entirely out of native <button> Enter-activation semantics").
+    // `userEvent.keyboard('{Enter}')` on a focused, clickable element
+    // dispatches a real click through user-event's keyboard plugin (v14),
+    // the same simulation RTL's own docs recommend for this exact case — so
+    // this is the actual mechanism under test, not just its downstream
+    // effects.
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query === '(min-width: 1024px)',
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    )
+    const user = userEvent.setup()
+    const onContinue = vi.fn()
+    render(
+      <PuzzleCardShell
+        puzzle={mcqPuzzle}
+        ratingDelta={null}
+        onAnswered={vi.fn()}
+        onContinue={onContinue}
+      />,
+    )
+
+    screen.getByRole('button', { name: 'Missing break after gold' }).focus()
+    await user.keyboard('{Enter}')
+
+    expect(screen.getByRole('status')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Next puzzle/ })).toHaveFocus()
+
+    await user.keyboard('{Enter}')
+    expect(onContinue).toHaveBeenCalledTimes(1)
+
+    vi.unstubAllGlobals()
+  })
+
   it('click-meaningfulness: continueDestination="results" previews "See results" instead of the default', async () => {
     const user = userEvent.setup()
     render(

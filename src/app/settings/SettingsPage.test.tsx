@@ -182,4 +182,17 @@ describe('SettingsPage', () => {
     expect(stored.bestRunStreak).toBe(9)
     expect(await listAttempts()).toEqual([incomingAttempt])
   })
+
+  it('lists keyboard shortcuts (v4 Phase 4.0, todo 24; copy clarified per PR #88 review)', () => {
+    render(<SettingsPage />)
+    expect(screen.getByRole('heading', { name: 'Keyboard shortcuts' })).toBeInTheDocument()
+    expect(screen.getByText('Tab')).toBeInTheDocument()
+    // "Enter" now appears twice — once for the commit step, once for the
+    // separate advance step (the two-Enter-presses distinction this test's
+    // predecessor didn't cover, per the live-review finding that the old
+    // single "commit, then advance" line read as one press doing both).
+    expect(screen.getAllByText('Enter').length).toBe(2)
+    expect(screen.getByText(/submit the focused choice/i)).toBeInTheDocument()
+    expect(screen.getByText(/advance once next puzzle has focus/i)).toBeInTheDocument()
+  })
 })
