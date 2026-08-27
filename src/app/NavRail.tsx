@@ -47,6 +47,7 @@ import {
   MissionIcon,
   PracticeIcon,
   RushIcon,
+  SettingsIcon,
   TraceIcon,
 } from './Icons'
 import { ROUTES } from './routes'
@@ -201,27 +202,48 @@ export function NavRail() {
           <span className="overflow-hidden text-ellipsis whitespace-nowrap">Missions</span>
         )}
       </Link>
-      <button
-        type="button"
-        className="mt-auto min-w-11 min-h-11 flex items-center justify-center border border-border rounded-sm bg-transparent text-text-1 cursor-pointer"
-        aria-pressed={collapsed}
-        aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-        title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-        onClick={() => {
-          setCollapsed((prev) => {
-            const next = !prev
-            writeCollapsed(next)
-            return next
-          })
-        }}
+      {/* v4 Phase 4.1: Settings isn't a mode like Practice/Daily above it —
+       * a rail-footer gear, visually secondary to the mode list rather than
+       * a 7th equal-weight entry, next to the collapse control it already
+       * shares this footer row with. */}
+      <div
+        className={collapsed ? 'mt-auto flex flex-col gap-2' : 'mt-auto flex items-center gap-2'}
       >
-        <span
-          className="inline-flex transition-transform duration-150 ease-out"
-          style={{ transform: collapsed ? 'rotate(180deg)' : undefined }}
+        <Link
+          href={ROUTES.settings.path}
+          className="min-w-11 min-h-11 flex items-center justify-center border border-border rounded-sm bg-transparent cursor-pointer no-underline"
+          aria-current={location === ROUTES.settings.path ? 'page' : undefined}
+          aria-label="Settings"
+          title="Settings"
         >
-          <CollapseIcon size={18} />
-        </span>
-      </button>
+          <span
+            className={location === ROUTES.settings.path ? 'flex text-accent' : 'flex text-text-1'}
+          >
+            <SettingsIcon size={18} />
+          </span>
+        </Link>
+        <button
+          type="button"
+          className="min-w-11 min-h-11 flex items-center justify-center border border-border rounded-sm bg-transparent text-text-1 cursor-pointer"
+          aria-pressed={collapsed}
+          aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+          title={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+          onClick={() => {
+            setCollapsed((prev) => {
+              const next = !prev
+              writeCollapsed(next)
+              return next
+            })
+          }}
+        >
+          <span
+            className="inline-flex transition-transform duration-150 ease-out"
+            style={{ transform: collapsed ? 'rotate(180deg)' : undefined }}
+          >
+            <CollapseIcon size={18} />
+          </span>
+        </button>
+      </div>
     </nav>
   )
 }

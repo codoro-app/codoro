@@ -37,11 +37,14 @@
  * stray outline line at the top of `<main>` (originally observed right
  * under the old top mobile nav bar) as `<main>` receives focus.
  */
-import { useRef, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { Link, useLocation } from 'wouter'
+import { loadProfile } from '../storage'
 import { BottomNav } from './BottomNav'
+import { SettingsIcon } from './Icons'
 import { NavRail } from './NavRail'
 import { DevPuzzleToggle } from './devTools/DevPuzzleToggle'
+import { applyPreferences } from './preferences/applyPreferences'
 import { ROUTES, labelForPath } from './routes'
 import { useRouteFocusAndScroll } from './useRouteFocusAndScroll'
 import './app.css'
@@ -54,6 +57,29 @@ export function AppShell({ children }: AppShellProps) {
   const [location] = useLocation()
   const mainRef = useRef<HTMLElement>(null)
   useRouteFocusAndScroll(mainRef)
+
+  // v4 Phase 4.1 (Settings, for real): apply the stored theme/reduced-motion/
+  // code-font-size preferences to the document root once, on first mount.
+  // AppShell is the one thing mounted across every route (see this file's
+  // own top doc comment), so this is the single natural place to do it —
+  // every page benefits without each page loading the profile itself.
+  // SettingsPage calls applyPreferences again immediately after any save,
+  // for instant same-tab feedback; this effect only covers first load.
+  useEffect(() => {
+    let cancelled = false
+    loadProfile()
+      .then((profile) => {
+        if (!cancelled) applyPreferences(profile.preferences)
+      })
+      .catch(() => {
+        // Preferences failing to load is a cosmetic no-op (the DOM simply
+        // keeps its un-attributed defaults, which already match
+        // DEFAULT_PREFERENCES) — not worth a user-visible error state.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <div className="app-shell">
@@ -93,7 +119,7 @@ export function AppShell({ children }: AppShellProps) {
        * removes it from each page root instead — see PracticePage.tsx/
        * DailyPage.tsx/PuzzlePage.tsx/etc.'s own `pt-[var(--space-N)]`
        * (no `+env(...)`) for the other half of this. */}
-      <div className="block lg:hidden pt-[calc(var(--space-2)+env(safe-area-inset-top))] px-4">
+      <div className="flex items-center justify-between gap-2 lg:hidden pt-[calc(var(--space-2)+env(safe-area-inset-top))] px-4">
         <Link
           href="/"
           className="flex items-center gap-2 min-h-11 py-2 bg-transparent no-underline cursor-pointer"
@@ -106,6 +132,21 @@ export function AppShell({ children }: AppShellProps) {
             C
           </div>
           <span className="text-xl font-bold text-text-0">Codoro</span>
+        </Link>
+        {/* v4 Phase 4.1: Settings' mobile nav entry point (this bar was
+         * logo-only before) — BottomNav's own 4 items (Home/Practice/Daily/
+         * Stats) are deliberately capped, so Settings doesn't compete for a
+         * 5th slot there (see BottomNav.tsx's own doc comment); a gear here
+         * costs nothing extra to reach at every width. */}
+        <Link
+          href={ROUTES.settings.path}
+          className="min-w-11 min-h-11 flex items-center justify-center rounded-sm bg-transparent cursor-pointer"
+          aria-current={location === ROUTES.settings.path ? 'page' : undefined}
+          aria-label="Settings"
+        >
+          <span className={location === ROUTES.settings.path ? 'text-accent' : 'text-text-1'}>
+            <SettingsIcon size={22} />
+          </span>
         </Link>
       </div>
       {/* 2b.0: was `.app-shell__rail` (app.css) — display toggle now inline.

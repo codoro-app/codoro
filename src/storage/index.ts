@@ -8,7 +8,7 @@
  *
  * Barrel exports only — no logic lives here.
  */
-export { createDefaultProfile, MISSION_STAGE_ORDER } from './schema'
+export { createDefaultProfile, DEFAULT_PREFERENCES, MISSION_STAGE_ORDER } from './schema'
 export type {
   UserProfile,
   Attempt,
@@ -19,6 +19,7 @@ export type {
   MissionStageSummary,
   MissionProgress,
   MissionStats,
+  Preferences,
 } from './schema'
 
 export { loadProfile, saveProfile } from './profile'

@@ -13,10 +13,11 @@ export const ROUTES = {
   missions: { path: '/missions', label: 'Missions' },
   stats: { path: '/stats', label: 'Stats' },
   legal: { path: '/legal', label: 'Legal' },
-  // Phase 7: same treatment as `legal` above — a real ROUTES entry (so
-  // AppShell can reference ROUTES.settings.path type-safely) but, like
-  // `legal`, not read by NavRail/ModeSwitcher (both hardcode their own
-  // list of mode entries). Footer link, alongside Legal — see AppShell.tsx.
+  // Phase 7: a real ROUTES entry so every consumer references
+  // ROUTES.settings.path type-safely. v4 Phase 4.1 gave Settings a real
+  // nav presence (a gear icon in NavRail's rail footer and AppShell's
+  // mobile top bar, both below) on top of the original footer link
+  // (alongside Legal) — see AppShell.tsx/NavRail.tsx.
   settings: { path: '/settings', label: 'Settings' },
 } as const
 
