@@ -1,8 +1,10 @@
-# v4 accounts — detailed implementation plan (2026-08-27)
+# v5 accounts — detailed implementation plan (2026-08-27)
 
-Companion to `docs/v4-build-plan.md` (the _what_ and the DoDs). This is the _how_: task-by-task, with exact files, contracts, schemas, and — the point of this document — the mistakes each task is positioned to make, named before they're made. Sized to sessions, one task = one commit (or a small commit series), `pnpm validate` green at every commit, same as every plan before it.
+Companion to `docs/v5-build-plan.md` (the _what_ and the DoDs). This is the _how_: task-by-task, with exact files, contracts, schemas, and — the point of this document — the mistakes each task is positioned to make, named before they're made. Sized to sessions, one task = one commit (or a small commit series), `pnpm validate` green at every commit, same as every plan before it.
 
 **Read first, every session:** the Invariants below and the Footgun Register at the bottom. A task that violates an invariant is wrong even if its tests pass.
+
+**Renumbered 2026-08-27 (same day it was written).** This was `2026-08-27-v4-accounts-implementation-plan.md`; accounts moved from v4 to v5 when a UI/polish version was inserted ahead of it (`docs/v4-build-plan.md`). Nothing in the substance changed — the tasks, contracts, schemas, decisions and the F1–F17 register are byte-for-byte the ones written on 2026-08-26/27; only the version labels and phase numbers shifted (4.x → 5.x, v5 → v6, v6 → v7). Clerk/Cloudflare **package** versions on the platform-unknowns line are untouched and are not roadmap versions.
 
 ## Invariants (violating any of these is a defect, not a style choice)
 
@@ -10,7 +12,7 @@ Companion to `docs/v4-build-plan.md` (the _what_ and the DoDs). This is the _how
 | --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | I1  | **Guest-first**: an account is never required to play. Every route, every mode, every puzzle works signed-out exactly as it does today                               | The whole existing test suite passes untouched with no Clerk key configured; app boots and plays with `VITE_CLERK_PUBLISHABLE_KEY` unset      |
 | I2  | **Local-first lock**: the play loop never blocks on the network. Sync, leaderboard, email are fire-and-forget enhancements                                           | Airplane-mode pass: signed-in + offline behaves exactly like v3                                                                               |
-| I3  | **Bundle discipline**: no v4 dependency lands on the play path's critical chunks. The metadata/body lazy-load work (#82) is the baseline; regressing it is a defect  | `pnpm build` chunk diff recorded per task that touches the client; modulepreload count in `dist/index.html` unchanged (2, zero puzzle chunks) |
+| I3  | **Bundle discipline**: no v5 dependency lands on the play path's critical chunks. The metadata/body lazy-load work (#82) is the baseline; regressing it is a defect  | `pnpm build` chunk diff recorded per task that touches the client; modulepreload count in `dist/index.html` unchanged (2, zero puzzle chunks) |
 | I4  | **PII rules**: emails live in Clerk only; D1 stores Clerk user IDs, usernames, scores, sync blobs; telemetry carries IDs, never emails; deletion verifiably cascades | grep-able: no `email` column in any D1 migration; no `posthog.identify` call with an email argument anywhere                                  |
 | I5  | **Server-side authorization is ours**: Clerk answers "who is this", every endpoint answers "may they do this" itself                                                 | Authz test per endpoint: user A's token against user B's resource → 403/404, tested, not assumed                                              |
 | I6  | **Never trust the client**: every write is bounds-checked server-side (score ranges, payload sizes, schema versions). Allowlists over blocklists — the OD-2 lesson   | Worker-side validation tests reject out-of-bounds/oversized/malformed input per endpoint                                                      |
@@ -27,7 +29,7 @@ Companion to `docs/v4-build-plan.md` (the _what_ and the DoDs). This is the _how
 
 Token flow: client `useAuth().getToken()` → `Authorization: Bearer <session JWT>` → Worker verify with `{ jwtKey: CLERK_JWT_KEY, authorizedParties: [...] }` (networkless, JWT public key pinned via env — see T3 for the current entry-point name) → `sub` claim = Clerk user ID = the only identity the API ever trusts.
 
-**Environment naming, said once.** The Cloudflare `dev` env (`codoro-dev` D1 + Clerk Development instance) **is** the "staging" the build plan's DoDs refer to. There is no third environment. Wherever `docs/v4-build-plan.md` says _staging_, this plan says _dev env_; they are the same box.
+**Environment naming, said once.** The Cloudflare `dev` env (`codoro-dev` D1 + Clerk Development instance) **is** the "staging" the build plan's DoDs refer to. There is no third environment. Wherever `docs/v5-build-plan.md` says _staging_, this plan says _dev env_; they are the same box.
 
 ## API contract (complete — extend it here first, code second)
 
@@ -43,7 +45,7 @@ All routes JSON; all errors `{ error: string }` with correct status; all authent
 | `GET /api/users/:username`          | none         | —                                                                    | public profile or `404`                                      | only if that user opted in; never more than username + stats                                                                                                                                                                                                     |
 | `POST /api/privacy`                 | required     | `{ publicProfile }`                                                  | `{ publicProfile }`                                          | the single opt-in switch: governs `/u/:username` visibility **and** whether the leaderboard shows your username or `anon`. Default off (`public_profile = 0`)                                                                                                    |
 | `POST /api/scores`                  | required     | `{ mode, day, score, runMeta }`                                      | `{ accepted, best }`                                         | upsert-keep-best, one row per user/mode/day; server bounds per mode; `runMeta` capped at 2 KB and never read by server logic; idempotency via deterministic key (F12)                                                                                            |
-| `GET /api/leaderboard`              | optional     | `?mode=&day=&window=day\|all`                                        | `{ top: [...], me?: { rank, score } }`                       | `me` only when authenticated; usernames only for opted-in users, else `anon` (rank is still real — opting out hides the name, not the row); `window=all` ignores `day`; seasons deliberately deferred to v5                                                      |
+| `GET /api/leaderboard`              | optional     | `?mode=&day=&window=day\|all`                                        | `{ top: [...], me?: { rank, score } }`                       | `me` only when authenticated; usernames only for opted-in users, else `anon` (rank is still real — opting out hides the name, not the row); `window=all` ignores `day`; seasons deliberately deferred to v6                                                      |
 | `POST /api/email/prefs`             | required     | `{ digest?, streak?, challenge? }`                                   | `{ prefs }`                                                  | per-category toggles                                                                                                                                                                                                                                             |
 | `GET /api/email/unsubscribe?token=` | signed token | —                                                                    | HTML confirmation                                            | one-click, no login required (F16); token = HMAC of user+category, not guessable; category ∈ `digest` \| `streak` \| `challenge` \| `all` (`all` sets `unsubscribed_all`)                                                                                        |
 
@@ -98,13 +100,13 @@ Nothing in this task is code, and every later task silently fails without it.
 3. **Resend**: create account, add getcodoro.com as sending domain, publish SPF + DKIM (+ DMARC `p=none` to start) DNS records. Verification is calendar time — start it now even though email is T12.
 4. **Secrets hygiene**: client gets ONLY `VITE_CLERK_PUBLISHABLE_KEY` (the `VITE_` prefix makes it public by definition — never prefix a secret with it, F2). Worker secrets (`CLERK_SECRET_KEY`, `CLERK_JWT_KEY`, `RESEND_API_KEY`, `UNSUB_HMAC_SECRET`) go in `.dev.vars` locally (gitignored — add it in T1) and `wrangler secret put` per env for real. Nothing secret in `wrangler.jsonc`, nothing secret in the repo, ever.
 
-## Phase 4.0 — foundation
+## Phase 5.0 — foundation
 
 ### T1 — `workers/` scaffold + validate + CI (1 session)
 
 Files: `workers/package.json`, `workers/wrangler.jsonc` (two envs: `dev`, `production` — bindings: `DB` (D1), `ratelimits` (T4), vars: `ENVIRONMENT`, `APP_ORIGIN`; secrets listed in a comment, set out-of-band), `workers/src/index.ts` (Hono app: `/api/health` only), `workers/src/env.d.ts`, `workers/shared/api-types.ts`, `workers/vitest.config.ts` using **`@cloudflare/vitest-pool-workers`** (tests run inside workerd with real D1/miniflare bindings — not jsdom, not node), `.dev.vars.example`, root `package.json`/`pnpm-workspace.yaml` wiring so `pnpm validate` runs the workers typecheck+lint+tests, CI job deploying `dev` env on merge to main.
 
-Versions, checked 2026-08-26 (confirm the numbers at install, not the names — F7): `@cloudflare/vitest-pool-workers` **is** the current, official package for this (latest `0.22.x`; it also ships `readD1Migrations()`, which T2 uses). Wrangler must be **≥ 4.36.0** for the stable `ratelimits` binding config T4 needs. Hono is on v4 (`4.13.x`).
+Versions, checked 2026-08-26 (confirm the numbers at install, not the names — F7): `@cloudflare/vitest-pool-workers` **is** the current, official package for this (latest `0.22.x`; it also ships `readD1Migrations()`, which T2 uses). Wrangler must be **≥ 4.36.0** for the stable `ratelimits` binding config T4 needs. Hono is on v5 (`4.13.x`).
 
 Dependency decision, made here once: **Hono** (router + middleware chain, tiny, TS-first, built for Workers). One dependency, justified by three middlewares (auth, rate limit, validation) that raw `fetch` handlers would reimplement badly. Zod already exists in the repo for content validation — reuse it for request validation; do not add a second validator.
 
@@ -114,7 +116,7 @@ Footguns for this task: F5 (validate must not require cloud creds), F6 (wrangler
 
 ### T2 — D1 schema + migrations discipline (same session as T1 if it fits, else its own)
 
-Files: `workers/migrations/0001_init.sql` (the DDL above), `workers/src/db.ts` (typed query helpers only — no ORM; D1's prepared statements + the shared types are enough at 4 tables), `workers/test/migrations.test.ts`, **`workers/README.md`** (the schema, table by table, plus the migration procedure — the build plan's 4.0 DoD names this file specifically; a schema documented only in a SQL file is not documented).
+Files: `workers/migrations/0001_init.sql` (the DDL above), `workers/src/db.ts` (typed query helpers only — no ORM; D1's prepared statements + the shared types are enough at 4 tables), `workers/test/migrations.test.ts`, **`workers/README.md`** (the schema, table by table, plus the migration procedure — the build plan's 5.0 DoD names this file specifically; a schema documented only in a SQL file is not documented).
 
 Process: migrations applied via `wrangler d1 migrations apply` (CI applies to dev; production apply is a deliberate manual step until launch); tests load them with `readD1Migrations()` from the vitest pool so test state and deployed state come from the same files. The **isolated migration test** convention carries over from the client verbatim: each numbered migration gets a test that seeds the pre-state, applies, asserts the post-state — chain-only coverage is not acceptance.
 
@@ -144,11 +146,11 @@ Three constraints that shape the design, not footnotes:
 | Counters are **per Cloudflare location**, not global                                  | A user hitting two colos gets two buckets. Acceptable for abuse damping; unacceptable for anything that must be exact. |
 | Explicitly "permissive, eventually consistent, **not an accurate accounting system**" | Never make a correctness rule depend on it.                                                                            |
 
-So: the binding handles per-IP and per-user _burst_ damping on every route. Every **exact** limit is enforced in D1 instead, where the constraint already lives — `≤3 username changes/30d` via `username_changed_at` (T9), one score row per user/mode/day via the primary key (T10), email send caps via `email_prefs` read-at-send (T12). A Durable Object counter is **not** the fallback it was written as; it is only warranted if a globally-exact _short-window_ limit ever appears, and none does in v4. If that changes, record the decision and the reason.
+So: the binding handles per-IP and per-user _burst_ damping on every route. Every **exact** limit is enforced in D1 instead, where the constraint already lives — `≤3 username changes/30d` via `username_changed_at` (T9), one score row per user/mode/day via the primary key (T10), email send caps via `email_prefs` read-at-send (T12). A Durable Object counter is **not** the fallback it was written as; it is only warranted if a globally-exact _short-window_ limit ever appears, and none does in v5. If that changes, record the decision and the reason.
 
 DoD: burst test locally (loop 2× the limit) → 429 with `Retry-After`; per-user and per-IP keys independently tested; a test proving the D1-enforced quotas hold _without_ the limiter (they must not be co-dependent); limits config-reviewed against the load numbers T14 will produce (revisit then).
 
-## Phase 4.1 — client auth
+## Phase 5.1 — client auth
 
 ### T5 — Clerk in the client, measured (1–2 sessions)
 
@@ -162,11 +164,11 @@ Sign-up value moments (settle exact copy in-session, the mechanism here): trigge
 
 Delete account: Settings → confirm (type username) → `DELETE /api/account` → local state _kept_ (their device, their data — deleting the account doesn't nuke local play history; say so in the UI).
 
-DoD: I1 suite pass with key unset; bundle numbers recorded **and a Lighthouse re-run on `/practice` signed-out against the #82 baseline** (the build plan's 4.1 DoD asks for both — a chunk diff alone doesn't prove the boot didn't get slower); create→signout→signin→delete verified against the dev env, with **deletion confirmed server-side** (D1 rows gone, Clerk user gone — queried, not inferred from a 204); prompts' frequency-cap unit-tested.
+DoD: I1 suite pass with key unset; bundle numbers recorded **and a Lighthouse re-run on `/practice` signed-out against the #82 baseline** (the build plan's 5.1 DoD asks for both — a chunk diff alone doesn't prove the boot didn't get slower); create→signout→signin→delete verified against the dev env, with **deletion confirmed server-side** (D1 rows gone, Clerk user gone — queried, not inferred from a 204); prompts' frequency-cap unit-tested.
 
-## Phase 4.2 — sync
+## Phase 5.2 — sync
 
-### T6 — merge engine, pure and alone (1 session — no I/O, no network, the hardest logic in v4)
+### T6 — merge engine, pure and alone (1 session — no I/O, no network, the hardest logic in v5)
 
 Files: `src/sync/merge.ts` + `merge.test.ts` (client-side module; the server never merges — it stores and versions, the client owns merge, keeping the server dumb and the logic testable in one place).
 
@@ -178,7 +180,7 @@ Merge contract, per top-level field of the export format (write the table into t
 - anonId: keep local.
 - unknown fields (older client, newer payload): **preserved verbatim, never stripped** — round-trip unknown keys (F9).
 
-**Schema-skew policy — decided here, not deferred** (the build plan's 4.2 open question). The server never interprets `schemaVersion`; the client compares the pulled blob's version to its own `CURRENT_SCHEMA_VERSION` and takes exactly one of three branches:
+**Schema-skew policy — decided here, not deferred** (the build plan's 5.2 open question). The server never interprets `schemaVersion`; the client compares the pulled blob's version to its own `CURRENT_SCHEMA_VERSION` and takes exactly one of three branches:
 
 | Pulled blob vs client                            | Action                                                                                                                                                                                                                                                                                                 |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -208,9 +210,9 @@ Behavior: pull on boot when signed in (non-blocking — the app renders from Ind
 
 **First-sign-in migration is just the ordinary flow**: local profile exists + server 404 → push local as revision 1; server profile exists + fresh device → pull then merge (empty local merges cleanly by T6's laws). No special-cased "migration wizard" code path to rot (the design win of making merge total). Link `anonId` in the same first push.
 
-DoD: airplane pass (I2); reload-with-pending-queue test; two-real-devices pass against dev env recorded in the amendment; a `sync_conflict` actually provoked and observed resolving; **anonymous → account migration replayed against a real pre-v4 export file** (rating and attempt history present and equal afterwards — the build plan's 4.2 promise, checked against an actual old export, not a synthetic fixture); both schema-skew branches (T6) exercised end-to-end against the dev env, not only in unit tests.
+DoD: airplane pass (I2); reload-with-pending-queue test; two-real-devices pass against dev env recorded in the amendment; a `sync_conflict` actually provoked and observed resolving; **anonymous → account migration replayed against a real pre-v5 export file** (rating and attempt history present and equal afterwards — the build plan's 5.2 promise, checked against an actual old export, not a synthetic fixture); both schema-skew branches (T6) exercised end-to-end against the dev env, not only in unit tests.
 
-## Phase 4.3 — identity
+## Phase 5.3 — identity
 
 ### T9 — usernames (1 session)
 
@@ -226,9 +228,9 @@ DoD: charset/length allowlist tested at both bounds; reserved + profanity denyli
 
 Server: `POST /api/scores` (bounds per mode from a shared config — daily: score domain of the daily result; rush/boss: max streak/depth physically possible from the run rules; anything outside → 422 logged with a counter), day key = the **same UTC day function the Daily calendar already uses, imported from shared code, not re-derived** (F15); `GET /api/leaderboard` top-50 + caller rank (two indexed queries).
 
-Windows: `day` and `all` only (the build plan's two), each with its own index — `idx_scores_board` serves the daily board, `idx_scores_alltime` the all-time one; seasons are v5's, deliberately.
+Windows: `day` and `all` only (the build plan's two), each with its own index — `idx_scores_board` serves the daily board, `idx_scores_alltime` the all-time one; seasons are v6's, deliberately.
 
-Client: leaderboard on Daily/Rush/Boss results + a board page, **behind a flag until the DoD below is met** (the build plan's 4.3 DoD: live behind a flag on staging); fire-and-forget submit piggybacking the sync boundaries; opted-out users render as `anon` but keep their real rank.
+Client: leaderboard on Daily/Rush/Boss results + a board page, **behind a flag until the DoD below is met** (the build plan's 5.3 DoD: live behind a flag on staging); fire-and-forget submit piggybacking the sync boundaries; opted-out users render as `anon` but keep their real rank.
 
 **Optimistic rendering, decided here** (the carried v2 todo-11 deferral): the board is _not_ optimistic — cold load shows a skeleton, then real rows; a stale board is a fake number (I7). Your own just-submitted score _is_ shown immediately in the `me` slot from local state, marked pending until the server confirms, because that one number is real locally. That's the whole rule.
 
@@ -236,21 +238,21 @@ Public profile `/u/:username` behind the `public_profile` opt-in (T9).
 
 DoD: leaderboard flag-gated and live on the dev env; bounds tests per mode (including a `runMeta` over 2 KB → 422); rank correctness test against a seeded board, both windows; **user B's token cannot write or overwrite user A's score row** (authz test, I5); airplane pass unchanged; nothing but username+stats in any public payload (I4 grep).
 
-## Phase 4.4 — T11: edge OG meta (1 session)
+## Phase 5.4 — T11: edge OG meta (1 session)
 
 Cloudflare **Pages Functions middleware** on the existing Pages project (not the API worker — it must run where the HTML is served): intercept `/puzzle/:id` and `/challenge`, `HTMLRewriter` the `<title>`/`<meta og:*>`/`<meta name="description">` into the SPA shell from the puzzle metadata index (built into the function bundle at deploy — it's the same `puzzleMeta` module #82 created; import it, don't duplicate it). `/challenge` decodes its URL payload server-side with the _same_ decoder the client uses (shared module), and treats it as untrusted input (I6): decode failures render the generic card, never an error.
 
-**Per-puzzle OG images — decided: re-deferred.** v4 ships one static branded card (`og-default.png`) for every route; only `<title>`/`<meta description>`/`og:title`/`og:description` are dynamic. Reason: a per-puzzle image means a rendering path (Workers + an image lib, or a build-time generator for 214 puzzles growing weekly) whose whole payoff is a prettier thumbnail on a link nobody is clicking yet — the launch is behind v5. Revisit in v5.1, where named tracks give a card something real to say. The build plan's "unless trivially cheap" bar: it isn't; this is the recorded decision, not a re-deferral to another prompt.
+**Per-puzzle OG images — decided: re-deferred.** v5 ships one static branded card (`og-default.png`) for every route; only `<title>`/`<meta description>`/`og:title`/`og:description` are dynamic. Reason: a per-puzzle image means a rendering path (Workers + an image lib, or a build-time generator for 214 puzzles growing weekly) whose whole payoff is a prettier thumbnail on a link nobody is clicking yet — the launch is behind v6. Revisit in v6.1, where named tracks give a card something real to say. The build plan's "unless trivially cheap" bar: it isn't; this is the recorded decision, not a re-deferral to another prompt.
 
 DoD: unfurl checks (Slack/Discord/X debuggers) against the dev deployment recorded with screenshots in the amendment; `/challenge` with a deliberately corrupted payload renders the generic card and a 200, never an error page (I6).
 
-## Phase 4.5 — T12: email (1–2 sessions)
+## Phase 5.5 — T12: email (1–2 sessions)
 
 Worker: `workers/src/email/` — Resend HTTP API; templates as TS functions returning HTML+text (no template engine dependency); Workers Cron (`triggers.crons`) for streak-nudge and weekly digest scans.
 
-**Challenge-answered, decided:** v4 ships the template, the preference, the unsubscribe path, and a **dev-only manual trigger** (an authenticated `?dry=0` send-to-self used to satisfy the build plan's "all three verified in real inboxes" DoD). It has no production trigger in v4, because challenges are client-side links until v6.0 stores them server-side — inventing a trigger to make the box tick would mean inventing server-stored challenges, which is v6 work. Recorded, not fudged: the _channel_ ships complete in v4; the _event_ arrives in v6.0.
+**Challenge-answered, decided:** v5 ships the template, the preference, the unsubscribe path, and a **dev-only manual trigger** (an authenticated `?dry=0` send-to-self used to satisfy the build plan's "all three verified in real inboxes" DoD). It has no production trigger in v5, because challenges are client-side links until v7.0 stores them server-side — inventing a trigger to make the box tick would mean inventing server-stored challenges, which is v7 work. Recorded, not fudged: the _channel_ ships complete in v5; the _event_ arrives in v7.0.
 
-**Category defaults, decided** (the build plan's 4.5 open question; these are the schema's DEFAULTs, and the reasoning belongs next to them):
+**Category defaults, decided** (the build plan's 5.5 open question; these are the schema's DEFAULTs, and the reasoning belongs next to them):
 
 | Category                      | Default | Why                                                                                                                                                             |
 | ----------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -260,17 +262,17 @@ Worker: `workers/src/email/` — Resend HTTP API; templates as TS functions retu
 
 If the lawyer review (T15) disagrees with the `challenge` classification, the fix is one `DEFAULT` in a migration — flag it there rather than pre-emptively crippling it.
 
-Rules with teeth: every send checks `email_prefs` + `unsubscribed_all` server-side immediately before sending (not at enqueue time); **and checks the address is verified** — send only to the Clerk primary email whose `verification.status` is `verified`, re-read at send time, never to an unverified or stale address (build plan 4.5 DoD, and the thing that keeps the sending domain's reputation alive); unsubscribe link = `GET /api/email/unsubscribe?token=<HMAC(user,category,secret)>` — works logged-out, one click, no confirmation dance (F16); `List-Unsubscribe` + `List-Unsubscribe-Post` headers on every send; email addresses fetched from Clerk at send time, never stored in D1 (I4).
+Rules with teeth: every send checks `email_prefs` + `unsubscribed_all` server-side immediately before sending (not at enqueue time); **and checks the address is verified** — send only to the Clerk primary email whose `verification.status` is `verified`, re-read at send time, never to an unverified or stale address (build plan 5.5 DoD, and the thing that keeps the sending domain's reputation alive); unsubscribe link = `GET /api/email/unsubscribe?token=<HMAC(user,category,secret)>` — works logged-out, one click, no confirmation dance (F16); `List-Unsubscribe` + `List-Unsubscribe-Post` headers on every send; email addresses fetched from Clerk at send time, never stored in D1 (I4).
 
 DoD: real sends to a test inbox from dev env for all three templates; unsubscribe round-trip verified from the email itself (and from the `all` token); an unverified-address account provably receives **nothing** (tested); cron dry-run mode (`?dry=1` guarded to dev) showing who _would_ receive, for safe iteration; cron triggers deployed and observable (a per-run counter/log line, so a silently-not-firing schedule is visible); suppression respected in a test.
 
-## Phase 4.6 — hardening
+## Phase 5.6 — hardening
 
 ### T13 — authz + security sweep (1 session)
 
 Table-driven authz test: every route × {no token, bad token, valid token/foreign resource} — the matrix lives in one test file so a new route failing to register there is conspicuous. Dependency audit (`pnpm audit` + a read of what Clerk/Hono actually pull in). Secrets grep. I4 grep. Header pass (CSP already exists from v3 — extend for Clerk's script/frame origins _narrowly_, not with a wildcard, F17).
 
-**Deletion round-trip, verified here** (build plan 4.6 item 4 — T5 proves the UX works, this proves the data is gone): create an account, give it a username, a synced profile, score rows in all three modes, an email pref row and a suppression entry; `DELETE /api/account`; then query each surface directly — D1 `users`/`profiles`/`scores`/`email_prefs` rows gone via the FK cascade, Clerk user gone via the Admin API, Resend suppression entry gone. Assert the endpoint is idempotent (second call → 204, no 500).
+**Deletion round-trip, verified here** (build plan 5.6 item 4 — T5 proves the UX works, this proves the data is gone): create an account, give it a username, a synced profile, score rows in all three modes, an email pref row and a suppression entry; `DELETE /api/account`; then query each surface directly — D1 `users`/`profiles`/`scores`/`email_prefs` rows gone via the FK cascade, Clerk user gone via the Admin API, Resend suppression entry gone. Assert the endpoint is idempotent (second call → 204, no 500).
 
 DoD: authz matrix green with zero routes unregistered; deletion round-trip evidenced with the actual query output pasted into the amendment; CSP diff reviewed line by line, no wildcard host anywhere.
 
@@ -280,49 +282,49 @@ Scripted (k6 or autocannon from CI runner) against the dev env: profile PUT at s
 
 ### T15 — legal + close-out (1 session + external calendar time)
 
-`/legal` delta (accounts, sync storage, leaderboard display, email); engage the lawyer review with the complete delta list (it blocks v5's distribution, so it starts now); the version-closing amendment: every DoD box in `docs/v4-build-plan.md` checked or written-waived, numbers included. Put the `challenge`-category default (T12) on the lawyer's list explicitly — it is the one consent call this plan made on its own reasoning.
+`/legal` delta (accounts, sync storage, leaderboard display, email); engage the lawyer review with the complete delta list (it blocks v6's distribution, so it starts now); the version-closing amendment: every DoD box in `docs/v5-build-plan.md` checked or written-waived, numbers included. Put the `challenge`-category default (T12) on the lawyer's list explicitly — it is the one consent call this plan made on its own reasoning.
 
 ## Coverage — every build-plan DoD has a task
 
-Checked against `docs/v4-build-plan.md` on 2026-08-26. If a DoD bullet ever lands here with no task, that's the gap this table exists to make loud.
+Checked against `docs/v5-build-plan.md` on 2026-08-26. If a DoD bullet ever lands here with no task, that's the gap this table exists to make loud.
 
 | Phase | Build-plan DoD bullet                                                                  | Task                                                |
 | ----- | -------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| 4.0   | Worker deployed to staging from CI; `pnpm validate` from fresh clone                   | T1                                                  |
-| 4.0   | Auth middleware rejects forged/expired/mismatched; authz helper enforces ownership     | T3                                                  |
-| 4.0   | D1 migrations isolated-tested; schema documented in `workers/README.md`                | T2                                                  |
-| 4.0   | Rate limiter unit-tested both keys; limits as config                                   | T4                                                  |
-| 4.1   | Signed-out play loop behaviorally + perf identical (bundle diff **+ Lighthouse**)      | T5                                                  |
-| 4.1   | create → sign out → sign in → delete round-trip; deletion confirmed server-side        | T5 (UX + confirmation), T13 (full cascade evidence) |
-| 4.1   | Prompts only at settled value moments; frequency cap tested                            | T5                                                  |
-| 4.1   | `pnpm validate` green                                                                  | every task, by convention                           |
-| 4.2   | Two-device test; offline-both, reconnect, provably lossless                            | T8                                                  |
-| 4.2   | Anonymous → account migration keeps rating + history vs a real pre-v4 export           | T8                                                  |
-| 4.2   | Airplane-mode pass identical to v3                                                     | T8 (I2)                                             |
-| 4.2   | Schema-version skew defined and tested both directions                                 | T6 (policy), T8 (end-to-end)                        |
-| 4.3   | Leaderboard behind a flag on staging; out-of-bounds rejected; cross-user write blocked | T10                                                 |
-| 4.3   | Username validation incl. denylist; profile opt-in/out verified                        | T9                                                  |
-| 4.3   | Nothing beyond username publicly displayed                                             | T10 (I4 grep)                                       |
-| 4.4   | Unfurls verified with real debuggers on `/puzzle/:id` and `/challenge`                 | T11                                                 |
-| 4.5   | Three templates sent and verified in real inboxes; unsubscribe suppresses              | T12                                                 |
-| 4.5   | No email to an unverified address; category defaults recorded with reasoning           | T12                                                 |
-| 4.5   | Cron schedules deployed and observable                                                 | T12                                                 |
-| 4.6   | Load/burst numbers + 1×/10×/100× cost curve as an amendment                            | T14                                                 |
-| 4.6   | Authz suite green; zero endpoints without an ownership check                           | T13                                                 |
-| 4.6   | `/legal` updated; lawyer review engaged with the delta in writing                      | T15                                                 |
-| 4.6   | Deletion round-trip verified and documented                                            | T13                                                 |
+| 5.0   | Worker deployed to staging from CI; `pnpm validate` from fresh clone                   | T1                                                  |
+| 5.0   | Auth middleware rejects forged/expired/mismatched; authz helper enforces ownership     | T3                                                  |
+| 5.0   | D1 migrations isolated-tested; schema documented in `workers/README.md`                | T2                                                  |
+| 5.0   | Rate limiter unit-tested both keys; limits as config                                   | T4                                                  |
+| 5.1   | Signed-out play loop behaviorally + perf identical (bundle diff **+ Lighthouse**)      | T5                                                  |
+| 5.1   | create → sign out → sign in → delete round-trip; deletion confirmed server-side        | T5 (UX + confirmation), T13 (full cascade evidence) |
+| 5.1   | Prompts only at settled value moments; frequency cap tested                            | T5                                                  |
+| 5.1   | `pnpm validate` green                                                                  | every task, by convention                           |
+| 5.2   | Two-device test; offline-both, reconnect, provably lossless                            | T8                                                  |
+| 5.2   | Anonymous → account migration keeps rating + history vs a real pre-v5 export           | T8                                                  |
+| 5.2   | Airplane-mode pass identical to v3                                                     | T8 (I2)                                             |
+| 5.2   | Schema-version skew defined and tested both directions                                 | T6 (policy), T8 (end-to-end)                        |
+| 5.3   | Leaderboard behind a flag on staging; out-of-bounds rejected; cross-user write blocked | T10                                                 |
+| 5.3   | Username validation incl. denylist; profile opt-in/out verified                        | T9                                                  |
+| 5.3   | Nothing beyond username publicly displayed                                             | T10 (I4 grep)                                       |
+| 5.4   | Unfurls verified with real debuggers on `/puzzle/:id` and `/challenge`                 | T11                                                 |
+| 5.5   | Three templates sent and verified in real inboxes; unsubscribe suppresses              | T12                                                 |
+| 5.5   | No email to an unverified address; category defaults recorded with reasoning           | T12                                                 |
+| 5.5   | Cron schedules deployed and observable                                                 | T12                                                 |
+| 5.6   | Load/burst numbers + 1×/10×/100× cost curve as an amendment                            | T14                                                 |
+| 5.6   | Authz suite green; zero endpoints without an ownership check                           | T13                                                 |
+| 5.6   | `/legal` updated; lawyer review engaged with the delta in writing                      | T15                                                 |
+| 5.6   | Deletion round-trip verified and documented                                            | T13                                                 |
 
 ## Open design questions — closed here, not deferred again
 
-The five in `docs/v4-build-plan.md` were explicitly "settle in build prompts". This is the build prompt; they are settled.
+The five in `docs/v5-build-plan.md` were explicitly "settle in build prompts". This is the build prompt; they are settled.
 
 | Question (build plan)                                  | Decision                                                                                                                                                                                  | Where                      |
 | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| Signup-prompt value moments + frequency cap (4.1)      | Boss clear, 7-day streak, leaderboard view, stats-page second visit; one prompt per trigger type ever, 7-day global cooldown, permanent "don't ask again"                                 | T5                         |
-| Merge-rule detail per field + schema-skew policy (4.2) | Per-field rule table (union-by-id / recompute / max / LWW / keep-local / preserve-unknown), exhaustive by type; skew = migrate-up, merge-equal, **read-only sync when the blob is newer** | T6                         |
-| Profile public-by-default vs opt-in prompt (4.3)       | Private by default, plain opt-in switch, no prompt and no pre-checked box; the same switch governs leaderboard name display                                                               | T9 (+ `POST /api/privacy`) |
-| Per-puzzle OG images: build or re-defer (4.4)          | **Re-deferred** to v5.1; one static branded card, dynamic title/description only                                                                                                          | T11                        |
-| Email category defaults at signup (4.5)                | digest off, streak off, challenge on (transactional); flagged to the lawyer review                                                                                                        | T12                        |
+| Signup-prompt value moments + frequency cap (5.1)      | Boss clear, 7-day streak, leaderboard view, stats-page second visit; one prompt per trigger type ever, 7-day global cooldown, permanent "don't ask again"                                 | T5                         |
+| Merge-rule detail per field + schema-skew policy (5.2) | Per-field rule table (union-by-id / recompute / max / LWW / keep-local / preserve-unknown), exhaustive by type; skew = migrate-up, merge-equal, **read-only sync when the blob is newer** | T6                         |
+| Profile public-by-default vs opt-in prompt (5.3)       | Private by default, plain opt-in switch, no prompt and no pre-checked box; the same switch governs leaderboard name display                                                               | T9 (+ `POST /api/privacy`) |
+| Per-puzzle OG images: build or re-defer (5.4)          | **Re-deferred** to v6.1; one static branded card, dynamic title/description only                                                                                                          | T11                        |
+| Email category defaults at signup (5.5)                | digest off, streak off, challenge on (transactional); flagged to the lawyer review                                                                                                        | T12                        |
 
 ## Footgun Register
 
