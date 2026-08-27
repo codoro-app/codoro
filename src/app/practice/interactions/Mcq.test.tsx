@@ -127,7 +127,12 @@ describe('Mcq', () => {
     randomSpy.mockRestore()
   })
 
-  it('arrow-key navigation moves focus between choices, and Enter on the focused choice commits it', () => {
+  it('arrow-key navigation moves focus between choices, and clicking the focused choice commits it', () => {
+    // Real Enter-key (native button activation) coverage lives at the
+    // PuzzleCardShell level (PuzzleCardShell.test.tsx) — this test's own
+    // title previously claimed Enter coverage it didn't have (final-review
+    // finding); `fireEvent.click` below tests commit-on-click, not
+    // Enter-activation.
     const onCommit = vi.fn()
     render(<Harness onCommit={onCommit} />)
     const buttons = screen.getAllByRole('button')

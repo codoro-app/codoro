@@ -390,6 +390,27 @@ export function PuzzleCardShell({
     if (committed) continueButtonRef.current?.focus()
   }, [committed])
 
+  // Final whole-branch review finding: the above effect (and the caller's
+  // own `key={puzzle.id}` on this component, e.g. PracticePage.tsx) means
+  // every new puzzle unmounts the previously-focused Continue button —
+  // leaving `document.activeElement` at `document.body` with nothing to
+  // restore it. A keyboard-only player who just committed+advanced would
+  // otherwise have to Tab through NavRail, filter chips, and StatusBar to
+  // get back into the card. This effect claims focus back onto the card
+  // itself (a `tabIndex=-1` landing point, same convention as
+  // useRouteFocusAndScroll.ts's mainRef — focusable via script, not part of
+  // the Tab order) whenever focus has actually been lost to `document.body`.
+  // That guard is what keeps this from fighting useRouteFocusAndScroll's own
+  // focus-on-navigate (a real route change focuses `<main>` in a parent
+  // effect, which commits after this one and so wins) or stealing focus a
+  // user deliberately placed elsewhere (e.g. mid-Tab into the sidebar).
+  const cardRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (document.activeElement === document.body) {
+      cardRef.current?.focus()
+    }
+  }, [puzzle.id])
+
   // tap-line renders the snippet itself, as its interactive tap-target
   // surface, and swipe-binary renders it inside its own draggable card
   // surface (the snippet has to move/tilt with the drag, Tinder-style) — a
@@ -474,7 +495,11 @@ export function PuzzleCardShell({
           ChallengePage.test.tsx/PuzzlePage.test.tsx all use it as a
           root-marker selector to confirm the quiz shell (vs. Trace's
           `.trace-runner`) mounted. */}
-      <div className="puzzle-card flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto p-4">
+      <div
+        ref={cardRef}
+        tabIndex={-1}
+        className="puzzle-card flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto p-4"
+      >
         <p className="m-0 text-center text-xl font-semibold text-text-0">{puzzle.prompt}</p>
 
         {staticLines && <CodeSnippet lines={staticLines} />}

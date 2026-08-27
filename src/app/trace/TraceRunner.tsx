@@ -268,6 +268,22 @@ export function TraceRunnerPuzzle({
     if (isComplete) continueButtonRef.current?.focus()
   }, [isComplete])
 
+  // Same focus-restoration pattern as PuzzleCardShell.tsx's identical fix
+  // (final whole-branch review finding): this component remounts via
+  // `key={puzzle.id}` at the call site below, so every new puzzle unmounts
+  // the previously-focused Continue button, leaving `document.activeElement`
+  // at `document.body`. Claims focus back onto the trace runner itself (a
+  // `tabIndex=-1` landing point, not part of the Tab order) whenever focus
+  // has actually been lost — see PuzzleCardShell.tsx for the full rationale,
+  // including why the `document.body` guard keeps this from fighting
+  // useRouteFocusAndScroll's own focus-on-navigate.
+  const runnerRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (document.activeElement === document.body) {
+      runnerRef.current?.focus()
+    }
+  }, [puzzle.id])
+
   const checkpoints = puzzle.checkpoints
   const answeredCount = checkpointResults.length
   const pendingCheckpoint =
@@ -401,7 +417,7 @@ export function TraceRunnerPuzzle({
 
   return (
     <>
-      <div className="trace-runner flex flex-col gap-4">
+      <div ref={runnerRef} tabIndex={-1} className="trace-runner flex flex-col gap-4">
         <p className="m-0 text-text-0 text-md font-semibold">{puzzle.prompt}</p>
 
         <Scrubber
