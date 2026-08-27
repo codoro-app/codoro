@@ -10,8 +10,8 @@ describe('generateJsTrace — sequential snippet', () => {
     // on it. Under a full-suite/full-`pnpm validate` run this specific
     // trivial snippet was observed hitting that 2s wall clock before the
     // child process even got scheduled — same under-load flake class as
-    // App.test.tsx's/App.bootHomeChunk.test.tsx's waitFor timeouts (see
-    // docs/v2-build-plan.md's Phase 8 amendment) — not a real hang; the
+    // App.test.tsx's waitFor timeouts (see docs/v2-build-plan.md's Phase 8
+    // amendment) — not a real hang; the
     // snippet traces in a few ms once the child runs at all.
     const result = generateJsTrace(snippet, { timeoutMs: 10_000 })
 
