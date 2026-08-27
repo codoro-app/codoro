@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
+import { nth } from '../../../test/nth'
 import { Mcq } from './Mcq'
 import type { McqPuzzle } from '../../../content'
 import type { CommitPayload } from '../interactionTypes'
@@ -131,11 +132,11 @@ describe('Mcq', () => {
     render(<Harness onCommit={onCommit} />)
     const buttons = screen.getAllByRole('button')
 
-    buttons[0].focus()
-    fireEvent.keyDown(buttons[0], { key: 'ArrowDown' })
-    expect(document.activeElement).toBe(buttons[1])
+    nth(buttons, 0).focus()
+    fireEvent.keyDown(nth(buttons, 0), { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(nth(buttons, 1))
 
-    fireEvent.click(buttons[1])
+    fireEvent.click(nth(buttons, 1))
     expect(onCommit).toHaveBeenCalledTimes(1)
   })
 })

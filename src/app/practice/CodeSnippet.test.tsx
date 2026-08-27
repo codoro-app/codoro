@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { nth } from '../../test/nth'
 import { CodeSnippet } from './CodeSnippet'
 import { highlightSnippet } from './highlightSnippet'
 
@@ -109,9 +110,9 @@ describe('CodeSnippet', () => {
     render(<CodeSnippet lines={testLines} onLineClick={vi.fn()} />)
     const buttons = screen.getAllByRole('button')
 
-    buttons[0].focus()
-    fireEvent.keyDown(buttons[0], { key: 'ArrowDown' })
-    expect(document.activeElement).toBe(buttons[1])
+    nth(buttons, 0).focus()
+    fireEvent.keyDown(nth(buttons, 0), { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(nth(buttons, 1))
   })
 
   it('is not interactive (no roving-focus wiring) when onLineClick is omitted', () => {
