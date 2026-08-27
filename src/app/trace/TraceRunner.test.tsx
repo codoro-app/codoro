@@ -295,6 +295,28 @@ describe('TraceRunner solve screen', () => {
     expect(handleContinue).toHaveBeenCalledTimes(1)
   })
 
+  it('moves keyboard focus to the Continue button once the puzzle is complete, so Enter advances', () => {
+    const onContinue = vi.fn()
+    const allCheckpointResults: CheckpointResult[] = [
+      { correct: true, choiceIndex: 1 },
+      { correct: true, choiceIndex: 0 },
+      { correct: true, choiceIndex: 1 },
+    ]
+    render(
+      <TraceRunnerPuzzle
+        puzzle={puzzle}
+        checkpointResults={allCheckpointResults}
+        isComplete={true}
+        solved={true}
+        ratingDelta={null}
+        onCheckpointAnswered={vi.fn()}
+        onContinue={onContinue}
+        timed={false}
+      />,
+    )
+    expect(screen.getByRole('button', { name: /Next puzzle/ })).toHaveFocus()
+  })
+
   // Same fix as PuzzleCardShell.test.tsx's identically-named test — see that
   // file's comment for the full bug report / rationale.
   it('on desktop (>=1024px) Continue renders inline above the feedback panel, not the sticky bottom bar', () => {
