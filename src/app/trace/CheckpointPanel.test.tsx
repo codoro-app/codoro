@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
+import { nth } from '../../test/nth'
 import { CheckpointPanel } from './CheckpointPanel'
 import type { ScrubberPuzzle } from '../../content'
 
@@ -128,6 +129,24 @@ describe('CheckpointPanel — unanswered', () => {
       fireEvent.click(screen.getByRole('button', { name: choice }))
     }
     expect(onAnswer).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('CheckpointPanel — keyboard navigation', () => {
+  it('arrow-key navigation moves focus between choices', () => {
+    render(
+      <CheckpointPanel
+        checkpoint={varValueCheckpoint}
+        steps={steps}
+        result={undefined}
+        onAnswer={vi.fn()}
+      />,
+    )
+    const buttons = screen.getAllByRole('button')
+    nth(buttons, 0).focus()
+
+    fireEvent.keyDown(nth(buttons, 0), { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(nth(buttons, 1))
   })
 })
 

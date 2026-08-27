@@ -1,3 +1,4 @@
+import { useRovingFocus } from './useRovingFocus'
 import type { HighlightedLine } from './highlightSnippet'
 import type { AnswerState } from './answerState'
 
@@ -62,6 +63,7 @@ export interface CodeSnippetProps {
  */
 export function CodeSnippet({ lines, onLineClick, lineState }: CodeSnippetProps) {
   const interactive = onLineClick !== undefined
+  const { itemProps } = useRovingFocus(lines.length, !interactive)
 
   // 2b.0: `code-snippet`/`code-snippet__line` stay literal (test-asserted --
   // CodeSnippet.test.tsx/PuzzleCardShell.test.tsx/TapLine.test.tsx all
@@ -106,6 +108,7 @@ export function CodeSnippet({ lines, onLineClick, lineState }: CodeSnippetProps)
           'code-snippet__line-code min-w-0 flex-1 whitespace-pre-wrap [overflow-wrap:anywhere]'
 
         if (interactive) {
+          const roving = itemProps(index)
           return (
             <button
               key={index}
@@ -115,6 +118,10 @@ export function CodeSnippet({ lines, onLineClick, lineState }: CodeSnippetProps)
                 onLineClick(index)
               }}
               aria-label={`Line ${String(index + 1)}: ${line.text.trim().length > 0 ? line.text : '(blank)'}`}
+              tabIndex={roving.tabIndex}
+              ref={roving.ref}
+              onFocus={roving.onFocus}
+              onKeyDown={roving.onKeyDown}
             >
               {lineNumber}
               <span className={codeClassName} dangerouslySetInnerHTML={codeHtml} />

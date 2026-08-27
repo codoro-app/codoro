@@ -519,6 +519,13 @@ describe('PracticePage', () => {
     const scrollIntoViewSpy = vi.fn()
     HTMLElement.prototype.scrollIntoView = scrollIntoViewSpy
     const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
+    // The card is off-screen (scrolled above the viewport, mirroring the
+    // 2026-08-18 "new shorter puzzle" bug this effect exists to fix) so the
+    // scroll-if-out-of-view gate below still lets this test exercise the
+    // scrolls-when-needed branch.
+    const getBoundingClientRectSpy = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ top: -80 } as DOMRect)
 
     render(<PracticePage />)
     await waitFor(() => {
@@ -560,6 +567,43 @@ describe('PracticePage', () => {
     // real (missing) scrollIntoView again, not this one's mock leaking out.
     delete HTMLElement.prototype.scrollIntoView
     scrollToSpy.mockRestore()
+    getBoundingClientRectSpy.mockRestore()
+  })
+
+  it('does not scroll the puzzle card into view when it is already fully visible (todo 25 regression)', async () => {
+    // Regression coverage for the desktop "Practice tab scrolling down on
+    // every puzzle" defect: previously this effect force-scrolled the card
+    // to the viewport top on every puzzleId change even when the card was
+    // already fully on-screen, pushing StatusBar/Browse-patterns/filter-chip
+    // rows (which render above the card) out of view on every transition.
+    const user = userEvent.setup()
+    const scrollIntoViewSpy = vi.fn()
+    HTMLElement.prototype.scrollIntoView = scrollIntoViewSpy
+    const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
+    // Already fully visible: top is within [0, window.innerHeight).
+    const getBoundingClientRectSpy = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ top: 120 } as DOMRect)
+
+    render(<PracticePage />)
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+
+    await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
+    await user.click(screen.getByRole('button', { name: 'Next puzzle' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+
+    expect(scrollIntoViewSpy).not.toHaveBeenCalled()
+    expect(scrollToSpy).not.toHaveBeenCalled()
+
+    // @ts-expect-error -- deleting the mock so other test files see jsdom's
+    // real (missing) scrollIntoView again, not this one's mock leaking out.
+    delete HTMLElement.prototype.scrollIntoView
+    scrollToSpy.mockRestore()
+    getBoundingClientRectSpy.mockRestore()
   })
 
   it('a load failure renders a friendly error with a working retry (not a stuck loading state)', async () => {

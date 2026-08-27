@@ -3,6 +3,7 @@ import type { InteractionBodyProps } from '../interactionTypes'
 import type { McqPuzzle } from '../../../content'
 import type { AnswerState } from '../answerState'
 import { shuffledIndices } from './shuffleChoices'
+import { useRovingFocus } from '../useRovingFocus'
 
 /**
  * Leading A/B/C/D badge per choice (v2 Arena design, purely presentational
@@ -116,6 +117,7 @@ export function Mcq({
 }: InteractionBodyProps<McqPuzzle>) {
   const [displayOrder] = useState(() => shuffledIndices(puzzle.choices.length))
   const chosenIndex = committedPayload?.choiceIndex ?? null
+  const { itemProps } = useRovingFocus(displayOrder.length, committed)
 
   const handleClick = (index: number) => {
     if (committed) return
@@ -140,6 +142,7 @@ export function Mcq({
         }
         const state = stateFor(originalIndex)
         const className = choiceClass(committed, state)
+        const roving = itemProps(position)
         return (
           <button
             key={originalIndex}
@@ -149,6 +152,10 @@ export function Mcq({
               handleClick(originalIndex)
             }}
             disabled={committed}
+            tabIndex={roving.tabIndex}
+            ref={roving.ref}
+            onFocus={roving.onFocus}
+            onKeyDown={roving.onKeyDown}
           >
             <ChoiceBadge state={state} letter={String.fromCharCode(65 + position)} />
             {choiceText}

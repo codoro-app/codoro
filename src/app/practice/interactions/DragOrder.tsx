@@ -279,16 +279,6 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
     setOrder((prev) => swapPositions(prev, position, target))
   }
 
-  const handleRowKeyDown = (blockIndex: number) => (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'ArrowUp') {
-      event.preventDefault()
-      moveByKeyboard(blockIndex, -1)
-    } else if (event.key === 'ArrowDown') {
-      event.preventDefault()
-      moveByKeyboard(blockIndex, 1)
-    }
-  }
-
   const handleSubmit = () => {
     if (locked) return
     const correct = order.every(
@@ -296,6 +286,19 @@ export function DragOrder({ puzzle, committed, onCommit }: InteractionBodyProps<
     )
     setSubmitted(true)
     onCommit({ correct, choiceIndex: null })
+  }
+
+  const handleRowKeyDown = (blockIndex: number) => (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      moveByKeyboard(blockIndex, -1)
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      moveByKeyboard(blockIndex, 1)
+    } else if (event.key === 'Enter') {
+      event.preventDefault()
+      handleSubmit()
+    }
   }
 
   // 2026-08-21: was a per-row scroll-fade class plus a shared, measured-in-JS

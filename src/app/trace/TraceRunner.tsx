@@ -75,6 +75,7 @@
  * CheckpointPanel (which only ever fires from a real tap).
  */
 import { useEffect, useRef, useState } from 'react'
+import type { RefObject } from 'react'
 import { Scrubber } from './Scrubber'
 import { CheckpointPanel } from './CheckpointPanel'
 import { useTraceSession } from './useTraceSession'
@@ -146,9 +147,17 @@ function ContinueIcon() {
 }
 
 /** The Continue button itself — shared by both of its placements below, same reasoning as PuzzleCardShell.tsx's identical ContinueCta. */
-function ContinueCta({ className, onContinue }: { className: string; onContinue: () => void }) {
+function ContinueCta({
+  className,
+  onContinue,
+  buttonRef,
+}: {
+  className: string
+  onContinue: () => void
+  buttonRef?: RefObject<HTMLButtonElement | null>
+}) {
   return (
-    <button type="button" className={className} onClick={onContinue}>
+    <button type="button" className={className} onClick={onContinue} ref={buttonRef}>
       Next puzzle
       <ContinueIcon />
     </button>
@@ -246,6 +255,35 @@ export function TraceRunnerPuzzle({
   // Continue-button placement switch — see PuzzleCardShell.tsx's identical
   // `isDesktop` for the full rationale.
   const isDesktop = useMediaQuery('(min-width: 1024px)')
+
+  // Same focus-management pattern as PuzzleCardShell.tsx's identical pair —
+  // moves keyboard focus onto the Continue button the moment the puzzle
+  // completes, so Enter advances via native button activation with no
+  // separate keydown listener. Keyed on `isComplete` (Trace has no
+  // `committed`-style intermediate state — see this file's own doc comment
+  // on why answering is first-try-only).
+  const continueButtonRef = useRef<HTMLButtonElement | null>(null)
+
+  useEffect(() => {
+    if (isComplete) continueButtonRef.current?.focus()
+  }, [isComplete])
+
+  // Same focus-restoration pattern as PuzzleCardShell.tsx's identical fix
+  // (final whole-branch review finding): this component remounts via
+  // `key={puzzle.id}` at the call site below, so every new puzzle unmounts
+  // the previously-focused Continue button, leaving `document.activeElement`
+  // at `document.body`. Claims focus back onto the trace runner itself (a
+  // `tabIndex=-1` landing point, not part of the Tab order) whenever focus
+  // has actually been lost — see PuzzleCardShell.tsx for the full rationale,
+  // including why the `document.body` guard keeps this from fighting
+  // useRouteFocusAndScroll's own focus-on-navigate, and why `focus:outline-
+  // none` (below) is safe on a `tabIndex={-1}` element.
+  const runnerRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (document.activeElement === document.body) {
+      runnerRef.current?.focus()
+    }
+  }, [puzzle.id])
 
   const checkpoints = puzzle.checkpoints
   const answeredCount = checkpointResults.length
@@ -380,7 +418,11 @@ export function TraceRunnerPuzzle({
 
   return (
     <>
-      <div className="trace-runner flex flex-col gap-4">
+      <div
+        ref={runnerRef}
+        tabIndex={-1}
+        className="trace-runner focus:outline-none flex flex-col gap-4"
+      >
         <p className="m-0 text-text-0 text-md font-semibold">{puzzle.prompt}</p>
 
         <Scrubber
@@ -418,7 +460,11 @@ export function TraceRunnerPuzzle({
         {isComplete && isDesktop && (
           <>
             <div className="flex justify-end">
-              <ContinueCta className={DESKTOP_CONTINUE_CLASS} onContinue={onContinue} />
+              <ContinueCta
+                className={DESKTOP_CONTINUE_CLASS}
+                onContinue={onContinue}
+                buttonRef={continueButtonRef}
+              />
             </div>
             <div className={feedbackPanelClass(solved ?? false)} role="status">
               <div className="flex items-center gap-2">
@@ -539,6 +585,7 @@ export function TraceRunnerPuzzle({
               <ContinueCta
                 className={`${FEEDBACK_CONTINUE_CLASS} flex-none`}
                 onContinue={onContinue}
+                buttonRef={continueButtonRef}
               />
             </div>
           </div>
