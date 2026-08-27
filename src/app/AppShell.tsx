@@ -57,6 +57,23 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div className="app-shell">
+      {/* v4 Phase 4.0 follow-up (PR #88 review): keyboard-only players
+       * reported having to Tab through the entire NavRail (7 links) every
+       * time they wanted to get back into the puzzle after tabbing out to
+       * the footer — there was no way back in except walking the whole
+       * chain again (or Shift+Tab-ing back through it). Standard fix: a
+       * skip link, the very first tab stop on any page, invisible until
+       * focused (`sr-only` → `focus:not-sr-only`), that jumps straight to
+       * `<main>` via the native fragment-focus behavior `href="#main-
+       * content"` gets for free on a focusable target — no onClick/JS
+       * needed. Tabbing forward off the end of the page and back around
+       * now lands here first instead of back at the top of NavRail. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:rounded-md focus:bg-accent focus:text-accent-ink focus:no-underline focus:text-md focus:font-semibold"
+      >
+        Skip to main content
+      </a>
       {/* 2b.0: was `.app-shell__mobile-nav` (app.css) — display toggle now
        * inline. 2b.8: slimmed to just the brand link — the old ModeSwitcher
        * tab strip that lived here moved to BottomNav, fixed at the viewport
@@ -91,12 +108,17 @@ export function AppShell({ children }: AppShellProps) {
           <span className="text-xl font-bold text-text-0">Codoro</span>
         </Link>
       </div>
-      {/* 2b.0: was `.app-shell__rail` (app.css) — display toggle now inline. */}
-      <div className="hidden lg:block">
+      {/* 2b.0: was `.app-shell__rail` (app.css) — display toggle now inline.
+       * `app-shell__nav` (app.css) gives this wrapper an explicit grid area
+       * spanning both outer rows (main content + footer), not just row 1 —
+       * see that rule's own comment for why NavRail's sticky positioning
+       * needs the full page height as its containing block. */}
+      <div className="hidden lg:block app-shell__nav">
         <NavRail />
       </div>
       <BottomNav />
       <main
+        id="main-content"
         className="app-shell__content focus:outline-none"
         ref={mainRef}
         tabIndex={-1}
@@ -110,7 +132,7 @@ export function AppShell({ children }: AppShellProps) {
        * scrolled to the end of the page. --bottom-nav-height is BottomNav's
        * own height; env(safe-area-inset-bottom) matches the same safe-area
        * padding BottomNav itself adds beneath that. */}
-      <footer className="flex justify-center p-4 pb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom)+var(--space-4))] lg:pb-4 border-t border-border lg:col-span-full">
+      <footer className="app-shell__footer flex justify-center p-4 pb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom)+var(--space-4))] lg:pb-4 border-t border-border">
         <Link
           href={ROUTES.settings.path}
           className="min-h-11 px-3 py-2 bg-transparent text-text-1 text-sm no-underline cursor-pointer inline-flex items-center"

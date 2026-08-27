@@ -38,6 +38,12 @@
 
 .app-shell__content {
   flex: 1 0 auto;
+  /* Names this <main> element's own grid cell at the outer .app-shell
+   * level (below). Distinct from .app-shell__main/__sidebar above, which
+   * name cells *inside* this element's own nested grid (the per-page
+   * main/sidebar split) — two unrelated grids reusing the word "content"/
+   * "main" at different levels, not a naming collision. */
+  grid-area: content;
 }
 
 .app-shell__main {
@@ -48,11 +54,41 @@
   grid-area: sidebar;
 }
 
+/* v4 Phase 4.0 follow-up (PR #88 review): NavRail's own `sticky top-0
+ * h-screen` did nothing on real pages — reported live as "the left nav
+ * scrolls away, the right sidebar doesn't". Root cause: with the outer
+ * .app-shell grid auto-placing items into `1fr auto` rows, NavRail's
+ * wrapper only ever occupied row 1 (the `1fr` row). Whenever a page's own
+ * content was shorter than the viewport, row 1 landed at exactly
+ * `100vh` — same height as NavRail itself — leaving sticky zero slack to
+ * move within, so it just sat at its static (row-1-top) position and
+ * scrolled away with the document. The extra page height in that case
+ * came entirely from the footer, which lives in row 2 — outside NavRail's
+ * containing block, so it never counted toward NavRail's sticky range.
+ * `.app-shell__sidebar` never had this problem: its containing block is
+ * `.app-shell__content`'s own nested grid row, sized to <main>'s real
+ * content, which is almost always taller than the sidebar itself.
+ *
+ * Fix: named grid areas (below) with `nav` spanning both rows, so
+ * NavRail's containing block is the *entire* app-shell height — main
+ * content plus footer — giving it the same kind of slack the sidebar
+ * already had. */
+.app-shell__nav {
+  grid-area: nav;
+}
+
+.app-shell__footer {
+  grid-area: footer;
+}
+
 @media (min-width: 1024px) {
   .app-shell {
     display: grid;
     grid-template-columns: var(--nav-rail-width) 1fr;
     grid-template-rows: 1fr auto;
+    grid-template-areas:
+      'nav content'
+      'nav footer';
     min-height: 100dvh;
   }
 

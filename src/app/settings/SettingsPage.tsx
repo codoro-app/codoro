@@ -260,17 +260,36 @@ export function SettingsPage() {
         <p className={SECTION_COPY_CLASS}>On desktop, every puzzle is playable without a mouse.</p>
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-md text-text-0">
           <dt>
+            <code className={INLINE_CODE_CLASS}>Tab</code> /{' '}
+            <code className={INLINE_CODE_CLASS}>Shift+Tab</code>
+          </dt>
+          <dd className="m-0">Move between choices, buttons, and other controls</dd>
+          <dt>
+            <code className={INLINE_CODE_CLASS}>↑</code> /{' '}
+            <code className={INLINE_CODE_CLASS}>↓</code>
+          </dt>
+          <dd className="m-0">
+            Move focus between choices without leaving the list (multiple choice, tap-the-line,
+            drag-order)
+          </dd>
+          <dt>
             <code className={INLINE_CODE_CLASS}>Enter</code>
           </dt>
-          <dd className="m-0">Commit your answer, then advance to the next puzzle</dd>
+          <dd className="m-0">Submit the focused choice — focus then jumps to Next puzzle</dd>
           <dt>
-            <code className={INLINE_CODE_CLASS}>↑ / ↓</code>
+            <code className={INLINE_CODE_CLASS}>Enter</code> again
           </dt>
-          <dd className="m-0">Move between choices (multiple choice, tap-the-line, drag-order)</dd>
+          <dd className="m-0">Advance once Next puzzle has focus</dd>
           <dt>
-            <code className={INLINE_CODE_CLASS}>← / →</code>
+            <code className={INLINE_CODE_CLASS}>←</code> /{' '}
+            <code className={INLINE_CODE_CLASS}>→</code>
           </dt>
-          <dd className="m-0">Answer a swipe puzzle, or step through a trace</dd>
+          <dd className="m-0">On a swipe puzzle: your answer (left or right)</dd>
+          <dt>
+            <code className={INLINE_CODE_CLASS}>←</code> /{' '}
+            <code className={INLINE_CODE_CLASS}>→</code>
+          </dt>
+          <dd className="m-0">On a trace: step backward or forward one line</dd>
         </dl>
       </section>
 
