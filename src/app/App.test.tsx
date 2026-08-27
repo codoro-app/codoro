@@ -45,9 +45,6 @@ const { App } = await import('./App')
 
 describe('App', () => {
   beforeEach(() => {
-    // App.tsx's resolveBootMode marks 'codoro:has-visited' on every mount —
-    // clear it so each test starts as a fresh first visit (boot: Practice),
-    // matching what every test below except the two boot-mode ones assumes.
     localStorage.clear()
     // wouter's default browser location hook reads the real window.location,
     // which (unlike component state) survives across tests in this file —
@@ -78,7 +75,7 @@ describe('App', () => {
     // genuine hang.
   }, 15_000)
 
-  it('defaults to Practice, and switches to the Daily UI via the mode switcher', async () => {
+  it('boots into Home, and switches to the Daily UI via the mode switcher', async () => {
     const user = userEvent.setup()
     render(<App />)
 
@@ -149,7 +146,7 @@ describe('App', () => {
     })
   })
 
-  it("boots straight into Practice on a device's first-ever visit — the cold-start path is untouched", async () => {
+  it("boots straight into Home on a device's first-ever visit", async () => {
     const { container } = render(<App />)
 
     await waitFor(() => {
@@ -159,19 +156,15 @@ describe('App', () => {
     // Practice and Home both show "1200" for a fresh default profile (Home's
     // hero rating and Practice's status pill), so that text alone can't
     // disambiguate which one actually rendered — checking each page's own
-    // root container can. (Previously this asserted PracticePage's
-    // transient "loading your practice session" text synchronously right
-    // after render(); with route-level React.lazy, PracticePage itself
-    // doesn't mount until its chunk resolves, so that text's timing
-    // relative to the assertion is no longer guaranteed the way a
-    // synchronous import's was.)
-    expect(container.querySelector('.practice-page')).toBeInTheDocument()
-    expect(container.querySelector('.home')).not.toBeInTheDocument()
+    // root container can.
+    expect(container.querySelector('.home')).toBeInTheDocument()
+    expect(container.querySelector('.practice-page')).not.toBeInTheDocument()
   })
 
-  it('boots straight into Home on every visit after the first', async () => {
-    // Simulate a returning device: the flag App.tsx's resolveBootMode
-    // writes on a real first visit is already present.
+  it('boots straight into Home on every visit after the first too', async () => {
+    // A legacy 'codoro:has-visited' flag (written by the old first-visit
+    // boot logic) must not change anything now that '/' always renders
+    // Home regardless of this value.
     localStorage.setItem('codoro:has-visited', '1')
 
     render(<App />)
@@ -180,27 +173,11 @@ describe('App', () => {
     await screen.findByText('Practice', { selector: '.home__card-title' })
   })
 
-  it("a first-ever visit's boot redirect writes 'codoro:has-visited' exactly once (no double-write on remount/StrictMode)", async () => {
-    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem')
-
-    render(<App />)
-    await waitFor(() => {
-      expect(screen.getByText('1200')).toBeInTheDocument()
-    })
-
-    const visitedWrites = setItemSpy.mock.calls.filter(([key]) => key === 'codoro:has-visited')
-    expect(visitedWrites).toHaveLength(1)
-    expect(localStorage.getItem('codoro:has-visited')).toBe('1')
-
-    setItemSpy.mockRestore()
-  })
-
-  it('prefetches the boot mode chunk from inside the lazy useState initializer, not an effect (loses its head start on first paint otherwise)', () => {
+  it("prefetches Home's chunk from inside a lazy useState initializer, not an effect (loses its head start on first paint otherwise)", () => {
     const source = readFileSync(appTsxPath, 'utf-8')
-    const initializerMatch = /useState<BootMode \| null>\(\(\) => \{[\s\S]*?\n {2}\}\)/.exec(source)
+    const initializerMatch =
+      /useState\(\(\) => \{[\s\S]*?void homeImporter\(\)[\s\S]*?\n {2}\}\)/.exec(source)
     expect(initializerMatch).not.toBeNull()
-    const initializerBody = initializerMatch?.[0] ?? ''
-    expect(initializerBody).toMatch(/void bootImporters\[mode\]\(\)/)
 
     // The same call must not also live inside a useEffect/useLayoutEffect —
     // that would delay the request until after the first commit instead of
@@ -209,11 +186,11 @@ describe('App', () => {
       ...source.matchAll(/use(?:Layout)?Effect\(\(\) => \{[\s\S]*?\n {2}\}, \[/g),
     ]
     for (const match of effectBodies) {
-      expect(match[0]).not.toMatch(/bootImporters/)
+      expect(match[0]).not.toMatch(/homeImporter/)
     }
   })
 
-  it("honors a same-origin ?redirect= param on '/' instead of the normal first-visit boot decision", async () => {
+  it("honors a same-origin ?redirect= param on '/' instead of the normal Home landing", async () => {
     window.history.pushState({}, '', '/?redirect=%2Flegal')
 
     render(<App />)
@@ -222,19 +199,17 @@ describe('App', () => {
       expect(window.location.pathname).toBe('/legal')
     })
     await screen.findByText('Terms & privacy', { selector: '.legal-page__title' })
-    // Recovering from an upstream redirect isn't a real first visit — the
-    // has-visited flag must stay untouched, unlike the normal Practice boot.
-    expect(localStorage.getItem('codoro:has-visited')).toBeNull()
   })
 
-  it('ignores a protocol-relative ?redirect= value (open-redirect guard) and falls back to the normal boot decision', async () => {
+  it('ignores a protocol-relative ?redirect= value (open-redirect guard) and falls back to Home', async () => {
     window.history.pushState({}, '', '/?redirect=%2F%2Fevil.example.com')
 
     render(<App />)
 
     await waitFor(() => {
-      expect(window.location.pathname).toBe('/practice')
+      expect(screen.getByText('1200')).toBeInTheDocument()
     })
+    expect(window.location.pathname).toBe('/')
   })
 
   it('ignores a backslash-disguised cross-origin ?redirect= value — a regex like /^\\/(?!\\/)/ would wrongly admit this, since WHATWG URL parsing treats a leading backslash the same as a second forward slash', async () => {
@@ -243,31 +218,33 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(window.location.pathname).toBe('/practice')
+      expect(screen.getByText('1200')).toBeInTheDocument()
     })
+    expect(window.location.pathname).toBe('/')
   })
 
   // A second bypass of the same guard: new URL('/..//evil.com', origin)'s
   // WHATWG path normalization pops the leading '/..', leaving
   // pathname === '//evil.com' with the origin unchanged — so the origin
   // check alone passes even though the result is protocol-relative. Each
-  // of these must fall back to the normal boot decision, same as the
-  // protocol-relative and backslash cases above.
+  // of these must fall back to Home, same as the protocol-relative and
+  // backslash cases above.
   it.each([
     ['/..//evil.com', 'a dot-dot-collapsed protocol-relative value'],
     ['/..//..//evil.com', 'a repeated dot-dot-collapsed protocol-relative value'],
     ['/%2e%2e//evil.com', 'a percent-encoded dot-dot-collapsed protocol-relative value'],
-  ])('ignores %s (%s) and falls back to the normal boot decision', async (target) => {
+  ])('ignores %s (%s) and falls back to Home', async (target) => {
     window.history.pushState({}, '', `/?redirect=${encodeURIComponent(target)}`)
 
     render(<App />)
 
     await waitFor(() => {
-      expect(window.location.pathname).toBe('/practice')
+      expect(screen.getByText('1200')).toBeInTheDocument()
     })
+    expect(window.location.pathname).toBe('/')
   })
 
-  it('opens Home when the logo is clicked, and can navigate back to Practice from there', async () => {
+  it('boots into Home directly, and can navigate to Practice from there', async () => {
     const user = userEvent.setup()
     render(<App />)
 
@@ -300,6 +277,19 @@ describe('App', () => {
       expect(screen.getByText('1200')).toBeInTheDocument()
     })
 
+    // App now boots into Home at '/' — navigate into Practice first so this
+    // test's real subject (the /practice <-> /browse history-stack guard)
+    // has a /practice entry on the stack to push Browse on top of. Waiting
+    // directly on the Browse-patterns link (rather than "1200" again, or
+    // '.practice-page'): "1200" is ambiguous between Home and Practice, and
+    // '.practice-page' is on PracticePage's loading-state shell too — the
+    // link only exists once the session has actually finished loading, so
+    // it's the one signal that's both unambiguous and what this test needs
+    // next anyway.
+    await user.click(nth(screen.getAllByRole('link', { name: 'Practice' }), 0))
+    const browseLink = await screen.findByRole('link', { name: /browse patterns/i })
+    expect(window.location.pathname).toBe('/practice')
+
     // usePracticeSession's mount effect is the only thing that calls
     // loadProfile — a remount (state reset) would call it again, which is
     // exactly what App.tsx's doc comment on PracticePage's two <Route>
@@ -308,7 +298,7 @@ describe('App', () => {
     // updates it in place across the navigation instead of unmounting it.
     const loadCallsBeforeBrowse = vi.mocked(loadProfile).mock.calls.length
 
-    await user.click(nth(screen.getAllByRole('link', { name: /browse patterns/i }), 0))
+    await user.click(browseLink)
     expect(window.location.pathname).toBe('/browse')
 
     await user.click(screen.getByRole('button', { name: /back/i }))
@@ -327,10 +317,11 @@ describe('App', () => {
     // Browse. window.history.back() (not another wouter navigate call) is
     // used here so this is a genuine back-button press firing a native
     // popstate event, the same real-history-entry approach AppShell.test.tsx
-    // uses for its own back/forward test. Per this file's beforeEach, the
-    // boot redirect already replaced the pre-render '/' entry with
-    // '/practice', so the only *push* on the stack at this point was
-    // entering Browse — back() must therefore land on '/practice' again,
+    // uses for its own back/forward test. The stack at this point reads
+    // '/' -> '/practice' -> '/browse': the initial render lands on '/'
+    // directly (no boot redirect anymore) and clicking into Practice above
+    // is this test's own one push onto that, so entering Browse was the
+    // only other push — back() must therefore land on '/practice' again,
     // not '/browse'.
     // jsdom's history.back() resolves the navigation asynchronously (a
     // popstate event, like a real back-button press), so a plain waitFor()

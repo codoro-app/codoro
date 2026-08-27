@@ -26,7 +26,7 @@ import type { Puzzle } from '../../content'
  * follow puzzle A's Continue deterministically.
  */
 
-const { FIXTURE_SCRUBBER_POOL } = vi.hoisted(() => {
+const { FIXTURE_SCRUBBER_POOL, FIXTURE_PUZZLE_META, FIXTURE_BODY_BY_ID } = vi.hoisted(() => {
   const makePuzzle = (id: string, prompt: string): unknown => ({
     id,
     pattern: 'off-by-one',
@@ -46,17 +46,42 @@ const { FIXTURE_SCRUBBER_POOL } = vi.hoisted(() => {
     ],
   })
 
+  const pool = [
+    makePuzzle('trace-a', 'Trace puzzle A'),
+    makePuzzle('trace-b', 'Trace puzzle B'),
+  ] as Puzzle[]
+
   return {
-    FIXTURE_SCRUBBER_POOL: [
-      makePuzzle('trace-a', 'Trace puzzle A'),
-      makePuzzle('trace-b', 'Trace puzzle B'),
-    ] as Puzzle[],
+    FIXTURE_SCRUBBER_POOL: pool,
+    // content-metadata-lazy-load Task 5: useTraceSession now selects from
+    // `puzzleMeta` and loads bodies via `getPuzzleBody`, not `scrubberPool`
+    // directly.
+    FIXTURE_PUZZLE_META: pool.map((p) => ({
+      id: p.id,
+      pattern: p.pattern,
+      difficulty_rating: p.difficulty_rating,
+      interaction: p.interaction,
+    })),
+    FIXTURE_BODY_BY_ID: new Map(pool.map((p) => [p.id, p])),
   }
 })
 
 vi.mock('../../content', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../content')>()
-  return { ...actual, puzzlePool: FIXTURE_SCRUBBER_POOL, scrubberPool: FIXTURE_SCRUBBER_POOL }
+  return {
+    ...actual,
+    puzzlePool: FIXTURE_SCRUBBER_POOL,
+    scrubberPool: FIXTURE_SCRUBBER_POOL,
+    puzzleMeta: FIXTURE_PUZZLE_META,
+    // Derived exports must be re-derived from the SAME fixture, not left
+    // real — see usePracticeSession.test.ts's identical mock comment.
+    // Filtered with the real predicate, deliberately: this fixture
+    // includes a non-scrubber entry, and the point of these tests is that
+    // the hook selects from `scrubberMeta` rather than raw `puzzleMeta`.
+    quizMeta: FIXTURE_PUZZLE_META.filter((meta) => meta.interaction !== 'scrubber'),
+    scrubberMeta: FIXTURE_PUZZLE_META.filter((meta) => meta.interaction === 'scrubber'),
+    getPuzzleBody: vi.fn((id: string) => Promise.resolve(FIXTURE_BODY_BY_ID.get(id))),
+  }
 })
 
 vi.mock('../../storage', async (importOriginal) => {
@@ -73,6 +98,7 @@ vi.mock('../../telemetry', () => ({ trackTraceAttempt: vi.fn(), trackError: vi.f
 
 const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
   await import('../../storage')
+const { resetPuzzleBodyCacheForTests } = await import('../practice/puzzleBodyCache')
 
 describe('TraceRunner + useTraceSession integration', () => {
   beforeEach(() => {
@@ -80,6 +106,7 @@ describe('TraceRunner + useTraceSession integration', () => {
     vi.mocked(loadProfile).mockResolvedValue(createDefaultProfile())
     vi.mocked(saveProfile).mockResolvedValue(undefined)
     vi.mocked(appendAttempt).mockResolvedValue(undefined)
+    resetPuzzleBodyCacheForTests()
   })
 
   it('answers every checkpoint in order, shows the solve panel, and Continue serves a fresh puzzle at step 0', async () => {

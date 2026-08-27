@@ -17,7 +17,7 @@ import { getRatingHistory, getActivityCalendar, getLifetimeTotals } from './stat
 import type { RatingWindowDays, RatingHistoryPoint, ActivityDay } from './statsData'
 import { computeMastery, MIN_ATTEMPTS_FOR_MASTERY } from '../practice/mastery'
 import type { PatternMastery } from '../practice/mastery'
-import { PATTERN_LABELS, puzzlePool } from '../../content'
+import { PATTERN_LABELS, puzzleMeta } from '../../content'
 
 const PAGE_SHELL_CLASS =
   'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[var(--space-4)] px-4 pb-4'
@@ -129,7 +129,7 @@ export function StatsPage() {
   const last = historyPoints[historyPoints.length - 1]
   const delta = first && last ? Math.round(last.rating - first.rating) : null
 
-  const masteryRows = computeMastery(attempts, puzzlePool)
+  const masteryRows = computeMastery(attempts, puzzleMeta)
   const weakest = masteryRows
     .filter((row) => row.accuracy !== null)
     .sort((a, b) => (a.accuracy ?? 0) - (b.accuracy ?? 0))[0]

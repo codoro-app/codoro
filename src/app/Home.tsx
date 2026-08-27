@@ -1,8 +1,7 @@
 /**
- * Home screen — reachable only via the logo (desktop rail / mobile app
- * bar). Boot behavior lives in App.tsx's resolveBootMode: a device's
- * first-ever launch still goes straight to Practice (the "solving within
- * ~10 seconds" cold start), every launch after that opens here instead.
+ * Home screen — the landing page at '/' for every visit (first-ever and
+ * returning alike, see App.tsx's own comment), also reachable any time via
+ * the logo (desktop rail / mobile app bar).
  *
  * Composed from existing v2 tokens, recombined into a bolder arrangement
  * than a bare reuse of StatusBar's pills: a large-type hero stat (using the
@@ -69,7 +68,7 @@ import { useMediaQuery } from './useMediaQuery'
 import { MasteryTeaser } from './practice/MasteryTeaser'
 import { getActivityCalendar } from './stats/statsData'
 import { computeMastery } from './practice/mastery'
-import { PATTERN_LABELS, puzzlePool } from '../content'
+import { PATTERN_LABELS, puzzleMeta } from '../content'
 
 // 2b.5: mode -> display label for the recent-activity recap. Kept local to
 // Home rather than added to AttemptMode itself — this is presentation-only,
@@ -226,7 +225,7 @@ export function Home() {
   )
   // Desktop-only "practice this next" nudge — same weakest-pattern lookup
   // StatsPage.tsx already built, reused verbatim rather than re-derived.
-  const weakestPattern = computeMastery(attempts, puzzlePool)
+  const weakestPattern = computeMastery(attempts, puzzleMeta)
     .filter((row) => row.accuracy !== null)
     .sort((a, b) => (a.accuracy ?? 0) - (b.accuracy ?? 0))[0]
 
