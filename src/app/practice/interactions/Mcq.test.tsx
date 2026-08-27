@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { Mcq } from './Mcq'
@@ -124,5 +124,18 @@ describe('Mcq', () => {
     expect(onCommit).toHaveBeenCalledWith({ correct: true, choiceIndex: 0 })
 
     randomSpy.mockRestore()
+  })
+
+  it('arrow-key navigation moves focus between choices, and Enter on the focused choice commits it', () => {
+    const onCommit = vi.fn()
+    render(<Harness onCommit={onCommit} />)
+    const buttons = screen.getAllByRole('button')
+
+    buttons[0].focus()
+    fireEvent.keyDown(buttons[0], { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(buttons[1])
+
+    fireEvent.click(buttons[1])
+    expect(onCommit).toHaveBeenCalledTimes(1)
   })
 })
