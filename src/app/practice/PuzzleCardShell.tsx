@@ -12,8 +12,8 @@
  * Duolingo-style "lip"): `:active` scale/opacity + `:focus-visible` outline
  * — see practice.css.
  */
-import { useEffect, useState } from 'react'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import type { Puzzle } from '../../content'
 import type { CommitPayload } from './interactionTypes'
 import { highlightSnippet } from './highlightSnippet'
@@ -305,13 +305,15 @@ function ContinueCta({
   className,
   destination,
   onContinue,
+  buttonRef,
 }: {
   className: string
   destination: ContinueDestination
   onContinue: () => void
+  buttonRef?: RefObject<HTMLButtonElement | null>
 }) {
   return (
-    <button type="button" className={className} onClick={onContinue}>
+    <button type="button" className={className} onClick={onContinue} ref={buttonRef}>
       {continueLabel(destination)}
       <ContinueIcon destination={destination} />
     </button>
@@ -375,6 +377,18 @@ export function PuzzleCardShell({
     // — including handleCommit would refire on every render for no reason.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [forcedCommit, committed])
+
+  const continueButtonRef = useRef<HTMLButtonElement | null>(null)
+
+  // Enter's "advance" half (docs/v4-build-plan.md Phase 4.0, todo 23) falls
+  // entirely out of native <button> Enter-activation semantics once focus
+  // is actually on Continue — no separate keydown listener needed. Moving
+  // focus here the instant a commit lands is also what makes a fully
+  // keyboard-only playthrough not require an extra Tab press after every
+  // answer.
+  useEffect(() => {
+    if (committed) continueButtonRef.current?.focus()
+  }, [committed])
 
   // tap-line renders the snippet itself, as its interactive tap-target
   // surface, and swipe-binary renders it inside its own draggable card
@@ -474,6 +488,7 @@ export function PuzzleCardShell({
                 className={DESKTOP_CONTINUE_CLASS}
                 destination={continueDestination}
                 onContinue={onContinue}
+                buttonRef={continueButtonRef}
               />
             </div>
             <div className={feedbackPanelClass(committedPayload.correct)} role="status">
@@ -513,6 +528,7 @@ export function PuzzleCardShell({
                   className={`${FEEDBACK_CONTINUE_CLASS} flex-1`}
                   destination={continueDestination}
                   onContinue={onContinue}
+                  buttonRef={continueButtonRef}
                 />
               </div>
             </div>

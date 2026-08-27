@@ -297,6 +297,32 @@ describe('PuzzleCardShell', () => {
     vi.unstubAllGlobals()
   })
 
+  it('moves keyboard focus to the Continue button the instant a commit lands, so Enter advances without an extra Tab', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query === '(min-width: 1024px)',
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    )
+    const user = userEvent.setup()
+    render(
+      <PuzzleCardShell
+        puzzle={mcqPuzzle}
+        ratingDelta={null}
+        onAnswered={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+
+    expect(screen.getByRole('button', { name: /Next puzzle/ })).toHaveFocus()
+
+    vi.unstubAllGlobals()
+  })
+
   it('click-meaningfulness: continueDestination="results" previews "See results" instead of the default', async () => {
     const user = userEvent.setup()
     render(
