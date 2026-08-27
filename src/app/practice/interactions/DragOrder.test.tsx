@@ -407,6 +407,18 @@ describe('DragOrder', () => {
     expect(blockARow.getAttribute('aria-label')).toContain('position 2 of 3')
   })
 
+  it('Enter on a focused row submits the current order (same as clicking "Check order")', () => {
+    const onCommit = vi.fn()
+    const { container } = render(<Harness onCommit={onCommit} />)
+    const rows = Array.from(container.querySelectorAll('.drag-order__row'))
+    const blockARow = nth(rows, 0)
+
+    fireEvent.focus(blockARow)
+    fireEvent.keyDown(blockARow, { key: 'Enter' })
+
+    expect(onCommit).toHaveBeenCalledTimes(1)
+  })
+
   /*
    * Replaces three tests of the old shared-shrink row text (a
    * `--drag-order-font-scale` computed across every row plus a per-row
