@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { DAILY_CALENDAR } from './dailyCalendar'
+import { puzzlePool } from './pools'
 
 /**
  * Pins the current DAILY_CALENDAR prefix so an edit, reorder, or removal of
@@ -42,5 +43,47 @@ describe('DAILY_CALENDAR append-only contract', () => {
 
   it('is never empty', () => {
     expect(DAILY_CALENDAR.length).toBeGreaterThan(0)
+  })
+})
+
+describe('DAILY_CALENDAR content-shape gate', () => {
+  const byId = new Map(puzzlePool.map((p) => [p.id, p]))
+
+  it('every entry resolves to a real puzzle', () => {
+    for (const id of DAILY_CALENDAR) {
+      expect(byId.has(id)).toBe(true)
+    }
+  })
+
+  it('no entry is mcq or swipe-binary', () => {
+    const offenders = DAILY_CALENDAR.filter((id) => {
+      const puzzle = byId.get(id)
+      return puzzle?.interaction === 'mcq' || puzzle?.interaction === 'swipe-binary'
+    })
+    expect(offenders).toEqual([])
+  })
+
+  it('every scrubber entry has at least 6 checkpoints', () => {
+    const offenders = DAILY_CALENDAR.filter((id) => {
+      const puzzle = byId.get(id)
+      return puzzle?.interaction === 'scrubber' && puzzle.checkpoints.length < 6
+    })
+    expect(offenders).toEqual([])
+  })
+
+  it('every drag-order entry has at least 8 blocks', () => {
+    const offenders = DAILY_CALENDAR.filter((id) => {
+      const puzzle = byId.get(id)
+      return puzzle?.interaction === 'drag-order' && puzzle.blocks.length < 8
+    })
+    expect(offenders).toEqual([])
+  })
+
+  it('every tap-line entry has a snippet of at least 15 lines', () => {
+    const offenders = DAILY_CALENDAR.filter((id) => {
+      const puzzle = byId.get(id)
+      return puzzle?.interaction === 'tap-line' && puzzle.snippet.split('\n').length < 15
+    })
+    expect(offenders).toEqual([])
   })
 })
