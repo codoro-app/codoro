@@ -507,7 +507,7 @@ describe('PuzzleSchema — scrubber-specific', () => {
     expect(result.success).toBe(false)
   })
 
-  it('rejects more than 4 checkpoints', () => {
+  it('accepts exactly 8 checkpoints', () => {
     const result = PuzzleSchema.safeParse(
       validScrubber({
         steps: [
@@ -516,7 +516,10 @@ describe('PuzzleSchema — scrubber-specific', () => {
           { line: 1, vars: { x: '3' } },
           { line: 1, vars: { x: '4' } },
           { line: 1, vars: { x: '5' } },
-          { line: 2, vars: { x: '5' }, output: '5' },
+          { line: 1, vars: { x: '6' } },
+          { line: 1, vars: { x: '7' } },
+          { line: 1, vars: { x: '8' } },
+          { line: 2, vars: { x: '8' }, output: '8' },
         ],
         checkpoints: [
           { afterStep: 0, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 0 },
@@ -524,6 +527,40 @@ describe('PuzzleSchema — scrubber-specific', () => {
           { afterStep: 2, question: 'var-value', target: 'x', choices: ['3', '4'], correct: 0 },
           { afterStep: 3, question: 'var-value', target: 'x', choices: ['4', '5'], correct: 0 },
           { afterStep: 4, question: 'var-value', target: 'x', choices: ['5', '6'], correct: 0 },
+          { afterStep: 5, question: 'var-value', target: 'x', choices: ['6', '7'], correct: 0 },
+          { afterStep: 6, question: 'var-value', target: 'x', choices: ['7', '8'], correct: 0 },
+          { afterStep: 8, question: 'output', choices: ['7', '8'], correct: 1 },
+        ],
+      }),
+    )
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects more than 8 checkpoints', () => {
+    const result = PuzzleSchema.safeParse(
+      validScrubber({
+        steps: [
+          { line: 0, vars: { x: '1' } },
+          { line: 1, vars: { x: '2' } },
+          { line: 1, vars: { x: '3' } },
+          { line: 1, vars: { x: '4' } },
+          { line: 1, vars: { x: '5' } },
+          { line: 1, vars: { x: '6' } },
+          { line: 1, vars: { x: '7' } },
+          { line: 1, vars: { x: '8' } },
+          { line: 1, vars: { x: '9' } },
+          { line: 2, vars: { x: '9' }, output: '9' },
+        ],
+        checkpoints: [
+          { afterStep: 0, question: 'var-value', target: 'x', choices: ['1', '2'], correct: 0 },
+          { afterStep: 1, question: 'var-value', target: 'x', choices: ['2', '3'], correct: 0 },
+          { afterStep: 2, question: 'var-value', target: 'x', choices: ['3', '4'], correct: 0 },
+          { afterStep: 3, question: 'var-value', target: 'x', choices: ['4', '5'], correct: 0 },
+          { afterStep: 4, question: 'var-value', target: 'x', choices: ['5', '6'], correct: 0 },
+          { afterStep: 5, question: 'var-value', target: 'x', choices: ['6', '7'], correct: 0 },
+          { afterStep: 6, question: 'var-value', target: 'x', choices: ['7', '8'], correct: 0 },
+          { afterStep: 7, question: 'var-value', target: 'x', choices: ['8', '9'], correct: 0 },
+          { afterStep: 9, question: 'output', choices: ['8', '9'], correct: 1 },
         ],
       }),
     )
