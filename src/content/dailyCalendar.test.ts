@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { DAILY_CALENDAR } from './dailyCalendar'
-import { puzzlePool } from './pools'
 
 /**
  * Pins the current DAILY_CALENDAR prefix so an edit, reorder, or removal of
@@ -45,6 +44,8 @@ describe('DAILY_CALENDAR append-only contract', () => {
     expect(DAILY_CALENDAR.length).toBeGreaterThan(0)
   })
 })
+
+import { puzzlePool } from './pools'
 
 describe('DAILY_CALENDAR content-shape gate', () => {
   const byId = new Map(puzzlePool.map((p) => [p.id, p]))
