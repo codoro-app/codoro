@@ -12,9 +12,20 @@
  * MasteryTeaser (2b.7: weakest pattern + a link to the full /stats page —
  * the per-pattern list that used to live here now lives there), gated on
  * useMediaQuery so mobile mounts neither.
+ *
+ * Task 7 (v4 Phase 4.3): a scrubber-day puzzle renders via `TraceRunnerPuzzle`
+ * (`../trace/TraceRunner`) instead of `PuzzleCardShell` — `PuzzleCardShell`
+ * has an explicit `case 'scrubber': throw` (it structurally only ever serves
+ * Practice/Rush/Boss/Puzzle/Challenge's quiz interactions), but
+ * `DAILY_CALENDAR` can and does include scrubber entries. `useDailySession`'s
+ * `checkpointResults`/`isComplete`/`solved`/`onCheckpointAnswered` exist
+ * purely to feed this branch — see its own doc comment for how they commit
+ * through the same rating/streak/persistence/telemetry path as
+ * `handleAnswered`.
  */
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { MasteryTeaser } from '../practice/MasteryTeaser'
+import { TraceRunnerPuzzle } from '../trace/TraceRunner'
 import { useDailySession } from './useDailySession'
 import { useMediaQuery } from '../useMediaQuery'
 import { ShareMenu } from '../ShareMenu'
@@ -266,14 +277,28 @@ export function DailyPage() {
           </>
         )}
 
-        <PuzzleCardShell
-          key={`${session.puzzle.id}-${String(session.attemptNonce)}`}
-          puzzle={session.puzzle}
-          ratingDelta={session.ratingDelta}
-          onAnswered={session.handleAnswered}
-          onContinue={session.handleRetry}
-          continueDestination="retry"
-        />
+        {session.puzzle.interaction === 'scrubber' ? (
+          <TraceRunnerPuzzle
+            key={`${session.puzzle.id}-${String(session.attemptNonce)}`}
+            puzzle={session.puzzle}
+            checkpointResults={session.checkpointResults}
+            isComplete={session.isComplete}
+            solved={session.solved}
+            ratingDelta={session.ratingDelta}
+            onCheckpointAnswered={session.onCheckpointAnswered}
+            onContinue={session.handleRetry}
+            timed={false}
+          />
+        ) : (
+          <PuzzleCardShell
+            key={`${session.puzzle.id}-${String(session.attemptNonce)}`}
+            puzzle={session.puzzle}
+            ratingDelta={session.ratingDelta}
+            onAnswered={session.handleAnswered}
+            onContinue={session.handleRetry}
+            continueDestination="retry"
+          />
+        )}
       </div>
 
       {/* 2b.0: was `.practice-page__sidebar, .daily-page__sidebar` in

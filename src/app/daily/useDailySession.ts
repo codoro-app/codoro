@@ -33,9 +33,11 @@ import {
   getDailyNumber,
   recordActivity,
   roundForDisplay,
+  scoreScrubberAttempt,
   shouldRateAttempt,
   updateRating,
 } from '../../engine'
+import type { CheckpointResult } from '../../engine'
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, UserProfile } from '../../storage'
 import { DAILY_CALENDAR } from '../../content'
@@ -71,6 +73,19 @@ export interface DailySession {
   attemptVersion: number
   /** The day's first (rated) attempt, for a challenge link. Session-only (no schema migration, Phase 5c locked decision) and set exactly once — unrated retries never overwrite it, the same "no re-taking for a better share" rule as the ShareMenu. Null until the first attempt of the day. */
   challengeAttempt: ChallengeAttemptInput | null
+  /**
+   * Task 7 (v4 Phase 4.3): accumulated per-checkpoint results for a scrubber
+   * puzzle's current attempt. Always `[]` for a non-scrubber puzzle (nothing
+   * ever pushes to it outside `onCheckpointAnswered`). Reset by handleRetry,
+   * same as ratingDelta.
+   */
+  checkpointResults: readonly CheckpointResult[]
+  /** True once every checkpoint on a scrubber `puzzle` has been answered — mirrors useTraceSession's `isComplete`. Always false for a non-scrubber puzzle. */
+  isComplete: boolean
+  /** scoreScrubberAttempt's outcome for the just-completed scrubber puzzle. null until isComplete. Always null for a non-scrubber puzzle (PuzzleCardShell derives its own equivalent from CommitPayload instead). */
+  solved: boolean | null
+  /** Records one checkpoint's outcome for a scrubber `puzzle`. No-ops once isComplete or for a non-scrubber puzzle (each checkpoint accepts exactly one answer, same contract as useTraceSession.handleCheckpointAnswered). Once the final checkpoint lands, commits through the same rating/streak/persistence/telemetry path handleAnswered uses. */
+  onCheckpointAnswered: (result: CheckpointResult) => void
   handleAnswered: (payload: CommitPayload) => void
   handleRetry: () => void
   retryLoad: () => void
@@ -84,6 +99,13 @@ export function useDailySession(): DailySession {
   const [attemptNonce, setAttemptNonce] = useState(0)
   const [attemptVersion, setAttemptVersion] = useState(0)
   const [challengeAttempt, setChallengeAttempt] = useState<ChallengeAttemptInput | null>(null)
+  // Task 7 (v4 Phase 4.3): scrubber-only accumulated checkpoint state — see
+  // DailySession.checkpointResults's own doc comment. A ref mirrors
+  // useTraceSession's checkpointResultsRef: two onCheckpointAnswered calls
+  // landing before a re-render must not both read the same stale state
+  // value (React batches same-tick setState calls).
+  const checkpointResultsRef = useRef<CheckpointResult[]>([])
+  const [checkpointResults, setCheckpointResults] = useState<readonly CheckpointResult[]>([])
 
   const today = todayDateString()
   const dayNumber = getDailyNumber(today)
@@ -210,8 +232,22 @@ export function useDailySession(): DailySession {
     load()
   }, [load])
 
-  const handleAnswered = useCallback(
-    (payload: CommitPayload) => {
+  /**
+   * Task 7 (v4 Phase 4.3): the shared "commit an attempt" logic both
+   * `handleAnswered` (every non-scrubber interaction) and
+   * `onCheckpointAnswered` (scrubber, once its final checkpoint lands) call
+   * — extracted so the rating/streak/persistence/telemetry path is defined
+   * exactly once rather than duplicated per interaction shape. `payload`
+   * mirrors CommitPayload's `{ correct, choiceIndex }` shape (a scrubber
+   * attempt's overall correctness comes from `scoreScrubberAttempt`, its
+   * `choiceIndex` is always null — an attempt-level outcome has no single
+   * choice index, same reasoning as swipe-binary/drag-order's own null).
+   * `checkpointResultsForLog` is the scrubber path's full per-checkpoint
+   * array for the persisted Attempt record; null for every other
+   * interaction (unchanged from `handleAnswered`'s pre-Task-7 behavior).
+   */
+  const commitAttempt = useCallback(
+    (payload: CommitPayload, checkpointResultsForLog: CheckpointResult[] | null = null) => {
       if (!profile || !puzzle) return
 
       const timeMs = Math.max(0, Date.now() - servedAtRef.current)
@@ -251,7 +287,7 @@ export function useDailySession(): DailySession {
         correct: payload.correct,
         time_ms: timeMs,
         choice_index: payload.choiceIndex,
-        checkpoint_results: null,
+        checkpoint_results: checkpointResultsForLog,
         userRatingBefore: oldRating,
         userRatingAfter: newRating,
         localDateString: today,
@@ -290,11 +326,61 @@ export function useDailySession(): DailySession {
     [profile, puzzle, today],
   )
 
+  const handleAnswered = useCallback(
+    (payload: CommitPayload) => {
+      commitAttempt(payload)
+    },
+    [commitAttempt],
+  )
+
+  /**
+   * Task 7 (v4 Phase 4.3): mirrors useTraceSession.handleCheckpointAnswered's
+   * shape exactly (accumulate one checkpoint result; only score/commit once
+   * every checkpoint on the puzzle has answered) but commits through
+   * `commitAttempt` above instead of duplicating Trace's own rating/
+   * persistence logic — Daily shares Practice-style rating semantics
+   * (shouldRateAttempt('daily', ...), whole-number `correct` boolean via
+   * scoreScrubberAttempt), not Trace's fractional scrubberActualScore/
+   * TRACE_K_MULTIPLIER boost, so reusing useTraceSession's handler directly
+   * would have been wrong even if it were exported for reuse.
+   */
+  const onCheckpointAnswered = useCallback(
+    (result: CheckpointResult) => {
+      if (!profile || puzzle?.interaction !== 'scrubber') return
+      if (checkpointResultsRef.current.length >= puzzle.checkpoints.length) return // already complete — ignore extra calls
+
+      const nextResults = [...checkpointResultsRef.current, result]
+      checkpointResultsRef.current = nextResults
+      setCheckpointResults(nextResults)
+
+      if (nextResults.length < puzzle.checkpoints.length) {
+        return // more checkpoints remain — scoring/persistence happens on the final one
+      }
+
+      const solved = scoreScrubberAttempt(nextResults)
+      commitAttempt({ correct: solved, choiceIndex: null }, nextResults)
+    },
+    [profile, puzzle, commitAttempt],
+  )
+
   const handleRetry = useCallback(() => {
     servedAtRef.current = Date.now()
     setRatingDelta(null)
+    checkpointResultsRef.current = []
+    setCheckpointResults([])
     setAttemptNonce((n) => n + 1)
   }, [])
+
+  const isComplete =
+    puzzle !== null &&
+    puzzle.interaction === 'scrubber' &&
+    checkpointResults.length >= puzzle.checkpoints.length
+  // `checkpointResults` only ever accumulates entries while puzzle.interaction
+  // === 'scrubber' (onCheckpointAnswered's own guard above) — isComplete
+  // already establishes both "puzzle is a scrubber puzzle" and "every
+  // checkpoint has answered", so re-checking puzzle.interaction here would
+  // be a redundant, always-true condition against isComplete's own type.
+  const solved = isComplete ? scoreScrubberAttempt(checkpointResults) : null
 
   return {
     status,
@@ -306,6 +392,10 @@ export function useDailySession(): DailySession {
     attemptNonce,
     attemptVersion,
     challengeAttempt,
+    checkpointResults,
+    isComplete,
+    solved,
+    onCheckpointAnswered,
     handleAnswered,
     handleRetry,
     retryLoad,
