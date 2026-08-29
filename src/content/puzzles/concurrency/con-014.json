@@ -1,0 +1,22 @@
+{
+  "id": "con-014",
+  "pattern": "concurrency",
+  "difficulty_rating": 1900,
+  "explanation": "All synchronous code runs first: 'start', then main() runs synchronously up to its first await and logs 'async start', then 'end'. Once the synchronous run finishes, the microtask queue drains in registration order: the Promise.resolve().then callback was registered before main() hit await, so it runs first, logging 'promise 1' (and scheduling a second timeout mid-microtask); main()'s continuation after await runs next, logging 'async end'; then the queueMicrotask callback, logging 'microtask 1'. Only after every microtask has drained do the macrotasks (the two setTimeouts) run, in the order they were scheduled: the first timeout (registered synchronously) fires before the second (registered during microtask processing).",
+  "prompt": "Drag these console.log outputs into the order they actually print.",
+  "language": "javascript",
+  "snippet": "console.log('start');\n\nsetTimeout(() => console.log('timeout 1'), 0);\n\nPromise.resolve().then(() => {\n  console.log('promise 1');\n  setTimeout(() => console.log('timeout 2'), 0);\n});\n\nasync function main() {\n  console.log('async start');\n  await null;\n  console.log('async end');\n}\nmain();\n\nqueueMicrotask(() => console.log('microtask 1'));\n\nconsole.log('end');",
+  "interaction": "drag-order",
+  "format": "output",
+  "blocks": [
+    "Prints 'timeout 1'",
+    "Prints 'async end'",
+    "Prints 'start'",
+    "Prints 'timeout 2'",
+    "Prints 'microtask 1'",
+    "Prints 'promise 1'",
+    "Prints 'end'",
+    "Prints 'async start'"
+  ],
+  "correct_order": [2, 7, 6, 5, 1, 4, 0, 3]
+}

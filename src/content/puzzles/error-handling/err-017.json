@@ -1,0 +1,23 @@
+{
+  "id": "err-017",
+  "pattern": "error-handling",
+  "difficulty_rating": 1700,
+  "explanation": "process(True) evaluates should_fail as True and immediately raises, skipping the print(\"ok\") line entirely. The exception is caught by the except block, which prints 'caught: bad', and then the finally block always runs afterward, printing 'cleanup'. Only once that whole call has finished does process(False) begin: its should_fail is False, so it runs straight through to print('ok'), never entering the except block (no exception was raised), and its own finally block still runs, printing 'cleanup' again.",
+  "prompt": "Drag these steps into the order they actually happen when both calls run.",
+  "language": "python",
+  "snippet": "def process(should_fail):\n    try:\n        if should_fail:\n            raise ValueError(\"bad\")\n        print(\"ok\")\n    except ValueError as e:\n        print(\"caught: \" + str(e))\n    finally:\n        print(\"cleanup\")\n\nprocess(True)\nprocess(False)",
+  "interaction": "drag-order",
+  "format": "output",
+  "blocks": [
+    "process(False) skips the except block since no exception was raised",
+    "process(True) raises ValueError('bad')",
+    "process(False)'s finally block prints 'cleanup'",
+    "process(True) evaluates should_fail (True)",
+    "process(False) prints 'ok'",
+    "the exception is caught by the except block",
+    "process(True)'s finally block prints 'cleanup'",
+    "process(False) evaluates should_fail (False)",
+    "process(True) prints 'caught: bad'"
+  ],
+  "correct_order": [3, 1, 5, 8, 6, 7, 4, 0, 2]
+}
