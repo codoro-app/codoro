@@ -65,30 +65,24 @@ function validateSwipeDirectionBalance(valid: readonly ValidatedPuzzle[]): strin
 }
 
 /**
- * Every daily-calendar id must resolve to a real, valid, non-scrubber
- * puzzle, and ids must be unique within the calendar. Checking against
- * quiz-only ids (not the full valid-id set) is deliberate: Daily serving a
- * scrubber puzzle was safe on `main` only by accident — none of the curated
- * ids happened to name one — not by rule. Rejecting scrubber ids here makes
- * it a build failure instead, the same structural guarantee `quizPool`
- * gives app code (docs/v2-phase2-review.md, P0). Daily-serves-scrubber is a
- * deliberate Phase 3+ content call, not a silent default this validator
- * should permit by omission.
+ * Every daily-calendar id must resolve to a real, valid puzzle, and ids must
+ * be unique within the calendar. This used to also reject any scrubber id
+ * outright (docs/v2-phase2-review.md, P0) — Daily serving a scrubber puzzle
+ * was safe on `main` only by accident, not by rule, and that P0 fix made
+ * rejecting scrubber a hard build failure instead. The v4 Phase 4.3 rebuild
+ * ("Daily Made Hard") is the deliberate future content decision that P0 fix
+ * flagged as the only way this should ever change: Daily now serves
+ * scrubber/drag-order/tap-line puzzles at a raised length bar, with mcq and
+ * swipe-binary excluded instead. That interaction-type + length-bar contract
+ * is enforced by the finer-grained "DAILY_CALENDAR content-shape gate" in
+ * dailyCalendar.test.ts, so this function only needs to guard real-id
+ * resolution and uniqueness now.
  */
 export function validateDailyCalendar(
   calendar: readonly string[],
   valid: readonly ValidatedPuzzle[],
 ): string[] {
-  const quizIds = new Set(
-    valid
-      .filter((entry) => entry.puzzle.interaction !== 'scrubber')
-      .map((entry) => entry.puzzle.id),
-  )
-  const scrubberIds = new Set(
-    valid
-      .filter((entry) => entry.puzzle.interaction === 'scrubber')
-      .map((entry) => entry.puzzle.id),
-  )
+  const validIds = new Set(valid.map((entry) => entry.puzzle.id))
 
   const errors: string[] = []
   const seen = new Set<string>()
@@ -100,14 +94,7 @@ export function validateDailyCalendar(
     }
     seen.add(id)
 
-    if (scrubberIds.has(id)) {
-      errors.push(
-        `dailyCalendar.ts: entry "${id}" at position ${String(index)} is a scrubber puzzle — Daily serves quiz puzzles only; adding scrubber to Daily is an explicit future content decision, not a default.`,
-      )
-      return
-    }
-
-    if (!quizIds.has(id)) {
+    if (!validIds.has(id)) {
       errors.push(
         `dailyCalendar.ts: entry "${id}" at position ${String(index)} does not match any valid puzzle`,
       )
