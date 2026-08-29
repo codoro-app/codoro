@@ -1,0 +1,401 @@
+{
+  "id": "tc-024",
+  "pattern": "type-coercion",
+  "difficulty_rating": 1650,
+  "explanation": "normalizeScores maps missing scores to 0 with `scores[i] || 0` — harmless on its own — but the filtering loop in averageValid keeps a value only `if (normalized[i])`, which treats 0 as falsy and drops it exactly like a missing value. A legitimate score of 0 is indistinguishable from 'no data' by this check. So the two real zeros get silently excluded: valid ends up [5, 10, 5] (length 3, sum 20), giving 6.666..., instead of averaging all five scores (sum 20 / 5 = 4) as the function's name promises.",
+  "prompt": "averageValid is meant to average only the scores that are actually present. Step through and predict what it returns for [5, 0, 10, 0, 5].",
+  "language": "javascript",
+  "snippet": "function normalizeScores(scores) {\n  const normalized = [];\n  for (let i = 0; i < scores.length; i++) {\n    normalized.push(scores[i] || 0);\n  }\n  return normalized;\n}\nfunction averageValid(scores) {\n  const normalized = normalizeScores(scores);\n  const valid = [];\n  for (let i = 0; i < normalized.length; i++) {\n    if (normalized[i]) {\n      valid.push(normalized[i]);\n    }\n  }\n  let total = 0;\n  for (let i = 0; i < valid.length; i++) {\n    total += valid[i];\n  }\n  return total / valid.length;\n}\nconsole.log(averageValid([5, 0, 10, 0, 5]));",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 1,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "0"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "0"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "1"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "1"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "2"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "2"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "3"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "3"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "4"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "4"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "valid": "[]"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "0",
+        "valid": "[]"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "0",
+        "valid": "[]"
+      }
+    },
+    {
+      "line": 12,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "0",
+        "valid": "[5]"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "1",
+        "valid": "[5]"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "2",
+        "valid": "[5]"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "2",
+        "valid": "[5]"
+      }
+    },
+    {
+      "line": 12,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "2",
+        "valid": "[5,10]"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "3",
+        "valid": "[5,10]"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "4",
+        "valid": "[5,10]"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "4",
+        "valid": "[5,10]"
+      }
+    },
+    {
+      "line": 12,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "4",
+        "valid": "[5,10,5]"
+      }
+    },
+    {
+      "line": 15,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "valid": "[5,10,5]",
+        "total": "0"
+      }
+    },
+    {
+      "line": 16,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "0",
+        "valid": "[5,10,5]",
+        "total": "0"
+      }
+    },
+    {
+      "line": 17,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "0",
+        "valid": "[5,10,5]",
+        "total": "5"
+      }
+    },
+    {
+      "line": 16,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "1",
+        "valid": "[5,10,5]",
+        "total": "5"
+      }
+    },
+    {
+      "line": 17,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "1",
+        "valid": "[5,10,5]",
+        "total": "15"
+      }
+    },
+    {
+      "line": 16,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "2",
+        "valid": "[5,10,5]",
+        "total": "15"
+      }
+    },
+    {
+      "line": 17,
+      "vars": {
+        "scores": "[5,0,10,0,5]",
+        "normalized": "[5,0,10,0,5]",
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]",
+        "i": "2",
+        "valid": "[5,10,5]",
+        "total": "20"
+      }
+    },
+    {
+      "line": 21,
+      "vars": {
+        "normalizeScores": "[Function]",
+        "averageValid": "[Function]"
+      },
+      "output": "6.666666666666667"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 2,
+      "question": "var-value",
+      "target": "normalized",
+      "choices": ["[5,0,10,0,5]", "[]", "[5,0]", "[5]"],
+      "correct": 3
+    },
+    {
+      "afterStep": 10,
+      "question": "var-value",
+      "target": "normalized",
+      "choices": ["[5]", "[5,0,10]", "[5,0,10,0]", "[5,0,10,0,5]"],
+      "correct": 3
+    },
+    {
+      "afterStep": 15,
+      "question": "var-value",
+      "target": "valid",
+      "choices": ["[5]", "[]", "[5,10,5]", "[5,10]"],
+      "correct": 0
+    },
+    {
+      "afterStep": 19,
+      "question": "var-value",
+      "target": "valid",
+      "choices": ["[5,10,5]", "[5]", "[5,10]", "[]"],
+      "correct": 2
+    },
+    {
+      "afterStep": 23,
+      "question": "var-value",
+      "target": "valid",
+      "choices": ["[5]", "[]", "[5,10]", "[5,10,5]"],
+      "correct": 3
+    },
+    {
+      "afterStep": 24,
+      "question": "next-line",
+      "choices": ["9", "16", "12", "3"],
+      "correct": 1
+    },
+    {
+      "afterStep": 31,
+      "question": "output",
+      "choices": ["6.666666666666667", "4", "[5]", "15"],
+      "correct": 0
+    }
+  ]
+}
