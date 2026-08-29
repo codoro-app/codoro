@@ -1,0 +1,369 @@
+{
+  "id": "rec-026",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 1700,
+  "explanation": "The recursive call `flatten_shallow(item, depth)` passes `depth` straight through instead of `depth - 1`, so the 'remaining depth' never actually decreases as the recursion goes deeper. The `depth == 0` base case that's supposed to stop the unwrapping is therefore unreachable from any positive starting depth — the function keeps recursing into every nested list until there's nothing left to flatten, fully flattening the whole structure to [1, 2, 3, 4, 5] instead of stopping after one level at [1, 2, [3, 4], 5]. It terminates (there's always a finite number of nesting levels), so nothing crashes or hangs — it just silently ignores the depth limit entirely.",
+  "prompt": "flatten_shallow is meant to flatten only `depth` levels deep, leaving anything nested further alone. Step through and predict what flatten_shallow([1, [2, [3, 4]], 5], 1) returns.",
+  "language": "python",
+  "snippet": "def flatten_shallow(nested, depth):\n    if depth == 0:\n        return nested\n    result = []\n    for item in nested:\n        if isinstance(item, list):\n            result.extend(flatten_shallow(item, depth))\n        else:\n            result.append(item)\n    return result\n\nprint(flatten_shallow([1, [2, [3, 4]], 5], 1))",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "flatten_shallow": "<function>"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "nested": "[1, [2, [3, 4]], 5]",
+        "depth": "1"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "nested": "[1, [2, [3, 4]], 5]",
+        "depth": "1",
+        "result": "[]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "nested": "[1, [2, [3, 4]], 5]",
+        "depth": "1",
+        "result": "[]",
+        "item": "1"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "nested": "[1, [2, [3, 4]], 5]",
+        "depth": "1",
+        "result": "[]",
+        "item": "1"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "nested": "[1, [2, [3, 4]], 5]",
+        "depth": "1",
+        "result": "[1]",
+        "item": "1"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "nested": "[1, [2, [3, 4]], 5]",
+        "depth": "1",
+        "result": "[1]",
+        "item": "[2, [3, 4]]"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "nested": "[1, [2, [3, 4]], 5]",
+        "depth": "1",
+        "result": "[1]",
+        "item": "[2, [3, 4]]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "nested": "[2, [3, 4]]",
+        "depth": "1"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "nested": "[2, [3, 4]]",
+        "depth": "1",
+        "result": "[]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "nested": "[2, [3, 4]]",
+        "depth": "1",
+        "result": "[]",
+        "item": "2"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "nested": "[2, [3, 4]]",
+        "depth": "1",
+        "result": "[]",
+        "item": "2"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "nested": "[2, [3, 4]]",
+        "depth": "1",
+        "result": "[2]",
+        "item": "2"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "nested": "[2, [3, 4]]",
+        "depth": "1",
+        "result": "[2]",
+        "item": "[3, 4]"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "nested": "[2, [3, 4]]",
+        "depth": "1",
+        "result": "[2]",
+        "item": "[3, 4]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "nested": "[3, 4]",
+        "depth": "1"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "nested": "[3, 4]",
+        "depth": "1",
+        "result": "[]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "nested": "[3, 4]",
+        "depth": "1",
+        "result": "[]",
+        "item": "3"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "nested": "[3, 4]",
+        "depth": "1",
+        "result": "[]",
+        "item": "3"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "nested": "[3, 4]",
+        "depth": "1",
+        "result": "[3]",
+        "item": "3"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "nested": "[3, 4]",
+        "depth": "1",
+        "result": "[3]",
+        "item": "4"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "nested": "[3, 4]",
+        "depth": "1",
+        "result": "[3]",
+        "item": "4"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "nested": "[3, 4]",
+        "depth": "1",
+        "result": "[3, 4]",
+        "item": "4"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "nested": "[3, 4]",
+        "depth": "1",
+        "result": "[3, 4]",
+        "item": "4"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "nested": "[3, 4]",
+        "depth": "1",
+        "result": "[3, 4]",
+        "item": "4"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "nested": "[2, [3, 4]]",
+        "depth": "1",
+        "result": "[2, 3, 4]",
+        "item": "[3, 4]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "nested": "[2, [3, 4]]",
+        "depth": "1",
+        "result": "[2, 3, 4]",
+        "item": "[3, 4]"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "nested": "[2, [3, 4]]",
+        "depth": "1",
+        "result": "[2, 3, 4]",
+        "item": "[3, 4]"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "nested": "[1, [2, [3, 4]], 5]",
+        "depth": "1",
+        "result": "[1, 2, 3, 4]",
+        "item": "[2, [3, 4]]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "nested": "[1, [2, [3, 4]], 5]",
+        "depth": "1",
+        "result": "[1, 2, 3, 4]",
+        "item": "5"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "nested": "[1, [2, [3, 4]], 5]",
+        "depth": "1",
+        "result": "[1, 2, 3, 4]",
+        "item": "5"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "nested": "[1, [2, [3, 4]], 5]",
+        "depth": "1",
+        "result": "[1, 2, 3, 4, 5]",
+        "item": "5"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "nested": "[1, [2, [3, 4]], 5]",
+        "depth": "1",
+        "result": "[1, 2, 3, 4, 5]",
+        "item": "5"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "nested": "[1, [2, [3, 4]], 5]",
+        "depth": "1",
+        "result": "[1, 2, 3, 4, 5]",
+        "item": "5"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "flatten_shallow": "<function>"
+      },
+      "output": "[1, 2, 3, 4, 5]"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "item",
+      "choices": ["2", "[3, 4]", "1", "4"],
+      "correct": 2
+    },
+    {
+      "afterStep": 6,
+      "question": "var-value",
+      "target": "item",
+      "choices": ["5", "2", "[2, [3, 4]]", "4"],
+      "correct": 2
+    },
+    {
+      "afterStep": 15,
+      "question": "var-value",
+      "target": "nested",
+      "choices": ["[1, [2, [3, 4]], 5]", "[2, [3, 4]]", "[3, 4]"],
+      "correct": 2
+    },
+    {
+      "afterStep": 22,
+      "question": "var-value",
+      "target": "result",
+      "choices": ["[3, 4]", "[3]", "[2, 3, 4]", "[1, 2, 3, 4]"],
+      "correct": 0
+    },
+    {
+      "afterStep": 28,
+      "question": "var-value",
+      "target": "result",
+      "choices": ["[2, 3, 4]", "[1, 2, 3, 4]", "[1, 2, 3, 4, 5]", "[1]"],
+      "correct": 1
+    },
+    {
+      "afterStep": 31,
+      "question": "var-value",
+      "target": "result",
+      "choices": ["[1, 2, 3, 4, 5]", "[3, 4]", "[1, 2, 3, 4]", "[1]"],
+      "correct": 0
+    },
+    {
+      "afterStep": 33,
+      "question": "next-line",
+      "choices": ["4", "9", "11", "6"],
+      "correct": 2
+    },
+    {
+      "afterStep": 34,
+      "question": "output",
+      "choices": ["[3]", "[3, 4]", "[1, 2, 3, 4, 5]", "[2]"],
+      "correct": 2
+    }
+  ]
+}
