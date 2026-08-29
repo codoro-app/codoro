@@ -288,6 +288,7 @@ export function DailyPage() {
             onCheckpointAnswered={session.onCheckpointAnswered}
             onContinue={session.handleRetry}
             timed={false}
+            continueLabel="Try again"
           />
         ) : (
           <PuzzleCardShell

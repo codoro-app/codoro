@@ -18,37 +18,35 @@ const PINNED_PREFIX: readonly string[] = [
   'con-014',
   'con-015',
   'dsm-025',
-  'tc-026',
   'tc-027',
   'rec-028',
   'err-018',
-  'mut-025',
-  'tc-025',
-  'cf-029',
-  'rec-026',
   'rec-027',
+  'mut-025',
   'err-017',
-  'scl-026',
-  'mut-027',
-  'res-015',
-  'dsm-027',
-  'nul-012',
-  'inp-014',
-  'str-014',
   'scl-027',
+  'scl-026',
+  'tc-025',
+  'mut-027',
   'mut-028',
+  'res-015',
+  'cf-029',
+  'dsm-027',
   'str-015',
+  'nul-012',
+  'rec-026',
+  'str-014',
   'dsm-028',
-  'cf-032',
-  'res-016',
   'oob-024',
   'tc-024',
   'mut-024',
   'mut-026',
+  'cf-032',
   'oob-025',
-  'oob-026',
   'scl-024',
+  'oob-026',
   'scl-025',
+  'res-016',
   'cf-030',
   'rec-025',
   'dsm-026',
@@ -107,6 +105,14 @@ describe('DAILY_CALENDAR content-shape gate', () => {
     const offenders = DAILY_CALENDAR.filter((id) => {
       const puzzle = byId.get(id)
       return puzzle?.interaction === 'tap-line' && puzzle.snippet.split('\n').length < 15
+    })
+    expect(offenders).toEqual([])
+  })
+
+  it('every entry meets the >= 1600 Daily difficulty floor', () => {
+    const offenders = DAILY_CALENDAR.filter((id) => {
+      const puzzle = byId.get(id)
+      return (puzzle?.difficulty_rating ?? 0) < 1600
     })
     expect(offenders).toEqual([])
   })

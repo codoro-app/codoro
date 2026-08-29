@@ -146,10 +146,18 @@ function ContinueIcon() {
 }
 
 /** The Continue button itself — shared by both of its placements below, same reasoning as PuzzleCardShell.tsx's identical ContinueCta. */
-function ContinueCta({ className, onContinue }: { className: string; onContinue: () => void }) {
+function ContinueCta({
+  className,
+  onContinue,
+  label,
+}: {
+  className: string
+  onContinue: () => void
+  label: string
+}) {
   return (
     <button type="button" className={className} onClick={onContinue}>
-      Next puzzle
+      {label}
       <ContinueIcon />
     </button>
   )
@@ -229,6 +237,17 @@ export interface TraceRunnerPuzzleProps {
    * Phase 7 amendment.
    */
   timed?: boolean
+  /**
+   * Label for the Continue button. Defaults to `'Next puzzle'` (this
+   * component's original, and still correct, behavior for every existing
+   * call site — /trace, /puzzle/:id, /challenge, and the Missions trace
+   * stage all genuinely advance to a different puzzle on Continue). Daily
+   * (fix-wave, v4 Phase 4.3 final review finding I4) is the one exception:
+   * it serves exactly one puzzle per day, so its scrubber-day Continue is
+   * actually a retry, not an advance — Daily passes `continueLabel="Try
+   * again"` to match `PuzzleCardShell`'s own retry-destination label.
+   */
+  continueLabel?: string
 }
 
 export function TraceRunnerPuzzle({
@@ -240,6 +259,7 @@ export function TraceRunnerPuzzle({
   onCheckpointAnswered,
   onContinue,
   timed = true,
+  continueLabel = 'Next puzzle',
 }: TraceRunnerPuzzleProps) {
   const [stepIndex, setStepIndex] = useState(0)
   const [remainingMs, setRemainingMs] = useState(TRACE_CHECKPOINT_TIME_LIMIT_MS)
@@ -418,7 +438,11 @@ export function TraceRunnerPuzzle({
         {isComplete && isDesktop && (
           <>
             <div className="flex justify-end">
-              <ContinueCta className={DESKTOP_CONTINUE_CLASS} onContinue={onContinue} />
+              <ContinueCta
+                className={DESKTOP_CONTINUE_CLASS}
+                onContinue={onContinue}
+                label={continueLabel}
+              />
             </div>
             <div className={feedbackPanelClass(solved ?? false)} role="status">
               <div className="flex items-center gap-2">
@@ -539,6 +563,7 @@ export function TraceRunnerPuzzle({
               <ContinueCta
                 className={`${FEEDBACK_CONTINUE_CLASS} flex-none`}
                 onContinue={onContinue}
+                label={continueLabel}
               />
             </div>
           </div>

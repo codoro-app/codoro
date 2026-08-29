@@ -39,6 +39,25 @@
  * entries as content authoring ramps; each new content batch should nominate
  * its hardest puzzles meeting this length bar as candidates (see
  * GENERATING_PUZZLES.md).
+ *
+ * Fix-wave amendment (2026-08-29, final whole-branch review, findings
+ * I1-I3): dropped to 37 entries. `tc-026` and `inp-014` (both drag-order)
+ * are excluded — their own `explanation` fields admit the stored
+ * `correct_order` isn't the only valid ordering, which `DragOrder.tsx`'s
+ * exact-positional scoring would mark wrong for an equally-correct
+ * alternate answer. Both puzzle files are left in place as valid,
+ * non-Daily general-pool content. The remaining 37 are also reordered:
+ * the original pure difficulty-descending sort produced three long
+ * same-interaction runs (9 drag-order, 6 tap-line, 11 scrubber) and two
+ * adjacent same-bug pairs (oob-025/oob-026; scl-024/scl-025). Below,
+ * same-difficulty (1700) entries round-robin across interaction types
+ * instead of blocking by type, and two of the 1700-tier tap-line entries
+ * (cf-032, res-016) are placed slightly later than strict rating order to
+ * split the otherwise-homogeneous scrubber-only 1650/1625/1600 tail into
+ * runs of at most 4 — this is the only place ordering isn't strictly
+ * difficulty-descending, and it's a two-place, same-tier-adjacent nudge,
+ * not a reshuffle. No run of any interaction type exceeds 4 consecutive
+ * entries anywhere, and the two named pairs are no longer adjacent.
  */
 export const DAILY_CALENDAR: readonly string[] = [
   'inp-015', // 2100 tap-line input-validation
@@ -46,37 +65,35 @@ export const DAILY_CALENDAR: readonly string[] = [
   'con-014', // 1900 drag-order concurrency
   'con-015', // 1900 tap-line concurrency
   'dsm-025', // 1800 scrubber data-structure-misuse
-  'tc-026', // 1800 drag-order type-coercion
   'tc-027', // 1800 tap-line type-coercion
   'rec-028', // 1800 tap-line recursion-termination
   'err-018', // 1800 tap-line error-handling
-  'mut-025', // 1700 scrubber mutable-state
-  'tc-025', // 1700 scrubber type-coercion
-  'cf-029', // 1700 scrubber control-flow
-  'rec-026', // 1700 scrubber recursion-termination
   'rec-027', // 1700 drag-order recursion-termination
+  'mut-025', // 1700 scrubber mutable-state
   'err-017', // 1700 drag-order error-handling
-  'scl-026', // 1700 drag-order scope-closures
-  'mut-027', // 1700 drag-order mutable-state
-  'res-015', // 1700 drag-order resource-management
-  'dsm-027', // 1700 drag-order data-structure-misuse
-  'nul-012', // 1700 drag-order null-undefined
-  'inp-014', // 1700 drag-order input-validation
-  'str-014', // 1700 drag-order string-formatting
   'scl-027', // 1700 tap-line scope-closures
+  'scl-026', // 1700 drag-order scope-closures
+  'tc-025', // 1700 scrubber type-coercion
+  'mut-027', // 1700 drag-order mutable-state
   'mut-028', // 1700 tap-line mutable-state
+  'res-015', // 1700 drag-order resource-management
+  'cf-029', // 1700 scrubber control-flow
+  'dsm-027', // 1700 drag-order data-structure-misuse
   'str-015', // 1700 tap-line string-formatting
+  'nul-012', // 1700 drag-order null-undefined
+  'rec-026', // 1700 scrubber recursion-termination
+  'str-014', // 1700 drag-order string-formatting
   'dsm-028', // 1700 tap-line data-structure-misuse
-  'cf-032', // 1700 tap-line control-flow
-  'res-016', // 1700 tap-line resource-management
   'oob-024', // 1650 scrubber off-by-one
   'tc-024', // 1650 scrubber type-coercion
   'mut-024', // 1625 scrubber mutable-state
   'mut-026', // 1625 scrubber mutable-state
+  'cf-032', // 1700 tap-line control-flow
   'oob-025', // 1600 scrubber off-by-one
-  'oob-026', // 1600 scrubber off-by-one
   'scl-024', // 1600 scrubber scope-closures
+  'oob-026', // 1600 scrubber off-by-one
   'scl-025', // 1600 scrubber scope-closures
+  'res-016', // 1700 tap-line resource-management
   'cf-030', // 1600 scrubber control-flow
   'rec-025', // 1600 scrubber recursion-termination
   'dsm-026', // 1600 scrubber data-structure-misuse
