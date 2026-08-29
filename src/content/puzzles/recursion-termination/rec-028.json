@@ -1,0 +1,11 @@
+{
+  "id": "rec-028",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 1800,
+  "explanation": "`parse_expr` and `parse_term` both advance `pos` correctly before recursing further down. `parse_factor` does too for a parenthesized group (`pos += 1` right after seeing `'('`). But the unary-minus branch — meant to let `-5` parse as \"negate the factor that follows\" — calls `parse_factor(tokens, pos)` again on the exact same `pos` it was given, without ever consuming the `'-'` token first. So the recursive call sees `tokens[pos] == '-'` again, takes the same branch, and calls itself again at the same `pos` — forever. Every expression without a unary minus parses correctly, because that branch is never taken; the base cases and the binary-operator loops are all fine on their own. The fix is `return parse_factor(tokens, pos + 1)` so each recursive call actually makes progress through the token stream.",
+  "prompt": "This recursive-descent parser hangs (stack overflow) on any expression with a unary minus. Tap the line responsible.",
+  "language": "python",
+  "snippet": "def parse_expr(tokens, pos):\n    left, pos = parse_term(tokens, pos)\n    while pos < len(tokens) and tokens[pos] in ('+', '-'):\n        op = tokens[pos]\n        pos += 1\n        right, pos = parse_term(tokens, pos)\n        left = (op, left, right)\n    return left, pos\n\n\ndef parse_term(tokens, pos):\n    left, pos = parse_factor(tokens, pos)\n    while pos < len(tokens) and tokens[pos] == '*':\n        pos += 1\n        right, pos = parse_factor(tokens, pos)\n        left = ('*', left, right)\n    return left, pos\n\n\ndef parse_factor(tokens, pos):\n    if tokens[pos] == '(':\n        pos += 1\n        expr, pos = parse_expr(tokens, pos)\n        if tokens[pos] != ')':\n            raise ValueError('expected )')\n        return expr, pos + 1\n    if tokens[pos] == '-':\n        return parse_factor(tokens, pos)\n    value = tokens[pos]\n    return value, pos + 1",
+  "interaction": "tap-line",
+  "correct_line": 27
+}

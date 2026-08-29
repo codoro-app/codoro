@@ -1,0 +1,11 @@
+{
+  "id": "str-015",
+  "pattern": "string-formatting",
+  "difficulty_rating": 1700,
+  "explanation": "`str.strip(chars)` does not remove a prefix substring — it repeatedly removes any *characters* found in `chars` from both ends, in any order, until it hits one that isn't. `TITLE_CHARS` is `\"Mr. Mrs. Ms. Dr. \"`, so the effective strip set is just the letters `{M, r, s, D, ., space}`. A name like `\"Ross\"` has no title at all, but its trailing `'s'` and `'s'` are both in that set, so `.strip(TITLE_CHARS)` eats them from the right and returns `\"Ro\"`. `\"Maria\"` loses its leading `'M'` and becomes `\"aria\"`. Names built entirely from letters outside that set (like `\"Sam\"`... except `s`/`S`'s case matters too) pass through untouched, which is exactly what makes this so easy to miss in testing — some names look fine, and the ones that break look like a totally unrelated data problem, not a formatting bug.",
+  "prompt": "This greeting builder mangles perfectly ordinary names that never had a title. Tap the line responsible.",
+  "language": "python",
+  "snippet": "TITLE_CHARS = \"Mr. Mrs. Ms. Dr. \"\n\n\ndef format_display_name(raw_name):\n    \"\"\"Strip a leading title so we can display the plain name.\"\"\"\n    trimmed = raw_name.strip()\n    without_title = trimmed.strip(TITLE_CHARS)\n    return without_title.title()\n\n\ndef build_greeting(raw_name):\n    name = format_display_name(raw_name)\n    return f\"Welcome, {name}!\"\n\n\ndef build_roster_greetings(raw_names):\n    greetings = []\n    for raw_name in raw_names:\n        greetings.append(build_greeting(raw_name))\n    return greetings",
+  "interaction": "tap-line",
+  "correct_line": 6
+}
