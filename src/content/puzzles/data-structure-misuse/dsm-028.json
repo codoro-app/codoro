@@ -1,0 +1,11 @@
+{
+  "id": "dsm-028",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 1700,
+  "explanation": "`taskIds` is a `List<Integer>`, which overloads `remove` two ways: `remove(int index)` and `remove(Object o)`. Because `idToRemove` is declared as a primitive `int`, Java's overload resolution always picks `remove(int index)` here — there is no autoboxing to `Integer` to trigger the object-based overload, since an exact primitive match wins first. So `taskIds.remove(idToRemove)` removes whatever happens to sit at index 2 (here, `88`), not the element whose *value* is `2` — both entries with id `2` survive untouched. The call looks completely correct at a glance, because `remove(Object)` really would do the right thing if the argument were boxed; the only way to get that overload here is to pass an `Integer` explicitly, e.g. `taskIds.remove(Integer.valueOf(idToRemove))` or `taskIds.remove((Integer) idToRemove)`.",
+  "prompt": "removeTaskById(2) is supposed to remove the task whose id is 2. It removes the wrong task and leaves both id-2 tasks behind. Tap the line responsible.",
+  "language": "java",
+  "snippet": "import java.util.*;\n\npublic class TaskQueue {\n    private List<Integer> taskIds = new ArrayList<>();\n\n    public void addTask(int id) {\n        taskIds.add(id);\n    }\n\n    public void removeTaskById(int idToRemove) {\n        taskIds.remove(idToRemove);\n    }\n\n    public List<Integer> getTaskIds() {\n        return taskIds;\n    }\n\n    public static void main(String[] args) {\n        TaskQueue queue = new TaskQueue();\n        queue.addTask(104);\n        queue.addTask(2);\n        queue.addTask(88);\n        queue.addTask(205);\n        queue.addTask(2);\n\n        queue.removeTaskById(2);\n        System.out.println(queue.getTaskIds());\n    }\n}",
+  "interaction": "tap-line",
+  "correct_line": 10
+}
