@@ -1,0 +1,542 @@
+{
+  "id": "rec-025",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 1600,
+  "explanation": "The base case returns 1 for both n === 0 and n === 1, but the correct base case for n === 0 is 0 — fib(0) should be 0, not 1. Because every later value is built from the two before it, this single wrong base case shifts the entire sequence: fibSeries(6) returns [1, 1, 2, 3, 5, 8] instead of [0, 1, 1, 2, 3, 5]. Each per-call `memo = {}` default means memoization never carries over between top-level calls in the loop, but that's not the bug — the wrong base value would produce the same shifted sequence even without memoization at all.",
+  "prompt": "fib is meant to compute the standard Fibonacci sequence (0, 1, 1, 2, 3, 5, ...). Step through fibSeries(6) and predict what it returns.",
+  "language": "javascript",
+  "snippet": "function fib(n, memo = {}) {\n  if (n in memo) return memo[n];\n  if (n <= 1) return 1;\n  const result = fib(n - 1, memo) + fib(n - 2, memo);\n  memo[n] = result;\n  return result;\n}\nfunction fibSeries(count) {\n  const seq = [];\n  for (let i = 0; i < count; i++) {\n    seq.push(fib(i));\n  }\n  return seq;\n}\nconsole.log(fibSeries(6));",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 8,
+      "vars": {
+        "count": "6",
+        "seq": "[]",
+        "fib": "[Function]",
+        "fibSeries": "[Function]"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "count": "6",
+        "seq": "[]",
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "i": "0"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "0",
+        "memo": "{}"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "count": "6",
+        "seq": "[1]",
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "i": "0"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "count": "6",
+        "seq": "[1]",
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "i": "1"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "1",
+        "memo": "{}"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "count": "6",
+        "seq": "[1,1]",
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "i": "1"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "count": "6",
+        "seq": "[1,1]",
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "i": "2"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "1",
+        "memo": "{}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "0",
+        "memo": "{}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "2",
+        "memo": "{}",
+        "result": "2"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "2",
+        "memo": "{\"2\":2}",
+        "result": "2"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "count": "6",
+        "seq": "[1,1,2]",
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "i": "2"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "count": "6",
+        "seq": "[1,1,2]",
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "i": "3"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "1",
+        "memo": "{}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "0",
+        "memo": "{}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "2",
+        "memo": "{}",
+        "result": "2"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "2",
+        "memo": "{\"2\":2}",
+        "result": "2"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "1",
+        "memo": "{\"2\":2}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "3",
+        "memo": "{\"2\":2}",
+        "result": "3"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "3",
+        "memo": "{\"2\":2,\"3\":3}",
+        "result": "3"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "count": "6",
+        "seq": "[1,1,2,3]",
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "i": "3"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "count": "6",
+        "seq": "[1,1,2,3]",
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "i": "4"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "1",
+        "memo": "{}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "0",
+        "memo": "{}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "2",
+        "memo": "{}",
+        "result": "2"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "2",
+        "memo": "{\"2\":2}",
+        "result": "2"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "1",
+        "memo": "{\"2\":2}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "3",
+        "memo": "{\"2\":2}",
+        "result": "3"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "3",
+        "memo": "{\"2\":2,\"3\":3}",
+        "result": "3"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "2",
+        "memo": "{\"2\":2,\"3\":3}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "4",
+        "memo": "{\"2\":2,\"3\":3}",
+        "result": "5"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "4",
+        "memo": "{\"2\":2,\"3\":3,\"4\":5}",
+        "result": "5"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "count": "6",
+        "seq": "[1,1,2,3,5]",
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "i": "4"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "count": "6",
+        "seq": "[1,1,2,3,5]",
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "i": "5"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "1",
+        "memo": "{}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "0",
+        "memo": "{}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "2",
+        "memo": "{}",
+        "result": "2"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "2",
+        "memo": "{\"2\":2}",
+        "result": "2"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "1",
+        "memo": "{\"2\":2}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "3",
+        "memo": "{\"2\":2}",
+        "result": "3"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "3",
+        "memo": "{\"2\":2,\"3\":3}",
+        "result": "3"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "2",
+        "memo": "{\"2\":2,\"3\":3}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "4",
+        "memo": "{\"2\":2,\"3\":3}",
+        "result": "5"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "4",
+        "memo": "{\"2\":2,\"3\":3,\"4\":5}",
+        "result": "5"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "3",
+        "memo": "{\"2\":2,\"3\":3,\"4\":5}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "5",
+        "memo": "{\"2\":2,\"3\":3,\"4\":5}",
+        "result": "8"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "n": "5",
+        "memo": "{\"2\":2,\"3\":3,\"4\":5,\"5\":8}",
+        "result": "8"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "count": "6",
+        "seq": "[1,1,2,3,5,8]",
+        "fib": "[Function]",
+        "fibSeries": "[Function]",
+        "i": "5"
+      }
+    },
+    {
+      "line": 14,
+      "vars": {
+        "fib": "[Function]",
+        "fibSeries": "[Function]"
+      },
+      "output": "[1,1,2,3,5,8]"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "seq",
+      "choices": ["[1,1,2,3]", "[]", "[1]", "[1,1,2,3,5,8]"],
+      "correct": 2
+    },
+    {
+      "afterStep": 12,
+      "question": "var-value",
+      "target": "seq",
+      "choices": ["[1,1,2]", "[1]", "[1,1,2,3,5,8]", "[1,1,2,3]"],
+      "correct": 0
+    },
+    {
+      "afterStep": 21,
+      "question": "var-value",
+      "target": "seq",
+      "choices": ["[1,1,2,3,5]", "[1,1,2,3]", "[1,1]", "[]"],
+      "correct": 1
+    },
+    {
+      "afterStep": 31,
+      "question": "var-value",
+      "target": "result",
+      "choices": ["5", "3", "8", "2"],
+      "correct": 0
+    },
+    {
+      "afterStep": 33,
+      "question": "next-line",
+      "choices": ["14", "3", "9", "4"],
+      "correct": 2
+    },
+    {
+      "afterStep": 48,
+      "question": "var-value",
+      "target": "seq",
+      "choices": ["[1,1,2]", "[1,1,2,3,5,8]", "[1,1]", "[]"],
+      "correct": 1
+    },
+    {
+      "afterStep": 49,
+      "question": "output",
+      "choices": ["[1,1]", "[1,1,2,3,5,8]", "{\"2\":2,\"3\":3,\"4\":5}", "6"],
+      "correct": 1
+    }
+  ]
+}

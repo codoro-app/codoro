@@ -1,0 +1,11 @@
+{
+  "id": "con-015",
+  "pattern": "concurrency",
+  "difficulty_rating": 1900,
+  "explanation": "`get_or_fetch` is meant to dedupe concurrent lookups for the same key through the `pending` dict, but it only writes to `pending` *after* `await fetcher(key)` resolves. `refresh_quotes` kicks off all of its `get_or_fetch` calls together via `asyncio.gather`, so when the event loop starts all three coroutines for the same symbol, each one runs `if key in pending` before any of them has reached the line that populates it — they all see a miss and all call `fetch_price`, which is exactly the cache-stampede this dict was supposed to prevent. Sequential calls (`await get_or_fetch(...)` one at a time, never overlapping) never trigger this, because the first call fully finishes — including this assignment — before the second one starts. The fix is to store the in-flight *task/coroutine* in `pending` synchronously, before awaiting it, not the resolved value after.",
+  "prompt": "Refreshing the same symbol three times at once still hits the network three times. Tap the line responsible.",
+  "language": "python",
+  "snippet": "import asyncio\n\nPRICES = {\"AAPL\": 190.0, \"GOOG\": 140.0}\npending = {}\nfetch_count = 0\n\n\nasync def get_or_fetch(key, fetcher):\n    if key in pending:\n        return pending[key]\n    value = await fetcher(key)\n    pending[key] = value\n    return value\n\n\nasync def fetch_price(symbol):\n    global fetch_count\n    await asyncio.sleep(0.05)\n    fetch_count += 1\n    return PRICES[symbol]\n\n\nasync def refresh_quotes(symbols):\n    tasks = [get_or_fetch(symbol, fetch_price) for symbol in symbols]\n    return await asyncio.gather(*tasks)",
+  "interaction": "tap-line",
+  "correct_line": 11
+}

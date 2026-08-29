@@ -47,8 +47,8 @@
  *
  * ## Authoring rules enforced before write (this batch's quality bar)
  *
- * - **3–4 checkpoints** per puzzle (schema floor is 2 / ceiling is 4; this
- *   batch targets 3–4).
+ * - **6–8 checkpoints** per puzzle (schema floor is 2 / ceiling is 8; this
+ *   batch targets 6–8).
  * - **≥2 distinct question types** across `next-line` / `var-value` /
  *   `output` (typically one of each) — the mix the user asked for.
  * - Every checkpoint must be structurally serveable by the trace
@@ -113,7 +113,7 @@ const AuthorIntentSchema = z.object({
   prompt: z.string().min(1),
   explanation: z.string().min(1),
   snippet: z.string().min(1),
-  checkpoints: z.array(AuthorCheckpointSchema).min(3).max(4).optional(),
+  checkpoints: z.array(AuthorCheckpointSchema).min(2).max(8).optional(),
 })
 
 type AuthorIntent = z.infer<typeof AuthorIntentSchema>
@@ -159,7 +159,7 @@ async function runTrace(intent: AuthorIntent): Promise<TraceResult> {
 }
 
 /** Number of distinct question kinds across a checkpoint list — this batch requires ≥2. */
-function distinctQuestionTypes(checkpoints: readonly AuthorCheckpoint[]): number {
+export function distinctQuestionTypes(checkpoints: readonly AuthorCheckpoint[]): number {
   return new Set(checkpoints.map((c) => c.question)).size
 }
 
@@ -203,10 +203,12 @@ interface CandidateCheckpoint {
   correct: number
 }
 
-/** Authoring rules that go beyond PuzzleSchema: 3–4 checkpoints and ≥2 question types. */
-function authoringRuleViolations(checkpoints: readonly CandidateCheckpoint[]): string | null {
-  if (checkpoints.length < 3 || checkpoints.length > 4) {
-    return `expected 3-4 checkpoints, got ${String(checkpoints.length)}`
+/** Authoring rules that go beyond PuzzleSchema: 6–8 checkpoints and ≥2 question types. */
+export function authoringRuleViolations(
+  checkpoints: readonly CandidateCheckpoint[],
+): string | null {
+  if (checkpoints.length < 6 || checkpoints.length > 8) {
+    return `expected 6-8 checkpoints, got ${String(checkpoints.length)}`
   }
   if (distinctQuestionTypes(checkpoints) < 2) {
     return `needs >=2 distinct question types across next-line/var-value/output, got only ${String(new Set(checkpoints.map((c) => c.question)).size)} type(s)`

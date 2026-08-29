@@ -1,0 +1,22 @@
+{
+  "id": "inp-014",
+  "pattern": "input-validation",
+  "difficulty_rating": 1700,
+  "explanation": "The null check must come first: calling name.length() on a null reference would throw a NullPointerException before any other check ever ran. len must be computed before either length check that reads it. The len == 0 check must come before name.charAt(0) — charAt(0) on an empty string throws StringIndexOutOfBoundsException, so ruling out length 0 first is what makes the digit check on index 0 safe. The length-too-long and starts-with-digit checks are independent of each other and can run in either order once len is known and non-zero, with the plain 0 as the final fallback for a valid name.",
+  "prompt": "Drag these statements into the order that makes validateUsername() check name safely, without ever crashing on a null or empty string.",
+  "language": "java",
+  "snippet": "public int validateUsername(String name) {\n    if (name == null) return -1;\n    int len = name.length();\n    if (len == 0) return -2;\n    if (len > 20) return -3;\n    if (Character.isDigit(name.charAt(0))) return -4;\n    return 0;\n}",
+  "interaction": "drag-order",
+  "format": "code",
+  "blocks": [
+    "}",
+    "    if (len > 20) return -3;",
+    "public int validateUsername(String name) {",
+    "    return 0;",
+    "    if (name == null) return -1;",
+    "    if (Character.isDigit(name.charAt(0))) return -4;",
+    "    int len = name.length();",
+    "    if (len == 0) return -2;"
+  ],
+  "correct_order": [2, 4, 6, 7, 1, 5, 3, 0]
+}

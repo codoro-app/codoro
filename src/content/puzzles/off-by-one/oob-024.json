@@ -1,0 +1,401 @@
+{
+  "id": "oob-024",
+  "pattern": "off-by-one",
+  "difficulty_rating": 1650,
+  "explanation": "windowSum's loop condition is `i <= start + size`, which visits `size + 1` indices, not `size`. Every window sums one extra element (and divides by the intended `size` anyway), so each reported average is inflated by roughly one item's worth. For [2,4,6,8] with size 2, the first window sums arr[0..2] = 2+4+6=12 (average 6, not the intended (2+4)/2=3), the second sums arr[1..3]=4+6+8=18 (average 9, not 5), and the third reads past the end (arr[4] is undefined, coalesced to 0) landing on 7 by coincidence. The bug always fires; it only looks 'right' on the last window because the extra read happens to be undefined-as-zero there.",
+  "prompt": "windowSum computes the sum over a window of `size` elements starting at `start`. Step through movingAverages and predict what it actually returns.",
+  "language": "javascript",
+  "snippet": "function windowSum(arr, start, size) {\n  let total = 0;\n  for (let i = start; i <= start + size; i++) {\n    total += arr[i] ?? 0;\n  }\n  return total;\n}\nfunction movingAverages(arr, size) {\n  const result = [];\n  for (let start = 0; start + size <= arr.length; start++) {\n    result.push(windowSum(arr, start, size) / size);\n  }\n  return result;\n}\nconsole.log(movingAverages([2, 4, 6, 8], 2));",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 8,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "result": "[]",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "result": "[]",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "0"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "0",
+        "total": "0"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "0",
+        "total": "0",
+        "i": "0"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "0",
+        "total": "2",
+        "i": "0"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "0",
+        "total": "2",
+        "i": "1"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "0",
+        "total": "6",
+        "i": "1"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "0",
+        "total": "6",
+        "i": "2"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "0",
+        "total": "12",
+        "i": "2"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "result": "[6]",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "0"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "result": "[6]",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "1"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "1",
+        "total": "0"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "1",
+        "total": "0",
+        "i": "1"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "1",
+        "total": "4",
+        "i": "1"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "1",
+        "total": "4",
+        "i": "2"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "1",
+        "total": "10",
+        "i": "2"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "1",
+        "total": "10",
+        "i": "3"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "1",
+        "total": "18",
+        "i": "3"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "result": "[6,9]",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "1"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "result": "[6,9]",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "2"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "2",
+        "total": "0"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "2",
+        "total": "0",
+        "i": "2"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "2",
+        "total": "6",
+        "i": "2"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "2",
+        "total": "6",
+        "i": "3"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "2",
+        "total": "14",
+        "i": "3"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "2",
+        "total": "14",
+        "i": "4"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "2",
+        "total": "14",
+        "i": "4"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "arr": "[2,4,6,8]",
+        "size": "2",
+        "result": "[6,9,7]",
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]",
+        "start": "2"
+      }
+    },
+    {
+      "line": 14,
+      "vars": {
+        "windowSum": "[Function]",
+        "movingAverages": "[Function]"
+      },
+      "output": "[6,9,7]"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 4,
+      "question": "var-value",
+      "target": "total",
+      "choices": ["18", "10", "2", "14"],
+      "correct": 2
+    },
+    {
+      "afterStep": 6,
+      "question": "var-value",
+      "target": "total",
+      "choices": ["12", "2", "6", "10"],
+      "correct": 2
+    },
+    {
+      "afterStep": 8,
+      "question": "var-value",
+      "target": "total",
+      "choices": ["6", "18", "12", "4"],
+      "correct": 2
+    },
+    {
+      "afterStep": 9,
+      "question": "next-line",
+      "choices": ["10", "14", "2", "9"],
+      "correct": 3
+    },
+    {
+      "afterStep": 17,
+      "question": "var-value",
+      "target": "total",
+      "choices": ["18", "12", "14", "6"],
+      "correct": 0
+    },
+    {
+      "afterStep": 18,
+      "question": "var-value",
+      "target": "result",
+      "choices": ["[]", "[6]", "[6,9]", "[6,9,7]"],
+      "correct": 2
+    },
+    {
+      "afterStep": 24,
+      "question": "var-value",
+      "target": "total",
+      "choices": ["4", "2", "14", "6"],
+      "correct": 2
+    },
+    {
+      "afterStep": 28,
+      "question": "output",
+      "choices": ["6", "[6,9,7]", "14", "[2,4,6,8]"],
+      "correct": 1
+    }
+  ]
+}

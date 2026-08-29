@@ -1,0 +1,11 @@
+{
+  "id": "inp-015",
+  "pattern": "input-validation",
+  "difficulty_rating": 2100,
+  "explanation": "`EMAIL_PATTERN` carries the `g` flag and is declared once at module scope, so the exact same `RegExp` object — including its `lastIndex` property — is reused across every call to `isValidEmail`. A successful `.test()` call with the `g` flag advances `lastIndex` to the end of the match; since the pattern is anchored with `^...$`, it matches the whole string, so `lastIndex` gets set to the input's length. The *next* call to `.test()` starts searching from that leftover `lastIndex` on a brand-new string — and because `^` can only match at absolute position 0, no match is found from any nonzero starting offset, so that call fails and (per spec) resets `lastIndex` back to 0. The result: valid, identically-shaped emails alternate true/false/true/false through a batch, entirely because of leftover state from the previous call, not anything wrong with the emails themselves. A single, one-off call to `isValidEmail` always looks correct — the bug only appears once the same pattern object is reused across a sequence of calls, exactly what `validateSignupBatch` does.",
+  "prompt": "This validator rejects perfectly valid emails, but only every other one. Tap the line responsible.",
+  "language": "javascript",
+  "snippet": "const EMAIL_PATTERN = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/g\n\nfunction isValidEmail(email) {\n  return EMAIL_PATTERN.test(email)\n}\n\nfunction validateSignupBatch(emails) {\n  const results = []\n  for (const email of emails) {\n    results.push({ email, valid: isValidEmail(email) })\n  }\n  return results\n}\n\nfunction rejectedEmails(emails) {\n  return validateSignupBatch(emails)\n    .filter((result) => !result.valid)\n    .map((result) => result.email)\n}",
+  "interaction": "tap-line",
+  "correct_line": 0
+}

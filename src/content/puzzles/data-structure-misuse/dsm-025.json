@@ -1,0 +1,218 @@
+{
+  "id": "dsm-025",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 1800,
+  "explanation": "A plain `{}` isn't an empty map — it already inherits every property of Object.prototype, including methods like `toString`. `index['toString']` was never assigned by buildIndex, but the lookup still finds the inherited function on the prototype chain, and that function is truthy, so `?? null` never kicks in for it. lookupOne('alpha') correctly returns the alpha record and lookupOne('gamma') correctly falls back to null, but lookupOne('toString') silently resolves to the inherited toString function instead of null, even though 'toString' was never registered as an id any more than 'gamma' was. Using `Object.create(null)` or a real `Map` for the index would avoid this entirely.",
+  "prompt": "buildIndex uses a plain object as a lookup map. Step through lookupMany(records, ['alpha', 'toString', 'gamma']) and predict what it returns.",
+  "language": "javascript",
+  "snippet": "function buildIndex(records) {\n  const index = {};\n  for (const r of records) {\n    index[r.id] = r;\n  }\n  return index;\n}\nfunction lookupOne(records, id) {\n  const index = buildIndex(records);\n  return index[id] ?? null;\n}\nconst records = [{ id: 'alpha', name: 'first' }, { id: 'beta', name: 'second' }];\nconsole.log(lookupOne(records, 'alpha'));\nconsole.log(lookupOne(records, 'toString'));\nconsole.log(lookupOne(records, 'gamma'));",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 11,
+      "vars": {
+        "buildIndex": "[Function]",
+        "lookupOne": "[Function]",
+        "records": "[{\"id\":\"alpha\",\"name\":\"first\"},{\"id\":\"beta\",\"name\":\"second\"}]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "buildIndex": "[Function]",
+        "lookupOne": "[Function]",
+        "records": "[{\"id\":\"alpha\",\"name\":\"first\"},{\"id\":\"beta\",\"name\":\"second\"}]",
+        "index": "{}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "buildIndex": "[Function]",
+        "lookupOne": "[Function]",
+        "records": "[{\"id\":\"alpha\",\"name\":\"first\"},{\"id\":\"beta\",\"name\":\"second\"}]",
+        "index": "{\"alpha\":{\"id\":\"alpha\",\"name\":\"first\"}}",
+        "r": "{\"id\":\"alpha\",\"name\":\"first\"}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "buildIndex": "[Function]",
+        "lookupOne": "[Function]",
+        "records": "[{\"id\":\"alpha\",\"name\":\"first\"},{\"id\":\"beta\",\"name\":\"second\"}]",
+        "index": "{\"alpha\":{\"id\":\"alpha\",\"name\":\"first\"},\"beta\":{\"id\":\"beta\",\"name\":\"second\"}}",
+        "r": "{\"id\":\"beta\",\"name\":\"second\"}"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "buildIndex": "[Function]",
+        "lookupOne": "[Function]",
+        "records": "[{\"id\":\"alpha\",\"name\":\"first\"},{\"id\":\"beta\",\"name\":\"second\"}]",
+        "index": "{\"alpha\":{\"id\":\"alpha\",\"name\":\"first\"},\"beta\":{\"id\":\"beta\",\"name\":\"second\"}}",
+        "id": "\"alpha\""
+      }
+    },
+    {
+      "line": 12,
+      "vars": {
+        "buildIndex": "[Function]",
+        "lookupOne": "[Function]",
+        "records": "[{\"id\":\"alpha\",\"name\":\"first\"},{\"id\":\"beta\",\"name\":\"second\"}]"
+      },
+      "output": "{\"id\":\"alpha\",\"name\":\"first\"}"
+    },
+    {
+      "line": 1,
+      "vars": {
+        "buildIndex": "[Function]",
+        "lookupOne": "[Function]",
+        "records": "[{\"id\":\"alpha\",\"name\":\"first\"},{\"id\":\"beta\",\"name\":\"second\"}]",
+        "index": "{}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "buildIndex": "[Function]",
+        "lookupOne": "[Function]",
+        "records": "[{\"id\":\"alpha\",\"name\":\"first\"},{\"id\":\"beta\",\"name\":\"second\"}]",
+        "index": "{\"alpha\":{\"id\":\"alpha\",\"name\":\"first\"}}",
+        "r": "{\"id\":\"alpha\",\"name\":\"first\"}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "buildIndex": "[Function]",
+        "lookupOne": "[Function]",
+        "records": "[{\"id\":\"alpha\",\"name\":\"first\"},{\"id\":\"beta\",\"name\":\"second\"}]",
+        "index": "{\"alpha\":{\"id\":\"alpha\",\"name\":\"first\"},\"beta\":{\"id\":\"beta\",\"name\":\"second\"}}",
+        "r": "{\"id\":\"beta\",\"name\":\"second\"}"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "buildIndex": "[Function]",
+        "lookupOne": "[Function]",
+        "records": "[{\"id\":\"alpha\",\"name\":\"first\"},{\"id\":\"beta\",\"name\":\"second\"}]",
+        "index": "{\"alpha\":{\"id\":\"alpha\",\"name\":\"first\"},\"beta\":{\"id\":\"beta\",\"name\":\"second\"}}",
+        "id": "\"toString\""
+      }
+    },
+    {
+      "line": 13,
+      "vars": {
+        "buildIndex": "[Function]",
+        "lookupOne": "[Function]",
+        "records": "[{\"id\":\"alpha\",\"name\":\"first\"},{\"id\":\"beta\",\"name\":\"second\"}]"
+      },
+      "output": "[Function]"
+    },
+    {
+      "line": 1,
+      "vars": {
+        "buildIndex": "[Function]",
+        "lookupOne": "[Function]",
+        "records": "[{\"id\":\"alpha\",\"name\":\"first\"},{\"id\":\"beta\",\"name\":\"second\"}]",
+        "index": "{}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "buildIndex": "[Function]",
+        "lookupOne": "[Function]",
+        "records": "[{\"id\":\"alpha\",\"name\":\"first\"},{\"id\":\"beta\",\"name\":\"second\"}]",
+        "index": "{\"alpha\":{\"id\":\"alpha\",\"name\":\"first\"}}",
+        "r": "{\"id\":\"alpha\",\"name\":\"first\"}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "buildIndex": "[Function]",
+        "lookupOne": "[Function]",
+        "records": "[{\"id\":\"alpha\",\"name\":\"first\"},{\"id\":\"beta\",\"name\":\"second\"}]",
+        "index": "{\"alpha\":{\"id\":\"alpha\",\"name\":\"first\"},\"beta\":{\"id\":\"beta\",\"name\":\"second\"}}",
+        "r": "{\"id\":\"beta\",\"name\":\"second\"}"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "buildIndex": "[Function]",
+        "lookupOne": "[Function]",
+        "records": "[{\"id\":\"alpha\",\"name\":\"first\"},{\"id\":\"beta\",\"name\":\"second\"}]",
+        "index": "{\"alpha\":{\"id\":\"alpha\",\"name\":\"first\"},\"beta\":{\"id\":\"beta\",\"name\":\"second\"}}",
+        "id": "\"gamma\""
+      }
+    },
+    {
+      "line": 14,
+      "vars": {
+        "buildIndex": "[Function]",
+        "lookupOne": "[Function]",
+        "records": "[{\"id\":\"alpha\",\"name\":\"first\"},{\"id\":\"beta\",\"name\":\"second\"}]"
+      },
+      "output": "null"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 1,
+      "question": "next-line",
+      "choices": ["11", "14", "3", "1"],
+      "correct": 2
+    },
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "r",
+      "choices": ["{\"id\":\"beta\",\"name\":\"second\"}", "{\"id\":\"alpha\",\"name\":\"first\"}"],
+      "correct": 0
+    },
+    {
+      "afterStep": 4,
+      "question": "var-value",
+      "target": "id",
+      "choices": ["\"alpha\"", "\"gamma\"", "\"toString\""],
+      "correct": 0
+    },
+    {
+      "afterStep": 5,
+      "question": "output",
+      "choices": ["null", "[Function]", "\"toString\"", "{\"id\":\"alpha\",\"name\":\"first\"}"],
+      "correct": 3
+    },
+    {
+      "afterStep": 9,
+      "question": "var-value",
+      "target": "id",
+      "choices": ["\"alpha\"", "\"toString\"", "\"gamma\""],
+      "correct": 1
+    },
+    {
+      "afterStep": 10,
+      "question": "output",
+      "choices": ["\"toString\"", "{\"id\":\"alpha\",\"name\":\"first\"}", "null", "[Function]"],
+      "correct": 3
+    },
+    {
+      "afterStep": 14,
+      "question": "var-value",
+      "target": "id",
+      "choices": ["\"toString\"", "\"alpha\"", "\"gamma\""],
+      "correct": 2
+    },
+    {
+      "afterStep": 15,
+      "question": "output",
+      "choices": ["[Function]", "{\"id\":\"alpha\",\"name\":\"first\"}", "null", "\"alpha\""],
+      "correct": 2
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "tc-027",
+  "pattern": "type-coercion",
+  "difficulty_rating": 1800,
+  "explanation": "When an event has zero impressions, `clicks / impressions` is `0 / 0`, which is `NaN` — a realistic outcome for any campaign event that was served but never viewed. `removeDuplicateRatios` tries to dedupe with `unique.indexOf(ratio) === -1`, but `Array.prototype.indexOf` uses strict equality (`===`) internally, and `NaN === NaN` is always `false`. So `indexOf` can never find a `NaN` it already pushed — every `NaN` ratio looks like a brand-new value and gets pushed again, while ordinary numeric duplicates (like two events with the same real ratio) are deduped correctly, since strict equality works fine for them. `distinct` ends up inflated by however many zero-impression events exist. `Array.prototype.includes`, which uses SameValueZero (treating `NaN` as equal to itself), would have deduped correctly here.",
+  "prompt": "This campaign summary overcounts how many distinct click-through ratios there really are. Tap the line responsible.",
+  "language": "javascript",
+  "snippet": "function computeRatios(events) {\n  return events.map((e) => e.clicks / e.impressions)\n}\n\nfunction removeDuplicateRatios(ratios) {\n  const unique = []\n  for (const ratio of ratios) {\n    if (unique.indexOf(ratio) === -1) {\n      unique.push(ratio)\n    }\n  }\n  return unique\n}\n\nfunction summarizeCampaign(events) {\n  const ratios = computeRatios(events)\n  const uniqueRatios = removeDuplicateRatios(ratios)\n  return {\n    total: ratios.length,\n    distinct: uniqueRatios.length,\n  }\n}",
+  "interaction": "tap-line",
+  "correct_line": 7
+}

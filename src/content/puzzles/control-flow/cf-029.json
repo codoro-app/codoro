@@ -1,0 +1,204 @@
+{
+  "id": "cf-029",
+  "pattern": "control-flow",
+  "difficulty_rating": 1700,
+  "explanation": "Only the last two lines form a real if/else — the first three are three independent `if` statements that all run regardless of which one already matched. A 95 first sets grade to 'A' (>=90), then the very same score also satisfies >=80 so grade is overwritten to 'B', then satisfies >=70 too so it's overwritten again to 'C' — the else is skipped only because that last condition was true, not because grading stopped. An 82 similarly falls through to 'B' then gets overwritten to 'C'. Only scores below 70 ever reach the else. The result is ['C', 'C', 'F'] — every passing score above 70 collapses to 'C', which looks plausible at a glance because 'C' is genuinely a valid grade, just never the right one here.",
+  "prompt": "classify is meant to assign the highest grade band a score qualifies for. Step through classifyAll([95, 82, 65]) and predict what it returns.",
+  "language": "javascript",
+  "snippet": "function classify(score) {\n  let grade;\n  if (score >= 90) grade = 'A';\n  if (score >= 80) grade = 'B';\n  if (score >= 70) grade = 'C';\n  else grade = 'F';\n  return grade;\n}\nfunction classifyAll(scores) {\n  return scores.map(classify);\n}\nconsole.log(classifyAll([95, 82, 65]));",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 1,
+      "vars": {
+        "score": "95",
+        "grade": "undefined",
+        "classify": "[Function]",
+        "classifyAll": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "score": "95",
+        "grade": "undefined",
+        "classify": "[Function]",
+        "classifyAll": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "score": "95",
+        "grade": "\"A\"",
+        "classify": "[Function]",
+        "classifyAll": "[Function]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "score": "95",
+        "grade": "\"A\"",
+        "classify": "[Function]",
+        "classifyAll": "[Function]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "score": "95",
+        "grade": "\"B\"",
+        "classify": "[Function]",
+        "classifyAll": "[Function]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "score": "95",
+        "grade": "\"B\"",
+        "classify": "[Function]",
+        "classifyAll": "[Function]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "score": "95",
+        "grade": "\"C\"",
+        "classify": "[Function]",
+        "classifyAll": "[Function]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "score": "82",
+        "grade": "undefined",
+        "classify": "[Function]",
+        "classifyAll": "[Function]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "score": "82",
+        "grade": "undefined",
+        "classify": "[Function]",
+        "classifyAll": "[Function]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "score": "82",
+        "grade": "\"B\"",
+        "classify": "[Function]",
+        "classifyAll": "[Function]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "score": "82",
+        "grade": "\"B\"",
+        "classify": "[Function]",
+        "classifyAll": "[Function]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "score": "82",
+        "grade": "\"C\"",
+        "classify": "[Function]",
+        "classifyAll": "[Function]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "score": "65",
+        "grade": "undefined",
+        "classify": "[Function]",
+        "classifyAll": "[Function]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "score": "65",
+        "grade": "undefined",
+        "classify": "[Function]",
+        "classifyAll": "[Function]"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "score": "65",
+        "grade": "\"F\"",
+        "classify": "[Function]",
+        "classifyAll": "[Function]"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "classify": "[Function]",
+        "classifyAll": "[Function]"
+      },
+      "output": "[\"C\",\"C\",\"F\"]"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 2,
+      "question": "var-value",
+      "target": "grade",
+      "choices": ["\"A\"", "undefined", "\"C\"", "\"F\""],
+      "correct": 0
+    },
+    {
+      "afterStep": 4,
+      "question": "var-value",
+      "target": "grade",
+      "choices": ["\"B\"", "undefined", "\"F\"", "\"A\""],
+      "correct": 0
+    },
+    {
+      "afterStep": 6,
+      "question": "var-value",
+      "target": "grade",
+      "choices": ["\"F\"", "undefined", "\"C\"", "\"A\""],
+      "correct": 2
+    },
+    {
+      "afterStep": 7,
+      "question": "next-line",
+      "choices": ["3", "5", "2", "4"],
+      "correct": 0
+    },
+    {
+      "afterStep": 11,
+      "question": "var-value",
+      "target": "grade",
+      "choices": ["\"C\"", "\"A\"", "\"F\"", "undefined"],
+      "correct": 0
+    },
+    {
+      "afterStep": 14,
+      "question": "var-value",
+      "target": "grade",
+      "choices": ["\"B\"", "\"C\"", "\"A\"", "\"F\""],
+      "correct": 3
+    },
+    {
+      "afterStep": 15,
+      "question": "output",
+      "choices": ["82", "[Function]", "[\"C\",\"C\",\"F\"]", "\"F\""],
+      "correct": 2
+    }
+  ]
+}

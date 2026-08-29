@@ -1,0 +1,11 @@
+{
+  "id": "mut-028",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1700,
+  "explanation": "`items = []` at the top of the class body creates a single list owned by the class itself, not by each instance — `__init__` never assigns `self.items`, so there is no per-instance list to shadow it. When `add_item` runs `self.items.append(item)`, Python's attribute lookup finds no `items` on the instance and falls back to the class attribute, then mutates that shared list *in place*. Because it's a mutation (`.append`), not a reassignment (`self.items = ...`), every `ShoppingCart` instance keeps reading and writing the exact same list. So `alice_cart.add_item(...)` silently adds items to `bob_cart.items` too, even though the two carts were constructed independently and `discount_applied` (a real per-instance attribute, correctly assigned in `__init__`) behaves exactly as expected — a working contrast that makes the shared list easy to miss on a first read.",
+  "prompt": "Bob's cart shows items he never added. Tap the line responsible.",
+  "language": "python",
+  "snippet": "class ShoppingCart:\n    items = []\n\n    def __init__(self, owner):\n        self.owner = owner\n        self.discount_applied = False\n\n    def add_item(self, item):\n        self.items.append(item)\n\n    def apply_discount(self, code):\n        if code == 'SAVE10':\n            self.discount_applied = True\n\n    def total_items(self):\n        return len(self.items)\n\n\ndef checkout_all(carts):\n    receipts = []\n    for cart in carts:\n        receipts.append({\n            'owner': cart.owner,\n            'item_count': cart.total_items(),\n        })\n    return receipts",
+  "interaction": "tap-line",
+  "correct_line": 1
+}

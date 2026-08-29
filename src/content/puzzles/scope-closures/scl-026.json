@@ -1,0 +1,22 @@
+{
+  "id": "scl-026",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1700,
+  "explanation": "Each loop iteration schedules a timeout callback but does not run it yet — setTimeout always defers to a later turn of the event loop, even with a 0ms delay. Because the loop uses let, each callback closes over its own iteration's binding of i, so the three scheduled callbacks remember 0, 1, and 2 respectively. The loop finishes and exits before any callback runs, so console.log('done') prints synchronously first. Only after all synchronous code has finished do the three deferred callbacks fire, in the order they were scheduled, printing 0, then 1, then 2.",
+  "prompt": "Drag these steps into the order they actually happen.",
+  "language": "javascript",
+  "snippet": "for (let i = 0; i < 3; i++) {\n  setTimeout(() => console.log(i), 0);\n}\nconsole.log('done');",
+  "interaction": "drag-order",
+  "format": "output",
+  "blocks": [
+    "The third scheduled timeout fires and prints 2",
+    "Loop schedules a timeout callback for i = 1",
+    "console.log('done') prints 'done'",
+    "Loop schedules a timeout callback for i = 0",
+    "The first scheduled timeout fires and prints 0",
+    "The loop's condition (i < 3) becomes false and the loop exits",
+    "Loop schedules a timeout callback for i = 2",
+    "The second scheduled timeout fires and prints 1"
+  ],
+  "correct_order": [3, 1, 6, 5, 2, 4, 7, 0]
+}

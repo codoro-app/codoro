@@ -381,8 +381,16 @@ describe('validateDailyCalendar', () => {
   const quiz2 = validated('quiz-002', 'swipe-binary')
   const scrubber1 = validated('scr-001', 'scrubber')
 
-  it('passes a calendar of unique ids that all resolve to non-scrubber puzzles', () => {
+  it('passes a calendar of unique ids that all resolve to valid puzzles', () => {
     const errors = validateDailyCalendar(['quiz-001', 'quiz-002'], [quiz1, quiz2, scrubber1])
+    expect(errors).toEqual([])
+  })
+
+  it('passes a scrubber puzzle id — Daily-serves-scrubber is the v4 Phase 4.3 decision, not banned anymore', () => {
+    // Interaction-type restriction (no mcq/swipe-binary) and the length bar
+    // now live in dailyCalendar.test.ts's content-shape gate; this function
+    // only guards real-id resolution and uniqueness.
+    const errors = validateDailyCalendar(['quiz-001', 'scr-001'], [quiz1, quiz2, scrubber1])
     expect(errors).toEqual([])
   })
 
@@ -400,22 +408,11 @@ describe('validateDailyCalendar', () => {
     expect(errors[0]).toContain('position 1')
   })
 
-  it('rejects a scrubber puzzle id by rule, not by accident (P0)', () => {
-    // Daily's own curated list happening not to contain a scrubber id today
-    // is not the guarantee — see docs/v2-phase2-review.md, P0 ("Daily is
-    // safe by accident, not design"). This asserts the rule itself: any
-    // scrubber id in the calendar is a hard validation failure.
-    const errors = validateDailyCalendar(['quiz-001', 'scr-001'], [quiz1, quiz2, scrubber1])
-    expect(errors).toHaveLength(1)
-    expect(errors[0]).toContain('scr-001')
-    expect(errors[0]).toContain('is a scrubber puzzle')
-  })
-
-  it('flags both the scrubber id (first occurrence) and the duplicate (second occurrence) independently', () => {
+  it('flags a duplicate scrubber id, naming its position (uniqueness still applies)', () => {
     const errors = validateDailyCalendar(['scr-001', 'scr-001'], [scrubber1])
-    expect(errors).toHaveLength(2)
-    expect(errors[0]).toContain('is a scrubber puzzle')
-    expect(errors[1]).toContain('duplicate id "scr-001"')
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toContain('duplicate id "scr-001"')
+    expect(errors[0]).toContain('position 1')
   })
 })
 

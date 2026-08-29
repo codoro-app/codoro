@@ -1,0 +1,254 @@
+{
+  "id": "mut-025",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1700,
+  "explanation": "Python evaluates a default argument value exactly once, when the function is defined — not once per call. So every call to add_item that omits `basket` shares the exact same list object. checkout(['apple', 'bread']) appends into that shared list, and the very next call checkout(['milk']) keeps appending into the same list rather than starting fresh, so `second` comes back as ['apple', 'bread', 'milk'] instead of just ['milk'] — state leaks between two calls that look completely independent from the caller's point of view.",
+  "prompt": "add_item's default basket=[] is meant to give every fresh call its own empty basket. Step through checkout twice and predict what `second` contains.",
+  "language": "python",
+  "snippet": "def add_item(item, basket=[]):\n    basket.append(item)\n    return basket\n\ndef checkout(cart_items):\n    basket = None\n    for item in cart_items:\n        basket = add_item(item)\n    return basket\n\nfirst = checkout([\"apple\", \"bread\"])\nsecond = checkout([\"milk\"])\nprint(first)\nprint(second)",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "add_item": "<function>"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "add_item": "<function>",
+        "checkout": "<function>"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "cart_items": "['apple', 'bread']",
+        "basket": "None"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "cart_items": "['apple', 'bread']",
+        "basket": "None",
+        "item": "'apple'"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "item": "'apple'",
+        "basket": "['apple']"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "item": "'apple'",
+        "basket": "['apple']"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "cart_items": "['apple', 'bread']",
+        "basket": "['apple']",
+        "item": "'apple'"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "cart_items": "['apple', 'bread']",
+        "basket": "['apple']",
+        "item": "'bread'"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "item": "'bread'",
+        "basket": "['apple', 'bread']"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "item": "'bread'",
+        "basket": "['apple', 'bread']"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "cart_items": "['apple', 'bread']",
+        "basket": "['apple', 'bread']",
+        "item": "'bread'"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "cart_items": "['apple', 'bread']",
+        "basket": "['apple', 'bread']",
+        "item": "'bread'"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "cart_items": "['apple', 'bread']",
+        "basket": "['apple', 'bread']",
+        "item": "'bread'"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "add_item": "<function>",
+        "checkout": "<function>",
+        "first": "['apple', 'bread']"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "cart_items": "['milk']",
+        "basket": "None"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "cart_items": "['milk']",
+        "basket": "None",
+        "item": "'milk'"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "item": "'milk'",
+        "basket": "['apple', 'bread', 'milk']"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "item": "'milk'",
+        "basket": "['apple', 'bread', 'milk']"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "cart_items": "['milk']",
+        "basket": "['apple', 'bread', 'milk']",
+        "item": "'milk'"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "cart_items": "['milk']",
+        "basket": "['apple', 'bread', 'milk']",
+        "item": "'milk'"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "cart_items": "['milk']",
+        "basket": "['apple', 'bread', 'milk']",
+        "item": "'milk'"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "add_item": "<function>",
+        "checkout": "<function>",
+        "first": "['apple', 'bread', 'milk']",
+        "second": "['apple', 'bread', 'milk']"
+      }
+    },
+    {
+      "line": 12,
+      "vars": {
+        "add_item": "<function>",
+        "checkout": "<function>",
+        "first": "['apple', 'bread', 'milk']",
+        "second": "['apple', 'bread', 'milk']"
+      },
+      "output": "['apple', 'bread', 'milk']"
+    },
+    {
+      "line": 13,
+      "vars": {
+        "add_item": "<function>",
+        "checkout": "<function>",
+        "first": "['apple', 'bread', 'milk']",
+        "second": "['apple', 'bread', 'milk']"
+      },
+      "output": "['apple', 'bread', 'milk']"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 2,
+      "question": "var-value",
+      "target": "basket",
+      "choices": ["['apple']", "None", "['apple', 'bread']", "['apple', 'bread', 'milk']"],
+      "correct": 1
+    },
+    {
+      "afterStep": 4,
+      "question": "var-value",
+      "target": "basket",
+      "choices": ["['apple', 'bread']", "None", "['apple', 'bread', 'milk']", "['apple']"],
+      "correct": 3
+    },
+    {
+      "afterStep": 7,
+      "question": "var-value",
+      "target": "item",
+      "choices": ["'bread'", "'apple'", "'milk'"],
+      "correct": 0
+    },
+    {
+      "afterStep": 8,
+      "question": "var-value",
+      "target": "basket",
+      "choices": ["['apple', 'bread', 'milk']", "['apple', 'bread']", "['apple']", "None"],
+      "correct": 1
+    },
+    {
+      "afterStep": 14,
+      "question": "var-value",
+      "target": "cart_items",
+      "choices": ["['apple', 'bread']", "['milk']"],
+      "correct": 1
+    },
+    {
+      "afterStep": 16,
+      "question": "var-value",
+      "target": "basket",
+      "choices": ["['apple', 'bread']", "['apple']", "None", "['apple', 'bread', 'milk']"],
+      "correct": 3
+    },
+    {
+      "afterStep": 20,
+      "question": "next-line",
+      "choices": ["11", "1", "7", "6"],
+      "correct": 0
+    },
+    {
+      "afterStep": 22,
+      "question": "output",
+      "choices": ["'bread'", "['apple', 'bread', 'milk']", "'milk'", "None"],
+      "correct": 1
+    }
+  ]
+}

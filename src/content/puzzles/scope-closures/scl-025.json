@@ -1,0 +1,233 @@
+{
+  "id": "scl-025",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1600,
+  "explanation": "The lambda captures the variable `factor` itself, not its value at the time the lambda was created. Python closures are late-binding, so all three lambdas look up `factor` when they're finally called in the list comprehension — by then the loop that created them has finished and `factor` holds its last value, 3. apply_all(10) therefore returns [30, 30, 30] instead of the intended [10, 20, 30].",
+  "prompt": "make_multipliers is meant to hand back three lambdas that each multiply by a different factor (1, 2, 3). Step through apply_all(10) and predict what it returns.",
+  "language": "python",
+  "snippet": "def make_multipliers():\n    fns = []\n    for factor in range(1, 4):\n        fns.append(lambda x: x * factor)\n    return fns\n\ndef apply_all(value):\n    fns = make_multipliers()\n    return [fn(value) for fn in fns]\n\nprint(apply_all(10))",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "make_multipliers": "<function>"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "make_multipliers": "<function>",
+        "apply_all": "<function>"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "fns": "[]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fns": "[]",
+        "factor": "1"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "fns": "['<function>']",
+        "factor": "1"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fns": "['<function>']",
+        "factor": "2"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "fns": "['<function>', '<function>']",
+        "factor": "2"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fns": "['<function>', '<function>']",
+        "factor": "3"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "fns": "['<function>', '<function>', '<function>']",
+        "factor": "3"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "fns": "['<function>', '<function>', '<function>']",
+        "factor": "3"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "fns": "['<function>', '<function>', '<function>']",
+        "factor": "3"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "value": "10",
+        "fns": "['<function>', '<function>', '<function>']"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "x": "10",
+        "factor": "3"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        ".0": "<list_iterator>",
+        "value": "10",
+        "fn": "<function>"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "x": "10",
+        "factor": "3"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        ".0": "<list_iterator>",
+        "value": "10",
+        "fn": "<function>"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "x": "10",
+        "factor": "3"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        ".0": "<list_iterator>",
+        "value": "10",
+        "fn": "<function>"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        ".0": "<list_iterator>",
+        "value": "10",
+        "fn": "<function>"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "value": "10",
+        "fns": "['<function>', '<function>', '<function>']"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "make_multipliers": "<function>",
+        "apply_all": "<function>"
+      },
+      "output": "[30, 30, 30]"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "factor",
+      "choices": ["3", "1", "2"],
+      "correct": 1
+    },
+    {
+      "afterStep": 4,
+      "question": "var-value",
+      "target": "fns",
+      "choices": [
+        "['<function>', '<function>', '<function>']",
+        "[]",
+        "['<function>']",
+        "['<function>', '<function>']"
+      ],
+      "correct": 2
+    },
+    {
+      "afterStep": 5,
+      "question": "var-value",
+      "target": "factor",
+      "choices": ["2", "3", "1"],
+      "correct": 0
+    },
+    {
+      "afterStep": 6,
+      "question": "var-value",
+      "target": "fns",
+      "choices": [
+        "['<function>', '<function>', '<function>']",
+        "['<function>']",
+        "['<function>', '<function>']",
+        "[]"
+      ],
+      "correct": 2
+    },
+    {
+      "afterStep": 7,
+      "question": "var-value",
+      "target": "factor",
+      "choices": ["1", "3", "2"],
+      "correct": 1
+    },
+    {
+      "afterStep": 8,
+      "question": "var-value",
+      "target": "fns",
+      "choices": [
+        "['<function>']",
+        "[]",
+        "['<function>', '<function>', '<function>']",
+        "['<function>', '<function>']"
+      ],
+      "correct": 2
+    },
+    {
+      "afterStep": 17,
+      "question": "next-line",
+      "choices": ["3", "2", "0", "8"],
+      "correct": 3
+    },
+    {
+      "afterStep": 20,
+      "question": "output",
+      "choices": ["10", "1", "[30, 30, 30]", "<function>"],
+      "correct": 2
+    }
+  ]
+}

@@ -1,0 +1,223 @@
+{
+  "id": "mut-024",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1625,
+  "explanation": "makeConfigBuggy doesn't build a new object at all — it mutates and returns the single module-level `shared` object every time. So every entry in `configs` is the same object under three different names, not three independent configs. Once the loop applies the third override ({ retries: 8 }), that change is visible through every earlier reference too, so configs[0].retries, configs[1].retries, and configs[2].retries all read 8 — even though configs[0] was built from an override that only ever mentioned retries: 5.",
+  "prompt": "makeConfigBuggy is meant to build an independent config object per call. Step through buildConfigs and predict each config's final `retries` value.",
+  "language": "javascript",
+  "snippet": "const shared = { retries: 3, timeout: 1000 };\nfunction makeConfigBuggy(overrides) {\n  Object.assign(shared, overrides);\n  return shared;\n}\nfunction buildConfigs(overrideList) {\n  const configs = [];\n  for (let i = 0; i < overrideList.length; i++) {\n    configs.push(makeConfigBuggy(overrideList[i]));\n  }\n  return configs;\n}\nconst configs = buildConfigs([{ retries: 5 }, { timeout: 2000 }, { retries: 8 }]);\nconsole.log(configs[0].retries, configs[1].retries, configs[2].retries);",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "shared": "{\"retries\":3,\"timeout\":1000}",
+        "makeConfigBuggy": "[Function]",
+        "buildConfigs": "[Function]"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "shared": "{\"retries\":3,\"timeout\":1000}",
+        "makeConfigBuggy": "[Function]",
+        "buildConfigs": "[Function]",
+        "overrideList": "[{\"retries\":5},{\"timeout\":2000},{\"retries\":8}]",
+        "configs": "[]"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "shared": "{\"retries\":3,\"timeout\":1000}",
+        "makeConfigBuggy": "[Function]",
+        "buildConfigs": "[Function]",
+        "overrideList": "[{\"retries\":5},{\"timeout\":2000},{\"retries\":8}]",
+        "configs": "[]",
+        "i": "0"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "shared": "{\"retries\":5,\"timeout\":1000}",
+        "makeConfigBuggy": "[Function]",
+        "buildConfigs": "[Function]",
+        "overrides": "{\"retries\":5}"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "shared": "{\"retries\":5,\"timeout\":1000}",
+        "makeConfigBuggy": "[Function]",
+        "buildConfigs": "[Function]",
+        "overrideList": "[{\"retries\":5},{\"timeout\":2000},{\"retries\":8}]",
+        "configs": "[{\"retries\":5,\"timeout\":1000}]",
+        "i": "0"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "shared": "{\"retries\":5,\"timeout\":1000}",
+        "makeConfigBuggy": "[Function]",
+        "buildConfigs": "[Function]",
+        "overrideList": "[{\"retries\":5},{\"timeout\":2000},{\"retries\":8}]",
+        "configs": "[{\"retries\":5,\"timeout\":1000}]",
+        "i": "1"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "shared": "{\"retries\":5,\"timeout\":2000}",
+        "makeConfigBuggy": "[Function]",
+        "buildConfigs": "[Function]",
+        "overrides": "{\"timeout\":2000}"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "shared": "{\"retries\":5,\"timeout\":2000}",
+        "makeConfigBuggy": "[Function]",
+        "buildConfigs": "[Function]",
+        "overrideList": "[{\"retries\":5},{\"timeout\":2000},{\"retries\":8}]",
+        "configs": "[{\"retries\":5,\"timeout\":2000},{\"retries\":5,\"timeout\":2000}]",
+        "i": "1"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "shared": "{\"retries\":5,\"timeout\":2000}",
+        "makeConfigBuggy": "[Function]",
+        "buildConfigs": "[Function]",
+        "overrideList": "[{\"retries\":5},{\"timeout\":2000},{\"retries\":8}]",
+        "configs": "[{\"retries\":5,\"timeout\":2000},{\"retries\":5,\"timeout\":2000}]",
+        "i": "2"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "shared": "{\"retries\":8,\"timeout\":2000}",
+        "makeConfigBuggy": "[Function]",
+        "buildConfigs": "[Function]",
+        "overrides": "{\"retries\":8}"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "shared": "{\"retries\":8,\"timeout\":2000}",
+        "makeConfigBuggy": "[Function]",
+        "buildConfigs": "[Function]",
+        "overrideList": "[{\"retries\":5},{\"timeout\":2000},{\"retries\":8}]",
+        "configs": "[{\"retries\":8,\"timeout\":2000},{\"retries\":8,\"timeout\":2000},{\"retries\":8,\"timeout\":2000}]",
+        "i": "2"
+      }
+    },
+    {
+      "line": 12,
+      "vars": {
+        "shared": "{\"retries\":8,\"timeout\":2000}",
+        "makeConfigBuggy": "[Function]",
+        "buildConfigs": "[Function]",
+        "configs": "[{\"retries\":8,\"timeout\":2000},{\"retries\":8,\"timeout\":2000},{\"retries\":8,\"timeout\":2000}]"
+      }
+    },
+    {
+      "line": 13,
+      "vars": {
+        "shared": "{\"retries\":8,\"timeout\":2000}",
+        "makeConfigBuggy": "[Function]",
+        "buildConfigs": "[Function]",
+        "configs": "[{\"retries\":8,\"timeout\":2000},{\"retries\":8,\"timeout\":2000},{\"retries\":8,\"timeout\":2000}]"
+      },
+      "output": "8 8 8"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 2,
+      "question": "var-value",
+      "target": "i",
+      "choices": ["0", "1", "2"],
+      "correct": 0
+    },
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "shared",
+      "choices": [
+        "{\"retries\":3,\"timeout\":1000}",
+        "{\"retries\":5,\"timeout\":1000}",
+        "{\"retries\":8,\"timeout\":2000}",
+        "{\"retries\":5,\"timeout\":2000}"
+      ],
+      "correct": 1
+    },
+    {
+      "afterStep": 4,
+      "question": "var-value",
+      "target": "configs",
+      "choices": [
+        "[{\"retries\":5,\"timeout\":2000},{\"retries\":5,\"timeout\":2000}]",
+        "[{\"retries\":8,\"timeout\":2000},{\"retries\":8,\"timeout\":2000},{\"retries\":8,\"timeout\":2000}]",
+        "[]",
+        "[{\"retries\":5,\"timeout\":1000}]"
+      ],
+      "correct": 3
+    },
+    {
+      "afterStep": 6,
+      "question": "var-value",
+      "target": "shared",
+      "choices": [
+        "{\"retries\":5,\"timeout\":2000}",
+        "{\"retries\":8,\"timeout\":2000}",
+        "{\"retries\":5,\"timeout\":1000}",
+        "{\"retries\":3,\"timeout\":1000}"
+      ],
+      "correct": 0
+    },
+    {
+      "afterStep": 7,
+      "question": "var-value",
+      "target": "configs",
+      "choices": [
+        "[{\"retries\":5,\"timeout\":2000},{\"retries\":5,\"timeout\":2000}]",
+        "[]",
+        "[{\"retries\":5,\"timeout\":1000}]",
+        "[{\"retries\":8,\"timeout\":2000},{\"retries\":8,\"timeout\":2000},{\"retries\":8,\"timeout\":2000}]"
+      ],
+      "correct": 0
+    },
+    {
+      "afterStep": 9,
+      "question": "var-value",
+      "target": "shared",
+      "choices": [
+        "{\"retries\":5,\"timeout\":2000}",
+        "{\"retries\":5,\"timeout\":1000}",
+        "{\"retries\":3,\"timeout\":1000}",
+        "{\"retries\":8,\"timeout\":2000}"
+      ],
+      "correct": 3
+    },
+    {
+      "afterStep": 10,
+      "question": "next-line",
+      "choices": ["12", "6", "0", "2"],
+      "correct": 0
+    },
+    {
+      "afterStep": 12,
+      "question": "output",
+      "choices": ["{\"retries\":5,\"timeout\":1000}", "8 8 8", "[Function]", "0"],
+      "correct": 1
+    }
+  ]
+}

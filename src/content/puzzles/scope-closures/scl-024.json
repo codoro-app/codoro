@@ -1,0 +1,155 @@
+{
+  "id": "scl-024",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1600,
+  "explanation": "`var i` is function-scoped, not block-scoped, so there is only ever one `i` shared by every closure pushed into `counters`. By the time any of the returned functions actually runs, the loop has already finished and `i` has settled at its final value, `n` (3). All three closures read that same variable, so readAll(3) returns [3, 3, 3] instead of the intended [0, 1, 2].",
+  "prompt": "makeCounters is meant to hand back one closure per index, each remembering its own `i`. Step through readAll(3) and predict what it returns.",
+  "language": "javascript",
+  "snippet": "function makeCounters(n) {\n  const counters = [];\n  for (var i = 0; i < n; i++) {\n    counters.push(function () {\n      return i;\n    });\n  }\n  return counters;\n}\nfunction readAll(n) {\n  const fns = makeCounters(n);\n  return fns.map(fn => fn());\n}\nconsole.log(readAll(3));",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 1,
+      "vars": {
+        "n": "3",
+        "counters": "[]",
+        "i": "undefined",
+        "makeCounters": "[Function]",
+        "readAll": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "n": "3",
+        "counters": "[]",
+        "i": "0",
+        "makeCounters": "[Function]",
+        "readAll": "[Function]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "n": "3",
+        "counters": "[null]",
+        "i": "0",
+        "makeCounters": "[Function]",
+        "readAll": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "n": "3",
+        "counters": "[null]",
+        "i": "1",
+        "makeCounters": "[Function]",
+        "readAll": "[Function]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "n": "3",
+        "counters": "[null,null]",
+        "i": "1",
+        "makeCounters": "[Function]",
+        "readAll": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "n": "3",
+        "counters": "[null,null]",
+        "i": "2",
+        "makeCounters": "[Function]",
+        "readAll": "[Function]"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "n": "3",
+        "counters": "[null,null,null]",
+        "i": "2",
+        "makeCounters": "[Function]",
+        "readAll": "[Function]"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "n": "3",
+        "makeCounters": "[Function]",
+        "readAll": "[Function]",
+        "fns": "[null,null,null]"
+      }
+    },
+    {
+      "line": 13,
+      "vars": {
+        "makeCounters": "[Function]",
+        "readAll": "[Function]"
+      },
+      "output": "[3,3,3]"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 1,
+      "question": "var-value",
+      "target": "i",
+      "choices": ["2", "0", "undefined", "1"],
+      "correct": 1
+    },
+    {
+      "afterStep": 2,
+      "question": "var-value",
+      "target": "counters",
+      "choices": ["[null,null,null]", "[null]", "[null,null]", "[]"],
+      "correct": 1
+    },
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "i",
+      "choices": ["undefined", "0", "2", "1"],
+      "correct": 3
+    },
+    {
+      "afterStep": 4,
+      "question": "var-value",
+      "target": "counters",
+      "choices": ["[null]", "[null,null,null]", "[null,null]", "[]"],
+      "correct": 2
+    },
+    {
+      "afterStep": 5,
+      "question": "var-value",
+      "target": "i",
+      "choices": ["2", "undefined", "1", "0"],
+      "correct": 0
+    },
+    {
+      "afterStep": 6,
+      "question": "var-value",
+      "target": "counters",
+      "choices": ["[null,null,null]", "[null]", "[null,null]", "[]"],
+      "correct": 0
+    },
+    {
+      "afterStep": 7,
+      "question": "next-line",
+      "choices": ["13", "1", "3", "2"],
+      "correct": 0
+    },
+    {
+      "afterStep": 8,
+      "question": "output",
+      "choices": ["2", "3", "1", "[3,3,3]"],
+      "correct": 3
+    }
+  ]
+}

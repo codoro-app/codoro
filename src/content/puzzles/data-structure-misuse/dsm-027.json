@@ -1,0 +1,22 @@
+{
+  "id": "dsm-027",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 1700,
+  "explanation": "The bucket must be looked up before it can be scanned. The scan checks each existing entry's key; when it finds a match, it overwrites that slot and returns immediately — that return is what prevents the update path from also falling through to the append/size-increment lines below. Only when the loop finishes without finding a match (the key is genuinely new) does execution reach bucket.append and table.size += 1, which must run together and in that order so an update never inflates size.",
+  "prompt": "Drag these statements into the order that makes put() update an existing key in place, or append and grow the table when the key is new — never both.",
+  "language": "python",
+  "snippet": "def put(table, key, value):\n    bucket = table.buckets[hash(key) % len(table.buckets)]\n    for i, (k, v) in enumerate(bucket):\n        if k == key:\n            bucket[i] = (key, value)\n            return\n    bucket.append((key, value))\n    table.size += 1",
+  "interaction": "drag-order",
+  "format": "code",
+  "blocks": [
+    "    table.size += 1",
+    "        if k == key:",
+    "def put(table, key, value):",
+    "            return",
+    "    bucket.append((key, value))",
+    "    bucket = table.buckets[hash(key) % len(table.buckets)]",
+    "            bucket[i] = (key, value)",
+    "    for i, (k, v) in enumerate(bucket):"
+  ],
+  "correct_order": [2, 5, 7, 1, 6, 3, 4, 0]
+}

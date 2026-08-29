@@ -1,0 +1,11 @@
+{
+  "id": "nul-013",
+  "pattern": "null-undefined",
+  "difficulty_rating": 1950,
+  "explanation": "`priceCatalog.get(sku)` returns `undefined` — not an error — for any SKU the catalog doesn't recognize (e.g. a product added to the cart before pricing synced). `undefined * quantity` then silently evaluates to `NaN` rather than throwing, so `computeLineTotal` returns `NaN` for that one line item. `computeOrderTotal` accumulates with `total += computeLineTotal(...)`, and once any addend is `NaN` the running sum is permanently `NaN` — the other, correctly-priced items don't rescue it. Finally, `checkout`'s guard `if (total > 0)` is `false` for `NaN` (every comparison with `NaN` is `false`), so the order silently falls into the `'free'` branch instead of throwing or flagging the missing price. No line in `checkout` or `computeOrderTotal` is wrong in isolation — the unchecked `undefined` from the catalog lookup is what turns a missing price into a free order three function calls later.",
+  "prompt": "A customer with a real, priced item in their cart gets checked out for free. Tap the line responsible.",
+  "language": "javascript",
+  "snippet": "const priceCatalog = new Map([\n  ['sku-1', 12.5],\n  ['sku-2', 8.0],\n])\n\nfunction computeLineTotal(sku, quantity) {\n  const unitPrice = priceCatalog.get(sku)\n  return unitPrice * quantity\n}\n\nfunction computeOrderTotal(items) {\n  let total = 0\n  for (const item of items) {\n    total += computeLineTotal(item.sku, item.quantity)\n  }\n  return total\n}\n\nfunction checkout(cart) {\n  const total = computeOrderTotal(cart.items)\n  if (total > 0) {\n    return { status: 'charged', amount: total }\n  }\n  return { status: 'free', amount: 0 }\n}",
+  "interaction": "tap-line",
+  "correct_line": 6
+}

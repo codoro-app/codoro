@@ -1,0 +1,22 @@
+{
+  "id": "tc-026",
+  "pattern": "type-coercion",
+  "difficulty_rating": 1800,
+  "explanation": "The null/undefined check must come first: typeof null is 'object', so if the generic object check ran before it, Object.keys(null) would throw. Array.isArray must be checked before the generic object test too, since arrays are also typeof 'object' — without that ordering, arrays would be measured by Object.keys().length instead of the more reliable .length. The string and number checks are independent of each other and of the object checks (typeof only ever matches one of them), so they can safely come after, ending in a plain false as the fallback for booleans and functions.",
+  "prompt": "Drag these statements into the order that makes isEmpty() correctly handle null, arrays, plain objects, strings, and numbers without crashing.",
+  "language": "javascript",
+  "snippet": "function isEmpty(value) {\n  if (value == null) return true;\n  if (Array.isArray(value)) return value.length === 0;\n  if (typeof value === 'object') return Object.keys(value).length === 0;\n  if (typeof value === 'string') return value.trim().length === 0;\n  if (typeof value === 'number') return Number.isNaN(value);\n  return false;\n}",
+  "interaction": "drag-order",
+  "format": "code",
+  "blocks": [
+    "}",
+    "  if (typeof value === 'string') return value.trim().length === 0;",
+    "function isEmpty(value) {",
+    "  return false;",
+    "  if (Array.isArray(value)) return value.length === 0;",
+    "  if (typeof value === 'number') return Number.isNaN(value);",
+    "  if (value == null) return true;",
+    "  if (typeof value === 'object') return Object.keys(value).length === 0;"
+  ],
+  "correct_order": [2, 6, 4, 7, 1, 5, 3, 0]
+}
