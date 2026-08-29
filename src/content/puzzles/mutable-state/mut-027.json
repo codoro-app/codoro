@@ -1,0 +1,23 @@
+{
+  "id": "mut-027",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1700,
+  "explanation": "pivot and i must be initialized before the loop that uses them. The loop walks j from low to high-1; whenever arr[j] is <= pivot, i advances first and then the swap moves that element into the \"<= pivot\" region at index i. Only after the whole loop has finished scanning does the final swap place the pivot itself right after that region (at i + 1), and only then can the function return i + 1 as the pivot's resting index — returning earlier would report the wrong index since the pivot has not been moved there yet.",
+  "prompt": "Drag these statements into the order that makes partition() correctly implement Lomuto partitioning: rearrange arr so everything <= pivot comes before it, then return the pivot's final index.",
+  "language": "python",
+  "snippet": "def partition(arr, low, high):\n    pivot = arr[high]\n    i = low - 1\n    for j in range(low, high):\n        if arr[j] <= pivot:\n            i += 1\n            arr[i], arr[j] = arr[j], arr[i]\n    arr[i + 1], arr[high] = arr[high], arr[i + 1]\n    return i + 1",
+  "interaction": "drag-order",
+  "format": "code",
+  "blocks": [
+    "    return i + 1",
+    "def partition(arr, low, high):",
+    "        if arr[j] <= pivot:",
+    "    arr[i + 1], arr[high] = arr[high], arr[i + 1]",
+    "    pivot = arr[high]",
+    "            arr[i], arr[j] = arr[j], arr[i]",
+    "    for j in range(low, high):",
+    "            i += 1",
+    "    i = low - 1"
+  ],
+  "correct_order": [1, 4, 8, 6, 2, 7, 5, 3, 0]
+}
