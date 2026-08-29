@@ -1,0 +1,281 @@
+{
+  "id": "tc-025",
+  "pattern": "type-coercion",
+  "difficulty_rating": 1700,
+  "explanation": "`bool(value)` on a string only cares whether the string is empty — any non-empty string, including the literal text \"false\" or \"0\", is truthy in Python. So parse_flag(\"false\") is True and parse_flag(\"0\") is True; only the empty string \"\" comes back False. Of the four rows (\"false\", \"\", \"true\", \"0\"), three are counted as enabled instead of the one the data actually intends, because the function never compares the string's *content* against \"true\", only whether it's non-empty.",
+  "prompt": "parse_flag is meant to turn a stored string flag into a real boolean. Step through count_enabled and predict what it returns for these four rows.",
+  "language": "python",
+  "snippet": "def parse_flag(value):\n    return bool(value)\n\ndef count_enabled(rows):\n    count = 0\n    for row in rows:\n        flag = parse_flag(row.get(\"enabled\"))\n        if flag:\n            count += 1\n    return count\n\nrows = [{\"enabled\": \"false\"}, {\"enabled\": \"\"}, {\"enabled\": \"true\"}, {\"enabled\": \"0\"}]\nprint(count_enabled(rows))",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "parse_flag": "<function>"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "parse_flag": "<function>",
+        "count_enabled": "<function>"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "parse_flag": "<function>",
+        "count_enabled": "<function>",
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "0"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "0",
+        "row": "{'enabled': 'false'}"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "value": "'false'"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "0",
+        "row": "{'enabled': 'false'}",
+        "flag": "True"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "0",
+        "row": "{'enabled': 'false'}",
+        "flag": "True"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "1",
+        "row": "{'enabled': 'false'}",
+        "flag": "True"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "1",
+        "row": "{'enabled': ''}",
+        "flag": "True"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "value": "''"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "1",
+        "row": "{'enabled': ''}",
+        "flag": "False"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "1",
+        "row": "{'enabled': ''}",
+        "flag": "False"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "1",
+        "row": "{'enabled': 'true'}",
+        "flag": "False"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "value": "'true'"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "1",
+        "row": "{'enabled': 'true'}",
+        "flag": "True"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "1",
+        "row": "{'enabled': 'true'}",
+        "flag": "True"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "2",
+        "row": "{'enabled': 'true'}",
+        "flag": "True"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "2",
+        "row": "{'enabled': '0'}",
+        "flag": "True"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "value": "'0'"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "2",
+        "row": "{'enabled': '0'}",
+        "flag": "True"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "2",
+        "row": "{'enabled': '0'}",
+        "flag": "True"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "3",
+        "row": "{'enabled': '0'}",
+        "flag": "True"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "3",
+        "row": "{'enabled': '0'}",
+        "flag": "True"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]",
+        "count": "3",
+        "row": "{'enabled': '0'}",
+        "flag": "True"
+      }
+    },
+    {
+      "line": 12,
+      "vars": {
+        "parse_flag": "<function>",
+        "count_enabled": "<function>",
+        "rows": "[{'enabled': 'false'}, {'enabled': ''}, {'enabled': 'true'}, {'enabled': '0'}]"
+      },
+      "output": "3"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 5,
+      "question": "var-value",
+      "target": "value",
+      "choices": ["''", "'true'", "'0'", "'false'"],
+      "correct": 3
+    },
+    {
+      "afterStep": 6,
+      "question": "var-value",
+      "target": "flag",
+      "choices": ["True", "False"],
+      "correct": 0
+    },
+    {
+      "afterStep": 8,
+      "question": "next-line",
+      "choices": ["5", "0", "9", "3"],
+      "correct": 0
+    },
+    {
+      "afterStep": 11,
+      "question": "var-value",
+      "target": "flag",
+      "choices": ["False", "True"],
+      "correct": 0
+    },
+    {
+      "afterStep": 15,
+      "question": "var-value",
+      "target": "flag",
+      "choices": ["True", "False"],
+      "correct": 0
+    },
+    {
+      "afterStep": 17,
+      "question": "var-value",
+      "target": "count",
+      "choices": ["2", "0", "1", "3"],
+      "correct": 0
+    },
+    {
+      "afterStep": 22,
+      "question": "var-value",
+      "target": "count",
+      "choices": ["3", "0", "2", "1"],
+      "correct": 0
+    },
+    {
+      "afterStep": 25,
+      "question": "output",
+      "choices": ["3", "True", "1", "0"],
+      "correct": 0
+    }
+  ]
+}
