@@ -1,0 +1,23 @@
+{
+  "id": "nul-012",
+  "pattern": "null-undefined",
+  "difficulty_rating": 1700,
+  "explanation": "The empty-keys shortcut must come first: an empty list means there is nothing to walk, so data itself is the answer, and it must be checked before current is even set up. current has to be initialized to data before the loop reads it. Inside the loop, isinstance(current, dict) must be checked before key not in current — the \"or\" short-circuits, so if current were something like an int, testing membership on it directly would raise a TypeError. Only once both checks pass can current safely advance to current[key], and only after the whole loop finishes without an early return does the final current hold the answer.",
+  "prompt": "Drag these statements into the order that makes get_nested() safely walk a chain of keys, returning default the moment the path breaks.",
+  "language": "python",
+  "snippet": "def get_nested(data, keys, default=None):\n    if not keys:\n        return data\n    current = data\n    for key in keys:\n        if not isinstance(current, dict) or key not in current:\n            return default\n        current = current[key]\n    return current",
+  "interaction": "drag-order",
+  "format": "code",
+  "blocks": [
+    "    return current",
+    "        if not isinstance(current, dict) or key not in current:",
+    "def get_nested(data, keys, default=None):",
+    "    current = data",
+    "    for key in keys:",
+    "            return default",
+    "        current = current[key]",
+    "    if not keys:",
+    "        return data"
+  ],
+  "correct_order": [2, 7, 8, 3, 4, 1, 5, 6, 0]
+}

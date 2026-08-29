@@ -1,0 +1,22 @@
+{
+  "id": "str-014",
+  "pattern": "string-formatting",
+  "difficulty_rating": 1700,
+  "explanation": "text must exist before any check reads it, so the str(value) conversion comes first. needs_quotes is decided from the original text and must be captured before text is mutated. The quote-escaping step (doubling any embedded \") must happen before the field gets wrapped in its own outer quotes — if the wrap ran first, the escaping step would also double the two new outer quotes it just added, corrupting the result. Only after escaping is done can the needs_quotes wrap safely add the surrounding quotes, and only then is text ready to return.",
+  "prompt": "Drag these statements into the order that makes csv_field() escape embedded quotes before wrapping a field in quotes, never after.",
+  "language": "python",
+  "snippet": "def csv_field(value):\n    text = str(value)\n    needs_quotes = \",\" in text or '\"' in text or \"\\n\" in text\n    if '\"' in text:\n        text = text.replace('\"', '\"\"')\n    if needs_quotes:\n        text = '\"' + text + '\"'\n    return text",
+  "interaction": "drag-order",
+  "format": "code",
+  "blocks": [
+    "    return text",
+    "    if '\"' in text:",
+    "def csv_field(value):",
+    "        text = '\"' + text + '\"'",
+    "    text = str(value)",
+    "    if needs_quotes:",
+    "        text = text.replace('\"', '\"\"')",
+    "    needs_quotes = \",\" in text or '\"' in text or \"\\n\" in text"
+  ],
+  "correct_order": [2, 4, 7, 1, 6, 5, 3, 0]
+}
