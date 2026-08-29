@@ -1,0 +1,187 @@
+{
+  "id": "cf-030",
+  "pattern": "control-flow",
+  "difficulty_rating": 1600,
+  "explanation": "`return result` sits inside the `for` loop body at the same indentation as the `if`, so it executes unconditionally after just the first iteration — the function returns after looking at exactly one element, whether or not it was negative. For [3, 5, -2, 8], the first number (3) isn't negative, so `result` is still None when the loop returns on that very first pass; the -2 further along is never even inspected. For [-1, 5, 8] it happens to return the correct answer, -1, purely because the first element itself was negative. The bug is present on every call, but only visible when the first element isn't the one you're looking for.",
+  "prompt": "find_first_negative is meant to scan the whole list and return the first negative number found. Step through both calls to summarize and predict each result.",
+  "language": "python",
+  "snippet": "def find_first_negative(nums):\n    result = None\n    for n in nums:\n        if n < 0:\n            result = n\n        return result\n\ndef summarize(nums):\n    first_neg = find_first_negative(nums)\n    return \"first negative: \" + str(first_neg)\n\nprint(summarize([3, 5, -2, 8]))\nprint(summarize([-1, 5, 8]))",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "find_first_negative": "<function>"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "find_first_negative": "<function>",
+        "summarize": "<function>"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "nums": "[3, 5, -2, 8]",
+        "result": "None"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "nums": "[3, 5, -2, 8]",
+        "result": "None",
+        "n": "3"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "nums": "[3, 5, -2, 8]",
+        "result": "None",
+        "n": "3"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "nums": "[3, 5, -2, 8]",
+        "result": "None",
+        "n": "3"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "nums": "[3, 5, -2, 8]",
+        "first_neg": "None"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "nums": "[3, 5, -2, 8]",
+        "first_neg": "None"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "find_first_negative": "<function>",
+        "summarize": "<function>"
+      },
+      "output": "first negative: None"
+    },
+    {
+      "line": 1,
+      "vars": {
+        "nums": "[-1, 5, 8]",
+        "result": "None"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "nums": "[-1, 5, 8]",
+        "result": "None",
+        "n": "-1"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "nums": "[-1, 5, 8]",
+        "result": "None",
+        "n": "-1"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "nums": "[-1, 5, 8]",
+        "result": "-1",
+        "n": "-1"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "nums": "[-1, 5, 8]",
+        "result": "-1",
+        "n": "-1"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "nums": "[-1, 5, 8]",
+        "first_neg": "-1"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "nums": "[-1, 5, 8]",
+        "first_neg": "-1"
+      }
+    },
+    {
+      "line": 12,
+      "vars": {
+        "find_first_negative": "<function>",
+        "summarize": "<function>"
+      },
+      "output": "first negative: -1"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 2,
+      "question": "var-value",
+      "target": "result",
+      "choices": ["-1", "None"],
+      "correct": 1
+    },
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "n",
+      "choices": ["-1", "3"],
+      "correct": 1
+    },
+    {
+      "afterStep": 5,
+      "question": "next-line",
+      "choices": ["8", "9", "3", "12"],
+      "correct": 0
+    },
+    {
+      "afterStep": 6,
+      "question": "var-value",
+      "target": "first_neg",
+      "choices": ["None", "-1"],
+      "correct": 0
+    },
+    {
+      "afterStep": 8,
+      "question": "output",
+      "choices": ["<function>", "[-1, 5, 8]", "first negative: -1", "first negative: None"],
+      "correct": 3
+    },
+    {
+      "afterStep": 12,
+      "question": "var-value",
+      "target": "result",
+      "choices": ["-1", "None"],
+      "correct": 0
+    },
+    {
+      "afterStep": 16,
+      "question": "output",
+      "choices": ["first negative: None", "<function>", "[-1, 5, 8]", "first negative: -1"],
+      "correct": 3
+    }
+  ]
+}
