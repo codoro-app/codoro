@@ -75,6 +75,7 @@
  * CheckpointPanel (which only ever fires from a real tap).
  */
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { RefObject } from 'react'
 import { Scrubber } from './Scrubber'
 import { CheckpointPanel } from './CheckpointPanel'
@@ -251,6 +252,18 @@ export interface TraceRunnerPuzzleProps {
    * again"` to match `PuzzleCardShell`'s own retry-destination label.
    */
   continueLabel?: string
+  /**
+   * Desktop right-rail target (v4 Phase 4.5 — "the right rail"), same
+   * `createPortal` pattern and same doc comment as PuzzleCardShell.tsx's
+   * identical prop. Two pieces portal here when set: a checkpoint-progress
+   * pip row (new — Trace never had a StageTracker-style progress readout of
+   * its own before this) and, once `isComplete`, the existing solve/
+   * explanation block (moved, not new — see `desktopResult` below).
+   * Omitted or `null` falls back to the pre-existing inline placement for
+   * the feedback block and simply omits the progress row (it never rendered
+   * anywhere before, so there's no inline fallback to preserve for it).
+   */
+  sidebarSlot?: HTMLElement | null
 }
 
 export function TraceRunnerPuzzle({
@@ -263,6 +276,7 @@ export function TraceRunnerPuzzle({
   onContinue,
   timed = true,
   continueLabel = 'Next puzzle',
+  sidebarSlot = null,
 }: TraceRunnerPuzzleProps) {
   const [stepIndex, setStepIndex] = useState(0)
   const [remainingMs, setRemainingMs] = useState(TRACE_CHECKPOINT_TIME_LIMIT_MS)
@@ -430,6 +444,103 @@ export function TraceRunnerPuzzle({
     hapticTick()
   }
 
+  // Checkpoint-progress pip row — portal-only (see `sidebarSlot`'s doc
+  // comment above), gated on isDesktop the same way every other sidebar
+  // widget in the app is. `answeredCount` (not `checkpointIndexAtStep`) is
+  // the right "current" boundary: the pip for the checkpoint the player is
+  // actively working through is the first not-yet-answered one, regardless
+  // of which step they've scrubbed to right now.
+  const desktopProgress =
+    isDesktop && sidebarSlot ? (
+      <div className="flex flex-col gap-2">
+        <p className="m-0 text-xs font-bold text-text-2 uppercase tracking-[0.04em]">Checkpoints</p>
+        <div
+          className="flex gap-1.5"
+          role="img"
+          aria-label={`${String(answeredCount)} of ${String(checkpoints.length)} checkpoints answered`}
+        >
+          {checkpoints.map((cp, i) => (
+            <span
+              key={cp.afterStep}
+              aria-hidden="true"
+              className={
+                i < answeredCount
+                  ? 'flex-1 h-1.5 rounded-full bg-accent'
+                  : i === answeredCount
+                    ? 'flex-1 h-1.5 rounded-full bg-accent-dim border border-accent'
+                    : 'flex-1 h-1.5 rounded-full bg-surface-2'
+              }
+            />
+          ))}
+        </div>
+      </div>
+    ) : null
+
+  // Extracted the same way PuzzleCardShell.tsx's identical `desktopResult`
+  // is — same JSX, either inline (no sidebarSlot: pre-existing behavior,
+  // unchanged) or portaled into the caller's sidebar.
+  const desktopResult =
+    isComplete && isDesktop ? (
+      <>
+        <div className="flex justify-end">
+          <ContinueCta
+            className={DESKTOP_CONTINUE_CLASS}
+            onContinue={onContinue}
+            label={continueLabel}
+            buttonRef={continueButtonRef}
+          />
+        </div>
+        <div className={feedbackPanelClass(solved ?? false)} role="status">
+          <div className="flex items-center gap-2">
+            <span
+              className={`flex items-center ${feedbackAccentClass(solved ?? false)}`}
+              aria-hidden="true"
+            >
+              {solved ? (
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--accent)"
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--danger)"
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              )}
+            </span>
+            <span className={`flex-1 font-bold text-base ${feedbackAccentClass(solved ?? false)}`}>
+              {solved ? 'Nice — fully traced' : 'Not quite'}
+            </span>
+            {ratingDelta !== null && (
+              <span
+                className={`feedback-panel__delta font-mono font-bold tabular-nums ${feedbackAccentClass(solved ?? false)}`}
+              >
+                {ratingDelta > 0 ? `+${String(ratingDelta)}` : String(ratingDelta)}
+              </span>
+            )}
+          </div>
+          <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">{puzzle.explanation}</p>
+        </div>
+      </>
+    ) : null
+
   return (
     <>
       <div
@@ -471,71 +582,11 @@ export function TraceRunnerPuzzle({
           </>
         )}
 
-        {isComplete && isDesktop && (
-          <>
-            <div className="flex justify-end">
-              <ContinueCta
-                className={DESKTOP_CONTINUE_CLASS}
-                onContinue={onContinue}
-                label={continueLabel}
-                buttonRef={continueButtonRef}
-              />
-            </div>
-            <div className={feedbackPanelClass(solved ?? false)} role="status">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`flex items-center ${feedbackAccentClass(solved ?? false)}`}
-                  aria-hidden="true"
-                >
-                  {solved ? (
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="var(--accent)"
-                      strokeWidth="2.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  ) : (
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="var(--danger)"
-                      strokeWidth="2.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                  )}
-                </span>
-                <span
-                  className={`flex-1 font-bold text-base ${feedbackAccentClass(solved ?? false)}`}
-                >
-                  {solved ? 'Nice — fully traced' : 'Not quite'}
-                </span>
-                {ratingDelta !== null && (
-                  <span
-                    className={`feedback-panel__delta font-mono font-bold tabular-nums ${feedbackAccentClass(solved ?? false)}`}
-                  >
-                    {ratingDelta > 0 ? `+${String(ratingDelta)}` : String(ratingDelta)}
-                  </span>
-                )}
-              </div>
-              <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">
-                {puzzle.explanation}
-              </p>
-            </div>
-          </>
-        )}
+        {desktopResult && !sidebarSlot && desktopResult}
       </div>
+
+      {desktopProgress && sidebarSlot && createPortal(desktopProgress, sidebarSlot)}
+      {desktopResult && sidebarSlot && createPortal(desktopResult, sidebarSlot)}
 
       {isComplete && !isDesktop && (
         <div className={FEEDBACK_DRAWER_CLASS}>
@@ -618,9 +669,11 @@ export interface TraceRunnerProps {
    * this outer component and passes `false` explicitly (Phase 7).
    */
   timed?: boolean
+  /** Forwarded to the inner `TraceRunnerPuzzle` — see its own doc comment. */
+  sidebarSlot?: HTMLElement | null
 }
 
-export function TraceRunner({ timed = true }: TraceRunnerProps = {}) {
+export function TraceRunner({ timed = true, sidebarSlot = null }: TraceRunnerProps = {}) {
   const session = useTraceSession()
 
   if (session.status === 'error') {
@@ -672,6 +725,7 @@ export function TraceRunner({ timed = true }: TraceRunnerProps = {}) {
         onCheckpointAnswered={session.handleCheckpointAnswered}
         onContinue={session.handleContinue}
         timed={timed}
+        sidebarSlot={sidebarSlot}
       />
     </>
   )

@@ -9,6 +9,7 @@
  * Mirrors RushPage.tsx's own status-branching shape (loading/error guards
  * before the phase switch).
  */
+import { useState } from 'react'
 import { useMissionSession } from './useMissionSession'
 import { MissionCheckpoint } from './MissionCheckpoint'
 import { MissionComplete } from './MissionComplete'
@@ -30,6 +31,12 @@ export function MissionsPage() {
   // sidebars. See StageTracker.tsx's own doc comment for why this lives
   // here rather than inside StageTracker itself.
   const isDesktop = useMediaQuery('(min-width: 1024px)')
+  // v4 Phase 4.5 ("the right rail") — same ref-callback-in-state portal
+  // target as PracticePage.tsx's identical `sidebarSlotEl`, shared across
+  // whichever stage is currently active (each stage forwards it into its
+  // own PuzzleCardShell/TraceRunnerPuzzle); appends below StageTracker
+  // rather than replacing it.
+  const [sidebarSlotEl, setSidebarSlotEl] = useState<HTMLDivElement | null>(null)
 
   if (missionSession.status === 'error') {
     return (
@@ -74,9 +81,15 @@ export function MissionsPage() {
         {missionSession.phase === 'checkpoint' && (
           <MissionCheckpoint missionSession={missionSession} />
         )}
-        {missionSession.phase === 'trace' && <TraceStage missionSession={missionSession} />}
-        {missionSession.phase === 'speed' && <SpeedStage missionSession={missionSession} />}
-        {missionSession.phase === 'boss' && <BossStage missionSession={missionSession} />}
+        {missionSession.phase === 'trace' && (
+          <TraceStage missionSession={missionSession} sidebarSlot={sidebarSlotEl} />
+        )}
+        {missionSession.phase === 'speed' && (
+          <SpeedStage missionSession={missionSession} sidebarSlot={sidebarSlotEl} />
+        )}
+        {missionSession.phase === 'boss' && (
+          <BossStage missionSession={missionSession} sidebarSlot={sidebarSlotEl} />
+        )}
         {missionSession.phase === 'complete' && <MissionComplete missionSession={missionSession} />}
       </div>
 
@@ -87,6 +100,12 @@ export function MissionsPage() {
             completedStages={missionSession.completedStages}
             variant="desktop"
           />
+          {/* Active stage's status row + PuzzleCardShell/TraceRunnerPuzzle
+              feedback portal in here below StageTracker (see
+              `sidebarSlotEl`'s doc comment); `empty:hidden` matches
+              PracticePage.tsx's identical slot so it claims no space
+              before anything portals in. */}
+          <div ref={setSidebarSlotEl} className="empty:hidden flex flex-col gap-4" />
         </aside>
       )}
     </>

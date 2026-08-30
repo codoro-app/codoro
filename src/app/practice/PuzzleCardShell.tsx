@@ -13,6 +13,7 @@
  * — see practice.css.
  */
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { ReactNode, RefObject } from 'react'
 import type { Puzzle } from '../../content'
 import type { CommitPayload } from './interactionTypes'
@@ -57,6 +58,22 @@ export interface PuzzleCardShellProps {
    * was never buried, so it didn't need to move.
    */
   shareActions?: readonly ShareAction[]
+  /**
+   * Desktop right-rail target (v4 Phase 4.5 — "the right rail"). When set
+   * and `isDesktop`, the post-commit Continue+feedback-panel block portals
+   * into this element instead of rendering inline below the puzzle — the
+   * card holds its height, and the result appears in the caller's own
+   * `app-shell__sidebar` instead. `createPortal` (not a render-prop/lifted
+   * state) deliberately keeps every existing behavior — the commit/focus
+   * effects, the exhaustive interaction switch, every PuzzleCardShell.test.tsx
+   * case — inside this component unchanged; only the DOM *destination* of
+   * that one block moves. Omitted or `null` (not yet mounted, or a caller
+   * that hasn't adopted a sidebar) falls back to the original inline
+   * placement, so every existing consumer keeps working with zero changes.
+   * Mobile is unaffected either way — the sticky drawer below never reads
+   * this prop.
+   */
+  sidebarSlot?: HTMLElement | null
 }
 
 interface CommitState {
@@ -338,6 +355,7 @@ export function PuzzleCardShell({
   forcedCommit,
   continueDestination = 'next-puzzle',
   shareActions = [],
+  sidebarSlot = null,
 }: PuzzleCardShellProps) {
   const [commit, setCommit] = useState<CommitState | null>(null)
   // Purely a Continue-button placement switch (bug report, 2026-08-12) — see
@@ -438,6 +456,30 @@ export function PuzzleCardShell({
       ? null
       : highlightSnippet(puzzle.snippet, puzzle.language)
 
+  // Extracted from the render tree below (2b.0 was inline in both spots
+  // this now feeds) so it can render either in normal flow, inside
+  // `.puzzle-card`, or — via `createPortal` further down — inside the
+  // caller's `sidebarSlot` instead. Same JSX either way; only its DOM
+  // parent differs. `null` (not `committed && committedPayload && isDesktop`
+  // inline below) so a single check covers both destinations.
+  const desktopResult =
+    committed && committedPayload && isDesktop ? (
+      <>
+        <div className="flex justify-end">
+          <ContinueCta
+            className={DESKTOP_CONTINUE_CLASS}
+            destination={continueDestination}
+            onContinue={onContinue}
+            buttonRef={continueButtonRef}
+          />
+        </div>
+        <div className={feedbackPanelClass(committedPayload.correct)} role="status">
+          <FeedbackHeader correct={committedPayload.correct} ratingDelta={ratingDelta} />
+          <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">{puzzle.explanation}</p>
+        </div>
+      </>
+    ) : null
+
   let interactionBody: ReactNode
   switch (puzzle.interaction) {
     case 'mcq':
@@ -511,25 +553,16 @@ export function PuzzleCardShell({
 
         <div className="flex flex-col">{interactionBody}</div>
 
-        {committed && committedPayload && isDesktop && (
-          <>
-            <div className="flex justify-end">
-              <ContinueCta
-                className={DESKTOP_CONTINUE_CLASS}
-                destination={continueDestination}
-                onContinue={onContinue}
-                buttonRef={continueButtonRef}
-              />
-            </div>
-            <div className={feedbackPanelClass(committedPayload.correct)} role="status">
-              <FeedbackHeader correct={committedPayload.correct} ratingDelta={ratingDelta} />
-              <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">
-                {puzzle.explanation}
-              </p>
-            </div>
-          </>
-        )}
+        {/* Inline fallback only — rendered here when there's no sidebarSlot
+            to portal into (an as-yet-unmigrated caller, or the slot element
+            hasn't mounted yet). See `desktopResult`'s own doc comment. */}
+        {desktopResult && !sidebarSlot && desktopResult}
       </div>
+
+      {/* Right-rail placement (v4 Phase 4.5): same `desktopResult` JSX,
+          teleported into the caller's sidebar so `.puzzle-card` above never
+          grows to fit it. */}
+      {desktopResult && sidebarSlot && createPortal(desktopResult, sidebarSlot)}
 
       {committed && committedPayload && !isDesktop && (
         <div className={FEEDBACK_DRAWER_CLASS}>

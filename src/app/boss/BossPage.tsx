@@ -12,10 +12,12 @@
  * challenge cards this phase (not in Phase 1's build item list — a
  * deliberate scope decision, see the same plan).
  */
+import { useState } from 'react'
 import { BossIcon } from '../Icons'
 import { useBossSession } from './useBossSession'
 import { BossActivePlay } from './BossActivePlay'
 import { buildBossGhostPaceText } from './ghostPace'
+import { useMediaQuery } from '../useMediaQuery'
 import './bossPage.css'
 
 // 2b.0: was `.boss-page` in bossPage.css (max-width breakpoint matches
@@ -25,6 +27,11 @@ const PAGE_SHELL_CLASS =
 
 export function BossPage() {
   const session = useBossSession()
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
+  // v4 Phase 4.5 ("the right rail") — same ref-callback-in-state portal
+  // target as PracticePage.tsx's identical `sidebarSlotEl`, forwarded to
+  // BossActivePlay for its status row + PuzzleCardShell's own feedback.
+  const [sidebarSlotEl, setSidebarSlotEl] = useState<HTMLDivElement | null>(null)
   const ghostPaceText = session.runSummary
     ? buildBossGhostPaceText({
         depthReached: session.runSummary.depthReached,
@@ -66,57 +73,79 @@ export function BossPage() {
     )
   }
 
-  return (
-    <div className={PAGE_SHELL_CLASS}>
-      {session.phase === 'playing' && <BossActivePlay session={session} />}
-
-      {session.phase === 'ended' && session.runSummary && (
-        <>
-          {/* 2b.0: was `.daily-hero`/`.daily-hero__*` (dailyPage.css) — this
-              card is always the "correct"/accent styling, never `--wrong`. */}
-          <div className="flex flex-col gap-4 p-4 lg:py-[28px] lg:px-[30px] rounded-xl border-[1.5px] border-accent [background:linear-gradient(160deg,var(--accent-dim),var(--surface-1))]">
-            <div className="flex items-center gap-3">
-              <div
-                className="flex items-center justify-center shrink-0 w-11 h-11 rounded-md bg-accent"
-                aria-hidden="true"
-              >
-                <BossIcon size={22} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <p className="m-0 text-lg font-bold text-text-0">
-                  {session.runSummary.cleared ? 'Boss cleared!' : 'Run complete'}
-                </p>
-                {session.runSummary.isNewBestDepth && (
-                  <p className="m-0 text-sm font-semibold text-accent">New personal best</p>
-                )}
-              </div>
+  // v4 Phase 4.5 ("the right rail"): computed as a variable, same reasoning
+  // as RushPage.tsx's identical `runEndedContent` — this JSX used to render
+  // inline unconditionally; now desktop moves it into the sidebar below
+  // while mobile (no sidebar to move it into) keeps it right here.
+  const runEndedContent =
+    session.phase === 'ended' && session.runSummary ? (
+      <>
+        {/* 2b.0: was `.daily-hero`/`.daily-hero__*` (dailyPage.css) — this
+            card is always the "correct"/accent styling, never `--wrong`. */}
+        <div className="flex flex-col gap-4 p-4 lg:py-[28px] lg:px-[30px] rounded-xl border-[1.5px] border-accent [background:linear-gradient(160deg,var(--accent-dim),var(--surface-1))]">
+          <div className="flex items-center gap-3">
+            <div
+              className="flex items-center justify-center shrink-0 w-11 h-11 rounded-md bg-accent"
+              aria-hidden="true"
+            >
+              <BossIcon size={22} />
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
-                <span className="text-lg font-bold text-text-0">
-                  {session.runSummary.depthReached}
-                </span>
-                <span className="text-xs text-text-2">Reached</span>
-              </div>
-              <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
-                <span className="text-lg font-bold text-text-0">
-                  {session.runSummary.bestDepthEver}
-                </span>
-                <span className="text-xs text-text-2">Best ever</span>
-              </div>
+            <div className="flex flex-col gap-1">
+              <p className="m-0 text-lg font-bold text-text-0">
+                {session.runSummary.cleared ? 'Boss cleared!' : 'Run complete'}
+              </p>
+              {session.runSummary.isNewBestDepth && (
+                <p className="m-0 text-sm font-semibold text-accent">New personal best</p>
+              )}
             </div>
-            {ghostPaceText && <p className="m-0 text-sm text-text-1">{ghostPaceText}</p>}
           </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
+              <span className="text-lg font-bold text-text-0">
+                {session.runSummary.depthReached}
+              </span>
+              <span className="text-xs text-text-2">Reached</span>
+            </div>
+            <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
+              <span className="text-lg font-bold text-text-0">
+                {session.runSummary.bestDepthEver}
+              </span>
+              <span className="text-xs text-text-2">Best ever</span>
+            </div>
+          </div>
+          {ghostPaceText && <p className="m-0 text-sm text-text-1">{ghostPaceText}</p>}
+        </div>
 
-          <button
-            type="button"
-            className="min-h-11 border-0 rounded-sm bg-accent text-accent-ink font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
-            onClick={session.handleRunItBack}
-          >
-            Run it back
-          </button>
-        </>
+        <button
+          type="button"
+          className="min-h-11 border-0 rounded-sm bg-accent text-accent-ink font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+          onClick={session.handleRunItBack}
+        >
+          Run it back
+        </button>
+      </>
+    ) : null
+
+  return (
+    <>
+      <div className={PAGE_SHELL_CLASS}>
+        {session.phase === 'playing' && (
+          <BossActivePlay session={session} sidebarSlot={sidebarSlotEl} />
+        )}
+
+        {!isDesktop && runEndedContent}
+      </div>
+
+      {isDesktop && (
+        <aside className="app-shell__sidebar flex flex-col gap-4 py-6 px-4 border-l border-border self-start">
+          {/* BossActivePlay's status row + PuzzleCardShell's feedback block
+              portal in here while playing (see `sidebarSlotEl`'s doc
+              comment); `empty:hidden` matches PracticePage.tsx's identical
+              slot so it claims no space before anything portals in. */}
+          <div ref={setSidebarSlotEl} className="empty:hidden flex flex-col gap-4" />
+          {runEndedContent}
+        </aside>
       )}
-    </div>
+    </>
   )
 }

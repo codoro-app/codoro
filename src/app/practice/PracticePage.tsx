@@ -123,6 +123,16 @@ export function PracticePage() {
   // PuzzleCardShell, not PuzzleCardShell itself (which forwards no ref).
   const puzzleCardRef = useRef<HTMLDivElement>(null)
 
+  // v4 Phase 4.5 ("the right rail"): desktop's portal target for
+  // PuzzleCardShell's post-commit Continue+feedback block — see
+  // PuzzleCardShell.tsx's `sidebarSlot` doc comment. A ref callback stored
+  // in state (not a bare useRef) because the portal needs the *element* to
+  // exist before PuzzleCardShell's first render that could commit; a plain
+  // ref's `.current` mutation wouldn't trigger the re-render that hands
+  // PuzzleCardShell the real node. Mobile never reads this — PuzzleCardShell
+  // ignores `sidebarSlot` whenever `!isDesktop`.
+  const [sidebarSlotEl, setSidebarSlotEl] = useState<HTMLDivElement | null>(null)
+
   // Tracks the puzzle's own solve state for the share card below (v2 Phase
   // 1b) — usePracticeSession's onAnswered callback doesn't expose committed
   // state to the caller (it lives inside PuzzleCardShell), so this wraps it
@@ -480,17 +490,11 @@ export function PracticePage() {
                 onAnswered={handleAnswered}
                 onContinue={session.handleContinue}
                 shareActions={shareActions}
+                sidebarSlot={sidebarSlotEl}
               />
             </motion.div>
           </AnimatePresence>
         )}
-
-        {/* 2b.11: mobile's share trigger now lives inside PuzzleCardShell's
-            drawer footer (the `shareActions` prop above) — rendering it
-            again here would duplicate it. Desktop never had a drawer to be
-            buried behind, so it keeps this same external placement it
-            always had. */}
-        {isDesktop && <ShareMenu actions={shareActions} />}
       </div>
 
       {isDesktop && (
@@ -511,6 +515,20 @@ export function PracticePage() {
             />
           ) : (
             <>
+              {/* v4 Phase 4.5 ("the right rail"): PuzzleCardShell portals its
+                  post-commit Continue+feedback block in here (via
+                  `sidebarSlotEl` above) instead of rendering it inline below
+                  the card — this is what keeps the card's height constant
+                  across an answer. `empty:hidden` drops it (and the gap it'd
+                  otherwise claim in this flex column) out of layout entirely
+                  while nothing has portaled into it yet. Share moved down
+                  here too — 2b.11's mobile trigger still lives inside
+                  PuzzleCardShell's own drawer footer via `shareActions`
+                  above; ShareMenu.tsx self-hides on an empty actions array,
+                  so mounting it unconditionally here is safe before an
+                  answer exists. */}
+              <div ref={setSidebarSlotEl} className="empty:hidden flex flex-col gap-3" />
+              <ShareMenu actions={shareActions} />
               <StatusBar
                 rating={session.profile.rating}
                 streak={session.profile.streak.currentStreak}

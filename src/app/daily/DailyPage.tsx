@@ -23,6 +23,7 @@
  * through the same rating/streak/persistence/telemetry path as
  * `handleAnswered`.
  */
+import { useState } from 'react'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { MasteryTeaser } from '../practice/MasteryTeaser'
 import { TraceRunnerPuzzle } from '../trace/TraceRunner'
@@ -62,6 +63,10 @@ function heroIconClass(correct: boolean): string {
 export function DailyPage() {
   const session = useDailySession()
   const isDesktop = useMediaQuery('(min-width: 1024px)')
+  // v4 Phase 4.5 ("the right rail") — same ref-callback-in-state portal
+  // target as PracticePage.tsx's identical `sidebarSlotEl`, for a retry
+  // attempt's own feedback/Continue block.
+  const [sidebarSlotEl, setSidebarSlotEl] = useState<HTMLDivElement | null>(null)
 
   if (session.status === 'error') {
     return (
@@ -135,6 +140,145 @@ export function DailyPage() {
       ]
     : []
 
+  // v4 Phase 4.5 ("the right rail"): the result hero + Share used to render
+  // full-width in the main column below the day title (pushing the puzzle
+  // card down on a retry) — moved into the desktop sidebar below, computed
+  // here as a variable purely because a `<>{cond && <>...</>}</>` fragment
+  // is just as valid an expression bound to a name as it is inlined; the
+  // JSX itself is unchanged from what used to render inline.
+  const dailyHero = session.completedToday ? (
+    <>
+      <div className={heroClass(session.profile.dailyCompletion?.correct ?? false)}>
+        <div className="flex items-center gap-3">
+          <div
+            className={heroIconClass(session.profile.dailyCompletion?.correct ?? false)}
+            aria-hidden="true"
+          >
+            {session.profile.dailyCompletion?.correct ? (
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--accent-ink)"
+                strokeWidth="2.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            ) : (
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--text-0)"
+                strokeWidth="2.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            )}
+          </div>
+          <div className="flex flex-col gap-1">
+            <p className="m-0 text-lg font-bold text-text-0">
+              {session.profile.dailyCompletion?.correct
+                ? 'Solved on first try'
+                : "Missed today's puzzle"}
+            </p>
+            {session.ratingDelta !== null && (
+              <span className="font-mono text-sm font-semibold text-accent">
+                {session.ratingDelta > 0
+                  ? `+${String(session.ratingDelta)}`
+                  : String(session.ratingDelta)}{' '}
+                rating
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
+            <svg
+              aria-hidden="true"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--accent)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+              <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+              <path d="M4 22h16" />
+              <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+            </svg>
+            <span className="text-lg font-bold text-text-0">
+              {Math.round(session.profile.rating)}
+            </span>
+            <span className="text-xs text-text-2">Rating</span>
+          </div>
+          <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
+            <svg
+              aria-hidden="true"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke={session.profile.streak.currentStreak > 0 ? 'var(--warn)' : 'var(--text-2)'}
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+            </svg>
+            <span className="text-lg font-bold text-text-0">
+              {session.profile.streak.currentStreak}
+            </span>
+            <span className="text-xs text-text-2">Streak</span>
+          </div>
+          {/* Puzzle difficulty, revealed only here — inside the
+              completedToday block, which flips true synchronously in the
+              same commit as the first answer (useDailySession's
+              handleAnswered calls setProfile before this renders). Never
+              rendered, not even hidden, before that — a rating a player
+              could find pre-attempt (devtools, a title attr) would anchor
+              the attempt, which is the whole point of revealing it only
+              after (Phase 5 Item 3). */}
+          <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
+            <svg
+              aria-hidden="true"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--text-2)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+              <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+              <path d="M4 22h16" />
+              <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+            </svg>
+            <span className="text-lg font-bold text-text-0">
+              {Math.round(session.puzzle.difficulty_rating)}
+            </span>
+            <span className="text-xs text-text-2">Puzzle rating</span>
+          </div>
+        </div>
+      </div>
+
+      <ShareMenu actions={shareActions} />
+    </>
+  ) : null
+
   return (
     <>
       <div className={PAGE_SHELL_CLASS}>
@@ -142,140 +286,9 @@ export function DailyPage() {
           Codoro Daily #{session.dayNumber}
         </p>
 
-        {session.completedToday && (
-          <>
-            <div className={heroClass(session.profile.dailyCompletion?.correct ?? false)}>
-              <div className="flex items-center gap-3">
-                <div
-                  className={heroIconClass(session.profile.dailyCompletion?.correct ?? false)}
-                  aria-hidden="true"
-                >
-                  {session.profile.dailyCompletion?.correct ? (
-                    <svg
-                      width="22"
-                      height="22"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="var(--accent-ink)"
-                      strokeWidth="2.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  ) : (
-                    <svg
-                      width="22"
-                      height="22"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="var(--text-0)"
-                      strokeWidth="2.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                  )}
-                </div>
-                <div className="flex flex-col gap-1">
-                  <p className="m-0 text-lg font-bold text-text-0">
-                    {session.profile.dailyCompletion?.correct
-                      ? 'Solved on first try'
-                      : "Missed today's puzzle"}
-                  </p>
-                  {session.ratingDelta !== null && (
-                    <span className="font-mono text-sm font-semibold text-accent">
-                      {session.ratingDelta > 0
-                        ? `+${String(session.ratingDelta)}`
-                        : String(session.ratingDelta)}{' '}
-                      rating
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3">
-                <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
-                  <svg
-                    aria-hidden="true"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="var(--accent)"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-                    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-                    <path d="M4 22h16" />
-                    <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-                  </svg>
-                  <span className="text-lg font-bold text-text-0">
-                    {Math.round(session.profile.rating)}
-                  </span>
-                  <span className="text-xs text-text-2">Rating</span>
-                </div>
-                <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
-                  <svg
-                    aria-hidden="true"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke={
-                      session.profile.streak.currentStreak > 0 ? 'var(--warn)' : 'var(--text-2)'
-                    }
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
-                  </svg>
-                  <span className="text-lg font-bold text-text-0">
-                    {session.profile.streak.currentStreak}
-                  </span>
-                  <span className="text-xs text-text-2">Streak</span>
-                </div>
-                {/* Puzzle difficulty, revealed only here — inside the
-                    completedToday block, which flips true synchronously in
-                    the same commit as the first answer (useDailySession's
-                    handleAnswered calls setProfile before this renders).
-                    Never rendered, not even hidden, before that — a rating a
-                    player could find pre-attempt (devtools, a title attr)
-                    would anchor the attempt, which is the whole point of
-                    revealing it only after (Phase 5 Item 3). */}
-                <div className="flex flex-col items-center gap-1 p-3 rounded-md bg-surface-0 border border-border">
-                  <svg
-                    aria-hidden="true"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="var(--text-2)"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-                    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-                    <path d="M4 22h16" />
-                    <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-                  </svg>
-                  <span className="text-lg font-bold text-text-0">
-                    {Math.round(session.puzzle.difficulty_rating)}
-                  </span>
-                  <span className="text-xs text-text-2">Puzzle rating</span>
-                </div>
-              </div>
-            </div>
-
-            <ShareMenu actions={shareActions} />
-          </>
-        )}
+        {/* Mobile never had a sidebar to move this into — only desktop
+            relocates it below. */}
+        {!isDesktop && dailyHero}
 
         {session.puzzle.interaction === 'scrubber' ? (
           <TraceRunnerPuzzle
@@ -289,6 +302,7 @@ export function DailyPage() {
             onContinue={session.handleRetry}
             timed={false}
             continueLabel="Try again"
+            sidebarSlot={sidebarSlotEl}
           />
         ) : (
           <PuzzleCardShell
@@ -298,6 +312,7 @@ export function DailyPage() {
             onAnswered={session.handleAnswered}
             onContinue={session.handleRetry}
             continueDestination="retry"
+            sidebarSlot={sidebarSlotEl}
           />
         )}
       </div>
@@ -307,6 +322,11 @@ export function DailyPage() {
           sidebar reapplies. */}
       {isDesktop && (
         <aside className="app-shell__sidebar flex flex-col gap-4 py-6 px-4 border-l border-border self-start">
+          {dailyHero}
+          {/* Retry attempts (PuzzleCardShell/TraceRunnerPuzzle above) portal
+              their own feedback/Continue block in here — see
+              `sidebarSlotEl`'s doc comment. */}
+          <div ref={setSidebarSlotEl} className="empty:hidden flex flex-col gap-4" />
           <div className="flex flex-wrap items-center gap-2">
             <div
               className="flex items-center gap-1.5 min-h-11 py-1.5 px-3 rounded-full bg-surface-1 border border-border text-text-0 font-bold tabular-nums"

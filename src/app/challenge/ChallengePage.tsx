@@ -36,6 +36,7 @@ import { useChallengeSession } from './useChallengeSession'
 import { ChallengeComparison } from './ChallengeComparison'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { TraceRunnerPuzzle } from '../trace/TraceRunner'
+import { useMediaQuery } from '../useMediaQuery'
 import '../tokens.css'
 
 // 2b.0: was `.challenge-page` (challengePage.css, max-width breakpoint
@@ -53,6 +54,10 @@ export interface ChallengePageForHashProps {
 
 export function ChallengePageForHash({ hash }: ChallengePageForHashProps) {
   const session = useChallengeSession(hash)
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
+  // v4 Phase 4.5 ("the right rail") — same ref-callback-in-state portal
+  // target as PracticePage.tsx's identical `sidebarSlotEl`.
+  const [sidebarSlotEl, setSidebarSlotEl] = useState<HTMLDivElement | null>(null)
 
   // Task 6 (content-metadata-lazy-load follow-up): puzzle bodies now resolve
   // via getPuzzleBody, a genuine async hop the eager puzzlePool never had —
@@ -92,41 +97,63 @@ export function ChallengePageForHash({ hash }: ChallengePageForHashProps) {
   const puzzle = session.puzzle
   if (!puzzle) return null
 
+  // session.payload is guaranteed non-null once status reaches 'playing'
+  // (see useChallengeSession's Resolution type) — `?? 1` only humors TS's
+  // narrowing here, never an observed 0 in practice.
+  const totalPuzzles = session.payload?.ids.length ?? 1
+
   return (
-    <div className={PAGE_SHELL_CLASS}>
-      {puzzle.interaction === 'scrubber' ? (
-        // Keyed by puzzleIndex (position), not puzzle.id: a challenge
-        // payload can legally repeat the same id back-to-back (see
-        // useChallengeSession's puzzleIndex doc), and keying by id would
-        // reuse the same instance across both occurrences instead of
-        // resetting TraceRunnerPuzzle's internal stepIndex for the second
-        // one.
-        <TraceRunnerPuzzle
-          key={session.puzzleIndex}
-          puzzle={puzzle}
-          checkpointResults={session.checkpointResults}
-          isComplete={session.isComplete}
-          solved={session.solved}
-          ratingDelta={null}
-          onCheckpointAnswered={session.handleCheckpointAnswered}
-          onContinue={session.handleContinue}
-          timed={false}
-        />
-      ) : (
-        // Keyed by position for the same reason: PuzzleCardShell's
-        // self-reset guard compares commit.puzzleId === puzzle.id, which
-        // can't tell two occurrences of the same id apart. Keying by
-        // puzzleIndex forces a real remount on every advance, duplicate id
-        // or not.
-        <PuzzleCardShell
-          key={session.puzzleIndex}
-          puzzle={puzzle}
-          ratingDelta={null}
-          onAnswered={session.handleAnswered}
-          onContinue={session.handleContinue}
-        />
+    <>
+      <div className={PAGE_SHELL_CLASS}>
+        {puzzle.interaction === 'scrubber' ? (
+          // Keyed by puzzleIndex (position), not puzzle.id: a challenge
+          // payload can legally repeat the same id back-to-back (see
+          // useChallengeSession's puzzleIndex doc), and keying by id would
+          // reuse the same instance across both occurrences instead of
+          // resetting TraceRunnerPuzzle's internal stepIndex for the second
+          // one.
+          <TraceRunnerPuzzle
+            key={session.puzzleIndex}
+            puzzle={puzzle}
+            checkpointResults={session.checkpointResults}
+            isComplete={session.isComplete}
+            solved={session.solved}
+            ratingDelta={null}
+            onCheckpointAnswered={session.handleCheckpointAnswered}
+            onContinue={session.handleContinue}
+            timed={false}
+            sidebarSlot={sidebarSlotEl}
+          />
+        ) : (
+          // Keyed by position for the same reason: PuzzleCardShell's
+          // self-reset guard compares commit.puzzleId === puzzle.id, which
+          // can't tell two occurrences of the same id apart. Keying by
+          // puzzleIndex forces a real remount on every advance, duplicate id
+          // or not.
+          <PuzzleCardShell
+            key={session.puzzleIndex}
+            puzzle={puzzle}
+            ratingDelta={null}
+            onAnswered={session.handleAnswered}
+            onContinue={session.handleContinue}
+            sidebarSlot={sidebarSlotEl}
+          />
+        )}
+      </div>
+
+      {isDesktop && (
+        // v4 Phase 4.5 ("the right rail") — new sidebar, Challenge had none
+        // before. Progress line is page-owned (session already exposes the
+        // numbers); the feedback/Continue block below it portals in from
+        // whichever shell is active above.
+        <aside className="app-shell__sidebar flex flex-col gap-4 py-6 px-4 border-l border-border self-start">
+          <p className="m-0 text-sm font-bold text-text-1">
+            Puzzle {session.puzzleIndex + 1} of {totalPuzzles}
+          </p>
+          <div ref={setSidebarSlotEl} className="empty:hidden flex flex-col gap-4" />
+        </aside>
       )}
-    </div>
+    </>
   )
 }
 
