@@ -166,6 +166,52 @@ describe('AppShell', () => {
     expect(document.activeElement).not.toBe(screen.getByRole('main'))
   })
 
+  // v4 SEO audit: most routes had no real <h1> at all — a sr-only one here
+  // covers every route in one place instead of retrofitting each page's
+  // own loading/error/success branches individually. Skipped on /legal and
+  // /settings specifically, since both already render their own real,
+  // visible <h1> — see this suite's own describe block below.
+  it('renders a sr-only h1 naming the active route, for every route except legal/settings', () => {
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    )
+    const heading = screen.getByRole('heading', { level: 1, name: 'Practice', hidden: true })
+    expect(heading).toHaveClass('sr-only')
+  })
+
+  it('updates the sr-only h1 on navigation, same as the aria-label', async () => {
+    const user = userEvent.setup()
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    )
+    await user.click(nth(screen.getAllByRole('link', { name: 'Daily' }), 0))
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Daily', hidden: true }),
+    ).toBeInTheDocument()
+  })
+
+  it('does not render its own h1 on /legal or /settings — those pages render their own', () => {
+    window.history.pushState({}, '', '/legal')
+    const { rerender } = render(
+      <AppShell>
+        <h1>Terms &amp; privacy</h1>
+      </AppShell>,
+    )
+    expect(screen.getAllByRole('heading', { level: 1, hidden: true }).length).toBe(1)
+
+    window.history.pushState({}, '', '/settings')
+    rerender(
+      <AppShell>
+        <h1>Settings</h1>
+      </AppShell>,
+    )
+    expect(screen.getAllByRole('heading', { level: 1, hidden: true }).length).toBe(1)
+  })
+
   it('a Link-driven navigation moves focus to <main> and resets scroll to top', async () => {
     const user = userEvent.setup()
     const scrollToSpy = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
