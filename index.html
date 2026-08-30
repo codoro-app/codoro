@@ -11,6 +11,13 @@
       name="description"
       content="A new bug-spotting puzzle every day, calibrated to your rating. Keep your streak alive."
     />
+    <!-- Static default for '/' — useRouteMeta.ts overwrites this per route on
+         the client exactly like <title>/meta[name=description] above (same
+         "browser/screen-reader only, unfurl bots never run this" caveat
+         applies). Strips query strings (e.g. ?utm_source=...) so a shared/
+         campaign link consolidates its SEO signal onto the clean URL instead
+         of competing with it as a near-duplicate. -->
+    <link rel="canonical" href="https://getcodoro.com/" />
     <!-- iOS ignores the web app manifest for "Add to Home Screen" (no
          beforeinstallprompt support either — see IosInstallSheet), so its
          install/standalone behavior is driven by these apple-* tags instead. -->
@@ -51,6 +58,38 @@
       crossorigin
     />
     <title>Codoro — Daily coding puzzles</title>
+    <!-- Structured data (Organization + SoftwareApplication) — static, for
+         the same reason og:*/twitter:* above are static: Google's indexer
+         does render JS, but this costs nothing to have available on the raw
+         HTML response too, and other structured-data consumers may not
+         render JS at all. Every field here is verifiably true of the real
+         app (no ratings/review counts — nothing here fabricates a signal
+         that isn't actually present, per the "match schema to reality"
+         rule): it's free with no account/paywall (confirmed — no
+         Stripe/subscription/paywall code anywhere in the app), runs as a
+         PWA in any modern browser, and educationalUse/audience describe
+         what Practice/Daily/Rush/Boss/Trace/Missions actually are. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Codoro",
+        "url": "https://getcodoro.com/",
+        "description": "A new bug-spotting puzzle every day, calibrated to your rating. Keep your streak alive.",
+        "applicationCategory": "EducationalApplication",
+        "operatingSystem": "Any (runs in a web browser; installable as a PWA)",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "educationalUse": "practice",
+        "audience": {
+          "@type": "Audience",
+          "audienceType": "Software developers learning to spot bugs in code"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
