@@ -269,7 +269,7 @@ export function Home() {
               <span className={ICON_PRIMARY}>
                 <PracticeIcon size={24} />
               </span>
-              <span className={TITLE_PRIMARY}>Practice</span>
+              <span className={TITLE_PRIMARY}>Practice</span>{' '}
               <span className="text-sm text-inherit opacity-85">
                 Endless rating-matched puzzles
               </span>
@@ -339,14 +339,29 @@ export function Home() {
          * new sidebar's own width) the 1-row auto-fit result squeezes each
          * card to ~90-100px — description text (e.g. Rush's "Escalating
          * puzzles — 3 strikes and you're out") wraps awkwardly at that
-         * width. 3 columns gives each card roughly double the room. */}
+         * width. 3 columns gives each card roughly double the room.
+         *
+         * SEO fix (reported live in Google's search snippet for the
+         * homepage): title/description/badge are adjacent sibling <span>s
+         * with no whitespace between them in JSX, which React renders with
+         * no space in the DOM text either — invisible here since flex-col
+         * (CARD_BASE) already puts each on its own line, but any raw-text
+         * extraction (Google's auto-generated snippet, screen-reader text
+         * copy, etc.) concatenates them with zero separator: "Trace" +
+         * "Step through code..." reads as "TraceStep through code...". The
+         * `{' '}` after each title/description span below is a real,
+         * zero-visual-effect text node — an insignificant-whitespace-only
+         * flex child renders with no box — that fixes the concatenation at
+         * the source instead of relying on Google to eventually prefer
+         * meta description over page content (it doesn't always). Same fix
+         * applied to the Practice card above. */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fit,minmax(60px,1fr))] lg:grid-cols-3">
           <Link href={ROUTES.daily.path} className={CARD_SECONDARY}>
             <span className={ICON_SECONDARY}>
               <DailyIcon size={20} />
             </span>
-            <span className={TITLE_SECONDARY}>Daily #{dayNumber}</span>
-            <span className="text-sm text-inherit opacity-85">One puzzle, once a day</span>
+            <span className={TITLE_SECONDARY}>Daily #{dayNumber}</span>{' '}
+            <span className="text-sm text-inherit opacity-85">One puzzle, once a day</span>{' '}
             <span className={doneToday ? BADGE_MASTERED : isDesktop ? BADGE_WARN : BADGE_NEW}>
               {doneToday ? 'Done today' : 'Not done yet'}
             </span>
@@ -356,12 +371,15 @@ export function Home() {
             <span className={ICON_SECONDARY}>
               <RushIcon size={20} />
             </span>
-            <span className={TITLE_SECONDARY}>Rush</span>
+            <span className={TITLE_SECONDARY}>Rush</span>{' '}
             <span className="text-sm text-inherit opacity-85">
               Escalating puzzles — 3 strikes and you&apos;re out
             </span>
             {profile.rushStats && (
-              <span className={BADGE_MASTERED}>Best {profile.rushStats.bestScore}</span>
+              <>
+                {' '}
+                <span className={BADGE_MASTERED}>Best {profile.rushStats.bestScore}</span>
+              </>
             )}
           </Link>
 
@@ -369,7 +387,7 @@ export function Home() {
             <span className={ICON_SECONDARY}>
               <TraceIcon size={20} />
             </span>
-            <span className={TITLE_SECONDARY}>Trace</span>
+            <span className={TITLE_SECONDARY}>Trace</span>{' '}
             <span className="text-sm text-inherit opacity-85">
               Step through code, predict each line
             </span>
@@ -379,12 +397,15 @@ export function Home() {
             <span className={ICON_SECONDARY}>
               <BossIcon size={20} />
             </span>
-            <span className={TITLE_SECONDARY}>Boss</span>
+            <span className={TITLE_SECONDARY}>Boss</span>{' '}
             <span className="text-sm text-inherit opacity-85">
               10 puzzles, escalating — how deep can you get?
             </span>
             {profile.bossStats && (
-              <span className={BADGE_MASTERED}>Best depth {profile.bossStats.bestDepth}</span>
+              <>
+                {' '}
+                <span className={BADGE_MASTERED}>Best depth {profile.bossStats.bestDepth}</span>
+              </>
             )}
           </Link>
 
@@ -392,10 +413,13 @@ export function Home() {
             <span className={ICON_SECONDARY}>
               <MissionIcon size={20} />
             </span>
-            <span className={TITLE_SECONDARY}>Missions</span>
+            <span className={TITLE_SECONDARY}>Missions</span>{' '}
             <span className="text-sm text-inherit opacity-85">Three modes, one directed run</span>
             {profile.missionStats && (
-              <span className={BADGE_MASTERED}>{profile.missionStats.completions} completed</span>
+              <>
+                {' '}
+                <span className={BADGE_MASTERED}>{profile.missionStats.completions} completed</span>
+              </>
             )}
           </Link>
 
@@ -403,7 +427,7 @@ export function Home() {
             <span className={ICON_SECONDARY}>
               <StatsIcon size={20} />
             </span>
-            <span className={TITLE_SECONDARY}>Stats</span>
+            <span className={TITLE_SECONDARY}>Stats</span>{' '}
             <span className="text-sm text-inherit opacity-85">
               Rating history and pattern accuracy
             </span>

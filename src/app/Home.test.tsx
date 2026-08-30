@@ -97,6 +97,35 @@ describe('Home', () => {
     expect(await screen.findByText('Done today')).toBeInTheDocument()
   })
 
+  // Regression: Google's live search snippet for the homepage showed
+  // "TraceStep through code, predict each line Boss10 puzzles..." — title
+  // and description were adjacent sibling <span>s with no whitespace
+  // between them in JSX, so raw-text extraction ran them together even
+  // though the flex-col layout visually separates them onto their own
+  // lines. See the `{' '}` doc comment above the cards grid for the fix.
+  it("has a real space between each card's title, description, and badge text (not run together)", async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    render(<Home />)
+
+    const practiceLink = await screen.findByRole('link', { name: /practice/i })
+    expect(practiceLink.textContent).toContain('Practice Endless rating-matched puzzles')
+
+    const traceLink = screen.getByRole('link', { name: /trace/i })
+    expect(traceLink.textContent).toContain('Trace Step through code, predict each line')
+
+    const bossLink = screen.getByRole('link', { name: /boss/i })
+    expect(bossLink.textContent).toContain('Boss 10 puzzles, escalating — how deep can you get?')
+
+    const statsLink = screen.getByRole('link', { name: /stats/i })
+    expect(statsLink.textContent).toContain('Stats Rating history and pattern accuracy')
+
+    // Daily's badge is unconditional (unlike Rush/Boss/Missions'), so the
+    // base profile (no dailyCompletion) already exercises the
+    // description-to-badge space too, not just title-to-description.
+    const dailyLink = screen.getByRole('link', { name: /daily/i })
+    expect(dailyLink.textContent).toContain('One puzzle, once a day Not done yet')
+  })
+
   it('links the Practice card to /practice', async () => {
     vi.mocked(loadProfile).mockResolvedValue(baseProfile())
     render(<Home />)
