@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Hand-maintained, like public/_redirects — not build-generated. Lists only
+  the routes that have independent, indexable content of their own:
+
+  - Every ROUTE_META path except /stats and /settings (both are empty/
+    generic for a first-time visitor with no local progress yet — no
+    content for a crawler to index) and /challenge (its generic,
+    param-less form has no content either; a real challenge is only
+    meaningful with a shared query string, which a sitemap <loc> can't
+    represent).
+  - DYNAMIC_ROUTES (the per-id puzzle route) is excluded for the same
+    reason useRouteMeta.ts's own doc comment gives for its single generic
+    title/description: there's no per-id content for a crawler to
+    distinguish between one puzzle and another (v2 Phase 1b OG-unfurl
+    decision).
+
+  No <lastmod>/<changefreq>/<priority> — Google ignores changefreq/priority
+  and a hand-maintained <lastmod> would drift stale faster than anyone
+  would remember to update it, which is worse than omitting it.
+
+  routes.test.ts's "public/sitemap.xml" describe block is the drift guard:
+  add a route to ROUTE_META and forget it here (or vice versa) and that
+  test goes red, the same "add a route, forget X" property _redirects
+  already gets.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://getcodoro.com/</loc></url>
+  <url><loc>https://getcodoro.com/practice</loc></url>
+  <url><loc>https://getcodoro.com/daily</loc></url>
+  <url><loc>https://getcodoro.com/rush</loc></url>
+  <url><loc>https://getcodoro.com/boss</loc></url>
+  <url><loc>https://getcodoro.com/trace</loc></url>
+  <url><loc>https://getcodoro.com/missions</loc></url>
+  <url><loc>https://getcodoro.com/browse</loc></url>
+  <url><loc>https://getcodoro.com/legal</loc></url>
+</urlset>
