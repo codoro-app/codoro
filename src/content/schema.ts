@@ -148,7 +148,7 @@ export const ScrubberCheckpointSchema = z.object({
 export const ScrubberSchema = BaseSchema.extend({
   interaction: z.literal('scrubber'),
   steps: z.array(ScrubberStepSchema).min(1),
-  checkpoints: z.array(ScrubberCheckpointSchema).min(2).max(4),
+  checkpoints: z.array(ScrubberCheckpointSchema).min(2).max(8),
 })
 
 /**

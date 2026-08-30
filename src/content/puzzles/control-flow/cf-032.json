@@ -1,0 +1,11 @@
+{
+  "id": "cf-032",
+  "pattern": "control-flow",
+  "difficulty_rating": 1700,
+  "explanation": "`&&` short-circuits: as soon as `applicant.isActive()` evaluates to `false`, Java never evaluates the rest of the expression, so `logScreening(applicant)` — the call that actually records the audit entry — never runs for that applicant. The audit log ends up only ever containing entries for *active* applicants, even though `screenApplicants` calls `isEligible` (and, by extension, is supposed to consider logging) for every applicant in the list, active or not. The age check, `applicant.getAge() >= 18`, behaves correctly in the sense that it still runs whenever an applicant is active regardless of age — which is exactly why this is easy to miss in testing: as long as your test data happens to be mostly active applicants, the audit log looks complete. The fix is evaluating `logScreening(applicant)` unconditionally, before it can be short-circuited away, e.g. as its own statement ahead of the eligibility check.",
+  "prompt": "The audit log is missing an entry for every inactive applicant who was screened. Tap the line responsible.",
+  "language": "java",
+  "snippet": "import java.util.*;\n\npublic class ApplicantScreener {\n    private final List<String> auditLog = new ArrayList<>();\n\n    public boolean isEligible(Applicant applicant) {\n        return applicant.isActive()\n            && logScreening(applicant)\n            && applicant.getAge() >= 18;\n    }\n\n    private boolean logScreening(Applicant applicant) {\n        auditLog.add(\"screened \" + applicant.getId());\n        return true;\n    }\n\n    public List<Applicant> screenApplicants(List<Applicant> applicants) {\n        List<Applicant> eligible = new ArrayList<>();\n        for (Applicant applicant : applicants) {\n            if (isEligible(applicant)) {\n                eligible.add(applicant);\n            }\n        }\n        return eligible;\n    }\n\n    public List<String> getAuditLog() {\n        return auditLog;\n    }\n}",
+  "interaction": "tap-line",
+  "correct_line": 7
+}

@@ -1,0 +1,22 @@
+{
+  "id": "res-015",
+  "pattern": "resource-management",
+  "difficulty_rating": 1700,
+  "explanation": "lock.acquire() must happen before the try block, not inside it — if it were inside try and acquire() itself failed, the finally block would try to release a lock that was never held. Once inside try, the balance check must come before the raise (so raise only fires on the actual insufficient-funds case), and the raise must come before the balance deduction (once one branch runs, the other must not). The finally block, which releases the lock unconditionally, comes last structurally but always executes — whether the try block raised or returned normally.",
+  "prompt": "Drag these statements into the order that makes safe_transfer() always release the lock, whether or not the transfer succeeds.",
+  "language": "python",
+  "snippet": "def safe_transfer(lock, account, amount):\n    lock.acquire()\n    try:\n        if amount > account.balance:\n            raise ValueError(\"insufficient funds\")\n        account.balance -= amount\n    finally:\n        lock.release()",
+  "interaction": "drag-order",
+  "format": "code",
+  "blocks": [
+    "        lock.release()",
+    "    try:",
+    "def safe_transfer(lock, account, amount):",
+    "        account.balance -= amount",
+    "            raise ValueError(\"insufficient funds\")",
+    "    finally:",
+    "    lock.acquire()",
+    "        if amount > account.balance:"
+  ],
+  "correct_order": [2, 6, 1, 7, 4, 3, 5, 0]
+}

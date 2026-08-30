@@ -44,6 +44,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { CopyIcon, ShareIcon } from './Icons'
+import { Tooltip } from './Tooltip'
 
 export interface ShareAction {
   /** Stable identity for this action within one ShareMenu instance (e.g. 'puzzle' | 'challenge'). */
@@ -158,16 +159,18 @@ function SheetRow({ action, copied, onActivated, onCopied }: SheetRowProps) {
           </span>
         )}
       </button>
-      <button
-        type="button"
-        aria-label={action.copyAriaLabel}
-        className={ROW_COPY_BUTTON_CLASS}
-        onClick={() => {
-          void copyDirectly(action).then(onCopied)
-        }}
-      >
-        <CopyIcon size={16} />
-      </button>
+      <Tooltip label={action.copyAriaLabel} className="shrink-0">
+        <button
+          type="button"
+          aria-label={action.copyAriaLabel}
+          className={ROW_COPY_BUTTON_CLASS}
+          onClick={() => {
+            void copyDirectly(action).then(onCopied)
+          }}
+        >
+          <CopyIcon size={16} />
+        </button>
+      </Tooltip>
     </div>
   )
 }
@@ -200,19 +203,21 @@ export function ShareMenu({ actions, trigger = 'button' }: ShareMenuProps) {
   return (
     <>
       {trigger === 'icon' ? (
-        <button
-          type="button"
-          className={ICON_TRIGGER_CLASS}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          aria-label="Share"
-          onClick={() => {
-            setCopiedId(null)
-            setOpen(true)
-          }}
-        >
-          <ShareIcon size={20} />
-        </button>
+        <Tooltip label="Share" className="shrink-0">
+          <button
+            type="button"
+            className={ICON_TRIGGER_CLASS}
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            aria-label="Share"
+            onClick={() => {
+              setCopiedId(null)
+              setOpen(true)
+            }}
+          >
+            <ShareIcon size={20} />
+          </button>
+        </Tooltip>
       ) : (
         <button
           type="button"

@@ -1,0 +1,23 @@
+{
+  "id": "rec-027",
+  "pattern": "recursion-termination",
+  "difficulty_rating": 1700,
+  "explanation": "fib(3) must call fib(2) before it can add anything, and fib(2) in turn calls fib(1) then fib(0) before it can return. The first fib(1) call (inside fib(2)) hits the base case and returns 1 immediately, then fib(0) returns 0, letting fib(2) return 1 + 0 = 1. Only after fib(2) has fully returned does fib(3) call fib(1) a second time (a separate call, also hitting the base case), and only then can fib(3) add 1 + 1 to return 2. Calls happen top-down but each level's addition can't happen until its own two recursive calls have both returned.",
+  "prompt": "Drag these steps into the order they actually happen when fib(3) runs.",
+  "language": "javascript",
+  "snippet": "function fib(n) {\n  if (n <= 1) return n;\n  return fib(n - 1) + fib(n - 2);\n}\nfib(3);",
+  "interaction": "drag-order",
+  "format": "output",
+  "blocks": [
+    "fib(2) returns 1 + 0 = 1",
+    "fib(3) calls fib(2)",
+    "the second fib(1) call hits the base case and returns 1",
+    "fib(0) hits the base case and returns 0",
+    "fib(3) returns 1 + 1 = 2",
+    "fib(2) calls fib(1)",
+    "fib(2) calls fib(0)",
+    "fib(3) calls fib(1)",
+    "the first fib(1) call hits the base case and returns 1"
+  ],
+  "correct_order": [1, 5, 8, 6, 3, 0, 7, 2, 4]
+}

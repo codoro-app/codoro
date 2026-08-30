@@ -1,0 +1,275 @@
+{
+  "id": "oob-026",
+  "pattern": "off-by-one",
+  "difficulty_rating": 1600,
+  "explanation": "paginate slices `items[start:end + 1]`, one index past the intended end, so every page pulls in the first element of the next page too. For a page_size of 3, page 0 is items[0:4] (4 items, not 3) and page 1 is items[3:7], so index 3's value appears in both page 0 and page 1; the same overlap repeats between page 1 and page 2. Nothing crashes and nothing looks obviously wrong from a single page in isolation — the bug only becomes visible when you compare adjacent pages and notice the shared boundary element.",
+  "prompt": "paginate is meant to slice out one page of `page_size` items. Step through render_pages and predict what each page contains.",
+  "language": "python",
+  "snippet": "def paginate(items, page_size, page):\n    start = page * page_size\n    end = start + page_size\n    return items[start:end + 1]\n\ndef render_pages(items, page_size, page_count):\n    pages = []\n    for page in range(page_count):\n        pages.append(paginate(items, page_size, page))\n    return pages\n\nprint(render_pages([1, 2, 3, 4, 5, 6, 7, 8], 3, 3))",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "paginate": "<function>"
+      }
+    },
+    {
+      "line": 5,
+      "vars": {
+        "paginate": "<function>",
+        "render_pages": "<function>"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page_count": "3",
+        "pages": "[]"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page_count": "3",
+        "pages": "[]",
+        "page": "0"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page": "0",
+        "start": "0"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page": "0",
+        "start": "0",
+        "end": "3"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page": "0",
+        "start": "0",
+        "end": "3"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page_count": "3",
+        "pages": "[[1, 2, 3, 4]]",
+        "page": "0"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page_count": "3",
+        "pages": "[[1, 2, 3, 4]]",
+        "page": "1"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page": "1",
+        "start": "3"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page": "1",
+        "start": "3",
+        "end": "6"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page": "1",
+        "start": "3",
+        "end": "6"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page_count": "3",
+        "pages": "[[1, 2, 3, 4], [4, 5, 6, 7]]",
+        "page": "1"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page_count": "3",
+        "pages": "[[1, 2, 3, 4], [4, 5, 6, 7]]",
+        "page": "2"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page": "2",
+        "start": "6"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page": "2",
+        "start": "6",
+        "end": "9"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page": "2",
+        "start": "6",
+        "end": "9"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page_count": "3",
+        "pages": "[[1, 2, 3, 4], [4, 5, 6, 7], [7, 8]]",
+        "page": "2"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page_count": "3",
+        "pages": "[[1, 2, 3, 4], [4, 5, 6, 7], [7, 8]]",
+        "page": "2"
+      }
+    },
+    {
+      "line": 9,
+      "vars": {
+        "items": "[1, 2, 3, 4, 5, 6, 7, 8]",
+        "page_size": "3",
+        "page_count": "3",
+        "pages": "[[1, 2, 3, 4], [4, 5, 6, 7], [7, 8]]",
+        "page": "2"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "paginate": "<function>",
+        "render_pages": "<function>"
+      },
+      "output": "[[1, 2, 3, 4], [4, 5, 6, 7], [7, 8]]"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 4,
+      "question": "var-value",
+      "target": "start",
+      "choices": ["0", "6", "3"],
+      "correct": 0
+    },
+    {
+      "afterStep": 5,
+      "question": "var-value",
+      "target": "end",
+      "choices": ["9", "3", "6"],
+      "correct": 1
+    },
+    {
+      "afterStep": 7,
+      "question": "var-value",
+      "target": "pages",
+      "choices": [
+        "[[1, 2, 3, 4]]",
+        "[]",
+        "[[1, 2, 3, 4], [4, 5, 6, 7]]",
+        "[[1, 2, 3, 4], [4, 5, 6, 7], [7, 8]]"
+      ],
+      "correct": 0
+    },
+    {
+      "afterStep": 9,
+      "question": "var-value",
+      "target": "start",
+      "choices": ["3", "6", "0"],
+      "correct": 0
+    },
+    {
+      "afterStep": 12,
+      "question": "var-value",
+      "target": "pages",
+      "choices": [
+        "[[1, 2, 3, 4], [4, 5, 6, 7], [7, 8]]",
+        "[]",
+        "[[1, 2, 3, 4]]",
+        "[[1, 2, 3, 4], [4, 5, 6, 7]]"
+      ],
+      "correct": 3
+    },
+    {
+      "afterStep": 15,
+      "question": "var-value",
+      "target": "end",
+      "choices": ["6", "3", "9"],
+      "correct": 2
+    },
+    {
+      "afterStep": 17,
+      "question": "next-line",
+      "choices": ["2", "1", "0", "7"],
+      "correct": 3
+    },
+    {
+      "afterStep": 20,
+      "question": "output",
+      "choices": ["<function>", "9", "[[1, 2, 3, 4], [4, 5, 6, 7], [7, 8]]", "0"],
+      "correct": 2
+    }
+  ]
+}

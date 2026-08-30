@@ -57,6 +57,7 @@ import { useDrag } from '@use-gesture/react'
 import type { ScrubberPuzzle } from '../../content'
 import { highlightSnippet } from '../practice/highlightSnippet'
 import { mapDragToStepIndex } from './mapDragToStepIndex'
+import { Tooltip } from '../Tooltip'
 import '../tokens.css'
 import './scrubber.css'
 
@@ -274,17 +275,19 @@ export function Scrubber({
       )}
 
       <div className="flex items-center gap-3 pl-[max(var(--space-2),env(safe-area-inset-left))] pr-[max(var(--space-2),env(safe-area-inset-right))]">
-        <button
-          type="button"
-          className={tapTargetClass}
-          aria-label="Previous step"
-          disabled={stepIndex <= 0}
-          onClick={() => {
-            onScrub(Math.max(0, stepIndex - 1))
-          }}
-        >
-          &#8249;
-        </button>
+        <Tooltip label="Previous step" className="shrink-0">
+          <button
+            type="button"
+            className={tapTargetClass}
+            aria-label="Previous step"
+            disabled={stepIndex <= 0}
+            onClick={() => {
+              onScrub(Math.max(0, stepIndex - 1))
+            }}
+          >
+            &#8249;
+          </button>
+        </Tooltip>
 
         <div
           ref={trackRef}
@@ -310,17 +313,19 @@ export function Scrubber({
           />
         </div>
 
-        <button
-          type="button"
-          className={tapTargetClass}
-          aria-label="Next step"
-          disabled={stepIndex >= upperBound}
-          onClick={() => {
-            onScrub(Math.min(upperBound, stepIndex + 1))
-          }}
-        >
-          &#8250;
-        </button>
+        <Tooltip label="Next step" className="shrink-0">
+          <button
+            type="button"
+            className={tapTargetClass}
+            aria-label="Next step"
+            disabled={stepIndex >= upperBound}
+            onClick={() => {
+              onScrub(Math.min(upperBound, stepIndex + 1))
+            }}
+          >
+            &#8250;
+          </button>
+        </Tooltip>
       </div>
     </div>
   )

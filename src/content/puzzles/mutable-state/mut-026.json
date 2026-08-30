@@ -1,0 +1,146 @@
+{
+  "id": "mut-026",
+  "pattern": "mutable-state",
+  "difficulty_rating": 1625,
+  "explanation": "`const active = items` binds a second name to the exact same array — it does not copy it. The reverse-iteration splice pattern used inside the loop is itself the textbook-correct way to remove-while-iterating, which makes the real bug easy to miss: the function mutates the caller's `original` array in place via that alias, so `filtered` and `original` end up identical (`original === filtered` is true) and `original.length` has shrunk to 1, something the caller almost certainly did not expect from a function that looks like it 'filters'.",
+  "prompt": "removeExpired is meant to return a filtered copy without touching the caller's array. Step through and predict original.length, filtered.length, and whether they're the same object.",
+  "language": "javascript",
+  "snippet": "function removeExpired(items, now) {\n  const active = items;\n  for (let i = active.length - 1; i >= 0; i--) {\n    if (active[i].expires < now) {\n      active.splice(i, 1);\n    }\n  }\n  return active;\n}\nconst original = [{ name: 'a', expires: 5 }, { name: 'b', expires: 20 }];\nconst filtered = removeExpired(original, 10);\nconsole.log(original.length, filtered.length, original === filtered);",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 9,
+      "vars": {
+        "removeExpired": "[Function]",
+        "original": "[{\"name\":\"a\",\"expires\":5},{\"name\":\"b\",\"expires\":20}]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "removeExpired": "[Function]",
+        "original": "[{\"name\":\"a\",\"expires\":5},{\"name\":\"b\",\"expires\":20}]",
+        "items": "[{\"name\":\"a\",\"expires\":5},{\"name\":\"b\",\"expires\":20}]",
+        "now": "10",
+        "active": "[{\"name\":\"a\",\"expires\":5},{\"name\":\"b\",\"expires\":20}]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "removeExpired": "[Function]",
+        "original": "[{\"name\":\"a\",\"expires\":5},{\"name\":\"b\",\"expires\":20}]",
+        "items": "[{\"name\":\"a\",\"expires\":5},{\"name\":\"b\",\"expires\":20}]",
+        "now": "10",
+        "active": "[{\"name\":\"a\",\"expires\":5},{\"name\":\"b\",\"expires\":20}]",
+        "i": "1"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "removeExpired": "[Function]",
+        "original": "[{\"name\":\"a\",\"expires\":5},{\"name\":\"b\",\"expires\":20}]",
+        "items": "[{\"name\":\"a\",\"expires\":5},{\"name\":\"b\",\"expires\":20}]",
+        "now": "10",
+        "active": "[{\"name\":\"a\",\"expires\":5},{\"name\":\"b\",\"expires\":20}]",
+        "i": "0"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "removeExpired": "[Function]",
+        "original": "[{\"name\":\"a\",\"expires\":5},{\"name\":\"b\",\"expires\":20}]",
+        "items": "[{\"name\":\"a\",\"expires\":5},{\"name\":\"b\",\"expires\":20}]",
+        "now": "10",
+        "active": "[{\"name\":\"a\",\"expires\":5},{\"name\":\"b\",\"expires\":20}]",
+        "i": "0"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "removeExpired": "[Function]",
+        "original": "[{\"name\":\"b\",\"expires\":20}]",
+        "items": "[{\"name\":\"b\",\"expires\":20}]",
+        "now": "10",
+        "active": "[{\"name\":\"b\",\"expires\":20}]",
+        "i": "0"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "removeExpired": "[Function]",
+        "original": "[{\"name\":\"b\",\"expires\":20}]",
+        "filtered": "[{\"name\":\"b\",\"expires\":20}]"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "removeExpired": "[Function]",
+        "original": "[{\"name\":\"b\",\"expires\":20}]",
+        "filtered": "[{\"name\":\"b\",\"expires\":20}]"
+      },
+      "output": "1 1 true"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 0,
+      "question": "var-value",
+      "target": "original",
+      "choices": [
+        "[{\"name\":\"b\",\"expires\":20}]",
+        "[{\"name\":\"a\",\"expires\":5},{\"name\":\"b\",\"expires\":20}]"
+      ],
+      "correct": 1
+    },
+    {
+      "afterStep": 1,
+      "question": "var-value",
+      "target": "active",
+      "choices": [
+        "[{\"name\":\"b\",\"expires\":20}]",
+        "[{\"name\":\"a\",\"expires\":5},{\"name\":\"b\",\"expires\":20}]"
+      ],
+      "correct": 1
+    },
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "i",
+      "choices": ["1", "0"],
+      "correct": 1
+    },
+    {
+      "afterStep": 4,
+      "question": "next-line",
+      "choices": ["9", "4", "1", "10"],
+      "correct": 1
+    },
+    {
+      "afterStep": 5,
+      "question": "var-value",
+      "target": "original",
+      "choices": [
+        "[{\"name\":\"a\",\"expires\":5},{\"name\":\"b\",\"expires\":20}]",
+        "[{\"name\":\"b\",\"expires\":20}]"
+      ],
+      "correct": 1
+    },
+    {
+      "afterStep": 7,
+      "question": "output",
+      "choices": [
+        "[{\"name\":\"a\",\"expires\":5},{\"name\":\"b\",\"expires\":20}]",
+        "10",
+        "1 1 true",
+        "1"
+      ],
+      "correct": 2
+    }
+  ]
+}

@@ -1,0 +1,155 @@
+{
+  "id": "oob-025",
+  "pattern": "off-by-one",
+  "difficulty_rating": 1600,
+  "explanation": "chunk slices with `arr.slice(i, i + size + 1)` — one index past the intended boundary — so every chunk (except possibly a short trailing one) actually contains `size + 1` elements and overlaps by one item with the next chunk. For [1..7] with size 3, the loop still advances `i` by `size` (3), so it visits i=0,3,6, but each slice grabs 4 elements: [1,2,3,4], [4,5,6,7], [7]. The reported lengths are [4, 4, 1], not the intended [3, 3, 1] — it looks like ordinary chunking until you notice element 4 and element 7 each appear in two different chunks.",
+  "prompt": "chunk is meant to split arr into non-overlapping groups of `size`. Step through describeChunks and predict the chunk lengths it reports.",
+  "language": "javascript",
+  "snippet": "function chunk(arr, size) {\n  const chunks = [];\n  for (let i = 0; i < arr.length; i += size) {\n    chunks.push(arr.slice(i, i + size + 1));\n  }\n  return chunks;\n}\nfunction describeChunks(arr, size) {\n  const chunks = chunk(arr, size);\n  return chunks.map(c => c.length);\n}\nconsole.log(describeChunks([1, 2, 3, 4, 5, 6, 7], 3));",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 1,
+      "vars": {
+        "arr": "[1,2,3,4,5,6,7]",
+        "size": "3",
+        "chunks": "[]",
+        "chunk": "[Function]",
+        "describeChunks": "[Function]"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "arr": "[1,2,3,4,5,6,7]",
+        "size": "3",
+        "chunks": "[]",
+        "chunk": "[Function]",
+        "describeChunks": "[Function]",
+        "i": "0"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "arr": "[1,2,3,4,5,6,7]",
+        "size": "3",
+        "chunks": "[[1,2,3,4]]",
+        "chunk": "[Function]",
+        "describeChunks": "[Function]",
+        "i": "0"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "arr": "[1,2,3,4,5,6,7]",
+        "size": "3",
+        "chunks": "[[1,2,3,4]]",
+        "chunk": "[Function]",
+        "describeChunks": "[Function]",
+        "i": "3"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "arr": "[1,2,3,4,5,6,7]",
+        "size": "3",
+        "chunks": "[[1,2,3,4],[4,5,6,7]]",
+        "chunk": "[Function]",
+        "describeChunks": "[Function]",
+        "i": "3"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "arr": "[1,2,3,4,5,6,7]",
+        "size": "3",
+        "chunks": "[[1,2,3,4],[4,5,6,7]]",
+        "chunk": "[Function]",
+        "describeChunks": "[Function]",
+        "i": "6"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "arr": "[1,2,3,4,5,6,7]",
+        "size": "3",
+        "chunks": "[[1,2,3,4],[4,5,6,7],[7]]",
+        "chunk": "[Function]",
+        "describeChunks": "[Function]",
+        "i": "6"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "arr": "[1,2,3,4,5,6,7]",
+        "size": "3",
+        "chunks": "[[1,2,3,4],[4,5,6,7],[7]]",
+        "chunk": "[Function]",
+        "describeChunks": "[Function]"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "chunk": "[Function]",
+        "describeChunks": "[Function]"
+      },
+      "output": "[4,4,1]"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 0,
+      "question": "next-line",
+      "choices": ["8", "2", "11", "1"],
+      "correct": 1
+    },
+    {
+      "afterStep": 1,
+      "question": "var-value",
+      "target": "i",
+      "choices": ["0", "3", "6"],
+      "correct": 0
+    },
+    {
+      "afterStep": 2,
+      "question": "var-value",
+      "target": "chunks",
+      "choices": ["[[1,2,3,4],[4,5,6,7],[7]]", "[[1,2,3,4],[4,5,6,7]]", "[[1,2,3,4]]", "[]"],
+      "correct": 2
+    },
+    {
+      "afterStep": 3,
+      "question": "var-value",
+      "target": "i",
+      "choices": ["0", "6", "3"],
+      "correct": 2
+    },
+    {
+      "afterStep": 4,
+      "question": "var-value",
+      "target": "chunks",
+      "choices": ["[]", "[[1,2,3,4]]", "[[1,2,3,4],[4,5,6,7],[7]]", "[[1,2,3,4],[4,5,6,7]]"],
+      "correct": 3
+    },
+    {
+      "afterStep": 6,
+      "question": "var-value",
+      "target": "chunks",
+      "choices": ["[[1,2,3,4],[4,5,6,7],[7]]", "[[1,2,3,4],[4,5,6,7]]", "[]", "[[1,2,3,4]]"],
+      "correct": 0
+    },
+    {
+      "afterStep": 8,
+      "question": "output",
+      "choices": ["[[1,2,3,4]]", "[[1,2,3,4],[4,5,6,7]]", "6", "[4,4,1]"],
+      "correct": 3
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "scl-027",
+  "pattern": "scope-closures",
+  "difficulty_rating": 1700,
+  "explanation": "`timer` is declared once at module scope, outside `debounce`. Every function `debounce` returns shares that single variable, instead of each call to `debounce` getting its own private timer via closure. So `createSearchController`'s two debounced functions — `debouncedSearch` and `debouncedAutosave` — are secretly reading and writing the same `timer`. Calling `controller.search('hello')` schedules a timeout and stores it in `timer`; calling `controller.autosave('draft text')` shortly after runs `clearTimeout(timer)` first, which cancels the *search* timeout (not an autosave one), then overwrites `timer` with its own. Only the autosave ever fires — the search callback is silently cancelled, even though nothing about the search call itself was wrong. The fix is moving `let timer` inside `debounce`'s body so each returned function closes over its own timer.",
+  "prompt": "Two independent debounced functions from this controller interfere with each other. Tap the line responsible.",
+  "language": "javascript",
+  "snippet": "let timer = null\n\nfunction debounce(fn, delay) {\n  return (...args) => {\n    clearTimeout(timer)\n    timer = setTimeout(() => {\n      fn(...args)\n    }, delay)\n  }\n}\n\nfunction createSearchController(onSearch, onAutosave) {\n  const debouncedSearch = debounce(onSearch, 300)\n  const debouncedAutosave = debounce(onAutosave, 300)\n\n  return {\n    search: (query) => debouncedSearch(query),\n    autosave: (draft) => debouncedAutosave(draft),\n  }\n}",
+  "interaction": "tap-line",
+  "correct_line": 0
+}

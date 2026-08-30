@@ -1,0 +1,264 @@
+{
+  "id": "dsm-026",
+  "pattern": "data-structure-misuse",
+  "difficulty_rating": 1600,
+  "explanation": "`dict.fromkeys(categories, [])` does not create a fresh empty list per key — it creates ONE list object and reuses that same reference as the value for every key. So `groups['fruit']` and `groups['veg']` are literally the same list, and every `.append()` call — regardless of which category key it went through — lands in that one shared list. All three items (2 fruit, 1 veg) end up counted under both categories, so summarize2 reports {'fruit': 3, 'veg': 3} instead of the intended {'fruit': 2, 'veg': 1}.",
+  "prompt": "group_by_category is meant to give every category its own list of item names. Step through summarize2 and predict the counts it returns for two fruit items and one veg item.",
+  "language": "python",
+  "snippet": "def group_by_category(items, categories):\n    groups = dict.fromkeys(categories, [])\n    for item in items:\n        groups[item[\"category\"]].append(item[\"name\"])\n    return groups\n\ndef summarize2(items, categories):\n    groups = group_by_category(items, categories)\n    return {cat: len(names) for cat, names in groups.items()}\n\nitems = [\n    {\"category\": \"fruit\", \"name\": \"apple\"},\n    {\"category\": \"veg\", \"name\": \"carrot\"},\n    {\"category\": \"fruit\", \"name\": \"banana\"},\n]\nprint(summarize2(items, [\"fruit\", \"veg\"]))",
+  "interaction": "scrubber",
+  "steps": [
+    {
+      "line": 0,
+      "vars": {
+        "group_by_category": "<function>"
+      }
+    },
+    {
+      "line": 6,
+      "vars": {
+        "group_by_category": "<function>",
+        "summarize2": "<function>"
+      }
+    },
+    {
+      "line": 11,
+      "vars": {
+        "group_by_category": "<function>",
+        "summarize2": "<function>"
+      }
+    },
+    {
+      "line": 12,
+      "vars": {
+        "group_by_category": "<function>",
+        "summarize2": "<function>"
+      }
+    },
+    {
+      "line": 13,
+      "vars": {
+        "group_by_category": "<function>",
+        "summarize2": "<function>"
+      }
+    },
+    {
+      "line": 10,
+      "vars": {
+        "group_by_category": "<function>",
+        "summarize2": "<function>",
+        "items": "[{'category': 'fruit', 'name': 'apple'}, {'category': 'veg', 'name': 'carrot'}, {'category': 'fruit', 'name': 'banana'}]"
+      }
+    },
+    {
+      "line": 1,
+      "vars": {
+        "items": "[{'category': 'fruit', 'name': 'apple'}, {'category': 'veg', 'name': 'carrot'}, {'category': 'fruit', 'name': 'banana'}]",
+        "categories": "['fruit', 'veg']",
+        "groups": "{'fruit': [], 'veg': []}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "items": "[{'category': 'fruit', 'name': 'apple'}, {'category': 'veg', 'name': 'carrot'}, {'category': 'fruit', 'name': 'banana'}]",
+        "categories": "['fruit', 'veg']",
+        "groups": "{'fruit': [], 'veg': []}",
+        "item": "{'category': 'fruit', 'name': 'apple'}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "items": "[{'category': 'fruit', 'name': 'apple'}, {'category': 'veg', 'name': 'carrot'}, {'category': 'fruit', 'name': 'banana'}]",
+        "categories": "['fruit', 'veg']",
+        "groups": "{'fruit': ['apple'], 'veg': ['apple']}",
+        "item": "{'category': 'fruit', 'name': 'apple'}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "items": "[{'category': 'fruit', 'name': 'apple'}, {'category': 'veg', 'name': 'carrot'}, {'category': 'fruit', 'name': 'banana'}]",
+        "categories": "['fruit', 'veg']",
+        "groups": "{'fruit': ['apple'], 'veg': ['apple']}",
+        "item": "{'category': 'veg', 'name': 'carrot'}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "items": "[{'category': 'fruit', 'name': 'apple'}, {'category': 'veg', 'name': 'carrot'}, {'category': 'fruit', 'name': 'banana'}]",
+        "categories": "['fruit', 'veg']",
+        "groups": "{'fruit': ['apple', 'carrot'], 'veg': ['apple', 'carrot']}",
+        "item": "{'category': 'veg', 'name': 'carrot'}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "items": "[{'category': 'fruit', 'name': 'apple'}, {'category': 'veg', 'name': 'carrot'}, {'category': 'fruit', 'name': 'banana'}]",
+        "categories": "['fruit', 'veg']",
+        "groups": "{'fruit': ['apple', 'carrot'], 'veg': ['apple', 'carrot']}",
+        "item": "{'category': 'fruit', 'name': 'banana'}"
+      }
+    },
+    {
+      "line": 3,
+      "vars": {
+        "items": "[{'category': 'fruit', 'name': 'apple'}, {'category': 'veg', 'name': 'carrot'}, {'category': 'fruit', 'name': 'banana'}]",
+        "categories": "['fruit', 'veg']",
+        "groups": "{'fruit': ['apple', 'carrot', 'banana'], 'veg': ['apple', 'carrot', 'banana']}",
+        "item": "{'category': 'fruit', 'name': 'banana'}"
+      }
+    },
+    {
+      "line": 2,
+      "vars": {
+        "items": "[{'category': 'fruit', 'name': 'apple'}, {'category': 'veg', 'name': 'carrot'}, {'category': 'fruit', 'name': 'banana'}]",
+        "categories": "['fruit', 'veg']",
+        "groups": "{'fruit': ['apple', 'carrot', 'banana'], 'veg': ['apple', 'carrot', 'banana']}",
+        "item": "{'category': 'fruit', 'name': 'banana'}"
+      }
+    },
+    {
+      "line": 4,
+      "vars": {
+        "items": "[{'category': 'fruit', 'name': 'apple'}, {'category': 'veg', 'name': 'carrot'}, {'category': 'fruit', 'name': 'banana'}]",
+        "categories": "['fruit', 'veg']",
+        "groups": "{'fruit': ['apple', 'carrot', 'banana'], 'veg': ['apple', 'carrot', 'banana']}",
+        "item": "{'category': 'fruit', 'name': 'banana'}"
+      }
+    },
+    {
+      "line": 7,
+      "vars": {
+        "items": "[{'category': 'fruit', 'name': 'apple'}, {'category': 'veg', 'name': 'carrot'}, {'category': 'fruit', 'name': 'banana'}]",
+        "categories": "['fruit', 'veg']",
+        "groups": "{'fruit': ['apple', 'carrot', 'banana'], 'veg': ['apple', 'carrot', 'banana']}"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        ".0": "<dict_itemiterator>",
+        "cat": "'fruit'",
+        "names": "['apple', 'carrot', 'banana']"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        ".0": "<dict_itemiterator>",
+        "cat": "'veg'",
+        "names": "['apple', 'carrot', 'banana']"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        ".0": "<dict_itemiterator>",
+        "cat": "'veg'",
+        "names": "['apple', 'carrot', 'banana']"
+      }
+    },
+    {
+      "line": 8,
+      "vars": {
+        "items": "[{'category': 'fruit', 'name': 'apple'}, {'category': 'veg', 'name': 'carrot'}, {'category': 'fruit', 'name': 'banana'}]",
+        "categories": "['fruit', 'veg']",
+        "groups": "{'fruit': ['apple', 'carrot', 'banana'], 'veg': ['apple', 'carrot', 'banana']}"
+      }
+    },
+    {
+      "line": 15,
+      "vars": {
+        "group_by_category": "<function>",
+        "summarize2": "<function>",
+        "items": "[{'category': 'fruit', 'name': 'apple'}, {'category': 'veg', 'name': 'carrot'}, {'category': 'fruit', 'name': 'banana'}]"
+      },
+      "output": "{'fruit': 3, 'veg': 3}"
+    }
+  ],
+  "checkpoints": [
+    {
+      "afterStep": 6,
+      "question": "var-value",
+      "target": "groups",
+      "choices": [
+        "{'fruit': ['apple', 'carrot', 'banana'], 'veg': ['apple', 'carrot', 'banana']}",
+        "{'fruit': ['apple', 'carrot'], 'veg': ['apple', 'carrot']}",
+        "{'fruit': [], 'veg': []}",
+        "{'fruit': ['apple'], 'veg': ['apple']}"
+      ],
+      "correct": 2
+    },
+    {
+      "afterStep": 8,
+      "question": "var-value",
+      "target": "groups",
+      "choices": [
+        "{'fruit': [], 'veg': []}",
+        "{'fruit': ['apple', 'carrot'], 'veg': ['apple', 'carrot']}",
+        "{'fruit': ['apple'], 'veg': ['apple']}",
+        "{'fruit': ['apple', 'carrot', 'banana'], 'veg': ['apple', 'carrot', 'banana']}"
+      ],
+      "correct": 2
+    },
+    {
+      "afterStep": 10,
+      "question": "var-value",
+      "target": "groups",
+      "choices": [
+        "{'fruit': ['apple', 'carrot', 'banana'], 'veg': ['apple', 'carrot', 'banana']}",
+        "{'fruit': [], 'veg': []}",
+        "{'fruit': ['apple'], 'veg': ['apple']}",
+        "{'fruit': ['apple', 'carrot'], 'veg': ['apple', 'carrot']}"
+      ],
+      "correct": 3
+    },
+    {
+      "afterStep": 12,
+      "question": "var-value",
+      "target": "groups",
+      "choices": [
+        "{'fruit': [], 'veg': []}",
+        "{'fruit': ['apple', 'carrot'], 'veg': ['apple', 'carrot']}",
+        "{'fruit': ['apple'], 'veg': ['apple']}",
+        "{'fruit': ['apple', 'carrot', 'banana'], 'veg': ['apple', 'carrot', 'banana']}"
+      ],
+      "correct": 3
+    },
+    {
+      "afterStep": 14,
+      "question": "next-line",
+      "choices": ["8", "7", "12", "4"],
+      "correct": 1
+    },
+    {
+      "afterStep": 16,
+      "question": "var-value",
+      "target": "cat",
+      "choices": ["'fruit'", "'veg'"],
+      "correct": 0
+    },
+    {
+      "afterStep": 17,
+      "question": "var-value",
+      "target": "cat",
+      "choices": ["'fruit'", "'veg'"],
+      "correct": 1
+    },
+    {
+      "afterStep": 20,
+      "question": "output",
+      "choices": [
+        "{'category': 'fruit', 'name': 'banana'}",
+        "['fruit', 'veg']",
+        "{'fruit': 3, 'veg': 3}",
+        "['apple', 'carrot', 'banana']"
+      ],
+      "correct": 2
+    }
+  ]
+}
