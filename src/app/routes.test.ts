@@ -226,3 +226,45 @@ describe('public/_headers (v2 Phase 7b Item 1c)', () => {
     }
   })
 })
+
+// SEO baseline: public/sitemap.xml is hand-maintained (see its own doc
+// comment for why /stats, /settings, /challenge, and /puzzle/:id are
+// deliberately excluded — no independent content for a crawler to index).
+// Same drift-guard shape as the _redirects describe block above: add a
+// route to ROUTE_META and forget the sitemap (or vice versa) and this goes
+// red instead of silently drifting.
+describe('public/sitemap.xml', () => {
+  const sitemapPath = join(
+    dirname(fileURLToPath(import.meta.url)),
+    '..',
+    '..',
+    'public',
+    'sitemap.xml',
+  )
+  const sitemapSource = readFileSync(sitemapPath, 'utf-8')
+
+  const EXCLUDED_FROM_SITEMAP = new Set(['/stats', '/settings', '/challenge'])
+
+  it('has a <loc> for every ROUTE_META route not deliberately excluded', () => {
+    for (const path of Object.keys(ROUTE_META)) {
+      if (EXCLUDED_FROM_SITEMAP.has(path)) continue
+      const loc = path === '/' ? 'https://getcodoro.com/' : `https://getcodoro.com${path}`
+      expect(sitemapSource, `<loc> for ${path} not found`).toContain(`<loc>${loc}</loc>`)
+    }
+  })
+
+  it('has no <loc> for a deliberately excluded route', () => {
+    for (const path of EXCLUDED_FROM_SITEMAP) {
+      const loc = `https://getcodoro.com${path}`
+      expect(sitemapSource, `${path} should not be in the sitemap`).not.toContain(
+        `<loc>${loc}</loc>`,
+      )
+    }
+  })
+
+  it('has no <loc> for a dynamic route', () => {
+    for (const route of DYNAMIC_ROUTES) {
+      expect(sitemapSource).not.toContain(route.pattern)
+    }
+  })
+})
