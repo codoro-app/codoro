@@ -37,11 +37,14 @@
  * stray outline line at the top of `<main>` (originally observed right
  * under the old top mobile nav bar) as `<main>` receives focus.
  */
-import { useRef, type ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { Link, useLocation } from 'wouter'
+import { loadProfile } from '../storage'
 import { BottomNav } from './BottomNav'
+import { SettingsIcon } from './Icons'
 import { NavRail } from './NavRail'
 import { DevPuzzleToggle } from './devTools/DevPuzzleToggle'
+import { applyPreferences } from './preferences/applyPreferences'
 import { ROUTES, labelForPath } from './routes'
 import { useRouteFocusAndScroll } from './useRouteFocusAndScroll'
 import './app.css'
@@ -55,8 +58,48 @@ export function AppShell({ children }: AppShellProps) {
   const mainRef = useRef<HTMLElement>(null)
   useRouteFocusAndScroll(mainRef)
 
+  // v4 Phase 4.1 (Settings, for real): apply the stored theme/reduced-motion/
+  // code-font-size preferences to the document root once, on first mount.
+  // AppShell is the one thing mounted across every route (see this file's
+  // own top doc comment), so this is the single natural place to do it —
+  // every page benefits without each page loading the profile itself.
+  // SettingsPage calls applyPreferences again immediately after any save,
+  // for instant same-tab feedback; this effect only covers first load.
+  useEffect(() => {
+    let cancelled = false
+    loadProfile()
+      .then((profile) => {
+        if (!cancelled) applyPreferences(profile.preferences)
+      })
+      .catch(() => {
+        // Preferences failing to load is a cosmetic no-op (the DOM simply
+        // keeps its un-attributed defaults, which already match
+        // DEFAULT_PREFERENCES) — not worth a user-visible error state.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <div className="app-shell">
+      {/* v4 Phase 4.0 follow-up (PR #88 review): keyboard-only players
+       * reported having to Tab through the entire NavRail (7 links) every
+       * time they wanted to get back into the puzzle after tabbing out to
+       * the footer — there was no way back in except walking the whole
+       * chain again (or Shift+Tab-ing back through it). Standard fix: a
+       * skip link, the very first tab stop on any page, invisible until
+       * focused (`sr-only` → `focus:not-sr-only`), that jumps straight to
+       * `<main>` via the native fragment-focus behavior `href="#main-
+       * content"` gets for free on a focusable target — no onClick/JS
+       * needed. Tabbing forward off the end of the page and back around
+       * now lands here first instead of back at the top of NavRail. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:rounded-md focus:bg-accent focus:text-accent-ink focus:no-underline focus:text-md focus:font-semibold"
+      >
+        Skip to main content
+      </a>
       {/* 2b.0: was `.app-shell__mobile-nav` (app.css) — display toggle now
        * inline. 2b.8: slimmed to just the brand link — the old ModeSwitcher
        * tab strip that lived here moved to BottomNav, fixed at the viewport
@@ -76,7 +119,7 @@ export function AppShell({ children }: AppShellProps) {
        * removes it from each page root instead — see PracticePage.tsx/
        * DailyPage.tsx/PuzzlePage.tsx/etc.'s own `pt-[var(--space-N)]`
        * (no `+env(...)`) for the other half of this. */}
-      <div className="block lg:hidden pt-[calc(var(--space-2)+env(safe-area-inset-top))] px-4">
+      <div className="flex items-center justify-between gap-2 lg:hidden pt-[calc(var(--space-2)+env(safe-area-inset-top))] px-4">
         <Link
           href="/"
           className="flex items-center gap-2 min-h-11 py-2 bg-transparent no-underline cursor-pointer"
@@ -90,13 +133,33 @@ export function AppShell({ children }: AppShellProps) {
           </div>
           <span className="text-xl font-bold text-text-0">Codoro</span>
         </Link>
+        {/* v4 Phase 4.1: Settings' mobile nav entry point (this bar was
+         * logo-only before) — BottomNav's own 4 items (Home/Practice/Daily/
+         * Stats) are deliberately capped, so Settings doesn't compete for a
+         * 5th slot there (see BottomNav.tsx's own doc comment); a gear here
+         * costs nothing extra to reach at every width. */}
+        <Link
+          href={ROUTES.settings.path}
+          className="min-w-11 min-h-11 flex items-center justify-center rounded-sm bg-transparent cursor-pointer"
+          aria-current={location === ROUTES.settings.path ? 'page' : undefined}
+          aria-label="Settings"
+        >
+          <span className={location === ROUTES.settings.path ? 'text-accent' : 'text-text-1'}>
+            <SettingsIcon size={22} />
+          </span>
+        </Link>
       </div>
-      {/* 2b.0: was `.app-shell__rail` (app.css) — display toggle now inline. */}
-      <div className="hidden lg:block">
+      {/* 2b.0: was `.app-shell__rail` (app.css) — display toggle now inline.
+       * `app-shell__nav` (app.css) gives this wrapper an explicit grid area
+       * spanning both outer rows (main content + footer), not just row 1 —
+       * see that rule's own comment for why NavRail's sticky positioning
+       * needs the full page height as its containing block. */}
+      <div className="hidden lg:block app-shell__nav">
         <NavRail />
       </div>
       <BottomNav />
       <main
+        id="main-content"
         className="app-shell__content focus:outline-none"
         ref={mainRef}
         tabIndex={-1}
@@ -110,7 +173,7 @@ export function AppShell({ children }: AppShellProps) {
        * scrolled to the end of the page. --bottom-nav-height is BottomNav's
        * own height; env(safe-area-inset-bottom) matches the same safe-area
        * padding BottomNav itself adds beneath that. */}
-      <footer className="flex justify-center p-4 pb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom)+var(--space-4))] lg:pb-4 border-t border-border lg:col-span-full">
+      <footer className="app-shell__footer flex justify-center p-4 pb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom)+var(--space-4))] lg:pb-4 border-t border-border">
         <Link
           href={ROUTES.settings.path}
           className="min-h-11 px-3 py-2 bg-transparent text-text-1 text-sm no-underline cursor-pointer inline-flex items-center"

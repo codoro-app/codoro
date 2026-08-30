@@ -21,7 +21,7 @@ import { generateAnonId } from './anonId'
  * migrated through migrations.ts — see AttemptSchema's own doc comment for
  * why `checkpoint_results` (the v4 addition) doesn't go through this chain.
  */
-export const CURRENT_SCHEMA_VERSION = 9
+export const CURRENT_SCHEMA_VERSION = 10
 
 /** Mirrors engine's StreakState shape. */
 export const StreakStateSchema = z.object({
@@ -213,6 +213,53 @@ export interface MissionStats {
   lastCompletedAt: string | null
 }
 
+/**
+ * v4 Phase 4.1 ("Settings, for real"): device/UX preferences, versioned and
+ * carried through export/import like every other UserProfile field — the
+ * whole point being that v5's account sync picks these up for free without
+ * a separate preferences payload. Each field earns its place (see the phase
+ * amendment for the ones considered and dropped — sound and a second theme
+ * mode don't exist in the codebase today):
+ *
+ * - `timerOnTrace`: makes todo 14's "no timer on regular trace mode"
+ *   (TracePage.tsx's hardcoded `timed={false}`) a preference instead of a
+ *   hardcode, so a player who wants the per-checkpoint clock can opt in.
+ * - `reducedMotion`: an app-level override independent of the OS's own
+ *   `prefers-reduced-motion` — the codebase has no reduced-motion handling
+ *   of any kind today (grep-verified), so this is the first place it's
+ *   respected at all.
+ * - `codeFontSize`: drives the single global `--font-size-code` token every
+ *   code surface already reads (CodeSnippet.tsx, practice.css) — one token,
+ *   zero per-component changes needed.
+ * - `theme`: which accent/surface palette applies app-wide (`index.css`'s
+ *   `[data-app-theme]` overrides) — 'default' is exactly today's shipped
+ *   lime-on-near-black look; 'blue'/'slate' are new dark directions and
+ *   'light' is a light-surfaced variant of the same brand accent (deepened
+ *   to a legible shade for light backgrounds — see index.css's own comment
+ *   on why the raw neon lime can't just be reused as-is).
+ */
+export const PreferencesSchema = z.object({
+  timerOnTrace: z.boolean(),
+  reducedMotion: z.boolean(),
+  codeFontSize: z.enum(['sm', 'md', 'lg']),
+  theme: z.enum(['default', 'blue', 'slate', 'light']),
+})
+
+export interface Preferences {
+  timerOnTrace: boolean
+  reducedMotion: boolean
+  codeFontSize: 'sm' | 'md' | 'lg'
+  theme: 'default' | 'blue' | 'slate' | 'light'
+}
+
+/** Every default matches today's actual shipped behavior — an existing player's app looks and behaves identically until they touch Settings. */
+export const DEFAULT_PREFERENCES: Preferences = {
+  timerOnTrace: false,
+  reducedMotion: false,
+  codeFontSize: 'md',
+  theme: 'default',
+}
+
 export const UserProfileSchema = z.object({
   // z.literal, not z.number(): reaching full validation implies migration has
   // already brought the record onto the current version.
@@ -231,6 +278,8 @@ export const UserProfileSchema = z.object({
   missionProgress: MissionProgressSchema.nullable(),
   /** Non-null once at least one mission has ever completed — see MissionStatsSchema's doc comment. */
   missionStats: MissionStatsSchema.nullable(),
+  /** v4 Phase 4.1 — see PreferencesSchema's own doc comment. */
+  preferences: PreferencesSchema,
   // Phase 7 Item 6: app-generated, contains no personal information — see
   // migrations.ts's migrateV5ToV6 doc comment for the full context. Exists
   // to let telemetry count returning visits (retention) without knowing
@@ -261,6 +310,8 @@ export interface UserProfile {
   missionProgress: MissionProgress | null
   /** Non-null once at least one mission has ever completed — see MissionStats's doc comment. */
   missionStats: MissionStats | null
+  /** v4 Phase 4.1 — see PreferencesSchema's own doc comment. */
+  preferences: Preferences
   /** Stable anonymous ID (Phase 7 Item 6) — see UserProfileSchema's own doc comment on this field. */
   anonId: string
 }
@@ -357,6 +408,7 @@ export function createDefaultProfile(): UserProfile {
     bossStats: null,
     missionProgress: null,
     missionStats: null,
+    preferences: { ...DEFAULT_PREFERENCES },
     anonId: generateAnonId(),
   }
 }

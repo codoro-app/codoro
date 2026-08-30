@@ -35,6 +35,31 @@ describe('AppShell', () => {
     expect(screen.getAllByRole('link', { name: 'Practice', hidden: true }).length).toBe(2)
   })
 
+  // v4 Phase 4.0 follow-up (PR #88 review): live-reported that tabbing out
+  // of the puzzle (e.g. to the footer) left no fast way back in — a
+  // keyboard user had to Tab/Shift+Tab through all of NavRail again. This
+  // skip link is the standard fix: the first tab stop on any page, so
+  // cycling back around (or a first Tab press on load) reaches it before
+  // NavRail's 7 links, and it jumps straight into <main>.
+  it('is the first focusable element and points at <main> for a fast way back into content', () => {
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    )
+    const skipLink = screen.getByRole('link', { name: 'Skip to main content' })
+    expect(skipLink).toHaveAttribute('href', '#main-content')
+    expect(screen.getByRole('main')).toHaveAttribute('id', 'main-content')
+
+    // "First focusable" asserted structurally: this link must be the very
+    // first focusable element in the whole shell, ahead of every NavRail/
+    // BottomNav/mobile-topbar link — not just present somewhere on the
+    // page. querySelectorAll's DOM order matches tab order here since
+    // nothing in this tree sets a positive tabindex.
+    const focusable = document.querySelectorAll('a[href], button:not([disabled])')
+    expect(focusable[0]).toBe(skipLink)
+  })
+
   it('renders children inside the shell content region', () => {
     render(
       <AppShell>
@@ -85,6 +110,32 @@ describe('AppShell', () => {
       </AppShell>,
     )
     expect(screen.getByRole('link', { name: 'Legal' })).toHaveAttribute('href', '/legal')
+  })
+
+  // v4 Phase 4.1 (Settings, for real): the mobile top-bar gear — this bar
+  // used to be logo-only. Both navs are always mounted (see this suite's
+  // first test), so this counts 3: NavRail's rail-footer gear, the mobile
+  // top-bar gear, and the original footer link.
+  it('the mobile top bar has a Settings gear link, in addition to NavRail and the footer link', () => {
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    )
+    const settingsLinks = screen.getAllByRole('link', { name: 'Settings', hidden: true })
+    expect(settingsLinks.length).toBe(3)
+    settingsLinks.forEach((link) => expect(link).toHaveAttribute('href', '/settings'))
+  })
+
+  it('marks the mobile Settings gear as the active route on /settings', () => {
+    window.history.pushState({}, '', '/settings')
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    )
+    const settingsLinks = screen.getAllByRole('link', { name: 'Settings', hidden: true })
+    expect(settingsLinks.some((link) => link.getAttribute('aria-current') === 'page')).toBe(true)
   })
 
   // Regression test: <main> gets a programmatic .focus() on every route
@@ -180,7 +231,14 @@ describe('AppShell — full-height layout contract (CLS regression, 2026-08-24 p
     expect(css).toContain(
       '.app-shell { display: flex; flex-direction: column; min-height: 100dvh; }',
     )
-    expect(css).toContain('.app-shell__content { flex: 1 0 auto; }')
+    // .app-shell__content's rule now also carries `grid-area: content;`
+    // (v4 Phase 4.0 sticky-nav follow-up, PR #88 review) plus an
+    // explanatory comment, so the old exact-block match no longer applies
+    // — assert the two properties that make this contract true instead.
+    const contentRuleMatch = /\.app-shell__content \{([^}]*)\}/.exec(css)
+    expect(contentRuleMatch).not.toBeNull()
+    const contentRule = contentRuleMatch?.[1] ?? ''
+    expect(contentRule).toContain('flex: 1 0 auto;')
     expect(css).toContain('grid-template-rows: 1fr auto;')
   })
 })

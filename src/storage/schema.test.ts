@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   AttemptSchema,
   CURRENT_SCHEMA_VERSION,
+  DEFAULT_PREFERENCES,
   UserProfileSchema,
   createDefaultProfile,
 } from './schema'
@@ -19,6 +20,7 @@ const validProfile = {
   bossStats: null,
   missionProgress: null,
   missionStats: null,
+  preferences: DEFAULT_PREFERENCES,
   anonId: 'test-anon-id-1',
 }
 

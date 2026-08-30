@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { nth } from '../../test/nth'
 import { CodeSnippet } from './CodeSnippet'
 import { highlightSnippet } from './highlightSnippet'
 
@@ -98,5 +99,25 @@ describe('CodeSnippet', () => {
     expect(() => {
       render(<CodeSnippet lines={lines} />)
     }).not.toThrow()
+  })
+
+  it('arrow-key navigation moves focus between interactive lines (TapLine mode)', () => {
+    const testLines = [
+      { text: 'a', html: 'a' },
+      { text: 'b', html: 'b' },
+      { text: 'c', html: 'c' },
+    ]
+    render(<CodeSnippet lines={testLines} onLineClick={vi.fn()} />)
+    const buttons = screen.getAllByRole('button')
+
+    nth(buttons, 0).focus()
+    fireEvent.keyDown(nth(buttons, 0), { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(nth(buttons, 1))
+  })
+
+  it('is not interactive (no roving-focus wiring) when onLineClick is omitted', () => {
+    const testLines = [{ text: 'a', html: 'a' }]
+    render(<CodeSnippet lines={testLines} />)
+    expect(screen.queryAllByRole('button')).toHaveLength(0)
   })
 })

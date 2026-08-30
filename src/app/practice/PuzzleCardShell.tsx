@@ -12,8 +12,8 @@
  * Duolingo-style "lip"): `:active` scale/opacity + `:focus-visible` outline
  * — see practice.css.
  */
-import { useEffect, useState } from 'react'
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import type { Puzzle } from '../../content'
 import type { CommitPayload } from './interactionTypes'
 import { highlightSnippet } from './highlightSnippet'
@@ -305,13 +305,15 @@ function ContinueCta({
   className,
   destination,
   onContinue,
+  buttonRef,
 }: {
   className: string
   destination: ContinueDestination
   onContinue: () => void
+  buttonRef?: RefObject<HTMLButtonElement | null>
 }) {
   return (
-    <button type="button" className={className} onClick={onContinue}>
+    <button type="button" className={className} onClick={onContinue} ref={buttonRef}>
       {continueLabel(destination)}
       <ContinueIcon destination={destination} />
     </button>
@@ -375,6 +377,44 @@ export function PuzzleCardShell({
     // — including handleCommit would refire on every render for no reason.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [forcedCommit, committed])
+
+  const continueButtonRef = useRef<HTMLButtonElement | null>(null)
+
+  // Enter's "advance" half (docs/v4-build-plan.md Phase 4.0, todo 23) falls
+  // entirely out of native <button> Enter-activation semantics once focus
+  // is actually on Continue — no separate keydown listener needed. Moving
+  // focus here the instant a commit lands is also what makes a fully
+  // keyboard-only playthrough not require an extra Tab press after every
+  // answer.
+  useEffect(() => {
+    if (committed) continueButtonRef.current?.focus()
+  }, [committed])
+
+  // Final whole-branch review finding: the above effect (and the caller's
+  // own `key={puzzle.id}` on this component, e.g. PracticePage.tsx) means
+  // every new puzzle unmounts the previously-focused Continue button —
+  // leaving `document.activeElement` at `document.body` with nothing to
+  // restore it. A keyboard-only player who just committed+advanced would
+  // otherwise have to Tab through NavRail, filter chips, and StatusBar to
+  // get back into the card. This effect claims focus back onto the card
+  // itself (a `tabIndex=-1` landing point, same convention as
+  // useRouteFocusAndScroll.ts's mainRef — focusable via script, not part of
+  // the Tab order) whenever focus has actually been lost to `document.body`.
+  // That guard is what keeps this from fighting useRouteFocusAndScroll's own
+  // focus-on-navigate (a real route change focuses `<main>` in a parent
+  // effect, which commits after this one and so wins) or stealing focus a
+  // user deliberately placed elsewhere (e.g. mid-Tab into the sidebar). The
+  // card's `focus:outline-none` class (below) is the same AppShell.tsx
+  // `<main>` convention: safe only because `tabIndex={-1}` keeps this div
+  // out of the sighted tab order, so no keyboard user can land here by
+  // tabbing and lose a visible indicator — without it, every puzzle advance
+  // would flash a stray outline around the whole card.
+  const cardRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (document.activeElement === document.body) {
+      cardRef.current?.focus()
+    }
+  }, [puzzle.id])
 
   // tap-line renders the snippet itself, as its interactive tap-target
   // surface, and swipe-binary renders it inside its own draggable card
@@ -460,7 +500,11 @@ export function PuzzleCardShell({
           ChallengePage.test.tsx/PuzzlePage.test.tsx all use it as a
           root-marker selector to confirm the quiz shell (vs. Trace's
           `.trace-runner`) mounted. */}
-      <div className="puzzle-card flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto p-4">
+      <div
+        ref={cardRef}
+        tabIndex={-1}
+        className="puzzle-card focus:outline-none flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto p-4"
+      >
         <p className="m-0 text-center text-xl font-semibold text-text-0">{puzzle.prompt}</p>
 
         {staticLines && <CodeSnippet lines={staticLines} />}
@@ -474,6 +518,7 @@ export function PuzzleCardShell({
                 className={DESKTOP_CONTINUE_CLASS}
                 destination={continueDestination}
                 onContinue={onContinue}
+                buttonRef={continueButtonRef}
               />
             </div>
             <div className={feedbackPanelClass(committedPayload.correct)} role="status">
@@ -513,6 +558,7 @@ export function PuzzleCardShell({
                   className={`${FEEDBACK_CONTINUE_CLASS} flex-1`}
                   destination={continueDestination}
                   onContinue={onContinue}
+                  buttonRef={continueButtonRef}
                 />
               </div>
             </div>

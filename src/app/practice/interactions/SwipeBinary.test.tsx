@@ -1023,6 +1023,19 @@ describe('SwipeBinary', () => {
     })
   })
 
+  it('arrow-key navigation moves focus between the two fallback buttons', () => {
+    render(<Harness />)
+    const leftButton = screen.getByRole('button', { name: puzzle.left_label })
+    const rightButton = screen.getByRole('button', { name: puzzle.right_label })
+
+    leftButton.focus()
+    fireEvent.keyDown(leftButton, { key: 'ArrowRight' })
+    expect(document.activeElement).toBe(rightButton)
+
+    fireEvent.keyDown(rightButton, { key: 'ArrowLeft' })
+    expect(document.activeElement).toBe(leftButton)
+  })
+
   describe('mouse/pen (Pointer Events, unchanged in spirit by OD-5)', () => {
     installMockClock()
 

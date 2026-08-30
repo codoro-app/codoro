@@ -6,9 +6,17 @@
  * comment for the one addition made alongside them, and why it's additive
  * rather than a change to those functions).
  *
- * Reachable only via the app-shell footer link, next to Legal — not one of
- * the four main modes, so it has no ModeSwitcher/NavRail tab (same
- * precedent as LegalPage.tsx).
+ * v4 Phase 4.1 ("Settings, for real"): gave this page real nav presence — a
+ * gear icon in NavRail's rail footer (desktop) and AppShell's mobile top
+ * bar — on top of the original footer link (still there, next to Legal).
+ * Not one of the six main modes, so it still has no ModeSwitcher/BottomNav
+ * tab of its own (BottomNav's 4 items are deliberately capped — see its own
+ * doc comment); see AppShell.tsx/NavRail.tsx for where the gear lives at
+ * each breakpoint. Also gained a real "Preferences" section this phase —
+ * timer/reduced-motion/code-font-size/theme, all versioned through the same
+ * `UserProfile.preferences` field export/import already carries (see
+ * src/storage/schema.ts's PreferencesSchema doc comment) — the export/
+ * import section below is unchanged, just re-homed further down the page.
  *
  * The confirm-overwrite contract (locked by the Phase 7 build prompt's own
  * "decide precisely what that means" instruction): before writing anything,
@@ -35,12 +43,15 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   CURRENT_SCHEMA_VERSION,
+  DEFAULT_PREFERENCES,
   commitImport,
   exportData,
   loadProfile,
   resolveImportCandidate,
+  saveProfile,
 } from '../../storage'
-import type { ExportedData, UserProfile } from '../../storage'
+import type { ExportedData, Preferences, UserProfile } from '../../storage'
+import { applyPreferences } from '../preferences/applyPreferences'
 
 // 2b.0: was `.settings-page` (settingsPage.css). Not test-asserted
 // (grep-verified).
@@ -53,6 +64,26 @@ const SECTION_COPY_CLASS = 'text-md leading-[1.5] m-0 mb-3'
 const INLINE_CODE_CLASS = 'font-mono text-[0.9em] bg-surface-2 py-[0.1em] px-[0.35em] rounded-sm'
 const BUTTON_CLASS =
   'min-h-11 py-3 px-4 border border-border-strong rounded-md bg-surface-1 text-text-0 text-md font-semibold cursor-pointer'
+
+// v4 Phase 4.1 (Settings, for real): preference-row layout, shared by every
+// row in the new Preferences section below.
+const PREF_ROW_CLASS =
+  'flex items-start justify-between gap-4 py-3 px-3.5 border border-border rounded-md bg-surface-1 mb-2'
+const PREF_LABEL_CLASS = 'text-md font-semibold text-text-0'
+const PREF_DESC_CLASS = 'text-sm text-text-1 mt-0.5 max-w-[38ch]'
+
+const CODE_FONT_SIZE_OPTIONS: { value: Preferences['codeFontSize']; label: string }[] = [
+  { value: 'sm', label: 'S' },
+  { value: 'md', label: 'M' },
+  { value: 'lg', label: 'L' },
+]
+
+const THEME_OPTIONS: { value: Preferences['theme']; label: string }[] = [
+  { value: 'default', label: 'Default' },
+  { value: 'blue', label: 'Blue' },
+  { value: 'slate', label: 'Slate' },
+  { value: 'light', label: 'Light' },
+]
 
 type ImportFlowState =
   | { kind: 'idle' }
@@ -82,7 +113,30 @@ export function SettingsPage() {
   const [profileError, setProfileError] = useState(false)
   const [importFlow, setImportFlow] = useState<ImportFlowState>({ kind: 'idle' })
   const [exportError, setExportError] = useState(false)
+  const [preferencesError, setPreferencesError] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // v4 Phase 4.1: the profile's own preferences, or DEFAULT_PREFERENCES
+  // while `profile` is still loading — matches every existing default, so
+  // the controls below never flash a wrong state once the real profile
+  // arrives.
+  const preferences = profile?.preferences ?? DEFAULT_PREFERENCES
+
+  async function updatePreference<K extends keyof Preferences>(key: K, value: Preferences[K]) {
+    setPreferencesError(false)
+    const base = profile ?? (await loadProfile())
+    const nextProfile: UserProfile = { ...base, preferences: { ...base.preferences, [key]: value } }
+    // Apply immediately, before the write resolves — instant same-tab
+    // feedback (the whole point of a live theme/font-size/motion toggle),
+    // same as AppShell's own on-load call to this function.
+    applyPreferences(nextProfile.preferences)
+    setProfile(nextProfile)
+    try {
+      await saveProfile(nextProfile)
+    } catch {
+      setPreferencesError(true)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -184,6 +238,121 @@ export function SettingsPage() {
       <h1 className="text-2xl text-text-0 m-0">Settings</h1>
 
       <section>
+        <h2 className={SECTION_HEADING_CLASS}>Preferences</h2>
+        {preferencesError && (
+          <p className="mt-0 mb-2 text-danger text-sm" role="alert">
+            Something went wrong saving that — try again.
+          </p>
+        )}
+
+        <div className={PREF_ROW_CLASS}>
+          <div>
+            <div className={PREF_LABEL_CLASS}>Timer on Trace</div>
+            <div className={PREF_DESC_CLASS}>
+              Show the countdown while stepping through a trace puzzle.
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={preferences.timerOnTrace}
+            aria-label="Timer on Trace"
+            className={`relative flex-none w-10 h-[23px] rounded-full border-0 cursor-pointer ${
+              preferences.timerOnTrace ? 'bg-accent' : 'bg-border-strong'
+            }`}
+            onClick={() => void updatePreference('timerOnTrace', !preferences.timerOnTrace)}
+          >
+            <span
+              className={`absolute top-[2px] left-[2px] w-[19px] h-[19px] rounded-full transition-transform duration-150 ease-out ${
+                preferences.timerOnTrace ? 'translate-x-[17px] bg-accent-ink' : 'bg-text-0'
+              }`}
+            />
+          </button>
+        </div>
+
+        <div className={PREF_ROW_CLASS}>
+          <div>
+            <div className={PREF_LABEL_CLASS}>Reduce motion</div>
+            <div className={PREF_DESC_CLASS}>
+              Turn off transitions and animation, independent of your device&apos;s own setting.
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={preferences.reducedMotion}
+            aria-label="Reduce motion"
+            className={`relative flex-none w-10 h-[23px] rounded-full border-0 cursor-pointer ${
+              preferences.reducedMotion ? 'bg-accent' : 'bg-border-strong'
+            }`}
+            onClick={() => void updatePreference('reducedMotion', !preferences.reducedMotion)}
+          >
+            <span
+              className={`absolute top-[2px] left-[2px] w-[19px] h-[19px] rounded-full transition-transform duration-150 ease-out ${
+                preferences.reducedMotion ? 'translate-x-[17px] bg-accent-ink' : 'bg-text-0'
+              }`}
+            />
+          </button>
+        </div>
+
+        <div className={PREF_ROW_CLASS}>
+          <div>
+            <div className={PREF_LABEL_CLASS}>Code font size</div>
+            <div className={PREF_DESC_CLASS}>Applies to every puzzle&apos;s code snippet.</div>
+          </div>
+          <div
+            className="flex flex-none border border-border rounded-md overflow-hidden"
+            role="group"
+            aria-label="Code font size"
+          >
+            {CODE_FONT_SIZE_OPTIONS.map((option, index) => (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={preferences.codeFontSize === option.value}
+                className={`min-w-11 min-h-11 px-3 text-sm font-bold cursor-pointer border-0 ${
+                  index > 0 ? 'border-l border-border' : ''
+                } ${
+                  preferences.codeFontSize === option.value
+                    ? 'bg-accent text-accent-ink'
+                    : 'bg-surface-1 text-text-1'
+                }`}
+                onClick={() => void updatePreference('codeFontSize', option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className={PREF_ROW_CLASS}>
+          <div className="w-full">
+            <div className={PREF_LABEL_CLASS}>Theme</div>
+            <div className={PREF_DESC_CLASS}>
+              Pick the accent and surface palette used across the app.
+            </div>
+            <div className="flex flex-wrap gap-2 mt-3" role="group" aria-label="Theme">
+              {THEME_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={preferences.theme === option.value}
+                  className={`min-h-11 px-3.5 rounded-md text-sm font-bold cursor-pointer border ${
+                    preferences.theme === option.value
+                      ? 'border-accent bg-surface-2 text-text-0'
+                      : 'border-border bg-surface-1 text-text-1'
+                  }`}
+                  onClick={() => void updatePreference('theme', option.value)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
         <h2 className={SECTION_HEADING_CLASS}>Your data</h2>
         <p className={SECTION_COPY_CLASS}>
           Codoro has no accounts — your rating, streak, and puzzle history live only in this
@@ -253,6 +422,44 @@ export function SettingsPage() {
           <code className={INLINE_CODE_CLASS}>&quot;profile&quot;</code>, save, then import that
           file back in here.
         </p>
+      </section>
+
+      <section>
+        <h2 className={SECTION_HEADING_CLASS}>Keyboard shortcuts</h2>
+        <p className={SECTION_COPY_CLASS}>On desktop, every puzzle is playable without a mouse.</p>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-md text-text-0">
+          <dt>
+            <code className={INLINE_CODE_CLASS}>Tab</code> /{' '}
+            <code className={INLINE_CODE_CLASS}>Shift+Tab</code>
+          </dt>
+          <dd className="m-0">Move between choices, buttons, and other controls</dd>
+          <dt>
+            <code className={INLINE_CODE_CLASS}>↑</code> /{' '}
+            <code className={INLINE_CODE_CLASS}>↓</code>
+          </dt>
+          <dd className="m-0">
+            Move focus between choices without leaving the list (multiple choice, tap-the-line,
+            drag-order)
+          </dd>
+          <dt>
+            <code className={INLINE_CODE_CLASS}>Enter</code>
+          </dt>
+          <dd className="m-0">Submit the focused choice — focus then jumps to Next puzzle</dd>
+          <dt>
+            <code className={INLINE_CODE_CLASS}>Enter</code> again
+          </dt>
+          <dd className="m-0">Advance once Next puzzle has focus</dd>
+          <dt>
+            <code className={INLINE_CODE_CLASS}>←</code> /{' '}
+            <code className={INLINE_CODE_CLASS}>→</code>
+          </dt>
+          <dd className="m-0">On a swipe puzzle: your answer (left or right)</dd>
+          <dt>
+            <code className={INLINE_CODE_CLASS}>←</code> /{' '}
+            <code className={INLINE_CODE_CLASS}>→</code>
+          </dt>
+          <dd className="m-0">On a trace: step backward or forward one line</dd>
+        </dl>
       </section>
 
       {dialogState && (

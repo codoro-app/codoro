@@ -3,7 +3,7 @@ import { deleteDB } from 'idb'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RATING_FLOOR } from '../engine'
 import { DB_NAME } from './db'
-import { CURRENT_SCHEMA_VERSION } from './schema'
+import { CURRENT_SCHEMA_VERSION, DEFAULT_PREFERENCES } from './schema'
 import type { Attempt, UserProfile } from './schema'
 import { appendAttempt, listAttempts } from './attempts'
 import { loadProfile, saveProfile } from './profile'
@@ -27,6 +27,7 @@ function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
     bossStats: null,
     missionProgress: null,
     missionStats: null,
+    preferences: DEFAULT_PREFERENCES,
     anonId: 'anon-fixture-1',
     ...overrides,
   }

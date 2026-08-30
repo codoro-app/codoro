@@ -5,6 +5,7 @@ import {
   getLifetimeTotals,
   ACTIVITY_CALENDAR_WEEKS,
 } from './statsData'
+import { DEFAULT_PREFERENCES } from '../../storage'
 import type { Attempt, UserProfile } from '../../storage'
 
 const NOW_ISO = '2026-08-14T12:00:00.000Z'
@@ -39,6 +40,7 @@ function profile(overrides: Partial<UserProfile> = {}): UserProfile {
     bossStats: null,
     missionProgress: null,
     missionStats: null,
+    preferences: DEFAULT_PREFERENCES,
     anonId: 'test-anon-id',
     ...overrides,
   }

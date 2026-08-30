@@ -8,6 +8,8 @@ import {
   CURRENT_SCHEMA_VERSION,
   appendAttempt,
   createDefaultProfile,
+  exportData,
+  importData,
   listAttempts,
   loadProfile,
   saveProfile,
@@ -181,5 +183,87 @@ describe('SettingsPage', () => {
     expect(stored.ratedAttemptCount).toBe(42)
     expect(stored.bestRunStreak).toBe(9)
     expect(await listAttempts()).toEqual([incomingAttempt])
+  })
+
+  it('lists keyboard shortcuts (v4 Phase 4.0, todo 24; copy clarified per PR #88 review)', () => {
+    render(<SettingsPage />)
+    expect(screen.getByRole('heading', { name: 'Keyboard shortcuts' })).toBeInTheDocument()
+    expect(screen.getByText('Tab')).toBeInTheDocument()
+    // "Enter" now appears twice — once for the commit step, once for the
+    // separate advance step (the two-Enter-presses distinction this test's
+    // predecessor didn't cover, per the live-review finding that the old
+    // single "commit, then advance" line read as one press doing both).
+    expect(screen.getAllByText('Enter').length).toBe(2)
+    expect(screen.getByText(/submit the focused choice/i)).toBeInTheDocument()
+    expect(screen.getByText(/advance once next puzzle has focus/i)).toBeInTheDocument()
+  })
+
+  describe('Preferences (v4 Phase 4.1)', () => {
+    it('toggling Timer on Trace flips aria-checked and persists to storage', async () => {
+      await saveProfile(createDefaultProfile())
+      render(<SettingsPage />)
+      await waitFor(() => screen.getByText('Settings'))
+
+      const toggle = screen.getByRole('switch', { name: 'Timer on Trace' })
+      expect(toggle).toHaveAttribute('aria-checked', 'false')
+
+      const user = userEvent.setup()
+      await user.click(toggle)
+
+      await waitFor(() => {
+        expect(toggle).toHaveAttribute('aria-checked', 'true')
+      })
+      expect((await loadProfile()).preferences.timerOnTrace).toBe(true)
+    })
+
+    it('picking a code font size updates aria-pressed and persists to storage', async () => {
+      await saveProfile(createDefaultProfile())
+      render(<SettingsPage />)
+      await waitFor(() => screen.getByText('Settings'))
+
+      const user = userEvent.setup()
+      const largeOption = screen.getByRole('button', { name: 'L' })
+      await user.click(largeOption)
+
+      await waitFor(() => {
+        expect(largeOption).toHaveAttribute('aria-pressed', 'true')
+      })
+      expect((await loadProfile()).preferences.codeFontSize).toBe('lg')
+    })
+
+    it('picking a theme updates aria-pressed, sets data-app-theme on the document root, and persists to storage', async () => {
+      await saveProfile(createDefaultProfile())
+      render(<SettingsPage />)
+      await waitFor(() => screen.getByText('Settings'))
+
+      const user = userEvent.setup()
+      const blueOption = screen.getByRole('button', { name: 'Blue' })
+      await user.click(blueOption)
+
+      await waitFor(() => {
+        expect(blueOption).toHaveAttribute('aria-pressed', 'true')
+      })
+      expect(document.documentElement.dataset.appTheme).toBe('blue')
+      expect((await loadProfile()).preferences.theme).toBe('blue')
+    })
+
+    it('every preference round-trips through export -> import unchanged', async () => {
+      const seeded = {
+        ...createDefaultProfile(),
+        preferences: {
+          timerOnTrace: true,
+          reducedMotion: true,
+          codeFontSize: 'lg' as const,
+          theme: 'slate' as const,
+        },
+      }
+      await saveProfile(seeded)
+
+      const json = await exportData()
+      await deleteDB(DB_NAME)
+      await importData(json)
+
+      expect((await loadProfile()).preferences).toEqual(seeded.preferences)
+    })
   })
 })

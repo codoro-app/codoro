@@ -75,4 +75,17 @@ describe('NavRail', () => {
     expect(screen.queryByText('Codoro')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Expand navigation' })).toBeInTheDocument()
   })
+
+  // v4 Phase 4.1 (Settings, for real): the rail-footer gear.
+  it('is a real link to /settings, next to the collapse button', () => {
+    render(<NavRail />)
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings')
+  })
+
+  it('marks the Settings gear as the active route on /settings', () => {
+    window.history.pushState({}, '', '/settings')
+    render(<NavRail />)
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('link', { name: 'Practice' })).not.toHaveAttribute('aria-current')
+  })
 })

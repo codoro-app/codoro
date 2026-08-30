@@ -204,11 +204,25 @@ export function PracticePage() {
   // environment, doesn't implement it — same `typeof === 'function'`
   // feature-detection convention as SwipeBinary.tsx/DragOrder.tsx's
   // pointer-capture guards, rather than a jsdom-only special case here).
+  //
+  // Only scrolls when the card is actually out of view (todo 25, v4 Phase
+  // 4.0): on desktop the new puzzle usually renders in the same spot as the
+  // old one, so forcing scrollIntoView unconditionally on every puzzleId
+  // change yanked StatusBar/Browse-patterns/filter-chip rows (which render
+  // above the card) out of view on every single "Next puzzle" click, even
+  // though nothing needed scrolling. Gating on the card's own
+  // getBoundingClientRect().top preserves the 2026-08-18 fix's actual
+  // purpose (bring an off-screen — above or below the viewport — card into
+  // view) without re-scrolling a card that's already visible.
   useEffect(() => {
     if (!puzzleId) return
     const card = puzzleCardRef.current
     if (card && typeof card.scrollIntoView === 'function') {
-      card.scrollIntoView({ block: 'start' })
+      const { top } = card.getBoundingClientRect()
+      const outOfView = top < 0 || top >= window.innerHeight
+      if (outOfView) {
+        card.scrollIntoView({ block: 'start' })
+      }
     } else {
       window.scrollTo({ top: 0 })
     }
