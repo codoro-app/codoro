@@ -13,6 +13,7 @@
  * component or `useBossSession` itself needing to know Missions exist —
  * defaults to `session.handleContinue`, BossPage's own original behavior.
  */
+import { createPortal } from 'react-dom'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { BOSS_STRIKE_LIMIT } from '../../engine'
 import type { BossSession } from './useBossSession'
@@ -20,6 +21,14 @@ import type { BossSession } from './useBossSession'
 export interface BossActivePlayProps {
   session: BossSession
   onContinue?: () => void
+  /**
+   * Desktop right-rail target (v4 Phase 4.5 — "the right rail"), same
+   * `createPortal` pattern as RushActivePlay.tsx's identical prop. Portals
+   * the character/health/position status row plus, forwarded through,
+   * PuzzleCardShell's own post-commit feedback block. Omitted or `null`
+   * falls back to the pre-existing inline placement for both.
+   */
+  sidebarSlot?: HTMLElement | null
 }
 
 /**
@@ -61,12 +70,12 @@ function characterReactionClass(lastAnswerCorrect: boolean | null): string {
   return base
 }
 
-export function BossActivePlay({ session, onContinue }: BossActivePlayProps) {
+export function BossActivePlay({ session, onContinue, sidebarSlot = null }: BossActivePlayProps) {
   // Health-bar fill: 100% at 0 strikes, draining to 0% once BOSS_STRIKE_LIMIT
   // lands — same math as BossPage.tsx's own original inline computation.
   const healthPercent = ((BOSS_STRIKE_LIMIT - session.strikes) / BOSS_STRIKE_LIMIT) * 100
 
-  return (
+  const statusContent = (
     <>
       <div className="boss-character flex items-center gap-2" aria-hidden="true">
         <span
@@ -113,6 +122,13 @@ export function BossActivePlay({ session, onContinue }: BossActivePlayProps) {
           return <span key={i} className={`boss-progress__pip boss-progress__pip--${state}`} />
         })}
       </div>
+    </>
+  )
+
+  return (
+    <>
+      {!sidebarSlot && statusContent}
+      {sidebarSlot && createPortal(statusContent, sidebarSlot)}
 
       {session.puzzle && (
         <PuzzleCardShell
@@ -122,6 +138,7 @@ export function BossActivePlay({ session, onContinue }: BossActivePlayProps) {
           onAnswered={session.handleAnswered}
           onContinue={onContinue ?? session.handleContinue}
           continueDestination={session.willEndOnContinue ? 'results' : 'next-puzzle'}
+          sidebarSlot={sidebarSlot}
         />
       )}
     </>

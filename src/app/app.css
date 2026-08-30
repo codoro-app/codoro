@@ -96,9 +96,34 @@
     grid-template-columns: var(--nav-rail-width-collapsed) 1fr;
   }
 
+  /* v4 Phase 4.5 follow-up (right-rail widen): was `1fr var(--sidebar-width)`
+   * — main stretched to fill every pixel left over between the nav rail and
+   * the sidebar, so on any viewport wider than nav-rail + content-width +
+   * sidebar-width, that leftover space became huge dead margins around the
+   * (fixed max-width) puzzle card, with the sidebar stranded far to the
+   * right of it — reported live as "sidebar looks small, lots of dead
+   * space" even after the sidebar itself got wider. Sizing main's own track
+   * to match its actual content width (same --content-width-desktop every
+   * page already caps itself to via its own max-w-[...] mx-auto, now
+   * redundant on desktop but harmless) and centering the whole main+sidebar
+   * pair keeps them adjacent, with a real gap between them instead of an
+   * accidental one.
+   *
+   * `justify-content: end`, not `center` (live-reported follow-up): centering
+   * this fixed-width pair splits the container's leftover space into two
+   * equal margins — one between the nav rail and main, and a second one
+   * after the sidebar, which read as an empty void trailing the sidebar's
+   * bordered card panel on any viewport wider than nav-rail + content-width
+   * + sidebar-width (i.e. most desktop screens). `end` sends all of that
+   * leftover space to the *left* margin instead — ordinary breathing room
+   * between the nav rail and the puzzle card — while the sidebar returns to
+   * sitting flush against the content area's true right edge, same resting
+   * spot it had before this pair got a max-width at all. */
   .app-shell__content {
     display: grid;
-    grid-template-columns: 1fr var(--sidebar-width);
+    grid-template-columns: minmax(0, var(--content-width-desktop)) var(--sidebar-width);
+    column-gap: var(--space-8);
+    justify-content: end;
     align-items: start;
     grid-template-areas: 'main sidebar';
   }

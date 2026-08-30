@@ -13,6 +13,7 @@
  * component or `useRushSession` itself needing to know Missions exist —
  * defaults to `session.handleContinue`, RushPage's own original behavior.
  */
+import { createPortal } from 'react-dom'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { RushIcon } from '../Icons'
 import { RUSH_PUZZLE_TIME_LIMIT_MS } from './useRushSession'
@@ -21,10 +22,20 @@ import type { RushSession } from './useRushSession'
 export interface RushActivePlayProps {
   session: RushSession
   onContinue?: () => void
+  /**
+   * Desktop right-rail target (v4 Phase 4.5 — "the right rail"), same
+   * `createPortal` pattern as PuzzleCardShell.tsx's identical prop. Two
+   * pieces portal here when set: the strikes/solved/timer status row
+   * (moved) and, forwarded straight through, PuzzleCardShell's own
+   * post-commit feedback block. Omitted or `null` falls back to the
+   * pre-existing inline placement for both — every existing caller
+   * (RushPage.tsx, Missions' SpeedStage) keeps working unchanged.
+   */
+  sidebarSlot?: HTMLElement | null
 }
 
-export function RushActivePlay({ session, onContinue }: RushActivePlayProps) {
-  return (
+export function RushActivePlay({ session, onContinue, sidebarSlot = null }: RushActivePlayProps) {
+  const statusContent = (
     <>
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div
@@ -92,6 +103,13 @@ export function RushActivePlay({ session, onContinue }: RushActivePlayProps) {
           {Math.ceil(session.remainingMs / 1000)}s
         </span>
       </div>
+    </>
+  )
+
+  return (
+    <>
+      {!sidebarSlot && statusContent}
+      {sidebarSlot && createPortal(statusContent, sidebarSlot)}
 
       {session.puzzle && (
         <PuzzleCardShell
@@ -102,6 +120,7 @@ export function RushActivePlay({ session, onContinue }: RushActivePlayProps) {
           onContinue={onContinue ?? session.handleContinue}
           forcedCommit={session.forcedCommit}
           continueDestination={session.willEndOnContinue ? 'results' : 'next-puzzle'}
+          sidebarSlot={sidebarSlot}
         />
       )}
     </>

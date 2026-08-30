@@ -36,6 +36,7 @@
 import { useEffect, useState } from 'react'
 import { DEFAULT_PREFERENCES, loadProfile } from '../../storage'
 import { TraceRunner } from './TraceRunner'
+import { useMediaQuery } from '../useMediaQuery'
 
 // 2b.0: was `.trace-page` (tracePage.css, max-width breakpoint matches
 // Tailwind's `lg` exactly). Not test-asserted (grep-verified).
@@ -44,6 +45,10 @@ const PAGE_SHELL_CLASS =
 
 export function TracePage() {
   const [timerOnTrace, setTimerOnTrace] = useState(DEFAULT_PREFERENCES.timerOnTrace)
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
+  // v4 Phase 4.5 ("the right rail") — same ref-callback-in-state portal
+  // target as PracticePage.tsx's identical `sidebarSlotEl`.
+  const [sidebarSlotEl, setSidebarSlotEl] = useState<HTMLDivElement | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -61,8 +66,21 @@ export function TracePage() {
   }, [])
 
   return (
-    <div className={PAGE_SHELL_CLASS}>
-      <TraceRunner timed={timerOnTrace} />
-    </div>
+    <>
+      <div className={PAGE_SHELL_CLASS}>
+        <TraceRunner timed={timerOnTrace} sidebarSlot={sidebarSlotEl} />
+      </div>
+
+      {isDesktop && (
+        // New sidebar (v4 Phase 4.5) — Trace had none before. Checkpoint
+        // progress + the solve/explanation block portal in here from
+        // TraceRunnerPuzzle (see its `sidebarSlot` doc comment); `empty:hidden`
+        // matches PracticePage.tsx's identical slot so it claims no space
+        // (and no stray `gap-4` slot) before anything has portaled in.
+        <aside className="app-shell__sidebar flex flex-col gap-4 py-6 px-4 border-l border-border self-start">
+          <div ref={setSidebarSlotEl} className="empty:hidden flex flex-col gap-4" />
+        </aside>
+      )}
+    </>
   )
 }

@@ -207,7 +207,7 @@
   /* --- shell layout widths --- */
   --nav-rail-width: 220px;
   --nav-rail-width-collapsed: 76px;
-  --sidebar-width: 296px;
+  --sidebar-width: 380px;
   --content-width-mobile: 480px;
   --content-width-desktop: 640px;
   /* v3 Phase 2b.8: BottomNav.tsx's own rendered height (icon+label row +

@@ -18,6 +18,7 @@ import type { RatingWindowDays, RatingHistoryPoint, ActivityDay } from './statsD
 import { computeMastery, MIN_ATTEMPTS_FOR_MASTERY } from '../practice/mastery'
 import type { PatternMastery } from '../practice/mastery'
 import { PATTERN_LABELS, puzzleMeta } from '../../content'
+import { useMediaQuery } from '../useMediaQuery'
 
 const PAGE_SHELL_CLASS =
   'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[var(--space-4)] px-4 pb-4'
@@ -100,6 +101,13 @@ export function StatsPage() {
   // trip) even though this component happens not to need it.
   const [ratingWindow, setRatingWindow] = useState<RatingWindowDays>(7)
   const cancelledRef = useRef(false)
+  // v4 Phase 4.5 ("the right rail") — Stats has no post-answer feedback to
+  // portal (pure layout reshuffle, not the scroll-after-answer problem the
+  // other pages solve), so this is a plain isDesktop split: main keeps the
+  // rating hero/graph/mastery heatmap, the sidebar gets the weakest-pattern
+  // CTA + activity calendar + lifetime totals. Mobile (no sidebar) renders
+  // everything inline in its original single-column order.
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
 
   useEffect(() => {
     cancelledRef.current = false
@@ -137,190 +145,211 @@ export function StatsPage() {
   const activityDays = getActivityCalendar(attempts, nowIso)
   const totals = getLifetimeTotals(attempts, profile)
 
-  return (
-    <div className={PAGE_SHELL_CLASS}>
-      {attempts.length === 0 && (
-        <div className="flex items-center justify-between gap-3 p-4 rounded-md border border-accent bg-accent-dim">
-          <p className="m-0 text-sm text-text-0">
-            You haven't solved any puzzles yet — your stats will start filling in as soon as you do.
-          </p>
-          <Link
-            href="/practice"
-            className="shrink-0 flex items-center min-h-11 py-1.5 px-3 rounded-full text-sm font-bold bg-accent text-accent-ink no-underline"
-          >
-            Start practicing
-          </Link>
-        </div>
-      )}
-
-      <div className="flex flex-col gap-1">
-        <span className="text-sm font-bold text-text-1 uppercase tracking-[0.04em]">Rating</span>
-        <span className="text-4xl font-bold text-text-0 leading-none tabular-nums">
-          {Math.round(profile.rating)}
-        </span>
-        {delta !== null && (
-          <span
-            className={`text-xs font-bold font-mono ${delta >= 0 ? 'text-accent' : 'text-danger'}`}
-          >
-            {delta >= 0 ? '▲' : '▼'} {delta >= 0 ? '+' : ''}
-            {delta}
-          </span>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-2 p-4 rounded-md border border-border bg-surface-1">
-        <div className="flex items-center gap-2" role="group" aria-label="Rating graph window">
-          {WINDOW_OPTIONS.map((opt) => (
-            <button
-              key={opt.label}
-              type="button"
-              className={toggleClass(ratingWindow === opt.value)}
-              aria-pressed={ratingWindow === opt.value}
-              onClick={() => {
-                setRatingWindow(opt.value)
-              }}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
-        {graphPoints.length === 0 ? (
-          <p className="text-sm text-text-1 py-4 text-center">
-            Solve a few puzzles and your rating history will show up here.
-          </p>
-        ) : (
-          <svg
-            viewBox="0 0 300 70"
-            width="100%"
-            height="70"
-            role="img"
-            aria-label="Rating over time"
-          >
-            {graphPoints.length > 1 && (
-              <polyline
-                points={graphPoints.map((p) => `${String(p.x)},${String(p.y)}`).join(' ')}
-                fill="none"
-                stroke="var(--accent)"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            )}
-            {graphPoints.map((p) => (
-              <circle key={p.date} cx={p.x} cy={p.y} r="3" fill="var(--accent)">
-                <title>
-                  {p.date}: {p.rating}
-                </title>
-              </circle>
-            ))}
-          </svg>
-        )}
-      </div>
-
-      {weakest ? (
-        <Link
-          href={`/practice?pattern=${weakest.pattern}`}
-          className="flex items-center gap-3 p-4 rounded-md border border-danger bg-danger-dim no-underline text-text-0"
-        >
-          <span aria-hidden="true" className="text-xl">
-            🎯
-          </span>
-          <span className="flex flex-col gap-0.5">
-            <span className="text-sm font-bold">Practice this next</span>
-            <span className="text-xs text-text-1">
-              {PATTERN_LABELS[weakest.pattern]} · {Math.round((weakest.accuracy ?? 0) * 100)}%
-              accuracy
-            </span>
-          </span>
-        </Link>
-      ) : (
-        // No pattern has cleared MIN_ATTEMPTS_FOR_MASTERY yet — keep this
-        // card slot occupied rather than letting the section vanish, so a
-        // new user gets a next action instead of a gap in the layout.
+  const emptyBanner =
+    attempts.length === 0 ? (
+      <div className="flex items-center justify-between gap-3 p-4 rounded-md border border-accent bg-accent-dim">
+        <p className="m-0 text-sm text-text-0">
+          You haven't solved any puzzles yet — your stats will start filling in as soon as you do.
+        </p>
         <Link
           href="/practice"
-          className="flex items-center gap-3 p-4 rounded-md border border-border bg-surface-1 no-underline text-text-0"
+          className="shrink-0 flex items-center min-h-11 py-1.5 px-3 rounded-full text-sm font-bold bg-accent text-accent-ink no-underline"
         >
-          <span aria-hidden="true" className="text-xl">
-            🎯
-          </span>
-          <span className="flex flex-col gap-0.5">
-            <span className="text-sm font-bold">Practice a pattern</span>
-            <span className="text-xs text-text-1">
-              Solve a few puzzles and your weakest pattern will show up here.
-            </span>
-          </span>
+          Start practicing
         </Link>
-      )}
+      </div>
+    ) : null
 
-      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4">
-        <div className="flex flex-col gap-2 p-4 rounded-md border border-border bg-surface-1">
-          <p className="m-0 text-base font-bold">Mastery by pattern</p>
-          <p className="m-0 text-xs text-text-2">
-            Gray = not enough data yet. Solve puzzles to fill this in.
-          </p>
-          <div className="grid grid-cols-5 gap-1.5">
-            {masteryRows.map((row) => {
-              const state = masteryState(row)
-              return (
-                <Link
-                  key={row.pattern}
-                  href={`/practice?pattern=${row.pattern}`}
-                  className={heatCellClass(state)}
-                  title={`${PATTERN_LABELS[row.pattern]}: ${
-                    row.accuracy === null
-                      ? `not enough data (${String(row.attemptCount)}/${String(MIN_ATTEMPTS_FOR_MASTERY)})`
-                      : `${String(Math.round(row.accuracy * 100))}%`
-                  }`}
-                >
-                  <span className="sr-only">{PATTERN_LABELS[row.pattern]}</span>
-                </Link>
-              )
-            })}
-          </div>
-        </div>
-        <div className="flex flex-col gap-2 p-4 rounded-md border border-border bg-surface-1">
-          <div className="flex items-center justify-between gap-2">
-            <p className="m-0 text-base font-bold">Activity</p>
-            <span className="font-mono text-xs font-bold text-warn">
-              {profile.streak.currentStreak > 0
-                ? `🔥 ${String(profile.streak.currentStreak)} day streak`
-                : 'Start your streak today'}
-            </span>
-          </div>
-          <div
-            className="grid grid-cols-[repeat(12,1fr)] gap-1"
-            role="img"
-            aria-label="Activity calendar — the last 12 weeks"
+  const ratingHero = (
+    <div className="flex flex-col gap-1">
+      <span className="text-sm font-bold text-text-1 uppercase tracking-[0.04em]">Rating</span>
+      <span className="text-4xl font-bold text-text-0 leading-none tabular-nums">
+        {Math.round(profile.rating)}
+      </span>
+      {delta !== null && (
+        <span
+          className={`text-xs font-bold font-mono ${delta >= 0 ? 'text-accent' : 'text-danger'}`}
+        >
+          {delta >= 0 ? '▲' : '▼'} {delta >= 0 ? '+' : ''}
+          {delta}
+        </span>
+      )}
+    </div>
+  )
+
+  const graphCard = (
+    <div className="flex flex-col gap-2 p-4 rounded-md border border-border bg-surface-1">
+      <div className="flex items-center gap-2" role="group" aria-label="Rating graph window">
+        {WINDOW_OPTIONS.map((opt) => (
+          <button
+            key={opt.label}
+            type="button"
+            className={toggleClass(ratingWindow === opt.value)}
+            aria-pressed={ratingWindow === opt.value}
+            onClick={() => {
+              setRatingWindow(opt.value)
+            }}
           >
-            {activityDays.map((day: ActivityDay) => (
-              <div key={day.date} className={activityCellClass(day.active)} title={day.date} />
-            ))}
-          </div>
-        </div>
+            {opt.label}
+          </button>
+        ))}
       </div>
 
-      <div className="grid grid-cols-4 gap-2 p-4 rounded-md border border-border bg-surface-1">
-        <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-lg font-bold tabular-nums">{totals.solved}</span>
-          <span className="text-[10px] text-text-2">Solved</span>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-lg font-bold tabular-nums">{totals.bestStreak}</span>
-          <span className="text-[10px] text-text-2">Best streak</span>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-lg font-bold tabular-nums">
-            {Math.round(totals.totalTimeMs / 3_600_000)}h
-          </span>
-          <span className="text-[10px] text-text-2">Practiced</span>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-lg font-bold tabular-nums">{totals.modesPlayed}</span>
-          <span className="text-[10px] text-text-2">Modes</span>
-        </div>
+      {graphPoints.length === 0 ? (
+        <p className="text-sm text-text-1 py-4 text-center">
+          Solve a few puzzles and your rating history will show up here.
+        </p>
+      ) : (
+        <svg viewBox="0 0 300 70" width="100%" height="70" role="img" aria-label="Rating over time">
+          {graphPoints.length > 1 && (
+            <polyline
+              points={graphPoints.map((p) => `${String(p.x)},${String(p.y)}`).join(' ')}
+              fill="none"
+              stroke="var(--accent)"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
+          {graphPoints.map((p) => (
+            <circle key={p.date} cx={p.x} cy={p.y} r="3" fill="var(--accent)">
+              <title>
+                {p.date}: {p.rating}
+              </title>
+            </circle>
+          ))}
+        </svg>
+      )}
+    </div>
+  )
+
+  const weakestCta = weakest ? (
+    <Link
+      href={`/practice?pattern=${weakest.pattern}`}
+      className="flex items-center gap-3 p-4 rounded-md border border-danger bg-danger-dim no-underline text-text-0"
+    >
+      <span aria-hidden="true" className="text-xl">
+        🎯
+      </span>
+      <span className="flex flex-col gap-0.5">
+        <span className="text-sm font-bold">Practice this next</span>
+        <span className="text-xs text-text-1">
+          {PATTERN_LABELS[weakest.pattern]} · {Math.round((weakest.accuracy ?? 0) * 100)}% accuracy
+        </span>
+      </span>
+    </Link>
+  ) : (
+    // No pattern has cleared MIN_ATTEMPTS_FOR_MASTERY yet — keep this
+    // card slot occupied rather than letting the section vanish, so a
+    // new user gets a next action instead of a gap in the layout.
+    <Link
+      href="/practice"
+      className="flex items-center gap-3 p-4 rounded-md border border-border bg-surface-1 no-underline text-text-0"
+    >
+      <span aria-hidden="true" className="text-xl">
+        🎯
+      </span>
+      <span className="flex flex-col gap-0.5">
+        <span className="text-sm font-bold">Practice a pattern</span>
+        <span className="text-xs text-text-1">
+          Solve a few puzzles and your weakest pattern will show up here.
+        </span>
+      </span>
+    </Link>
+  )
+
+  const masteryCard = (
+    <div className="flex flex-col gap-2 p-4 rounded-md border border-border bg-surface-1">
+      <p className="m-0 text-base font-bold">Mastery by pattern</p>
+      <p className="m-0 text-xs text-text-2">
+        Gray = not enough data yet. Solve puzzles to fill this in.
+      </p>
+      <div className="grid grid-cols-5 gap-1.5">
+        {masteryRows.map((row) => {
+          const state = masteryState(row)
+          return (
+            <Link
+              key={row.pattern}
+              href={`/practice?pattern=${row.pattern}`}
+              className={heatCellClass(state)}
+              title={`${PATTERN_LABELS[row.pattern]}: ${
+                row.accuracy === null
+                  ? `not enough data (${String(row.attemptCount)}/${String(MIN_ATTEMPTS_FOR_MASTERY)})`
+                  : `${String(Math.round(row.accuracy * 100))}%`
+              }`}
+            >
+              <span className="sr-only">{PATTERN_LABELS[row.pattern]}</span>
+            </Link>
+          )
+        })}
       </div>
     </div>
+  )
+
+  const activityCard = (
+    <div className="flex flex-col gap-2 p-4 rounded-md border border-border bg-surface-1">
+      <div className="flex items-center justify-between gap-2">
+        <p className="m-0 text-base font-bold">Activity</p>
+        <span className="font-mono text-xs font-bold text-warn">
+          {profile.streak.currentStreak > 0
+            ? `🔥 ${String(profile.streak.currentStreak)} day streak`
+            : 'Start your streak today'}
+        </span>
+      </div>
+      <div
+        className="grid grid-cols-[repeat(12,1fr)] gap-1"
+        role="img"
+        aria-label="Activity calendar — the last 12 weeks"
+      >
+        {activityDays.map((day: ActivityDay) => (
+          <div key={day.date} className={activityCellClass(day.active)} title={day.date} />
+        ))}
+      </div>
+    </div>
+  )
+
+  const totalsGrid = (
+    <div className="grid grid-cols-4 gap-2 p-4 rounded-md border border-border bg-surface-1">
+      <div className="flex flex-col gap-0.5">
+        <span className="font-mono text-lg font-bold tabular-nums">{totals.solved}</span>
+        <span className="text-[10px] text-text-2">Solved</span>
+      </div>
+      <div className="flex flex-col gap-0.5">
+        <span className="font-mono text-lg font-bold tabular-nums">{totals.bestStreak}</span>
+        <span className="text-[10px] text-text-2">Best streak</span>
+      </div>
+      <div className="flex flex-col gap-0.5">
+        <span className="font-mono text-lg font-bold tabular-nums">
+          {Math.round(totals.totalTimeMs / 3_600_000)}h
+        </span>
+        <span className="text-[10px] text-text-2">Practiced</span>
+      </div>
+      <div className="flex flex-col gap-0.5">
+        <span className="font-mono text-lg font-bold tabular-nums">{totals.modesPlayed}</span>
+        <span className="text-[10px] text-text-2">Modes</span>
+      </div>
+    </div>
+  )
+
+  return (
+    <>
+      <div className={PAGE_SHELL_CLASS}>
+        {emptyBanner}
+        {ratingHero}
+        {graphCard}
+        {!isDesktop && weakestCta}
+        {masteryCard}
+        {!isDesktop && activityCard}
+        {!isDesktop && totalsGrid}
+      </div>
+
+      {isDesktop && (
+        <aside className="app-shell__sidebar flex flex-col gap-4 py-6 px-4 border-l border-border self-start">
+          {weakestCta}
+          {activityCard}
+          {totalsGrid}
+        </aside>
+      )}
+    </>
   )
 }

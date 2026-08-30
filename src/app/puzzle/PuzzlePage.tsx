@@ -58,6 +58,7 @@ import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { TraceRunnerPuzzle } from '../trace/TraceRunner'
 import { trackError, trackPuzzleLinkAttempt, trackPuzzleLinkView } from '../../telemetry'
 import type { CommitPayload } from '../practice/interactionTypes'
+import { useMediaQuery } from '../useMediaQuery'
 import '../tokens.css'
 
 // 2b.0: was `.puzzle-page` (puzzlePage.css, max-width breakpoint matches
@@ -91,9 +92,11 @@ function PracticeMoreCta({ pattern }: PracticeMoreCtaProps) {
 
 interface QuizLinkPuzzleProps {
   puzzle: QuizPuzzle
+  /** v4 Phase 4.5 ("the right rail") — forwarded to PuzzleCardShell. */
+  sidebarSlot?: HTMLElement | null
 }
 
-function QuizLinkPuzzle({ puzzle }: QuizLinkPuzzleProps) {
+function QuizLinkPuzzle({ puzzle, sidebarSlot }: QuizLinkPuzzleProps) {
   const [, navigate] = useLocation()
   const servedAtRef = useRef(0)
   useEffect(() => {
@@ -110,25 +113,25 @@ function QuizLinkPuzzle({ puzzle }: QuizLinkPuzzleProps) {
   }
 
   return (
-    <>
-      <PuzzleCardShell
-        puzzle={puzzle}
-        ratingDelta={null}
-        onAnswered={handleAnswered}
-        onContinue={() => {
-          navigate(`/practice?pattern=${puzzle.pattern}`)
-        }}
-      />
-      <PracticeMoreCta pattern={puzzle.pattern} />
-    </>
+    <PuzzleCardShell
+      puzzle={puzzle}
+      ratingDelta={null}
+      onAnswered={handleAnswered}
+      onContinue={() => {
+        navigate(`/practice?pattern=${puzzle.pattern}`)
+      }}
+      sidebarSlot={sidebarSlot}
+    />
   )
 }
 
 interface ScrubberLinkPuzzleProps {
   puzzle: ScrubberPuzzle
+  /** v4 Phase 4.5 ("the right rail") — forwarded to TraceRunnerPuzzle. */
+  sidebarSlot?: HTMLElement | null
 }
 
-function ScrubberLinkPuzzle({ puzzle }: ScrubberLinkPuzzleProps) {
+function ScrubberLinkPuzzle({ puzzle, sidebarSlot }: ScrubberLinkPuzzleProps) {
   const [, navigate] = useLocation()
   const [checkpointResults, setCheckpointResults] = useState<CheckpointResult[]>([])
   const servedAtRef = useRef(0)
@@ -165,21 +168,19 @@ function ScrubberLinkPuzzle({ puzzle }: ScrubberLinkPuzzleProps) {
   }
 
   return (
-    <>
-      <TraceRunnerPuzzle
-        puzzle={puzzle}
-        checkpointResults={checkpointResults}
-        isComplete={isComplete}
-        solved={solved}
-        ratingDelta={null}
-        onCheckpointAnswered={handleCheckpointAnswered}
-        onContinue={() => {
-          navigate(`/practice?pattern=${puzzle.pattern}`)
-        }}
-        timed={false}
-      />
-      <PracticeMoreCta pattern={puzzle.pattern} />
-    </>
+    <TraceRunnerPuzzle
+      puzzle={puzzle}
+      checkpointResults={checkpointResults}
+      isComplete={isComplete}
+      solved={solved}
+      ratingDelta={null}
+      onCheckpointAnswered={handleCheckpointAnswered}
+      onContinue={() => {
+        navigate(`/practice?pattern=${puzzle.pattern}`)
+      }}
+      timed={false}
+      sidebarSlot={sidebarSlot}
+    />
   )
 }
 
@@ -196,6 +197,10 @@ export function PuzzlePageForId({ id }: PuzzlePageForIdProps) {
   // "genuinely missing" the way it could when the lookup was synchronous.
   const [puzzle, setPuzzle] = useState<Puzzle | undefined>(undefined)
   const [loading, setLoading] = useState(true)
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
+  // v4 Phase 4.5 ("the right rail") — same ref-callback-in-state portal
+  // target as PracticePage.tsx's identical `sidebarSlotEl`.
+  const [sidebarSlotEl, setSidebarSlotEl] = useState<HTMLDivElement | null>(null)
   // Final-review finding: a rejected `getPuzzleBody` used to fall through to
   // the not-found state below, telling a player their link was "wrong, or the
   // puzzle was removed" when the real cause was usually a dropped connection.
@@ -333,13 +338,25 @@ export function PuzzlePageForId({ id }: PuzzlePageForIdProps) {
   }
 
   return (
-    <div className={PAGE_SHELL_CLASS}>
-      {isScrubberPuzzle(puzzle) ? (
-        <ScrubberLinkPuzzle puzzle={puzzle} />
-      ) : (
-        <QuizLinkPuzzle puzzle={puzzle} />
+    <>
+      <div className={PAGE_SHELL_CLASS}>
+        {isScrubberPuzzle(puzzle) ? (
+          <ScrubberLinkPuzzle puzzle={puzzle} sidebarSlot={sidebarSlotEl} />
+        ) : (
+          <QuizLinkPuzzle puzzle={puzzle} sidebarSlot={sidebarSlotEl} />
+        )}
+        {/* v4 Phase 4.5: desktop moves this CTA into the sidebar below
+            instead — kept inline here for mobile only. */}
+        {!isDesktop && <PracticeMoreCta pattern={puzzle.pattern} />}
+      </div>
+
+      {isDesktop && (
+        <aside className="app-shell__sidebar flex flex-col gap-4 py-6 px-4 border-l border-border self-start">
+          <div ref={setSidebarSlotEl} className="empty:hidden flex flex-col gap-4" />
+          <PracticeMoreCta pattern={puzzle.pattern} />
+        </aside>
       )}
-    </div>
+    </>
   )
 }
 

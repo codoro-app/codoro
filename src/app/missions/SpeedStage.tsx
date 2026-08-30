@@ -33,9 +33,11 @@ import type { MissionSession } from './useMissionSession'
 
 export interface SpeedStageProps {
   missionSession: MissionSession
+  /** v4 Phase 4.5 ("the right rail") — forwarded to RushActivePlay. */
+  sidebarSlot?: HTMLElement | null
 }
 
-export function SpeedStage({ missionSession }: SpeedStageProps) {
+export function SpeedStage({ missionSession, sidebarSlot = null }: SpeedStageProps) {
   const rushSession = useRushSession()
   // Guards against double-forwarding: the effect below can re-run on later
   // renders (e.g. missionSession's own state changing) while phase/runSummary
@@ -120,5 +122,7 @@ export function SpeedStage({ missionSession }: SpeedStageProps) {
     return null
   }
 
-  return <RushActivePlay session={rushSession} onContinue={handleContinue} />
+  return (
+    <RushActivePlay session={rushSession} onContinue={handleContinue} sidebarSlot={sidebarSlot} />
+  )
 }

@@ -41,9 +41,17 @@ import type { MissionSession } from './useMissionSession'
 
 export interface TraceStageProps {
   missionSession: MissionSession
+  /**
+   * Desktop right-rail target (v4 Phase 4.5 — "the right rail"), forwarded
+   * straight through to TraceRunnerPuzzle — same additive prop
+   * SpeedStage.tsx/BossStage.tsx already received. Appends below
+   * MissionsPage's own StageTracker in its existing sidebar. Omitted/`null`
+   * falls back to TraceRunnerPuzzle's pre-existing inline placement.
+   */
+  sidebarSlot?: HTMLElement | null
 }
 
-export function TraceStage({ missionSession }: TraceStageProps) {
+export function TraceStage({ missionSession, sidebarSlot = null }: TraceStageProps) {
   const traceSession = useTraceSession()
 
   // The just-finished puzzle counts toward the stage's tally even when it's
@@ -133,6 +141,7 @@ export function TraceStage({ missionSession }: TraceStageProps) {
         ratingDelta={traceSession.ratingDelta}
         onCheckpointAnswered={traceSession.handleCheckpointAnswered}
         onContinue={continueWithinStageOrEndStage}
+        sidebarSlot={sidebarSlot}
       />
     </>
   )

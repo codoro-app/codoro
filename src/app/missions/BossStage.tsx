@@ -30,9 +30,16 @@ import type { MissionSession } from './useMissionSession'
 
 export interface BossStageProps {
   missionSession: MissionSession
+  /**
+   * Desktop right-rail target (v4 Phase 4.5 — "the right rail"), forwarded
+   * straight through to BossActivePlay — same additive prop SpeedStage.tsx
+   * already received. MissionsPage doesn't wire this yet (build item still
+   * pending); omitted/`null` is a no-op, so this is safe ahead of that.
+   */
+  sidebarSlot?: HTMLElement | null
 }
 
-export function BossStage({ missionSession }: BossStageProps) {
+export function BossStage({ missionSession, sidebarSlot = null }: BossStageProps) {
   const bossSession = useBossSession()
   const nativeEndHandledRef = useRef(false)
 
@@ -107,5 +114,7 @@ export function BossStage({ missionSession }: BossStageProps) {
     return null
   }
 
-  return <BossActivePlay session={bossSession} onContinue={handleContinue} />
+  return (
+    <BossActivePlay session={bossSession} onContinue={handleContinue} sidebarSlot={sidebarSlot} />
+  )
 }
