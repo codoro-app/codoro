@@ -35,3 +35,25 @@ describe('index.html OG/Twitter meta tags', () => {
     expect(html).toMatch(/viewport-fit=cover/)
   })
 })
+
+describe('index.html canonical link and structured data', () => {
+  it('has a canonical link to the site root — useRouteMeta.ts overwrites it per route on the client', () => {
+    expect(html).toMatch(/<link rel="canonical" href="https:\/\/getcodoro\.com\/" \/>/)
+  })
+
+  it('has one application/ld+json block containing valid, schema.org SoftwareApplication JSON', () => {
+    const matches = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+    expect(matches).toHaveLength(1)
+    const jsonLdSource = matches[0]?.[1]
+    expect(jsonLdSource, 'application/ld+json block should not be empty').toBeTruthy()
+
+    const jsonLd: unknown = JSON.parse(jsonLdSource ?? '')
+    expect(jsonLd).toMatchObject({
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'Codoro',
+      url: 'https://getcodoro.com/',
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+    })
+  })
+})
