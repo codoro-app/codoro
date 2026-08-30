@@ -28,8 +28,18 @@
  * useRouteFocusAndScroll moves focus to and scrolls to on each route
  * change. `tabIndex={-1}` makes it programmatically focusable without
  * adding it to the tab order; `aria-label` names the active page for
- * screen-reader users landing there, since not every page has its own
- * visible `<h1>` (only LegalPage does) to move focus to instead.
+ * screen-reader users landing there regardless of whether a heading exists
+ * yet in `children` at that instant (e.g. mid-fetch, before a page's own
+ * loading/error branch has rendered anything).
+ *
+ * SEO/a11y follow-up (v4 SEO audit): most routes had no real `<h1>` at
+ * all — every page's loading/error/success branches would have needed one
+ * added individually. A single `sr-only` `<h1>` here, driven by the same
+ * `labelForPath` already used for `aria-label` above, covers every branch
+ * of every route in one place instead. Skipped for LegalPage/SettingsPage
+ * only — both already render their own real, visible `<h1>` (with a
+ * `<h2>` section hierarchy beneath it), and a second `<h1>` would break
+ * the "one clear H1 per page" rule instead of fixing it.
  * `focus:outline-none` suppresses the browser's default focus ring on
  * `<main>` — safe only because it's never in the sighted tab order, so a
  * keyboard user tabbing through the page can never land here and lose their
@@ -52,6 +62,11 @@ import './app.css'
 export interface AppShellProps {
   children: ReactNode
 }
+
+// The two routes that already render their own real, visible <h1> — see
+// this file's own top doc comment for why the sr-only <h1> below is
+// skipped for exactly these two.
+const PAGES_WITH_OWN_H1 = new Set<string>([ROUTES.legal.path, ROUTES.settings.path])
 
 export function AppShell({ children }: AppShellProps) {
   const [location] = useLocation()
@@ -165,6 +180,7 @@ export function AppShell({ children }: AppShellProps) {
         tabIndex={-1}
         aria-label={labelForPath(location)}
       >
+        {!PAGES_WITH_OWN_H1.has(location) && <h1 className="sr-only">{labelForPath(location)}</h1>}
         {children}
       </main>
       {/* 2b.8: bottom padding clears the fixed BottomNav (mobile only) —
