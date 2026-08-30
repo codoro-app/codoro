@@ -96,7 +96,7 @@ interface QuizLinkPuzzleProps {
   sidebarSlot?: HTMLElement | null
 }
 
-function QuizLinkPuzzle({ puzzle, sidebarSlot }: QuizLinkPuzzleProps) {
+function QuizLinkPuzzle({ puzzle, sidebarSlot = null }: QuizLinkPuzzleProps) {
   const [, navigate] = useLocation()
   const servedAtRef = useRef(0)
   useEffect(() => {
@@ -131,7 +131,7 @@ interface ScrubberLinkPuzzleProps {
   sidebarSlot?: HTMLElement | null
 }
 
-function ScrubberLinkPuzzle({ puzzle, sidebarSlot }: ScrubberLinkPuzzleProps) {
+function ScrubberLinkPuzzle({ puzzle, sidebarSlot = null }: ScrubberLinkPuzzleProps) {
   const [, navigate] = useLocation()
   const [checkpointResults, setCheckpointResults] = useState<CheckpointResult[]>([])
   const servedAtRef = useRef(0)
