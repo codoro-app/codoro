@@ -15,10 +15,20 @@ import {
   saveProfile,
 } from '../../storage'
 import type { Attempt, UserProfile } from '../../storage'
+import { FEEDBACK_URL } from '../FeedbackLink'
 import { SettingsPage } from './SettingsPage'
+
+const trackFeedbackLinkClicked = vi.fn()
+
+vi.mock('../../telemetry', () => ({
+  trackFeedbackLinkClicked: (...args: unknown[]) => {
+    trackFeedbackLinkClicked(...args)
+  },
+}))
 
 afterEach(async () => {
   vi.restoreAllMocks()
+  trackFeedbackLinkClicked.mockClear()
   await deleteDB(DB_NAME)
 })
 
@@ -264,6 +274,31 @@ describe('SettingsPage', () => {
       await importData(json)
 
       expect((await loadProfile()).preferences).toEqual(seeded.preferences)
+    })
+  })
+
+  // Launch instrumentation Item 2: SettingsPage's own Feedback section,
+  // its own <h2> (no second <h1> — SettingsPage already has one).
+  describe('Feedback section', () => {
+    it('has its own section heading, not a second <h1>', () => {
+      render(<SettingsPage />)
+      expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Settings')
+      expect(screen.getByRole('heading', { level: 2, name: 'Feedback' })).toBeInTheDocument()
+    })
+
+    it('links to the external Tally form, opened in a new tab', () => {
+      render(<SettingsPage />)
+      const feedbackLink = screen.getByRole('link', { name: 'Feedback' })
+      expect(feedbackLink).toHaveAttribute('href', FEEDBACK_URL)
+      expect(feedbackLink).toHaveAttribute('target', '_blank')
+      expect(feedbackLink).toHaveAttribute('rel', 'noopener noreferrer')
+    })
+
+    it('fires feedback_link_clicked with surface: "settings" when clicked', async () => {
+      const user = userEvent.setup()
+      render(<SettingsPage />)
+      await user.click(screen.getByRole('link', { name: 'Feedback' }))
+      expect(trackFeedbackLinkClicked).toHaveBeenCalledWith({ surface: 'settings' })
     })
   })
 })

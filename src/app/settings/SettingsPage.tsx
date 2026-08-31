@@ -51,6 +51,7 @@ import {
   saveProfile,
 } from '../../storage'
 import type { ExportedData, Preferences, UserProfile } from '../../storage'
+import { FeedbackLink } from '../FeedbackLink'
 import { applyPreferences } from '../preferences/applyPreferences'
 
 // 2b.0: was `.settings-page` (settingsPage.css). Not test-asserted
@@ -62,6 +63,9 @@ const PAGE_SHELL_CLASS =
 const SECTION_HEADING_CLASS = 'text-lg text-text-0 m-0 mb-2'
 const SECTION_COPY_CLASS = 'text-md leading-[1.5] m-0 mb-3'
 const INLINE_CODE_CLASS = 'font-mono text-[0.9em] bg-surface-2 py-[0.1em] px-[0.35em] rounded-sm'
+// Same pattern as LegalPage.tsx's own LINK_CLASS — an inline text link
+// within a paragraph, not a standalone button.
+const LINK_CLASS = 'text-accent'
 const BUTTON_CLASS =
   'min-h-11 py-3 px-4 border border-border-strong rounded-md bg-surface-1 text-text-0 text-md font-semibold cursor-pointer'
 
@@ -421,6 +425,15 @@ export function SettingsPage() {
           <code className={INLINE_CODE_CLASS}>&quot;rating&quot;</code> under{' '}
           <code className={INLINE_CODE_CLASS}>&quot;profile&quot;</code>, save, then import that
           file back in here.
+        </p>
+      </section>
+
+      <section>
+        <h2 className={SECTION_HEADING_CLASS}>Feedback</h2>
+        <p className={SECTION_COPY_CLASS}>
+          Found a bug or have an idea for Codoro?{' '}
+          <FeedbackLink surface="settings" className={LINK_CLASS} /> opens a short external form in
+          a new tab.
         </p>
       </section>
 

@@ -51,12 +51,14 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { Link, useLocation } from 'wouter'
 import { loadProfile } from '../storage'
 import { BottomNav } from './BottomNav'
+import { FeedbackLink } from './FeedbackLink'
 import { SettingsIcon } from './Icons'
 import { NavRail } from './NavRail'
 import { DevPuzzleToggle } from './devTools/DevPuzzleToggle'
 import { applyPreferences } from './preferences/applyPreferences'
 import { ROUTES, labelForPath } from './routes'
 import { useRouteFocusAndScroll } from './useRouteFocusAndScroll'
+import { useRouteTelemetry } from './useRouteTelemetry'
 import './app.css'
 
 export interface AppShellProps {
@@ -72,6 +74,11 @@ export function AppShell({ children }: AppShellProps) {
   const [location] = useLocation()
   const mainRef = useRef<HTMLElement>(null)
   useRouteFocusAndScroll(mainRef)
+  // Launch instrumentation Item 1: same "AppShell is the one thing mounted
+  // across every navigation" reasoning as useRouteFocusAndScroll above —
+  // see useRouteTelemetry.ts's own doc comment for why this one does NOT
+  // skip the first render.
+  useRouteTelemetry()
 
   // v4 Phase 4.1 (Settings, for real): apply the stored theme/reduced-motion/
   // code-font-size preferences to the document root once, on first mount.
@@ -202,6 +209,10 @@ export function AppShell({ children }: AppShellProps) {
         >
           Legal
         </Link>
+        <FeedbackLink
+          surface="footer"
+          className="min-h-11 px-3 py-2 bg-transparent text-text-1 text-sm no-underline cursor-pointer inline-flex items-center"
+        />
       </footer>
       <DevPuzzleToggle />
     </div>

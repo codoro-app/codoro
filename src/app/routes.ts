@@ -39,6 +39,36 @@ export function labelForPath(path: string): string {
   return dynamicRoute?.label ?? 'Codoro'
 }
 
+// Launch instrumentation (route_view event, src/telemetry/events.ts): the
+// single constant reported for any path that resolves to none of the cases
+// below — never the raw pathname itself, since an unrecognized path is by
+// definition not one of this table's known, PII-free patterns.
+const UNKNOWN_ROUTE_PATTERN = 'unknown'
+
+/**
+ * Maps a real pathname to its route PATTERN for the `route_view` telemetry
+ * event (src/telemetry/events.ts's trackRouteView) — deliberately never the
+ * raw pathname itself. Two routes carry real per-visit data in a raw path
+ * that must never reach PostHog: `/puzzle/<id>` (a real puzzle id) and
+ * `/challenge` (which — unlike every other route here — encodes challenge
+ * payload data; wouter's useLocation() already returns pathname alone, with
+ * no query string or hash, but this function goes one step further and
+ * always returns one of this table's own literal pattern strings, never
+ * anything derived from the live URL). Mirrors labelForPath's own
+ * ROUTES/DYNAMIC_ROUTES lookup order and cases, returning the wouter route
+ * pattern (e.g. '/puzzle/:id') instead of a display label. An unrecognized
+ * path reports UNKNOWN_ROUTE_PATTERN, never the raw string.
+ */
+export function routePatternForPath(path: string): string {
+  if (path === '/') return '/'
+  if (path === '/browse') return '/browse'
+  if (path === '/challenge') return '/challenge'
+  const entry = Object.values(ROUTES).find((route) => route.path === path)
+  if (entry) return entry.path
+  const dynamicRoute = DYNAMIC_ROUTES.find((route) => route.test(path))
+  return dynamicRoute?.pattern ?? UNKNOWN_ROUTE_PATTERN
+}
+
 // Per-route <title>/meta-description (browser tab + screen readers only —
 // unfurl bots don't run JS, so this doesn't touch og:*/twitter:* tags; see
 // index.html's own comment and the Phase 1b plan notes for that decision).
