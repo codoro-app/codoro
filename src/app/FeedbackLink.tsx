@@ -15,13 +15,11 @@
  * used only for the `feedback_link_clicked` telemetry event, so it's
  * possible to tell which placement actually gets used.
  *
- * FEEDBACK_URL is a placeholder — see the TODO below — swap in the real
- * Tally form URL before merging this branch.
+ * FEEDBACK_URL is the real, live Tally form for this launch.
  */
 import { trackFeedbackLinkClicked } from '../telemetry'
 
-// TODO(pre-merge): replace with the real Tally form URL.
-export const FEEDBACK_URL = 'https://tally.so/r/REPLACE_ME'
+export const FEEDBACK_URL = 'https://tally.so/r/Xxb0v4'
 
 export interface FeedbackLinkProps {
   surface: 'footer' | 'settings'
