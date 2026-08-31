@@ -13,6 +13,8 @@ v5 gives players an identity and — the part that actually serves retention —
 
 ## Locked decisions
 
+> **Amended 2026-08-31.** Read the amendment at the bottom of this file before acting on the table below. It confirms the Workers + D1 backend against a Supabase/Postgres challenge and adds a written exit trigger (S1–S4), sets the v5 security posture (2FA, password rules, token storage, authorization — including two requested items rejected on security grounds), and adds CodeRabbit and Strix to the pipeline. No phase or estimate changed.
+
 | Decision | Choice | Why |
 | --- | --- | --- |
 | Launch position | **After v6.** v3's launch machinery (readiness checks, scaling gate, distribution, growth loop) moves to v6's tail | Direct user decision, 2026-08-26. Launch when the game retains, not before. |
@@ -172,3 +174,110 @@ v3 Phase 4 item 5, carried unchanged: per-route and per-puzzle `<title>`/descrip
 | Skeleton loaders / caching | v2 todo items 9, 10 — deferred through v4 | **5.2/5.3** — the first real network latency in the app's history appears here; until then there was nothing to mask or cache (v4's decision table) |
 | Report a puzzle | v2 todo item 18 — moved out of v4, 2026-08-27 | **5.0** (endpoint) + **5.1** (control) — unauthenticated by design, which makes it 5.6's sharpest abuse-surface check |
 | Anonymous leaderboard (as shipped surface) | v3 Phase 4 item 2 / roadmap 3.1 | **Not built** — superseded 2026-08-26, recorded at top |
+
+---
+
+# Amendment — 2026-08-31: backend confirmed, security posture, review tooling
+
+Three things settled in one session, recorded here rather than in a side document because all three change what Phase 5.0 and Phase 5.6 must build. Nothing above this line is retracted; where this amendment tightens a decision, it says which one.
+
+## A. Backend: Cloudflare Workers + D1 — **confirmed**, with a written exit
+
+The locked-decisions row "Backend shape" stands. It was re-opened on 2026-08-31 ("is Workers the right call if we have many users from day one, versus Supabase or similar?") and closed the same session in Workers' favour. The argument, recorded so it is not re-litigated from memory:
+
+**Workers was never the scale risk.** Workers scales horizontally across Cloudflare's edge with no instance to size, no connection pool, and no cold start. Supabase's compute layer is a single vertically-scaled Postgres instance per project that you hand-size through compute tiers and that lives in one region — for a globally distributed player base that is a step backwards on both latency and elasticity. Moving to Supabase would have replaced the strongest part of this architecture to fix a weakness it does not have.
+
+**D1's ceiling is storage, not throughput, and it was previously unrecorded.** This is the part of the challenge that was correct, and it is now closed by items S1–S4 below.
+
+- Throughput is not a concern at any plausible v5 scale. D1 is single-threaded and sequential (~1,000 queries/sec at 1 ms/query per database). This app is local-first: IndexedDB is the source of truth and the server sees roughly 3–5 writes per user per day. 100k DAU is ~6 writes/sec average and well under 100/sec at peak — an order of magnitude of headroom. Leaderboard reads collapse toward zero under an edge cache, and D1 read replication is available at no extra storage or compute cost (`rows_read`/`rows_written` billing is unchanged with replicas).
+- Storage is a real ceiling: **10 GB per database** on Workers Paid (1 TB per account, but multi-database sharding is manual and ugly). Two tables in this schema grow unboundedly against it. `profiles.payload` at ~50 KB per active user reaches 10 GB at roughly 200k users. `scores`, at one row per user/mode/day retained forever, reaches it inside a year at six-figure DAU. Neither appeared in this plan or in the F1–F17 register before today.
+
+**Why not swap to Postgres now anyway.** Workers + Neon behind Hyperdrive is the sane Postgres option and would preserve Hono, Clerk, the same-origin `/api/*` decision and every endpoint contract — only `workers/src/db.ts` and the migrations change dialect. It was rejected for v5 on one concrete cost: `@cloudflare/vitest-pool-workers` gives the worker suite real D1 bindings locally, which is what makes T1's DoD ("fresh clone, no Cloudflare credentials, green") achievable. Postgres means a Docker service or PGlite in CI, and that trades a load-bearing property of this repo's validate discipline for headroom nothing in v5 needs.
+
+**When to revisit — the trigger, not a vibe.** Migrate to Postgres behind Hyperdrive when **any** of these is observed:
+
+1. `profiles` or `scores` crosses **3 GB** (30% of the cap — the point at which a migration must be planned, not started in a panic).
+2. Write p95 against D1 exceeds the number T14's load test records as the acceptable ceiling (set that number in T14; it does not exist yet).
+3. A feature requires cross-user relational queries — friend graphs, matchmaking, cohort analytics. **v7 is multiplayer, so this trigger is expected to fire at v7's design session**, and that is the scheduled place to reconsider, not v5.
+
+Estimated migration cost, recorded now so the trigger is honest: one session. Five tables, no ORM, all SQL confined to `db.ts`, and the schema is deliberately Postgres-portable.
+
+### Storage amendments to Phase 5.0 (S1–S4)
+
+**S1 — the sync payload is stored compressed.** `profiles.payload` becomes a gzip-compressed `BLOB`, compressed and decompressed **in the Worker**, not the client. The API contract is unchanged: `PUT /api/profile` still takes JSON and `GET /api/profile` still returns JSON, so Phase 5.2's merge work, its fixtures and F11's 256 KB cap (which continues to apply to the **decompressed** JSON) are all untouched. Compression is done server-side rather than client-side specifically to keep the sync engine and its tests free of an encoding concern; the CPU cost is a few milliseconds on a payload this size. A `payload_bytes` column records the compressed size so S4's observability has something to sum. Expected effect: roughly a 3× increase in the user ceiling before the cap binds.
+
+**S2 — the blob lives behind a store interface.** All access to `profiles.payload` goes through one module, `workers/src/profileStore.ts`, exposing `get(userId)` / `put(userId, blob, meta)` / `delete(userId)` and nothing else. D1-backed today; the migration to R2 (unlimited, cheap, no egress fee, and a keyed blob store is exactly what a sync payload is) is then a swap behind that interface with no schema break and no caller changes. This is the single highest-leverage item in S1–S4: the payload is the only field in the schema with unbounded per-user growth and no natural retention policy.
+
+**S3 — `scores` gets a retention policy in migration 0001, not later.** The table splits in two:
+
+- `scores` — the rolling window: user/mode/day rows, retained **90 days**, pruned by a scheduled job on the same Workers Cron trigger Phase 5.5 introduces for email.
+- `scores_best` — one row per user/mode, all-time best, never pruned.
+
+This also fixes a latent correctness bug in the schema above, which is the reason it cannot wait: `idx_scores_alltime ON scores (mode, score DESC)` serves `window=all` by scanning per-user-per-**day** rows, so a single strong player with ten good days occupies ten of the top ten. An all-time leaderboard must rank one row per user. `scores_best` makes that structural instead of a `GROUP BY` bolted on later, and shrinks the all-time index to one row per user per mode.
+
+**S4 — size is observed, not remembered.** T14's load test records current `profiles` and `scores_best` byte totals alongside its latency numbers, and `workers/README.md` carries the exit trigger above verbatim. A ceiling nobody measures is a ceiling nobody notices.
+
+**F18 (new footgun): the 10 GB wall is silent until it isn't.** D1 does not degrade gracefully at the cap — writes fail. The only defences are the ones above, and the only warning is a number somebody looked at.
+
+## B. Security posture for v5
+
+v5 is this project's first server, first auth, and first PII. The requirements below were raised on 2026-08-31; four are adopted, two are **rejected on security grounds** and recorded as rejected so they are not reintroduced as "we said we'd do this."
+
+### Adopted
+
+**B1 — Two-factor authentication: TOTP + backup codes, optional per user.** Delivered by Clerk (multi-factor is configured in the Clerk dashboard; strategies are authenticator app / TOTP, SMS code, and backup codes, with passkeys counting as multi-factor in themselves).
+
+- **TOTP and backup codes only. SMS is deliberately excluded**: it requires a Clerk paid plan for production use, and SIM-swap makes it the weakest available second factor. Excluding it costs nothing and removes an attack path.
+- **Optional, never required.** Clerk can require MFA instance-wide with a single toggle; we do not use it. This is a puzzle game with guest-first as law — a mandatory second factor in front of an account that stores nothing but puzzle history is conversion damage in exchange for no meaningful risk reduction. Revisit only if a role ever exists that can affect other users' data.
+- Surfaced in the Settings account section built in 5.1, alongside sign-out and delete-account.
+
+**B2 — Password rules: delegated to Clerk, configured explicitly, NIST-shaped.** Minimum length set in the Clerk dashboard, and **compromised-password rejection enabled** (a breach-corpus check is worth more than every complexity rule combined). Explicitly **not** adopted: forced rotation, and character-class complexity requirements — both are contrary to NIST SP 800-63B guidance and push users toward predictable mutations. Clerk's exact password-policy controls are a **T0 verification item**: confirm in the dashboard what is configurable on the current plan and record the settings chosen, rather than assuming this paragraph is accurate (F7 applies to auth vendors too).
+
+**B3 — Rate limiting.** No change to T4, which already covers per-IP (pre-auth) and per-user (post-auth) burst damping on every route, with exact quotas enforced in D1 where the limiter's 10/60-second window cannot reach. One addition: sign-in and sign-up brute-force protection is **Clerk's** responsibility, not the Worker's — the Worker never sees a credential. Confirm at T0 what Clerk's lockout behaviour actually is and record it, so nobody later builds a limiter for a surface we do not own.
+
+**B4 — Automated security review in CI (see section C).**
+
+### Rejected, with reasons
+
+**R1 — "Client-side admin check": rejected as stated, and there is no admin role in v5.** A client-side check is a UI affordance — it decides what to render, never what is permitted. Any check that runs in the browser is one devtools session away from being false. This is already law here as **I5** ("server-side authorization is ours"), and Phase 5.0's report endpoint is explicitly forbidden from growing a moderation UI in this version, so v5 ships **no admin surface at all**. If and when one exists (v6 moderation is the likely first), the enforcement point is a server-side role check on every privileged endpoint, tested by the authz suite the same way user A vs user B is; hiding a button is presentation, and is never counted as a control. Recorded as **I9** in the implementation plan.
+
+**R2 — "Session token in localStorage": rejected.** `localStorage` is readable by any script that executes on the origin, so a single XSS — from a dependency, an inline snippet, a future user-generated field — hands an attacker a session token that works from anywhere until it expires. Clerk's default is the correct design and we keep it: the long-lived session lives in an **httpOnly, Secure, SameSite cookie** the page's JavaScript cannot read, and `getToken()` hands out a short-lived JWT held in memory for the lifetime of a request. That default is precisely why the **same-origin `/api/*` on the Pages zone** decision (locked in T0) is worth what it costs — an `api.` subdomain would have made the cookie path awkward as well as buying CORS forever. **No v5 code writes an authentication token to `localStorage`, `sessionStorage`, or IndexedDB.** Recorded as **I10**, with a grep-able test.
+
+Note what this does *not* forbid: the app's existing local-first play state stays in IndexedDB exactly as it is. The rule is about credentials, not data.
+
+## C. Automated security review tooling
+
+Two tools were requested by name. Both are adopted, at different points in the pipeline, and neither replaces the 5.6 security pass — they feed it.
+
+**C1 — CodeRabbit: AI review on every PR.** A GitHub app that reviews pull requests. Plan reality, checked 2026-08-31: the **Free** plan covers unlimited public *and private* repositories but is **PR summarisation only** (full reviews are available through the IDE extension and CLI), with agentic PR review starting at **Pro, ~$24/dev/month annually**. `codoro-app/codoro` is private, so free means summaries.
+
+Decision: **enable Free immediately** (zero cost, zero risk, useful summaries on a repo where PRs are large), and **buy one Pro seat for the duration of v5 only** — roughly 2–3 months. The justification is specific rather than general: v5 is the first server code, the first auth code and the first PII in this project's history, written mostly solo, and a second reviewer on exactly those PRs is the cheapest defect insurance available. Cancel the seat when 5.6 closes; re-buy for v7's multiplayer surface if it still earns it. Record the actual monthly cost in the 5.6 cost curve alongside Clerk and Resend.
+
+**C2 — Strix: agentic penetration testing against the dev env.** Apache-2.0, open source ([usestrix/strix](https://github.com/usestrix/strix)); runs autonomous agents that exercise a *running* target and validate findings with proof-of-concept exploits, covering the OWASP Top 10 (injection, XSS, broken access control, SSRF, CSRF, JWT attacks, race conditions, API flaws). It runs via CLI or a GitHub Actions workflow, needs Docker and an LLM provider API key, and can take a live URL or an OpenAPI spec as its target.
+
+This is **DAST, not SAST** — it needs something deployed to attack — so it does **not** belong on per-PR CI. It has two scheduled homes:
+
+1. **End of Phase 5.0**, pointed at the dev env, targeting `POST /api/report` specifically. That is the only unauthenticated write in the entire system and therefore the one endpoint the 5.6 authz suite structurally cannot cover; an agent that actually throws malformed enums, oversized bodies and forged puzzle ids at a live instance is the right instrument for it.
+2. **Phase 5.6**, pointed at the whole API surface with a valid token for one test account, as an input to the security pass. Findings get triaged into the phase, not auto-trusted — a proof-of-concept is evidence, not a work order.
+
+**Binding rule, not a preference: Strix is only ever pointed at `codoro-dev`.** Never production, never any host this project does not own. Running an autonomous exploitation agent against infrastructure you do not control is unlawful in most jurisdictions regardless of intent. The dev env is the target, always, and the workflow must not accept a target URL from an untrusted input.
+
+**C3 — the unglamorous controls, which catch more than either of the above.** Enabled at T0, all free:
+
+- **Dependabot alerts + version updates** on the repo (free for private repositories).
+- **`pnpm audit`** as a CI step in the same job as `pnpm validate`; a new high-severity advisory fails the build.
+- **Secret scanning with push protection** — verify at T0 what is actually available for a private repo on the current GitHub plan; if it is gated, add **gitleaks** as a CI step instead, which is free and plan-independent. A leaked `sk_live_` Clerk secret or a Resend key is the single highest-severity failure available to this project, and it is prevented by a pre-push check, not by a pentest.
+- Worker secrets set via `wrangler secret put` only — never in `wrangler.jsonc`, never in a `.env` that is not gitignored. `.dev.vars` stays out of git; `.dev.vars.example` carries names and no values.
+
+## D. Consequences for the phase map
+
+No phase is added and no estimate changes. What changes inside them:
+
+| Phase | Added by this amendment |
+| --- | --- |
+| T0 (pre-code) | Clerk MFA + password policy configured and **recorded**; Clerk lockout behaviour confirmed; CodeRabbit Free enabled and one Pro seat bought; Dependabot on; secret-scanning availability checked (else gitleaks); LLM key for Strix stored as an Actions secret |
+| 5.0 | S1 (compressed payload) · S2 (`profileStore` boundary) · S3 (`scores` / `scores_best` split in migration 0001) · I9 + I10 with tests · Strix run #1 against the dev env's report endpoint · `pnpm audit` in CI |
+| 5.1 | MFA enrolment surfaced in the Settings account section |
+| 5.3 | All-time leaderboard reads `scores_best`; the day board reads `scores`. One row per user on the all-time board, asserted by a test |
+| 5.5 | The 90-day `scores` prune runs on the cron trigger this phase introduces |
+| 5.6 | Strix run #2 across the full API · S4 size numbers in the load-test record · CodeRabbit seat cost in the cost curve · the exit trigger reviewed against real numbers |
