@@ -27,9 +27,48 @@ export interface AttemptEventPayload {
   user_rating_after: number
 }
 
+/**
+ * Session-start attribution (launch instrumentation, Item 3) — additive to
+ * the previously-empty `session_start` payload, computed fresh on every
+ * call rather than threaded in as a parameter, so trackSessionStart's own
+ * signature (and its one call site, main.tsx) doesn't change.
+ * `referrer_host` is the referrer's bare HOSTNAME only, never
+ * `document.referrer` itself (which can carry a full URL — search queries,
+ * paths); empty string for direct traffic or an unparseable referrer.
+ * `utm_source`/`utm_medium`/`utm_campaign` are read once from the landing
+ * URL's own query string — null when absent. These three are values Codoro
+ * itself authors onto its own outbound campaign links, so — unlike an
+ * arbitrary query string — they're safe to forward as-is; nothing else from
+ * the URL is ever read.
+ */
+export interface SessionStartPayload {
+  referrer_host: string
+  utm_source: string | null
+  utm_medium: string | null
+  utm_campaign: string | null
+}
+
+function currentSessionAttribution(): SessionStartPayload {
+  let referrerHost = ''
+  if (typeof document !== 'undefined' && document.referrer) {
+    try {
+      referrerHost = new URL(document.referrer).hostname
+    } catch {
+      referrerHost = ''
+    }
+  }
+  const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+  return {
+    referrer_host: referrerHost,
+    utm_source: params?.get('utm_source') ?? null,
+    utm_medium: params?.get('utm_medium') ?? null,
+    utm_campaign: params?.get('utm_campaign') ?? null,
+  }
+}
+
 /** Fired once per app session (e.g. once on initial app mount). */
 export function trackSessionStart(): void {
-  safeCapture('session_start')
+  safeCapture('session_start', currentSessionAttribution())
 }
 
 /** Fired once per puzzle attempt. Property names are locked — see the module doc above. */
@@ -295,6 +334,49 @@ export interface MissionFinishedPayload {
 
 export function trackMissionFinished(payload: MissionFinishedPayload): void {
   safeCapture('mission_finished', payload)
+}
+
+/**
+ * Fired once per distinct client-side route, including the very first
+ * render (launch instrumentation, Item 1 — the landing route is the single
+ * most valuable data point in the whole event, so unlike most route-change
+ * concerns this deliberately does NOT skip the first render). See
+ * useRouteTelemetry.ts (called from AppShell.tsx, the one component mounted
+ * across every navigation) for the fire-once-per-route mechanics. `route`
+ * is always a route PATTERN from routes.ts's routePatternForPath — never
+ * the raw pathname, a query string, or a hash: `/puzzle/<id>` reports
+ * `/puzzle/:id`, and `/challenge` (which carries challenge payload data in
+ * its URL) reports the literal `/challenge` pattern, never anything read
+ * off the live location. An unrecognized path reports `'unknown'`. Not part
+ * of the locked `attempt` schema — a new, additive event of its own.
+ *
+ * Known accepted race, same as trackSessionStart's own (see main.tsx):
+ * registerAnonId resolves after the profile loads, so the very first
+ * route_view of a session may rarely fire before `codoro_anon_id` is
+ * registered as a super property — not worth solving for one event on one
+ * cold load.
+ */
+export interface RouteViewPayload {
+  route: string
+}
+
+export function trackRouteView(payload: RouteViewPayload): void {
+  safeCapture('route_view', payload)
+}
+
+/**
+ * Fired whenever the external Tally feedback link is clicked (launch
+ * instrumentation, Item 2) — FeedbackLink.tsx, rendered from both
+ * AppShell.tsx's footer and SettingsPage.tsx. `surface` names which of the
+ * two placements was used, so it's possible to tell which one actually
+ * gets clicked.
+ */
+export interface FeedbackLinkClickedPayload {
+  surface: 'footer' | 'settings'
+}
+
+export function trackFeedbackLinkClicked(payload: FeedbackLinkClickedPayload): void {
+  safeCapture('feedback_link_clicked', payload)
 }
 
 /**

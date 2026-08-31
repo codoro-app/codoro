@@ -26,6 +26,8 @@ export {
   trackMissionStageComplete,
   trackMissionAbandoned,
   trackMissionFinished,
+  trackRouteView,
+  trackFeedbackLinkClicked,
   trackError,
 } from './events'
 export type {
@@ -46,4 +48,7 @@ export type {
   ChallengeCreatePayload,
   ChallengeLinkViewPayload,
   ChallengeLinkCompletePayload,
+  SessionStartPayload,
+  RouteViewPayload,
+  FeedbackLinkClickedPayload,
 } from './events'

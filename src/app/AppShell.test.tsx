@@ -1,15 +1,32 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { AppShell } from './AppShell'
+import { FEEDBACK_URL } from './FeedbackLink'
 import { nth } from '../test/nth'
+
+const trackRouteView = vi.fn()
+const trackFeedbackLinkClicked = vi.fn()
+
+vi.mock('../telemetry', () => ({
+  trackRouteView: (...args: unknown[]) => {
+    trackRouteView(...args)
+  },
+  trackFeedbackLinkClicked: (...args: unknown[]) => {
+    trackFeedbackLinkClicked(...args)
+  },
+}))
 
 describe('AppShell', () => {
   beforeEach(() => {
     window.history.pushState({}, '', '/practice')
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
   })
 
   it('renders both the mobile BottomNav and the desktop NavRail (visibility is CSS-only)', () => {
@@ -110,6 +127,56 @@ describe('AppShell', () => {
       </AppShell>,
     )
     expect(screen.getByRole('link', { name: 'Legal' })).toHaveAttribute('href', '/legal')
+  })
+
+  // Launch instrumentation Item 2: a third footer link, after Settings and
+  // Legal, to the external Tally feedback form — a plain anchor (not a
+  // wouter Link), opened in a new tab, never an embed.
+  it('the footer has a Feedback link, after Settings and Legal, to the external Tally form', () => {
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    )
+    const feedbackLink = screen.getByRole('link', { name: 'Feedback' })
+    expect(feedbackLink).toHaveAttribute('href', FEEDBACK_URL)
+    expect(feedbackLink).toHaveAttribute('target', '_blank')
+    expect(feedbackLink).toHaveAttribute('rel', 'noopener noreferrer')
+
+    // Scoped to the <footer> (role "contentinfo") specifically — Settings
+    // also has icon-only links in the mobile top bar and NavRail (see this
+    // suite's own "3 settings links" test above), which would otherwise
+    // pollute an unscoped query matching on accessible name alone.
+    const footerLinks = within(screen.getByRole('contentinfo')).getAllByRole('link')
+    expect(footerLinks.map((link) => link.textContent)).toEqual(['Settings', 'Legal', 'Feedback'])
+  })
+
+  it('clicking the footer Feedback link fires feedback_link_clicked with surface: "footer"', async () => {
+    const user = userEvent.setup()
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    )
+    await user.click(screen.getByRole('link', { name: 'Feedback' }))
+    expect(trackFeedbackLinkClicked).toHaveBeenCalledWith({ surface: 'footer' })
+  })
+
+  // Launch instrumentation Item 1: AppShell is the one component mounted
+  // across every navigation, so it's the single place route_view fires from
+  // — see useRouteTelemetry.test.tsx for the fire-once/pattern-mapping
+  // mechanics in detail; this just proves it's actually wired up here.
+  it('fires route_view on mount and again on navigation', async () => {
+    const user = userEvent.setup()
+    render(
+      <AppShell>
+        <p>page content</p>
+      </AppShell>,
+    )
+    expect(trackRouteView).toHaveBeenCalledWith({ route: '/practice' })
+
+    await user.click(nth(screen.getAllByRole('link', { name: 'Daily' }), 0))
+    expect(trackRouteView).toHaveBeenCalledWith({ route: '/daily' })
   })
 
   // v4 Phase 4.1 (Settings, for real): the mobile top-bar gear — this bar

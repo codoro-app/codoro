@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AttemptEventPayload } from './events'
 
 /**
@@ -128,7 +128,11 @@ describe('loadPosthog deferral (perf pass, 2026-08-24)', () => {
       expect(vi.getTimerCount()).toBe(1)
       expect(posthogMock.capture).not.toHaveBeenCalled()
       await vi.runAllTimersAsync()
-      expect(posthogMock.capture).toHaveBeenCalledWith('session_start', undefined)
+      // Session-start attribution (Item 3) is additive to this call's own
+      // payload — the exact shape is covered in the dedicated
+      // trackSessionStart describe block below; this test only cares that
+      // deferral itself still works.
+      expect(posthogMock.capture).toHaveBeenCalledWith('session_start', expect.any(Object))
     } finally {
       vi.useRealTimers()
     }
@@ -136,11 +140,64 @@ describe('loadPosthog deferral (perf pass, 2026-08-24)', () => {
 })
 
 describe('trackSessionStart', () => {
-  it('captures session_start with no required custom properties', async () => {
+  const originalReferrer = document.referrer
+
+  afterEach(() => {
+    Object.defineProperty(document, 'referrer', { value: originalReferrer, configurable: true })
+    window.history.pushState({}, '', '/')
+  })
+
+  it('captures session_start with referrer_host + null utm fields for direct traffic', async () => {
+    Object.defineProperty(document, 'referrer', { value: '', configurable: true })
+    window.history.pushState({}, '', '/')
     const { trackSessionStart } = await loadTelemetry('phc_test_key')
     trackSessionStart()
     await flushPromises()
-    expect(posthogMock.capture).toHaveBeenCalledWith('session_start', undefined)
+    expect(posthogMock.capture).toHaveBeenCalledWith('session_start', {
+      referrer_host: '',
+      utm_source: null,
+      utm_medium: null,
+      utm_campaign: null,
+    })
+  })
+
+  it('captures the referrer hostname only, never the full referrer URL (which can carry search queries/paths)', async () => {
+    Object.defineProperty(document, 'referrer', {
+      value: 'https://www.reddit.com/r/programming/comments/abc?query=secret',
+      configurable: true,
+    })
+    const { trackSessionStart } = await loadTelemetry('phc_test_key')
+    trackSessionStart()
+    await flushPromises()
+    const [, properties] = posthogMock.capture.mock.calls[0] as [string, Record<string, unknown>]
+    expect(properties.referrer_host).toBe('www.reddit.com')
+    expect(JSON.stringify(properties)).not.toContain('secret')
+  })
+
+  it('falls back to an empty referrer_host when document.referrer is not a parseable URL', async () => {
+    Object.defineProperty(document, 'referrer', { value: 'not a url', configurable: true })
+    const { trackSessionStart } = await loadTelemetry('phc_test_key')
+    trackSessionStart()
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith(
+      'session_start',
+      expect.objectContaining({ referrer_host: '' }),
+    )
+  })
+
+  it('reads utm_source/utm_medium/utm_campaign from the landing URL query string', async () => {
+    window.history.pushState({}, '', '/?utm_source=reddit&utm_medium=social&utm_campaign=launch')
+    const { trackSessionStart } = await loadTelemetry('phc_test_key')
+    trackSessionStart()
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith(
+      'session_start',
+      expect.objectContaining({
+        utm_source: 'reddit',
+        utm_medium: 'social',
+        utm_campaign: 'launch',
+      }),
+    )
   })
 
   it('no-ops without calling posthog.capture when the key is unset', async () => {
@@ -550,6 +607,55 @@ describe('trackChallengeLinkComplete', () => {
   it('no-ops without calling posthog.capture when the key is unset', async () => {
     const { trackChallengeLinkComplete } = await loadTelemetry(undefined)
     trackChallengeLinkComplete({ beat_challenger: false })
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
+describe('trackRouteView', () => {
+  it('captures route_view with the exact property shape', async () => {
+    const { trackRouteView } = await loadTelemetry('phc_test_key')
+    const payload = { route: '/practice' }
+    trackRouteView(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('route_view', payload)
+  })
+
+  it('captures a dynamic route pattern, not a raw path', async () => {
+    const { trackRouteView } = await loadTelemetry('phc_test_key')
+    trackRouteView({ route: '/puzzle/:id' })
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('route_view', { route: '/puzzle/:id' })
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackRouteView } = await loadTelemetry(undefined)
+    trackRouteView({ route: '/practice' })
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
+describe('trackFeedbackLinkClicked', () => {
+  it('captures feedback_link_clicked with surface: "footer"', async () => {
+    const { trackFeedbackLinkClicked } = await loadTelemetry('phc_test_key')
+    const payload = { surface: 'footer' as const }
+    trackFeedbackLinkClicked(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('feedback_link_clicked', payload)
+  })
+
+  it('captures feedback_link_clicked with surface: "settings"', async () => {
+    const { trackFeedbackLinkClicked } = await loadTelemetry('phc_test_key')
+    const payload = { surface: 'settings' as const }
+    trackFeedbackLinkClicked(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('feedback_link_clicked', payload)
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackFeedbackLinkClicked } = await loadTelemetry(undefined)
+    trackFeedbackLinkClicked({ surface: 'footer' })
     await flushPromises()
     expect(posthogMock.capture).not.toHaveBeenCalled()
   })

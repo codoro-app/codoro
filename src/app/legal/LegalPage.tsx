@@ -9,6 +9,13 @@
  * the anonymous ID honestly. Edited once for this phase, per the Phase 7
  * build prompt's own sequencing note (Item 6's outcome had to be settled
  * first) — see docs/v2-build-plan.md's Phase 7 amendment.
+ *
+ * Launch instrumentation (Item 4): the feedback form (FeedbackLink.tsx)
+ * added an optional email field, which made the old unqualified "collects
+ * no personal information" opening sentence false — scoped to "the app
+ * itself" and a new closing paragraph names the feedback form's data
+ * handling honestly, same standard as the anonymous-ID/challenge-link
+ * paragraphs above.
  */
 import { Link } from 'wouter'
 import { ROUTES } from '../routes'
@@ -32,7 +39,7 @@ export function LegalPage() {
       {/* legal-page__title stays literal — App.test.tsx scopes
           findByText('Terms & privacy', { selector: '.legal-page__title' }). */}
       <h1 className="legal-page__title text-2xl text-text-0 m-0">Terms &amp; privacy</h1>
-      <p className="text-sm text-text-2 m-0">Last updated 2026-08-09</p>
+      <p className="text-sm text-text-2 m-0">Last updated 2026-08-31</p>
 
       <section>
         <h2 className={SECTION_HEADING_CLASS}>Terms</h2>
@@ -46,13 +53,14 @@ export function LegalPage() {
       <section>
         <h2 className={SECTION_HEADING_CLASS}>Privacy</h2>
         <p className={SECTION_COPY_CLASS}>
-          Codoro has no accounts and collects no personal information. The only data sent off your
-          device is anonymous usage events (which screen you're on, whether an answer was right or
-          wrong, that kind of thing) via PostHog, used solely to understand which parts of the app
-          are actually used and whether people come back. Those events carry an app-generated
-          anonymous ID, stored on your device, so we can count a returning visit without knowing who
-          anyone is — it contains no personal information and is never linked to a name, email, or
-          account, because there isn't one.
+          Codoro has no accounts, and the app itself collects no personal information. The one
+          exception is the optional feedback form — see below. The only data sent off your device is
+          anonymous usage events (which screen you're on, whether an answer was right or wrong, that
+          kind of thing) via PostHog, used solely to understand which parts of the app are actually
+          used and whether people come back. Those events carry an app-generated anonymous ID,
+          stored on your device, so we can count a returning visit without knowing who anyone is —
+          it contains no personal information and is never linked to a name, email, or account,
+          because there isn't one.
         </p>
         <p className={SECTION_COPY_CLASS}>
           Your rating, streak, and puzzle history live entirely in your browser's local storage.
@@ -69,6 +77,14 @@ export function LegalPage() {
           store it on. That link is the one way your data leaves your device by design; nothing in
           it identifies you personally, and it's never sent anywhere except by you, when you choose
           to share it.
+        </p>
+        <p className={SECTION_COPY_CLASS}>
+          Feedback form. The Feedback link opens a form hosted by Tally, and answers go to Tally's
+          servers rather than ours. Every question on it is optional except one, and the only
+          personal information it asks for is an email address — also optional, and used for exactly
+          one thing: telling you when Codoro has changed in a way worth coming back for. It is never
+          sold, never added to a mailing list, and you can have it deleted at any time by emailing
+          the address below.
         </p>
       </section>
 

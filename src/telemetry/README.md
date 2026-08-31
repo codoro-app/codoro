@@ -11,7 +11,17 @@ convention as `src/engine/` and `src/storage/`.
   `env.VITE_POSTHOG_KEY` / `env.VITE_POSTHOG_HOST` (see `src/env.ts`). Call
   once on app startup (see `src/main.tsx`).
 - `trackSessionStart()` — fires the `session_start` event. Call once per app
-  session, alongside `initTelemetry()`.
+  session, alongside `initTelemetry()`. Takes no arguments — attribution
+  (below) is computed internally on every call, so the one call site
+  (`main.tsx`) is unaffected. Additive as of launch instrumentation Item 3:
+  carries `referrer_host` (the referrer's bare hostname only — e.g.
+  `reddit.com` — never the full referrer URL, which can carry search
+  queries/paths; empty string for direct traffic or an unparseable
+  referrer) and `utm_source`/`utm_medium`/`utm_campaign` (read from the
+  landing URL's query string, `null` when absent — the only three query
+  params ever read, since these are values Codoro itself authors onto its
+  own campaign links). `session_start` previously had no payload at all;
+  this is a pure addition, not a restructure.
 - `registerAnonId(anonId: string)` (Phase 7 Item 6) — registers the stable,
   app-generated anonymous ID (`src/storage`'s `UserProfile.anonId`) as a
   PostHog super property (`posthog.register({ codoro_anon_id })`), so it's
@@ -85,6 +95,24 @@ convention as `src/engine/` and `src/storage/`.
 - `trackError(error, context?)` — fires an `app_error` event with a truncated
   message/stack. Used by `src/app/ErrorBoundary.tsx`; call it directly for any
   other caught error worth reporting.
+- `trackRouteView(payload)` — fires the `route_view` event (`{ route: string }`)
+  once per distinct client-side route, including the very first render —
+  launch instrumentation Item 1, the single most valuable data point at
+  launch (where people land and where they leave). Fired from
+  `src/app/useRouteTelemetry.ts`, called from `AppShell.tsx` (the one
+  component mounted across every navigation). `route` is always a route
+  PATTERN from `routes.ts`'s `routePatternForPath` — e.g. `/puzzle/:id`, never
+  the raw pathname with its real id, and `/challenge` (which carries
+  challenge payload data in its URL) always reports the literal `/challenge`
+  pattern. Never a query string or hash. An unrecognized path reports
+  `'unknown'`. Same known race as `trackSessionStart`: `registerAnonId`
+  resolves after the profile loads, so the very first `route_view` of a
+  session may rarely fire before `codoro_anon_id` is registered.
+- `trackFeedbackLinkClicked(payload)` — fires the `feedback_link_clicked`
+  event (`{ surface: 'footer' | 'settings' }`) whenever the external Tally
+  feedback link (`src/app/FeedbackLink.tsx`) is clicked, from either of its
+  two placements (`AppShell.tsx`'s footer, `SettingsPage.tsx`'s own
+  section) — `surface` says which one.
 
 If `VITE_POSTHOG_KEY` is unset (local dev, or an ad-blocker prevents the
 PostHog script from loading), every exported function silently no-ops. The

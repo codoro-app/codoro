@@ -29,6 +29,13 @@ vi.mock('../telemetry', () => ({
   trackPuzzleLinkAttempt: vi.fn(),
   trackShareClick: vi.fn(),
   trackError: vi.fn(),
+  // AppShell is always in this test's render tree (App.tsx wraps every
+  // route in it) and calls both of these unconditionally — useRouteTelemetry
+  // on every render, FeedbackLink.tsx's onClick if a footer/settings
+  // Feedback link is ever clicked — so both need a real vi.fn() here, not
+  // just the events this suite's own assertions care about.
+  trackRouteView: vi.fn(),
+  trackFeedbackLinkClicked: vi.fn(),
 }))
 
 // vite-plugin-pwa only generates the real 'virtual:pwa-register/react' module

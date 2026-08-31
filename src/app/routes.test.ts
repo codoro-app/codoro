@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { DYNAMIC_ROUTES, labelForPath, ROUTE_META } from './routes'
+import { DYNAMIC_ROUTES, labelForPath, ROUTE_META, routePatternForPath } from './routes'
 
 // Mirrors vite.config.ts's workbox.navigateFallbackDenylist[0] exactly —
 // not imported from there, since vite.config.ts lives in its own isolated
@@ -31,6 +31,32 @@ describe('labelForPath', () => {
   it('falls back to "Codoro" for an unknown path, including a bare /puzzle/ with no id', () => {
     expect(labelForPath('/nonsense')).toBe('Codoro')
     expect(labelForPath('/puzzle/')).toBe('Codoro')
+  })
+})
+
+// Launch instrumentation Item 1 (route_view telemetry event): the single
+// source of truth this event's payload is derived from, so a dynamic id
+// (or /challenge's payload data) never reaches PostHog as a raw path.
+describe('routePatternForPath', () => {
+  it('reports the known static routes as themselves', () => {
+    expect(routePatternForPath('/')).toBe('/')
+    expect(routePatternForPath('/browse')).toBe('/browse')
+    expect(routePatternForPath('/practice')).toBe('/practice')
+    expect(routePatternForPath('/legal')).toBe('/legal')
+    expect(routePatternForPath('/settings')).toBe('/settings')
+  })
+
+  it('maps a real /puzzle/<id> path to the /puzzle/:id pattern, never the raw id', () => {
+    expect(routePatternForPath('/puzzle/tc-009')).toBe('/puzzle/:id')
+  })
+
+  it('reports /challenge as its own literal pattern (the route that carries payload data in its URL)', () => {
+    expect(routePatternForPath('/challenge')).toBe('/challenge')
+  })
+
+  it('reports the single constant "unknown" for an unrecognized path, never the raw string', () => {
+    expect(routePatternForPath('/nonsense')).toBe('unknown')
+    expect(routePatternForPath('/puzzle/')).toBe('unknown')
   })
 })
 
