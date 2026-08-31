@@ -227,6 +227,8 @@ v5 is this project's first server, first auth, and first PII. The requirements b
 
 **B1 — Two-factor authentication: TOTP + backup codes, optional per user.** Delivered by Clerk (multi-factor is configured in the Clerk dashboard; strategies are authenticator app / TOTP, SMS code, and backup codes, with passkeys counting as multi-factor in themselves).
 
+> **Corrected 2026-08-31, same session: MFA is plan-gated and Clerk's free tier does not have it.** Checked on the pricing page: the free **Hobby** plan lists MFA, SMS codes, passkeys, allowlist/blocklist and custom session lifetime as *not included*, fixes the session lifetime at 7 days, and requires Clerk branding on the prebuilt UIs. **Pro (~$20/month billed annually, ~$25 monthly) is the entry point for any 2FA at all**, on top of which the 50,000-monthly-retained-user free allowance still applies. Two consequences. (1) The Pro seat is a **Phase 5.1 cost, not a Task 0 cost** — 5.0 is server-only and builds fine against a Hobby Development instance, so the spend defers by roughly two sessions with nothing lost. (2) Hobby's mandatory Clerk branding collides with 5.1's "custom-styled Clerk components, not a stock white modal in a dark game" — another reason the Pro decision lands at 5.1 rather than being deferred past it. If 2FA is dropped from v5 scope, Hobby covers everything else in this plan and the line item disappears; that is a live option, not a hidden assumption.
+
 - **TOTP and backup codes only. SMS is deliberately excluded**: it requires a Clerk paid plan for production use, and SIM-swap makes it the weakest available second factor. Excluding it costs nothing and removes an attack path.
 - **Optional, never required.** Clerk can require MFA instance-wide with a single toggle; we do not use it. This is a puzzle game with guest-first as law — a mandatory second factor in front of an account that stores nothing but puzzle history is conversion damage in exchange for no meaningful risk reduction. Revisit only if a role ever exists that can affect other users' data.
 - Surfaced in the Settings account section built in 5.1, alongside sign-out and delete-account.
@@ -269,15 +271,29 @@ This is **DAST, not SAST** — it needs something deployed to attack — so it d
 - **Secret scanning with push protection** — verify at T0 what is actually available for a private repo on the current GitHub plan; if it is gated, add **gitleaks** as a CI step instead, which is free and plan-independent. A leaked `sk_live_` Clerk secret or a Resend key is the single highest-severity failure available to this project, and it is prevented by a pre-push check, not by a pentest.
 - Worker secrets set via `wrangler secret put` only — never in `wrangler.jsonc`, never in a `.env` that is not gitignored. `.dev.vars` stays out of git; `.dev.vars.example` carries names and no values.
 
+## C-bis. What v5 actually costs per month, so it is not a surprise
+
+Recorded here because three separate decisions above each added a line item, and nobody had summed them.
+
+| Item | Cost | When it starts |
+| --- | --- | --- |
+| Cloudflare Workers Paid | $5/mo | Task 0 — the free tier caps D1 at 500 MB and 10 databases, which the whole S1–S4 analysis assumes away |
+| Clerk Pro | ~$20/mo annual (~$25 monthly) | **Phase 5.1**, and only if 2FA stays in scope (B1) |
+| CodeRabbit Pro, one seat | ~$24/mo | Task 0, for the v5 window only; cancelled at 5.6 (C1) |
+| Resend | $0 on the free tier, then ~$20/mo | Phase 5.5 — free tier is ample pre-launch |
+| Strix | $0 (Apache-2.0) + LLM tokens per run | End of 5.0, and 5.6 |
+
+So roughly **$30/month during 5.0**, rising to **~$50–75/month** through the rest of v5, falling back to ~$25–30 once the CodeRabbit seat is cancelled. Clerk's 50,000-MRU free allowance means the per-user cost stays zero far past launch. These are the numbers the 5.6 cost curve extends to 10× and 100×, not replaces.
+
 ## D. Consequences for the phase map
 
 No phase is added and no estimate changes. What changes inside them:
 
 | Phase | Added by this amendment |
 | --- | --- |
-| T0 (pre-code) | Clerk MFA + password policy configured and **recorded**; Clerk lockout behaviour confirmed; CodeRabbit Free enabled and one Pro seat bought; Dependabot on; secret-scanning availability checked (else gitleaks); LLM key for Strix stored as an Actions secret |
+| T0 (pre-code) | Clerk password policy configured and **recorded** (MFA config moves to 5.1 — it needs Pro, see B1); Clerk lockout behaviour confirmed; CodeRabbit Free enabled and one Pro seat bought; Dependabot on; secret-scanning availability checked (else gitleaks); LLM key for Strix stored as an Actions secret |
 | 5.0 | S1 (compressed payload) · S2 (`profileStore` boundary) · S3 (`scores` / `scores_best` split in migration 0001) · I9 + I10 with tests · Strix run #1 against the dev env's report endpoint · `pnpm audit` in CI |
-| 5.1 | MFA enrolment surfaced in the Settings account section |
+| 5.1 | **Clerk Pro seat bought here** (MFA is not on Hobby, and Hobby forces Clerk branding on the prebuilt UIs); MFA configured to TOTP + backup codes; enrolment surfaced in the Settings account section |
 | 5.3 | All-time leaderboard reads `scores_best`; the day board reads `scores`. One row per user on the all-time board, asserted by a test |
 | 5.5 | The 90-day `scores` prune runs on the cron trigger this phase introduces |
 | 5.6 | Strix run #2 across the full API · S4 size numbers in the load-test record · CodeRabbit seat cost in the cost curve · the exit trigger reviewed against real numbers |
