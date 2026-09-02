@@ -35,6 +35,34 @@ describe('app.css .app-shell__nav (PR #88 review: NavRail sticky follow-up)', ()
   })
 })
 
+describe('app.css .app-shell__content (wide-viewport dead-space fix)', () => {
+  // Live-reported (2026-09-01): v4 Phase 4.5's cap-and-`justify-content: end`
+  // (minmax(0, var(--content-width-desktop)) var(--sidebar-width)) collects
+  // ALL the leftover space on a wide monitor into one lopsided left margin
+  // between the nav rail and the puzzle card. A follow-up attempt to center
+  // that capped pair instead (max-width + margin-inline: auto on .app-shell)
+  // was also rejected live — it only split the same dead space into two
+  // margins framing both outer edges, still visibly wasted. Direct decision:
+  // go back to letting main fill all the real remaining space (`1fr`, the
+  // pre-#88 rule) — the puzzle card's own per-page max-w-[...] mx-auto still
+  // caps and centers *itself* within that stretched track, so extra width
+  // becomes breathing room around the card rather than an empty margin
+  // outside the whole layout. column-gap (unrelated to the dead-space bug)
+  // is kept, so main and sidebar don't end up flush with no separation.
+  it('lets main fill the remaining space (grid-template-columns: 1fr) instead of a width cap, at the desktop breakpoint', () => {
+    const desktopBlockMatch = /@media \(min-width: 1024px\) \{([\s\S]*)\}\s*$/.exec(css)
+    expect(desktopBlockMatch).not.toBeNull()
+    const desktopBlock = desktopBlockMatch?.[1] ?? ''
+    const contentRuleMatch = /\.app-shell__content\s*\{([^}]*)\}/.exec(desktopBlock)
+    expect(contentRuleMatch).not.toBeNull()
+    const contentRule = contentRuleMatch?.[1] ?? ''
+    expect(contentRule).toMatch(/grid-template-columns:\s*1fr var\(--sidebar-width\);/)
+    expect(contentRule).toMatch(/column-gap:\s*var\(--space-8\);/)
+    expect(contentRule).not.toMatch(/content-width-desktop/)
+    expect(contentRule).not.toMatch(/justify-content/)
+  })
+})
+
 describe('app.css .app-shell__sidebar', () => {
   // v4 Phase 4.0 (todo 26): the right rail scrolled away with the middle
   // column because `self-start` alone (a per-consumer Tailwind utility)
