@@ -7,9 +7,13 @@ convention as `src/engine/` and `src/storage/`.
 
 ## Public API
 
-- `initTelemetry()` — configures the posthog-js singleton from
-  `env.VITE_POSTHOG_KEY` / `env.VITE_POSTHOG_HOST` (see `src/env.ts`). Call
-  once on app startup (see `src/main.tsx`).
+- `initTelemetry(sanitizePathname?)` — configures the posthog-js singleton
+  from `env.VITE_POSTHOG_KEY` / `env.VITE_POSTHOG_HOST` (see `src/env.ts`).
+  Call once on app startup (see `src/main.tsx`, which always passes
+  `routes.ts`'s `routePatternForPath`). `sanitizePathname` runs over the
+  `$pathname`/`$current_url` properties posthog-js attaches to every event
+  by default — see `client.ts`'s own doc comment for why that's necessary.
+  Defaults to identity (pathname passed through unchanged) when omitted.
 - `trackSessionStart()` — fires the `session_start` event. Call once per app
   session, alongside `initTelemetry()`. Takes no arguments — attribution
   (below) is computed internally on every call, so the one call site
@@ -108,6 +112,13 @@ convention as `src/engine/` and `src/storage/`.
   `'unknown'`. Same known race as `trackSessionStart`: `registerAnonId`
   resolves after the profile loads, so the very first `route_view` of a
   session may rarely fire before `codoro_anon_id` is registered.
+- `trackPageview()` — fires PostHog's own stock `$pageview` event
+  ("site-flow funnel" follow-up), no explicit properties — the auto-attached
+  `$current_url`/`$pathname` (sanitized, see `initTelemetry` above) carry
+  the location. Called from `src/app/useRouteTelemetry.ts` at the exact
+  same trigger point as `trackRouteView`. Sending PostHog's real
+  `$pageview` name, rather than reusing `route_view`, is what unlocks
+  PostHog's built-in Web Analytics dashboard, Paths, and exit-page reports.
 - `trackFeedbackLinkClicked(payload)` — fires the `feedback_link_clicked`
   event (`{ surface: 'footer' | 'settings' }`) whenever the external Tally
   feedback link (`src/app/FeedbackLink.tsx`) is clicked, from either of its

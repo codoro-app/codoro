@@ -27,6 +27,7 @@ export {
   trackMissionAbandoned,
   trackMissionFinished,
   trackRouteView,
+  trackPageview,
   trackFeedbackLinkClicked,
   trackError,
 } from './events'

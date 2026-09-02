@@ -3,10 +3,14 @@ import { renderHook } from '@testing-library/react'
 import { useRouteTelemetry } from './useRouteTelemetry'
 
 const trackRouteView = vi.fn()
+const trackPageview = vi.fn()
 
 vi.mock('../telemetry', () => ({
   trackRouteView: (...args: unknown[]) => {
     trackRouteView(...args)
+  },
+  trackPageview: (...args: unknown[]) => {
+    trackPageview(...args)
   },
 }))
 
@@ -24,6 +28,14 @@ describe('useRouteTelemetry', () => {
     expect(trackRouteView).toHaveBeenCalledWith({ route: '/practice' })
   })
 
+  it('also fires the stock $pageview event at the same trigger point, once per distinct route', () => {
+    window.history.pushState({}, '', '/practice')
+    renderHook(() => {
+      useRouteTelemetry()
+    })
+    expect(trackPageview).toHaveBeenCalledTimes(1)
+  })
+
   it('does not re-fire on a re-render at the same route', () => {
     window.history.pushState({}, '', '/practice')
     const { rerender } = renderHook(() => {
@@ -33,6 +45,7 @@ describe('useRouteTelemetry', () => {
     rerender()
     rerender()
     expect(trackRouteView).toHaveBeenCalledTimes(1)
+    expect(trackPageview).toHaveBeenCalledTimes(1)
   })
 
   it('fires exactly once per distinct route change', () => {

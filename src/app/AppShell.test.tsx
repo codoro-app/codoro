@@ -15,6 +15,7 @@ vi.mock('../telemetry', () => ({
   trackRouteView: (...args: unknown[]) => {
     trackRouteView(...args)
   },
+  trackPageview: vi.fn(),
   trackFeedbackLinkClicked: (...args: unknown[]) => {
     trackFeedbackLinkClicked(...args)
   },

@@ -42,13 +42,12 @@
  * the live PostHog project in this environment; see
  * docs/v2-build-plan.md's Phase 7 amendment.
  *
- * posthog-js's *default* init also turns on autocapture, pageview tracking,
- * session recording, surveys, dead-click detection, and web-vitals capture
- * — none of which are part of the locked schema (session_start/attempt/
- * app_error only, see README.md) or the "anonymous ID only, no PII"
- * requirement: session recording in particular replays on-screen content,
- * well outside what this app deliberately chose to collect. Each is
- * explicitly disabled below, plus `disable_external_dependency_loading`
+ * posthog-js's *default* init also turns on autocapture, session recording,
+ * surveys, dead-click detection, and web-vitals capture — none of which are
+ * part of the locked schema (see README.md) or the "anonymous ID only, no
+ * PII" requirement: session recording in particular replays on-screen
+ * content, well outside what this app deliberately chose to collect. Each
+ * is explicitly disabled below, plus `disable_external_dependency_loading`
  * (the documented blanket switch — see posthog-js's own
  * `PostHogConfig['disable_external_dependency_loading']` doc comment) as a
  * belt-and-suspenders guard against any of their lazy-loaded scripts
@@ -56,6 +55,40 @@
  * shipping at all, present or future, so this module really is the single
  * choke point for what gets collected, not just for the events we happen
  * to call `safeCapture` for.
+ *
+ * Pageview tracking ("site-flow funnel" follow-up) is deliberately
+ * hand-rolled rather than posthog-js's own automatic `capture_pageview`/
+ * history-change watcher: `events.ts`'s `trackPageview()` is called from the
+ * exact same "once per distinct route, including the first render" trigger
+ * `useRouteTelemetry.ts` already uses for `route_view`, so there's one
+ * dedupe mechanism to trust instead of two. `capture_pageleave: true` below
+ * IS posthog-js's own automatic behavior — unlike pageview, exit detection
+ * is a real browser-lifecycle signal (`beforeunload`/`visibilitychange`)
+ * with no app-routing awareness needed, so there's nothing to hand-roll
+ * there.
+ *
+ * `before_send` closes a gap the rest of this file doesn't: posthog-js
+ * attaches `$current_url`/`$pathname` to *every* captured event (unrelated
+ * to `capture_pageview`/autocapture — it's unconditional default event
+ * enrichment) as the full, real `window.location.href`. Without this hook,
+ * a `/puzzle/<real-id>` or `/challenge?<payload>` visit would leak exactly
+ * the raw id/payload data that `route_view`'s own `route` property already
+ * goes out of its way to scrub (routes.ts's `routePatternForPath`) — just
+ * through a different property on the same event. `initTelemetry`'s
+ * `sanitizePathname` parameter (always `routePatternForPath` in production,
+ * see main.tsx) is run over `$pathname` and over `$current_url`'s own path
+ * component; `$current_url`'s query string and hash are stripped
+ * unconditionally regardless of the sanitizer, since neither this file nor
+ * its caller can know in general which query params/hashes are
+ * PII-carrying and which aren't (the one exception, Codoro's own
+ * `utm_*`/referrer values, is already handled by `trackSessionStart`'s
+ * `currentSessionAttribution`, which reads them directly rather than
+ * relying on `$current_url`). Applied to every event, not just
+ * pageviews — `$current_url`/`$pathname` ride along on `session_start`,
+ * `attempt`, etc. too, so the fix has to live at this single choke point,
+ * not in `trackPageview` alone. (`before_send`, not the older
+ * `sanitize_properties` — posthog-js's own types mark that one deprecated
+ * in favor of this.)
  *
  * `posthog-js` itself is loaded via a dynamic `import()`, not a static
  * top-of-file import — this is the one thing in the whole codebase that
@@ -68,6 +101,7 @@
  * outside this file changes.
  */
 import { env } from '../env'
+import type { CaptureResult as PostHogCaptureResult } from 'posthog-js'
 
 type PostHogInstance = typeof import('posthog-js').default
 
@@ -117,7 +151,57 @@ function loadPosthog(): Promise<PostHogInstance> | null {
   return posthogPromise
 }
 
-export function initTelemetry(): void {
+/**
+ * Strips PII-carrying data out of the `$current_url`/`$pathname` properties
+ * posthog-js attaches to every event by default — see this file's own top
+ * doc comment for why that's necessary at all. `sanitizePathname` is run
+ * over both `$pathname` and `$current_url`'s path component; identity
+ * (pathname unchanged) when the caller doesn't supply one, so a stray
+ * direct call to `initTelemetry()` — every existing test call site, and any
+ * future one — still gets query-string/hash stripping rather than silently
+ * losing sanitization altogether. `capture` (posthog-js's `CaptureResult`)
+ * can itself be `null` (another plugin in the `before_send` chain already
+ * dropped the event) — passed straight through, nothing to sanitize.
+ */
+function sanitizeCaptureResult(
+  sanitizePathname: (pathname: string) => string,
+): (capture: PostHogCaptureResult | null) => PostHogCaptureResult | null {
+  return (capture) => {
+    if (!capture) {
+      return capture
+    }
+    const properties: Record<string, unknown> = { ...capture.properties }
+    if (typeof properties.$pathname === 'string') {
+      properties.$pathname = sanitizePathname(properties.$pathname)
+    }
+    if (typeof properties.$current_url === 'string') {
+      try {
+        const url = new URL(properties.$current_url)
+        url.search = ''
+        url.hash = ''
+        url.pathname = sanitizePathname(url.pathname)
+        properties.$current_url = url.toString()
+      } catch {
+        // Not a parseable URL — drop it rather than risk forwarding an
+        // unsanitized value we can't reason about.
+        delete properties.$current_url
+      }
+    }
+    return { ...capture, properties }
+  }
+}
+
+/**
+ * `sanitizePathname` maps a real pathname to a PII-free pattern — in
+ * production, main.tsx always passes routes.ts's `routePatternForPath`
+ * (never imported directly by this file: telemetry/ stays independent of
+ * app/, same layering as every other choke-point module in this codebase —
+ * see events.ts/README.md). Defaults to identity (see
+ * `sanitizeEventProperties`'s own doc comment) so every pre-existing call
+ * site (`initTelemetry()`, no argument) keeps compiling and keeps getting
+ * query-string/hash stripping even without a real pattern-matcher supplied.
+ */
+export function initTelemetry(sanitizePathname: (pathname: string) => string = (p) => p): void {
   const key = env.VITE_POSTHOG_KEY
   const posthog = loadPosthog()
   if (!posthog || !key) {
@@ -130,11 +214,13 @@ export function initTelemetry(): void {
         person_profiles: 'identified_only',
         autocapture: false,
         capture_pageview: false,
+        capture_pageleave: true,
         disable_session_recording: true,
         capture_dead_clicks: false,
         capture_performance: false,
         disable_surveys: true,
         disable_external_dependency_loading: true,
+        before_send: sanitizeCaptureResult(sanitizePathname),
       })
     })
     .catch(() => {

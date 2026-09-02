@@ -16,15 +16,21 @@
  * own doc comment for why (a real puzzle id in /puzzle/<id>, challenge
  * payload data in /challenge).
  *
+ * Also fires PostHog's own stock `$pageview` event (trackPageview,
+ * "site-flow funnel" follow-up) at the exact same point, reusing this same
+ * dedupe guard — one trigger mechanism for both events rather than two. See
+ * trackPageview's own doc comment for why this exists alongside route_view
+ * rather than replacing it.
+ *
  * Known accepted race, same as trackSessionStart's own (see main.tsx):
  * registerAnonId resolves after the profile loads, so the very first
- * route_view of a session may rarely fire before `codoro_anon_id` is
- * registered as a super property — not worth solving for one event on one
- * cold load.
+ * route_view/$pageview of a session may rarely fire before
+ * `codoro_anon_id` is registered as a super property — not worth solving
+ * for one event on one cold load.
  */
 import { useEffect, useRef } from 'react'
 import { useLocation } from 'wouter'
-import { trackRouteView } from '../telemetry'
+import { trackRouteView, trackPageview } from '../telemetry'
 import { routePatternForPath } from './routes'
 
 export function useRouteTelemetry() {
@@ -35,5 +41,6 @@ export function useRouteTelemetry() {
     if (lastReportedRef.current === location) return
     lastReportedRef.current = location
     trackRouteView({ route: routePatternForPath(location) })
+    trackPageview()
   }, [location])
 }

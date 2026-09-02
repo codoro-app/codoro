@@ -365,6 +365,22 @@ export function trackRouteView(payload: RouteViewPayload): void {
 }
 
 /**
+ * Fires PostHog's own stock `$pageview` event ("site-flow funnel" follow-
+ * up) — deliberately no explicit properties: `$current_url`/`$pathname` are
+ * attached automatically by posthog-js to every capture, sanitized via
+ * `client.ts`'s `before_send` hook (see its own doc comment), so there's
+ * nothing this call needs to pass itself. Sending the real `$pageview` name
+ * (rather than reusing `route_view`) is what unlocks PostHog's built-in Web
+ * Analytics dashboard, Paths, and exit-page reports, which all key off it.
+ * Called from `useRouteTelemetry.ts` at the exact same trigger point as
+ * `trackRouteView` above — same dedupe guarantees, one trigger mechanism
+ * for both events rather than two.
+ */
+export function trackPageview(): void {
+  safeCapture('$pageview')
+}
+
+/**
  * Fired whenever the external Tally feedback link is clicked (launch
  * instrumentation, Item 2) — FeedbackLink.tsx, rendered from
  * AppShell.tsx's footer, SettingsPage.tsx, and (launch instrumentation
