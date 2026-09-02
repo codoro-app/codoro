@@ -59,4 +59,14 @@ describe('FeedbackLink', () => {
     await user.click(screen.getByRole('link', { name: 'Feedback' }))
     expect(trackFeedbackLinkClicked).toHaveBeenCalledWith({ surface: 'settings' })
   })
+
+  it('calls the optional onClick prop (in addition to tracking) when provided', async () => {
+    const user = userEvent.setup()
+    const onClick = vi.fn()
+    const { FeedbackLink } = await loadFeedbackLink()
+    render(<FeedbackLink surface="daily_nudge" onClick={onClick} />)
+    await user.click(screen.getByRole('link', { name: 'Feedback' }))
+    expect(onClick).toHaveBeenCalledTimes(1)
+    expect(trackFeedbackLinkClicked).toHaveBeenCalledWith({ surface: 'daily_nudge' })
+  })
 })

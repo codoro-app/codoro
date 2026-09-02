@@ -69,6 +69,14 @@ import { MasteryTeaser } from './practice/MasteryTeaser'
 import { getActivityCalendar } from './stats/statsData'
 import { computeMastery } from './practice/mastery'
 import { PATTERN_LABELS, puzzleMeta } from '../content'
+import { FeedbackNudge } from './FeedbackNudge'
+import { useFeedbackNudge } from './useFeedbackNudge'
+
+// Launch instrumentation follow-up (feedback nudges): the fallback trigger
+// for players who never touch Daily — see DailyPage.tsx's own
+// useFeedbackNudge() call for the other (post-completion) trigger. Picked
+// as "enough attempts to have formed an opinion", not tied to correctness.
+const FEEDBACK_NUDGE_MIN_ATTEMPTS = 5
 
 // 2b.5: mode -> display label for the recent-activity recap. Kept local to
 // Home rather than added to AttemptMode itself — this is presentation-only,
@@ -153,6 +161,7 @@ export function Home() {
   const [attempts, setAttempts] = useState<Attempt[]>([])
   const cancelledRef = useRef(false)
   const isDesktop = useMediaQuery('(min-width: 1024px)')
+  const feedbackNudge = useFeedbackNudge()
 
   useEffect(() => {
     cancelledRef.current = false
@@ -202,6 +211,12 @@ export function Home() {
   const dayNumber = getDailyNumber(today)
   const doneToday = profile.dailyCompletion?.date === today
   const streakActive = profile.streak.currentStreak > 0
+  // Fallback feedback-nudge trigger: covers players who've solved enough
+  // puzzles to have an opinion but never touch Daily (DailyPage.tsx's own
+  // completedToday hero is the other trigger — see FEEDBACK_NUDGE_MIN_ATTEMPTS's
+  // doc comment above).
+  const showFeedbackNudge =
+    !feedbackNudge.dismissed && !doneToday && attempts.length >= FEEDBACK_NUDGE_MIN_ATTEMPTS
   const recentActivity = getRecentActivity(attempts)
   const ratingTrend = getRatingTrend(attempts, new Date().toISOString())
   // Elo-style updates are rarely whole numbers — round for display the same
@@ -277,6 +292,10 @@ export function Home() {
           </div>
         }
       >
+        {showFeedbackNudge && (
+          <FeedbackNudge surface="home_nudge" onDismiss={feedbackNudge.dismiss} />
+        )}
+
         {isDesktop &&
           (weakestPattern ? (
             <Link

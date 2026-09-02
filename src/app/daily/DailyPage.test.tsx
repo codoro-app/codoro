@@ -54,6 +54,7 @@ vi.mock('../../telemetry', () => ({
   trackShareClick: vi.fn(),
   trackChallengeCreate: vi.fn(),
   trackError: vi.fn(),
+  trackFeedbackLinkClicked: vi.fn(),
 }))
 
 const { loadProfile, saveProfile, appendAttempt, listAttempts, createDefaultProfile } =
@@ -66,6 +67,7 @@ describe('DailyPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     resetPuzzleBodyCacheForTests()
+    localStorage.clear()
     vi.mocked(loadProfile).mockResolvedValue(createDefaultProfile())
     vi.mocked(saveProfile).mockResolvedValue(undefined)
     vi.mocked(appendAttempt).mockResolvedValue(undefined)
@@ -159,6 +161,28 @@ describe('DailyPage', () => {
     expect(trackShareClick).toHaveBeenCalledWith(expect.objectContaining({ surface: 'daily' }))
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument()
+    })
+  })
+
+  it('shows a feedback nudge linking to the Tally form after the first attempt', async () => {
+    const user = userEvent.setup()
+    render(<DailyPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText(/Codoro Daily #/)).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('link', { name: 'Feedback' })).not.toBeInTheDocument()
+
+    const choiceButtons = screen.getAllByRole('button', { name: /^[ab]$/i })
+    const firstChoice = choiceButtons[0]
+    if (!firstChoice) throw new Error('expected at least one choice button')
+    await user.click(firstChoice)
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: 'Feedback' })).toHaveAttribute(
+        'href',
+        'https://tally.so/r/Xxb0v4',
+      )
     })
   })
 

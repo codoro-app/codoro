@@ -32,6 +32,8 @@ import { useMediaQuery } from '../useMediaQuery'
 import { ShareMenu } from '../ShareMenu'
 import type { ShareAction } from '../ShareMenu'
 import { RouteSkeleton } from '../RouteSkeleton'
+import { FeedbackNudge } from '../FeedbackNudge'
+import { useFeedbackNudge } from '../useFeedbackNudge'
 import { buildShareText, buildDailyChallengeText } from './shareText'
 import { trackShareClick, trackChallengeCreate } from '../../telemetry'
 
@@ -63,6 +65,9 @@ function heroIconClass(correct: boolean): string {
 export function DailyPage() {
   const session = useDailySession()
   const isDesktop = useMediaQuery('(min-width: 1024px)')
+  // Launch instrumentation follow-up (feedback nudges): one of two trigger
+  // surfaces — see Home.tsx's own useFeedbackNudge() call for the other.
+  const feedbackNudge = useFeedbackNudge()
   // v4 Phase 4.5 ("the right rail") — same ref-callback-in-state portal
   // target as PracticePage.tsx's identical `sidebarSlotEl`, for a retry
   // attempt's own feedback/Continue block.
@@ -276,6 +281,10 @@ export function DailyPage() {
       </div>
 
       <ShareMenu actions={shareActions} />
+
+      {!feedbackNudge.dismissed && (
+        <FeedbackNudge surface="daily_nudge" onDismiss={feedbackNudge.dismiss} />
+      )}
     </>
   ) : null
 
