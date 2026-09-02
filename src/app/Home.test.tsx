@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { Home } from './Home'
 import { loadProfile, listAttempts, DEFAULT_PREFERENCES } from '../storage'
 import type { UserProfile, Attempt } from '../storage'
@@ -8,6 +9,10 @@ vi.mock('../storage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../storage')>()
   return { ...actual, loadProfile: vi.fn(), listAttempts: vi.fn() }
 })
+
+vi.mock('../telemetry', () => ({
+  trackFeedbackLinkClicked: vi.fn(),
+}))
 
 function attempt(overrides: Partial<Attempt> & Pick<Attempt, 'id' | 'createdAt'>): Attempt {
   return {
@@ -56,6 +61,9 @@ describe('Home', () => {
     // recent-activity/rating-trend elements, so they get the "no data yet"
     // (element absent) branch unless a test overrides this explicitly.
     vi.mocked(listAttempts).mockResolvedValue([])
+    // Feedback-nudge dismissal (useFeedbackNudge.ts) persists via
+    // localStorage — clear so one test's dismissal can't leak into another.
+    localStorage.clear()
   })
 
   it('shows rating and streak once the profile loads', async () => {
@@ -405,5 +413,68 @@ describe('Home', () => {
       const badge = await screen.findByText('Not done yet')
       expect(badge.className).toContain('text-warn')
     })
+  })
+})
+
+// Launch instrumentation follow-up (feedback nudges): Home's own trigger
+// surface for players who solve puzzles without ever touching Daily — see
+// DailyPage.test.tsx's "shows a feedback nudge" test for the other surface.
+describe('Home feedback nudge', () => {
+  function attemptsOfLength(n: number): Attempt[] {
+    return Array.from({ length: n }, (_, i) =>
+      attempt({ id: `a${String(i)}`, createdAt: daysAgoIso(0) }),
+    )
+  }
+
+  it('shows the feedback nudge once 5+ puzzles are solved and today’s Daily is not done', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    vi.mocked(listAttempts).mockResolvedValue(attemptsOfLength(5))
+    render(<Home />)
+
+    expect(await screen.findByRole('link', { name: 'Feedback' })).toHaveAttribute(
+      'href',
+      'https://tally.so/r/Xxb0v4',
+    )
+  })
+
+  it('does not show the feedback nudge with fewer than 5 solved attempts', async () => {
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    vi.mocked(listAttempts).mockResolvedValue(attemptsOfLength(4))
+    render(<Home />)
+
+    await screen.findByText('1250')
+    expect(screen.queryByRole('link', { name: 'Feedback' })).not.toBeInTheDocument()
+  })
+
+  it('does not show the feedback nudge once today’s Daily is already done, regardless of attempt count', async () => {
+    // Local calendar date, matching Home.tsx's own todayDateString (see the
+    // "shows 'Done today'" test above) — not toISOString(), which is UTC and
+    // can disagree with the local date near a day boundary.
+    const now = new Date()
+    const today = `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    vi.mocked(loadProfile).mockResolvedValue({
+      ...baseProfile(),
+      dailyCompletion: { date: today, attemptId: 'a0', correct: true },
+    })
+    vi.mocked(listAttempts).mockResolvedValue(attemptsOfLength(5))
+    render(<Home />)
+
+    await screen.findByText('1250')
+    expect(screen.queryByRole('link', { name: 'Feedback' })).not.toBeInTheDocument()
+  })
+
+  it('permanently hides the nudge (across remounts) once dismissed', async () => {
+    const user = userEvent.setup()
+    vi.mocked(loadProfile).mockResolvedValue(baseProfile())
+    vi.mocked(listAttempts).mockResolvedValue(attemptsOfLength(5))
+    const { unmount } = render(<Home />)
+
+    await user.click(await screen.findByRole('button', { name: 'Dismiss' }))
+    expect(screen.queryByRole('link', { name: 'Feedback' })).not.toBeInTheDocument()
+
+    unmount()
+    render(<Home />)
+    await screen.findByText('1250')
+    expect(screen.queryByRole('link', { name: 'Feedback' })).not.toBeInTheDocument()
   })
 })
