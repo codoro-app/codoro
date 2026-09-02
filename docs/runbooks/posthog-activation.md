@@ -83,9 +83,24 @@ There is no historical data to recover. Everything before this deploy is gone an
 
 ## What this does _not_ turn on
 
-Worth knowing so you don't go looking for data that was deliberately never collected. `src/telemetry/client.ts` explicitly disables autocapture, pageview tracking, session recording, surveys, dead-click detection, and web-vitals capture, plus `disable_external_dependency_loading` as a blanket guard. The collected schema is exactly `session_start`, `attempt` (with Rush/Trace context appended), `rush_run_end`, and `app_error` — see `src/telemetry/README.md`.
+Worth knowing so you don't go looking for data that was deliberately never collected. `src/telemetry/client.ts` explicitly disables autocapture, session recording, surveys, dead-click detection, and web-vitals capture, plus `disable_external_dependency_loading` as a blanket guard.
 
-That is a deliberate locked decision, not an oversight. If you later want funnel or retention analysis that needs pageviews, that is a schema change with a privacy-notice implication, not a config toggle.
+**Pageviews and exit pages are on**, as of the "site-flow funnel" follow-up: `$pageview` (hand-fired from `useRouteTelemetry.ts`, once per distinct route) and `$pageleave` (posthog-js's own automatic exit-page signal, `capture_pageleave: true`) — both ordinary anonymous events, same free-tier bucket as everything else, no person profile involved. `$current_url`/`$pathname` are sanitized via `client.ts`'s `before_send` hook (real puzzle ids/challenge payloads never leave the device) before either event ships. This is what feeds PostHog's built-in Web Analytics dashboard, Paths, and exit-page reports.
+
+Everything else in the locked schema is unchanged — see `src/telemetry/README.md` for the full event list.
+
+**Your own testing traffic may still be mixed into this data.** `VITE_POSTHOG_KEY` is confirmed set on Production only (2026-09-01), not Preview — but a live PostHog Activity pull the same day showed `session_start` firing from several `*.codoro.pages.dev` URLs alongside `getcodoro.com`. That's not a Preview-environment leak: Cloudflare Pages gives every deployment, production included, its own auto-generated per-deployment subdomain in addition to the custom domain, and that subdomain carries whatever env vars the deployment was built with — Production's key included. So any QA click on a production deploy's `*.pages.dev` alias (rather than `getcodoro.com` itself) ships real telemetry, indistinguishable from a real visitor except by `$host`. If you want funnel/pageview numbers clean of this, filter to `$host = getcodoro.com` when you build the funnel below (there's no environment-level toggle for it, since it's the same Production key either way) — or just get in the habit of testing against `getcodoro.com`/`localhost` rather than a deploy's own alias.
+
+## Building the site-flow funnel in PostHog
+
+Once this ships and redeploys, in PostHog:
+
+1. **Insights → New insight → Funnel.**
+2. Add steps as `$pageview` events, filtered by `$pathname` for each step you care about — e.g. Step 1: `$pageview` where `$pathname = /`; Step 2: `$pageview` where `$pathname` is one of `/practice`, `/daily`, `/rush` (any mode page); Step 3: `attempt` (first real puzzle interaction); Step 4 (optional): `$pageview` again on a later day, to see day-2 return.
+3. Set the conversion window to whatever's meaningful (a single session vs. a return visit needs a longer window, e.g. 7 days).
+4. For **exit pages** specifically (where people actually leave), PostHog's Web Analytics dashboard has a built-in paths/exit-page breakdown once `$pageview`/`$pageleave` are flowing — no funnel needed for that one, it's automatic.
+
+Filter to `$host = getcodoro.com` first (see the note above), or your own deploy-alias QA clicks will be counted as real users.
 
 ## Related
 

@@ -3,13 +3,19 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import { App } from './app/App'
 import { initTelemetry, registerAnonId, trackError, trackSessionStart } from './telemetry'
+import { routePatternForPath } from './app/routes'
 
 const rootElement = document.getElementById('root')
 if (!rootElement) {
   throw new Error('Root element #root not found in index.html')
 }
 
-initTelemetry()
+// routePatternForPath is passed in (rather than telemetry/ importing it
+// itself) to keep telemetry/ independent of app/ — same layering as every
+// other choke-point module in this codebase. It's what sanitizes the
+// $current_url/$pathname PostHog attaches to every event; see
+// telemetry/client.ts's own doc comment.
+initTelemetry(routePatternForPath)
 trackSessionStart()
 // Fire-and-forget, deliberately not awaited before the two calls above:
 // blocking app boot on an IndexedDB read just to attach one telemetry

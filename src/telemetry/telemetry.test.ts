@@ -95,6 +95,105 @@ describe('initTelemetry', () => {
   })
 })
 
+describe('initTelemetry — pageview/pageleave + URL sanitization ("site-flow funnel" follow-up)', () => {
+  it('passes capture_pageleave: true to posthog.init', async () => {
+    const { initTelemetry } = await loadTelemetry('phc_test_key')
+    initTelemetry()
+    await flushPromises()
+    expect(posthogMock.init).toHaveBeenCalledWith(
+      'phc_test_key',
+      expect.objectContaining({ capture_pageview: false, capture_pageleave: true }),
+    )
+  })
+
+  function beforeSendFrom(
+    initCall: unknown,
+  ): (
+    cr: { properties: Record<string, unknown> } | null,
+  ) => { properties: Record<string, unknown> } | null {
+    const [, config] = initCall as [
+      string,
+      { before_send: (cr: { properties: Record<string, unknown> } | null) => unknown },
+    ]
+    return config.before_send as never
+  }
+
+  it('runs $pathname and $current_url through the supplied sanitizer, stripping query string and hash regardless', async () => {
+    const { initTelemetry } = await loadTelemetry('phc_test_key')
+    const sanitizePathname = (pathname: string): string =>
+      pathname.startsWith('/puzzle/') ? '/puzzle/:id' : pathname
+    initTelemetry(sanitizePathname)
+    await flushPromises()
+    const beforeSend = beforeSendFrom(posthogMock.init.mock.calls[0])
+    const result = beforeSend({
+      properties: {
+        $current_url: 'https://getcodoro.com/puzzle/abc123?utm_source=reddit#frag',
+        $pathname: '/puzzle/abc123',
+        other: 'kept',
+      },
+    })
+    expect(result?.properties.$current_url).toBe('https://getcodoro.com/puzzle/:id')
+    expect(result?.properties.$pathname).toBe('/puzzle/:id')
+    expect(result?.properties.other).toBe('kept')
+    expect(JSON.stringify(result)).not.toContain('abc123')
+    expect(JSON.stringify(result)).not.toContain('reddit')
+    expect(JSON.stringify(result)).not.toContain('frag')
+  })
+
+  it('leaves $pathname unchanged (identity) when initTelemetry is called without a sanitizer', async () => {
+    const { initTelemetry } = await loadTelemetry('phc_test_key')
+    initTelemetry()
+    await flushPromises()
+    const beforeSend = beforeSendFrom(posthogMock.init.mock.calls[0])
+    const result = beforeSend({ properties: { $pathname: '/puzzle/abc123' } })
+    expect(result?.properties.$pathname).toBe('/puzzle/abc123')
+  })
+
+  it('passes a null capture result straight through', async () => {
+    const { initTelemetry } = await loadTelemetry('phc_test_key')
+    initTelemetry()
+    await flushPromises()
+    const beforeSend = beforeSendFrom(posthogMock.init.mock.calls[0])
+    expect(beforeSend(null)).toBeNull()
+  })
+
+  it('drops $current_url rather than forwarding it unsanitized when it is not a parseable URL', async () => {
+    const { initTelemetry } = await loadTelemetry('phc_test_key')
+    initTelemetry()
+    await flushPromises()
+    const beforeSend = beforeSendFrom(posthogMock.init.mock.calls[0])
+    const result = beforeSend({ properties: { $current_url: 'not a url' } })
+    expect(result?.properties.$current_url).toBeUndefined()
+  })
+})
+
+describe('trackPageview', () => {
+  it('captures $pageview with no explicit properties', async () => {
+    const { trackPageview } = await loadTelemetry('phc_test_key')
+    trackPageview()
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('$pageview', undefined)
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackPageview } = await loadTelemetry(undefined)
+    trackPageview()
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+
+  it('does not throw when posthog.capture itself throws', async () => {
+    posthogMock.capture.mockImplementation(() => {
+      throw new Error('network blocked')
+    })
+    const { trackPageview } = await loadTelemetry('phc_test_key')
+    expect(() => {
+      trackPageview()
+    }).not.toThrow()
+    await flushPromises()
+  })
+})
+
 describe('loadPosthog deferral (perf pass, 2026-08-24)', () => {
   it('schedules the posthog-js import via a timer instead of triggering it synchronously', async () => {
     vi.useFakeTimers()

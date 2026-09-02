@@ -35,6 +35,7 @@ vi.mock('../telemetry', () => ({
   // Feedback link is ever clicked — so both need a real vi.fn() here, not
   // just the events this suite's own assertions care about.
   trackRouteView: vi.fn(),
+  trackPageview: vi.fn(),
   trackFeedbackLinkClicked: vi.fn(),
 }))
 
