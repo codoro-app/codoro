@@ -659,6 +659,22 @@ describe('trackFeedbackLinkClicked', () => {
     await flushPromises()
     expect(posthogMock.capture).not.toHaveBeenCalled()
   })
+
+  it('captures feedback_link_clicked with surface: "daily_nudge"', async () => {
+    const { trackFeedbackLinkClicked } = await loadTelemetry('phc_test_key')
+    const payload = { surface: 'daily_nudge' as const }
+    trackFeedbackLinkClicked(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('feedback_link_clicked', payload)
+  })
+
+  it('captures feedback_link_clicked with surface: "home_nudge"', async () => {
+    const { trackFeedbackLinkClicked } = await loadTelemetry('phc_test_key')
+    const payload = { surface: 'home_nudge' as const }
+    trackFeedbackLinkClicked(payload)
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('feedback_link_clicked', payload)
+  })
 })
 
 describe('trackError', () => {

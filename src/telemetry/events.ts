@@ -366,13 +366,14 @@ export function trackRouteView(payload: RouteViewPayload): void {
 
 /**
  * Fired whenever the external Tally feedback link is clicked (launch
- * instrumentation, Item 2) — FeedbackLink.tsx, rendered from both
- * AppShell.tsx's footer and SettingsPage.tsx. `surface` names which of the
- * two placements was used, so it's possible to tell which one actually
- * gets clicked.
+ * instrumentation, Item 2) — FeedbackLink.tsx, rendered from
+ * AppShell.tsx's footer, SettingsPage.tsx, and (launch instrumentation
+ * follow-up: feedback nudges) FeedbackNudge.tsx's two trigger surfaces.
+ * `surface` names which of the four placements was used, so it's possible
+ * to tell which one actually gets clicked.
  */
 export interface FeedbackLinkClickedPayload {
-  surface: 'footer' | 'settings'
+  surface: 'footer' | 'settings' | 'daily_nudge' | 'home_nudge'
 }
 
 export function trackFeedbackLinkClicked(payload: FeedbackLinkClickedPayload): void {
