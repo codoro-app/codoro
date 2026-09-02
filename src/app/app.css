@@ -96,34 +96,31 @@
     grid-template-columns: var(--nav-rail-width-collapsed) 1fr;
   }
 
-  /* v4 Phase 4.5 follow-up (right-rail widen): was `1fr var(--sidebar-width)`
-   * — main stretched to fill every pixel left over between the nav rail and
-   * the sidebar, so on any viewport wider than nav-rail + content-width +
-   * sidebar-width, that leftover space became huge dead margins around the
-   * (fixed max-width) puzzle card, with the sidebar stranded far to the
-   * right of it — reported live as "sidebar looks small, lots of dead
-   * space" even after the sidebar itself got wider. Sizing main's own track
-   * to match its actual content width (same --content-width-desktop every
-   * page already caps itself to via its own max-w-[...] mx-auto, now
-   * redundant on desktop but harmless) and centering the whole main+sidebar
-   * pair keeps them adjacent, with a real gap between them instead of an
-   * accidental one.
-   *
-   * `justify-content: end`, not `center` (live-reported follow-up): centering
-   * this fixed-width pair splits the container's leftover space into two
-   * equal margins — one between the nav rail and main, and a second one
-   * after the sidebar, which read as an empty void trailing the sidebar's
-   * bordered card panel on any viewport wider than nav-rail + content-width
-   * + sidebar-width (i.e. most desktop screens). `end` sends all of that
-   * leftover space to the *left* margin instead — ordinary breathing room
-   * between the nav rail and the puzzle card — while the sidebar returns to
-   * sitting flush against the content area's true right edge, same resting
-   * spot it had before this pair got a max-width at all. */
+  /* v4 Phase 4.5 follow-up (right-rail widen) tried capping main's own track
+   * to --content-width-desktop and pushing the pair to the content area's
+   * right edge (`justify-content: end`) — on any viewport wider than
+   * nav-rail + content-width + sidebar-width, that collected ALL the
+   * leftover space into one lopsided left margin between the nav rail and
+   * the puzzle card (live-reported 2026-09-01). A follow-up attempt to
+   * center that same capped pair (rather than push it right) only split the
+   * dead space into two margins framing both outer edges instead — still
+   * visibly wasted, also rejected live. Direct decision: back to `1fr` (the
+   * pre-#88 rule) — main fills every pixel actually available between the
+   * nav rail and the sidebar, so there is no leftover for any
+   * justify-content to collect anywhere. The puzzle CARD's own per-page
+   * max-w-[...] mx-auto (every page already sets this) still caps and
+   * centers *itself* within that stretched track, so extra width on a wide
+   * screen becomes breathing room around the card, not a margin outside the
+   * whole layout — the trade-off this reintroduces is the original one
+   * `end`/centering were trying to avoid: a real gap can reopen between the
+   * centered card and the sidebar on very wide screens. Accepted knowingly.
+   * column-gap is unrelated to any of this (it doesn't create dead space —
+   * it's the fixed, load-bearing separation between main and sidebar) and
+   * stays either way, so the two columns don't end up flush together. */
   .app-shell__content {
     display: grid;
-    grid-template-columns: minmax(0, var(--content-width-desktop)) var(--sidebar-width);
+    grid-template-columns: 1fr var(--sidebar-width);
     column-gap: var(--space-8);
-    justify-content: end;
     align-items: start;
     grid-template-areas: 'main sidebar';
   }
