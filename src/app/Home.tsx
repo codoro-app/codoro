@@ -45,6 +45,14 @@
  * docs/superpowers/plans/2026-08-12-phase-2b1-layout-shell.md's Design
  * record for why. The loading-state early return is untouched (no header
  * to pin yet).
+ *
+ * First-run sequence (2026-09-03): a second early return, right after the
+ * loading branch, renders `<FirstRunSequence />` in place of this file's
+ * normal content for a brand-new profile's very first session
+ * (`attempts.length === 0 && !profile.firstRunCompleted`) — never a
+ * redirect, App.tsx's '/' -> Home routing is untouched. See
+ * `showFirstRun`'s own doc comment below and
+ * docs/superpowers/plans/2026-09-03-first-run-sequence-design.md.
  */
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'wouter'
@@ -71,6 +79,7 @@ import { computeMastery } from './practice/mastery'
 import { PATTERN_LABELS, puzzleMeta } from '../content'
 import { FeedbackNudge } from './FeedbackNudge'
 import { useFeedbackNudge } from './useFeedbackNudge'
+import { FirstRunSequence } from './firstRun/FirstRunSequence'
 
 // Launch instrumentation follow-up (feedback nudges): the fallback trigger
 // for players who never touch Daily — see DailyPage.tsx's own
@@ -159,6 +168,17 @@ const SIDEBAR_ACTIVITY_WEEKS = 8
 export function Home() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [attempts, setAttempts] = useState<Attempt[]>([])
+  // First-run sequence gate (see FirstRunSequence.tsx's own doc comment for
+  // why this is real state, captured once when the initial profile/attempts
+  // load lands, rather than a value re-derived from `profile`/`attempts` on
+  // every render: `profile` itself changes mid-sequence (each first-run
+  // puzzle's commit updates it), and a continuously re-derived gate would
+  // flip back to normal Home content — unmounting FirstRunSequence,
+  // including its payoff screen — the instant `profile.firstRunCompleted`
+  // turns true, before the player ever got to see it. This only ever flips
+  // true->false, via FirstRunSequence's own onComplete callback once the
+  // player actually leaves the payoff screen.
+  const [showFirstRun, setShowFirstRun] = useState(false)
   const cancelledRef = useRef(false)
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   const feedbackNudge = useFeedbackNudge()
@@ -170,6 +190,7 @@ export function Home() {
       if (cancelledRef.current) return
       setProfile(loadedProfile)
       setAttempts(loadedAttempts)
+      setShowFirstRun(loadedAttempts.length === 0 && !loadedProfile.firstRunCompleted)
     })()
     return () => {
       cancelledRef.current = true
@@ -204,6 +225,22 @@ export function Home() {
       <div className={homeShellClass}>
         <p className="text-center text-text-1 py-8">Loading…</p>
       </div>
+    )
+  }
+
+  // First-run sequence gate — same early-return shape as the loading branch
+  // above, never a redirect (App.tsx's '/' -> Home routing is untouched).
+  // See `showFirstRun`'s own doc comment for why this reads that state
+  // rather than re-deriving `attempts.length === 0 && !profile.firstRunCompleted`
+  // on every render.
+  if (showFirstRun) {
+    return (
+      <FirstRunSequence
+        onComplete={(updatedProfile) => {
+          setProfile(updatedProfile)
+          setShowFirstRun(false)
+        }}
+      />
     )
   }
 

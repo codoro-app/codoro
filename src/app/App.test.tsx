@@ -13,7 +13,15 @@ vi.mock('../storage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../storage')>()
   return {
     ...actual,
-    loadProfile: vi.fn(() => Promise.resolve(actual.createDefaultProfile())),
+    // firstRunCompleted: true — this suite tests App-level ROUTING, not the
+    // first-run sequence content (that's useFirstRunSession.test.ts's own
+    // job); a real fresh profile would otherwise route '/' into
+    // FirstRunSequence instead of normal Home content, which every
+    // navigation test below assumes. Same "returning-user default" fixture
+    // convention Home.test.tsx's own baseProfile() uses.
+    loadProfile: vi.fn(() =>
+      Promise.resolve({ ...actual.createDefaultProfile(), firstRunCompleted: true }),
+    ),
     saveProfile: vi.fn(() => Promise.resolve(undefined)),
     appendAttempt: vi.fn(() => Promise.resolve(undefined)),
     listAttempts: vi.fn(() => Promise.resolve([])),

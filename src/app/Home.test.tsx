@@ -14,6 +14,25 @@ vi.mock('../telemetry', () => ({
   trackFeedbackLinkClicked: vi.fn(),
 }))
 
+// First-run sequence gate: FirstRunSequence's own puzzle-loading/session
+// internals are covered by useFirstRunSession.test.ts — Home's only job is
+// choosing whether to render it at all, so that's the only thing stubbed
+// here (same boundary TracePage.test.tsx draws around TraceRunner).
+vi.mock('./firstRun/FirstRunSequence', () => ({
+  FirstRunSequence: ({ onComplete }: { onComplete: (profile: UserProfile) => void }) => (
+    <div data-testid="first-run-sequence">
+      <button
+        type="button"
+        onClick={() => {
+          onComplete({ ...baseProfile(), firstRunCompleted: true })
+        }}
+      >
+        finish first run
+      </button>
+    </div>
+  ),
+}))
+
 function attempt(overrides: Partial<Attempt> & Pick<Attempt, 'id' | 'createdAt'>): Attempt {
   return {
     puzzleId: `puzzle-${overrides.id}`,
@@ -51,6 +70,10 @@ function baseProfile(): UserProfile {
     preferences: DEFAULT_PREFERENCES,
     anonId: 'test-anon-id',
     challengerName: null,
+    // Returning-user default: every existing test in this file exercises
+    // NORMAL Home content, not the first-run gate — see the dedicated
+    // "first-run sequence gate" describe block below for that.
+    firstRunCompleted: true,
   }
 }
 
@@ -414,6 +437,51 @@ describe('Home', () => {
       const badge = await screen.findByText('Not done yet')
       expect(badge.className).toContain('text-warn')
     })
+  })
+})
+
+// First-run sequence (2026-09-03): a brand-new profile's very first session
+// renders FirstRunSequence inline instead of Home's normal content — never a
+// redirect (App.tsx's '/' -> Home routing is untouched). See Home.tsx's own
+// showFirstRun doc comment.
+describe('Home: first-run sequence gate', () => {
+  it('renders the first-run sequence for a brand-new profile (zero attempts, firstRunCompleted: false)', async () => {
+    vi.mocked(loadProfile).mockResolvedValue({ ...baseProfile(), firstRunCompleted: false })
+    vi.mocked(listAttempts).mockResolvedValue([])
+    render(<Home />)
+
+    expect(await screen.findByTestId('first-run-sequence')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /practice/i })).not.toBeInTheDocument()
+  })
+
+  it('renders normal Home content for a returning profile (has attempts), even if firstRunCompleted is somehow false', async () => {
+    vi.mocked(loadProfile).mockResolvedValue({ ...baseProfile(), firstRunCompleted: false })
+    vi.mocked(listAttempts).mockResolvedValue([attempt({ id: '1', createdAt: daysAgoIso(0) })])
+    render(<Home />)
+
+    expect(await screen.findByRole('link', { name: /practice/i })).toBeInTheDocument()
+    expect(screen.queryByTestId('first-run-sequence')).not.toBeInTheDocument()
+  })
+
+  it('renders normal Home content once firstRunCompleted is true, even with zero attempts', async () => {
+    vi.mocked(loadProfile).mockResolvedValue({ ...baseProfile(), firstRunCompleted: true })
+    vi.mocked(listAttempts).mockResolvedValue([])
+    render(<Home />)
+
+    expect(await screen.findByRole('link', { name: /practice/i })).toBeInTheDocument()
+    expect(screen.queryByTestId('first-run-sequence')).not.toBeInTheDocument()
+  })
+
+  it('falls through to normal Home content with no reload once the sequence completes', async () => {
+    const user = userEvent.setup()
+    vi.mocked(loadProfile).mockResolvedValue({ ...baseProfile(), firstRunCompleted: false })
+    vi.mocked(listAttempts).mockResolvedValue([])
+    render(<Home />)
+
+    await user.click(await screen.findByRole('button', { name: 'finish first run' }))
+
+    expect(await screen.findByRole('link', { name: /practice/i })).toBeInTheDocument()
+    expect(screen.queryByTestId('first-run-sequence')).not.toBeInTheDocument()
   })
 })
 
