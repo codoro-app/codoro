@@ -53,6 +53,7 @@ function baseProfile(): UserProfile {
     preferences: DEFAULT_PREFERENCES,
     anonId: 'test-anon-id',
     challengerName: null,
+    firstRunCompleted: true,
   }
 }
 

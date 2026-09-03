@@ -66,6 +66,7 @@ describe('loadProfile', () => {
       preferences: DEFAULT_PREFERENCES,
       anonId: 'test-anon-id',
       challengerName: null,
+      firstRunCompleted: true,
     }
     await saveProfile(profile)
     expect(await loadProfile()).toEqual(profile)
@@ -179,6 +180,7 @@ describe('schema migration on load', () => {
       missionStats: null,
       preferences: DEFAULT_PREFERENCES,
       challengerName: null,
+      firstRunCompleted: true,
     })
 
     // loadProfile now writes the migrated shape back to disk immediately

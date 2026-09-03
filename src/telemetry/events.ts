@@ -411,6 +411,46 @@ export function trackFeedbackLinkClicked(payload: FeedbackLinkClickedPayload): v
 }
 
 /**
+ * Fired once per puzzle position (1, 2, or 3) as a first-run puzzle commits
+ * — the first-run sequence's (src/content/firstRun.ts) own step-level
+ * telemetry, deliberately separate from a single aggregate before/after
+ * number: Thomas wants to see exactly where in the 3-puzzle sequence people
+ * drop off, not just a completion rate. Fired alongside the normal
+ * `trackAttempt` call for the same attempt (first-run attempts are ordinary
+ * rated Practice attempts — see useFirstRunSession.ts's own doc comment),
+ * never in place of it.
+ */
+export interface FirstRunStepCompletePayload {
+  position: 1 | 2 | 3
+  puzzle_id: string
+  interaction: Puzzle['interaction']
+  correct: boolean
+}
+
+export function trackFirstRunStepComplete(payload: FirstRunStepCompletePayload): void {
+  safeCapture('first_run_step_complete', payload)
+}
+
+/**
+ * Fired once, at the 3rd (and final) first-run puzzle's COMMIT — not at the
+ * payoff screen's own render, and not at any earlier step. This is
+ * deliberate: a visitor who solves puzzle 3 and closes the tab before ever
+ * seeing the payoff screen still correctly completed the sequence (Home's
+ * gate — `attempts.length === 0 && !profile.firstRunCompleted` — must never
+ * re-surface onboarding for them), so this event and the `firstRunCompleted`
+ * profile flip it accompanies both fire at that same commit, not later.
+ * `correct_count` is the tally across all 3 puzzles (0-3), the payoff
+ * screen's own headline stat.
+ */
+export interface FirstRunCompletedPayload {
+  correct_count: number
+}
+
+export function trackFirstRunCompleted(payload: FirstRunCompletedPayload): void {
+  safeCapture('first_run_completed', payload)
+}
+
+/**
  * Lightweight error-tracking event, not part of the locked schema above —
  * this is our call for V1: PostHog's own error capture is enough for now,
  * we're not pulling in Sentry (see the PR description for the reasoning).

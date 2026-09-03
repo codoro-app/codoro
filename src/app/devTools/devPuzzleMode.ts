@@ -110,3 +110,22 @@ export function resolveBossStubPuzzle(positionIndexZeroBased: number): ContentPu
   }
   return puzzle
 }
+
+/**
+ * The first-run sequence's curated FIRST_RUN_SET ids don't exist in
+ * DEV_STUB_PUZZLES either — the exact same problem Daily/Boss already solved
+ * above, not a new one. Mirrors resolveBossStubPuzzle exactly (position-keyed
+ * cycling through the stub pool), since useFirstRunSession's own serving
+ * shape mirrors useBossSession's fixed-order serveAt(position).
+ */
+export function resolveFirstRunStubPuzzle(positionIndexZeroBased: number): ContentPuzzle {
+  if (!import.meta.env.DEV) {
+    throw new Error('resolveFirstRunStubPuzzle: called outside DEV')
+  }
+  const puzzle = DEV_STUB_PUZZLES[positionIndexZeroBased % DEV_STUB_PUZZLES.length]
+  // DEV_STUB_PUZZLES is a non-empty const array; unreachable in practice.
+  if (!puzzle) {
+    throw new Error('resolveFirstRunStubPuzzle: DEV_STUB_PUZZLES is empty')
+  }
+  return puzzle
+}

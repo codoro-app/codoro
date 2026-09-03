@@ -23,6 +23,7 @@ const validProfile = {
   preferences: DEFAULT_PREFERENCES,
   anonId: 'test-anon-id-1',
   challengerName: null,
+  firstRunCompleted: true,
 }
 
 const validAttempt = {
