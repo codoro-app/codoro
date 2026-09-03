@@ -184,6 +184,21 @@ function migrateV10ToV11(raw: Record<string, unknown>): Record<string, unknown> 
 }
 
 /**
+ * v11 -> v12: the first-run sequence adds `firstRunCompleted` — see
+ * src/storage/schema.ts's UserProfileSchema doc comment. Every EXISTING
+ * (pre-migration) profile gets `true`, not `false`: an existing profile has,
+ * by definition, already had *some* first run of the app, even one whose
+ * recorded attempts happen to be empty (e.g. a cleared/imported history) —
+ * `true` is the safer default against ever re-surfacing onboarding to a
+ * returning visitor. `createDefaultProfile()` is the only place a genuinely
+ * new profile starts at `false`. Every existing field is passed through
+ * unchanged; this migration only adds the new one.
+ */
+function migrateV11ToV12(raw: Record<string, unknown>): Record<string, unknown> {
+  return { ...raw, schema_version: 12, firstRunCompleted: true }
+}
+
+/**
  * Keyed by the version each migration migrates *from*. The first real entry:
  * schema v1 predates Daily mode, so any profile still on v1 gets a null
  * dailyCompletion (equivalent to "no Daily attempt recorded yet").
@@ -199,4 +214,5 @@ export const MIGRATIONS: Record<number, Migration> = {
   8: migrateV8ToV9,
   9: migrateV9ToV10,
   10: migrateV10ToV11,
+  11: migrateV11ToV12,
 }

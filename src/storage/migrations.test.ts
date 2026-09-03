@@ -68,7 +68,7 @@ describe('runMigrations', () => {
 })
 
 describe('MIGRATIONS: full chain from v1 to the current version', () => {
-  it('v1 -> v11, stamping schema_version 11, adding null dailyCompletion + rushStats + bestRunStreak 0 + bossStats + missionProgress + missionStats + DEFAULT_PREFERENCES + null challengerName + a generated anonId, and preserving every existing field untouched', () => {
+  it('v1 -> v12, stamping schema_version 12, adding null dailyCompletion + rushStats + bestRunStreak 0 + bossStats + missionProgress + missionStats + DEFAULT_PREFERENCES + null challengerName + true firstRunCompleted + a generated anonId, and preserving every existing field untouched', () => {
     const v1Profile = {
       schema_version: 1,
       rating: 1342.75,
@@ -85,7 +85,7 @@ describe('MIGRATIONS: full chain from v1 to the current version', () => {
     expect((anonId as string).length).toBeGreaterThan(0)
     expect(rest).toEqual({
       ...v1Profile,
-      schema_version: 11,
+      schema_version: 12,
       dailyCompletion: null,
       rushStats: null,
       bestRunStreak: 0,
@@ -94,6 +94,49 @@ describe('MIGRATIONS: full chain from v1 to the current version', () => {
       missionStats: null,
       preferences: DEFAULT_PREFERENCES,
       challengerName: null,
+      firstRunCompleted: true,
+    })
+  })
+})
+
+describe('MIGRATIONS[11]: v11 -> v12 (first-run sequence: adds firstRunCompleted)', () => {
+  it('stamps schema_version 12, adds firstRunCompleted: true (an existing profile has already had SOME first run), and preserves every existing field untouched', () => {
+    const v11Profile = {
+      schema_version: 11,
+      rating: 1702.25,
+      ratedAttemptCount: 63,
+      streak: { currentStreak: 5, longestStreak: 27, lastActiveDate: '2026-09-02' },
+      requeueState: [{ puzzleId: 'p14', stage: 1, served: 6 }],
+      storagePersisted: true,
+      dailyCompletion: { date: '2026-09-02', attemptId: 'a30', correct: true },
+      rushStats: { bestScore: 62, bestStreak: 35, runs: 15, lastRunAt: '2026-08-24T09:00:00.000Z' },
+      bestRunStreak: 20,
+      bossStats: {
+        bestDepth: 9,
+        clears: 3,
+        runs: 8,
+        lastRunAt: '2026-08-25T12:00:00.000Z',
+        bestRunSplits: [900, 1900, 2900],
+      },
+      missionProgress: null,
+      missionStats: {
+        completions: 2,
+        lastRunAt: '2026-08-18T10:00:00.000Z',
+        lastCompletedAt: '2026-08-18T10:05:00.000Z',
+      },
+      preferences: DEFAULT_PREFERENCES,
+      anonId: 'anon-challenger-1',
+      challengerName: 'Joe',
+    }
+
+    const v11Migration = MIGRATIONS[11]
+    if (!v11Migration) throw new Error('MIGRATIONS[11] is not registered')
+    const migrated = v11Migration(v11Profile)
+
+    expect(migrated).toEqual({
+      ...v11Profile,
+      schema_version: 12,
+      firstRunCompleted: true,
     })
   })
 })

@@ -21,7 +21,7 @@ import { generateAnonId } from './anonId'
  * migrated through migrations.ts — see AttemptSchema's own doc comment for
  * why `checkpoint_results` (the v4 addition) doesn't go through this chain.
  */
-export const CURRENT_SCHEMA_VERSION = 11
+export const CURRENT_SCHEMA_VERSION = 12
 
 /** Mirrors engine's StreakState shape. */
 export const StreakStateSchema = z.object({
@@ -299,6 +299,16 @@ export const UserProfileSchema = z.object({
   // decision record). `null` until set; a blank/skipped prompt never blocks
   // sharing (ChallengeButton falls back to the generic "A friend" copy).
   challengerName: z.string().min(1).max(40).nullable(),
+  // First-run sequence: true once this profile has completed (or, per
+  // migrateV11ToV12's own doc comment, is assumed to have already completed)
+  // its curated 3-puzzle first-run sequence (src/content/firstRun.ts) —
+  // Home.tsx's gate is `attempts.length === 0 && !firstRunCompleted`. Flips
+  // at the 3rd puzzle's COMMIT time (useFirstRunSession.ts), not at the
+  // payoff screen's own render — a visitor who solves puzzle 3 and closes
+  // the tab before seeing the payoff screen must still never see first-run
+  // again. `createDefaultProfile()` starts every genuinely new profile at
+  // `false`.
+  firstRunCompleted: z.boolean(),
 })
 
 export interface UserProfile {
@@ -327,6 +337,8 @@ export interface UserProfile {
   anonId: string
   /** Player-set display name for outgoing challenge links, or null if never set/skipped — see UserProfileSchema's own doc comment on this field. */
   challengerName: string | null
+  /** True once this profile has completed the curated first-run sequence (or is assumed to have — see UserProfileSchema's own doc comment on this field). */
+  firstRunCompleted: boolean
 }
 
 /**
@@ -424,5 +436,9 @@ export function createDefaultProfile(): UserProfile {
     preferences: { ...DEFAULT_PREFERENCES },
     anonId: generateAnonId(),
     challengerName: null,
+    // A genuinely new profile hasn't played the first-run sequence yet —
+    // Home's gate (attempts.length === 0 && !firstRunCompleted) is what
+    // actually serves it. See UserProfileSchema's own doc comment.
+    firstRunCompleted: false,
   }
 }
