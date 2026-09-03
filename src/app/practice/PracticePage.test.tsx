@@ -161,20 +161,22 @@ describe('PracticePage', () => {
     })
   })
 
-  it('shows a working "Share challenge" action after a correct answer that re-encodes the streak', async () => {
+  it('shows a working "Challenge a friend" button after a correct answer that re-encodes the streak, prompting for a name on first use', async () => {
     const user = userEvent.setup()
     render(<PracticePage />)
     await waitFor(() => {
       expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
     })
 
-    expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument()
+    // Unlike the old streak-gated "Share challenge" row, ChallengeButton is
+    // not folded into the "Share" sheet at all — it's its own always-visible
+    // control, absent only until an answer exists.
+    expect(screen.queryByRole('button', { name: /challenge a friend/i })).not.toBeInTheDocument()
 
     await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /challenge a friend/i })).toBeInTheDocument()
     })
-    await user.click(screen.getByRole('button', { name: 'Share' }))
 
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
     // This file's beforeEach has no vi.clearAllMocks(), so a spy placed in
@@ -182,7 +184,13 @@ describe('PracticePage', () => {
     // still be the same accumulated spy — clear it so calls[0] is this
     // test's own write, not a leftover.
     writeTextSpy.mockClear()
-    await user.click(screen.getByRole('button', { name: 'Share challenge' }))
+    await user.click(screen.getByRole('button', { name: /challenge a friend/i }))
+
+    // No saved name yet on a fresh default profile — the name-prompt sheet
+    // opens first; "Skip" sends immediately with no name (never blocks
+    // sharing, per the design record).
+    expect(screen.getByRole('dialog', { name: 'Your name' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Skip' }))
 
     expect(trackChallengeCreate).toHaveBeenCalledTimes(1)
     expect(trackChallengeCreate).toHaveBeenCalledWith({ surface: 'practice', puzzle_count: 1 })
@@ -190,15 +198,46 @@ describe('PracticePage', () => {
     const url = writeTextSpy.mock.calls[0]?.[0]
     if (typeof url !== 'string')
       throw new Error('expected writeText to have been called with a URL')
-    expect(url).toMatch(/^Beat my Codoro Practice streak — 1 in a row — getcodoro\.com\/challenge#/)
+    expect(url).toMatch(/^Can you beat my streak of 1\? getcodoro\.com\/challenge#/)
 
     const decoded = decodeChallengePayload(url.split('#')[1] ?? '')
     expect(decoded).not.toBeNull()
     expect(decoded?.ids).toHaveLength(1)
+    expect(decoded?.challengerName).toBeNull()
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Link copied!' })).toBeInTheDocument()
     })
+  })
+
+  it('challenges just the single just-answered puzzle (not the empty streak) after a wrong answer', async () => {
+    const user = userEvent.setup()
+    render(<PracticePage />)
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+
+    // Every fixture puzzle's correct_choice is 0 ('a') — 'b' is always wrong.
+    await user.click(nth(screen.getAllByRole('button', { name: 'b' }), 0))
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /challenge a friend/i })).toBeInTheDocument()
+    })
+
+    const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
+    writeTextSpy.mockClear()
+    await user.click(screen.getByRole('button', { name: /challenge a friend/i }))
+    await user.click(screen.getByRole('button', { name: 'Skip' }))
+
+    expect(trackChallengeCreate).toHaveBeenCalledWith({ surface: 'practice', puzzle_count: 1 })
+    const url = writeTextSpy.mock.calls[0]?.[0]
+    if (typeof url !== 'string')
+      throw new Error('expected writeText to have been called with a URL')
+    // The empty streak (a miss clears it) falls back to "beat this one" —
+    // never a 0-puzzle streak challenge.
+    expect(url).toMatch(/^Can you beat this one\? getcodoro\.com\/challenge#/)
+    const decoded = decodeChallengePayload(url.split('#')[1] ?? '')
+    expect(decoded?.ids).toHaveLength(1)
+    expect(decoded?.results[0]?.correct).toBe(false)
   })
 
   it('clears the share menu on Continue — it must not persist under the next, unanswered puzzle', async () => {

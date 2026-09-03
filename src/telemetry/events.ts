@@ -222,9 +222,23 @@ export function trackStreakPause(payload: StreakPausePayload): void {
  * the recipient's own run). `puzzle_count` is the number of puzzles the
  * encoded challenge carries (≤ the payload cap — long runs truncate to their
  * last 5). Not part of the locked `attempt` schema — a new, additive event.
+ *
+ * `'first_run'` (challenge redesign): additive surface literal for the
+ * not-yet-built first-run sequence's own "Challenge a friend" CTA — that PR
+ * owns firing it, but `ChallengeCreatePayload` has only one owner (this
+ * file), so the literal is added here alongside the rest.
+ *
+ * `'boss'` (challenge redesign): Boss gets its own first-ever challenge
+ * affordance in this same pass (`ChallengeButton` wired into BossPage,
+ * matching Daily/Rush/Practice) — the redesign's own design record only
+ * called out adding `'first_run'` explicitly, but shipping Boss's button
+ * without a distinct surface value would either fail to typecheck against
+ * `ChallengeButton`'s `surface` prop or force Boss's events to misattribute
+ * under an unrelated existing surface; both are worse than this one
+ * additional literal.
  */
 export interface ChallengeCreatePayload {
-  surface: 'daily' | 'rush' | 'practice' | 'challenge'
+  surface: 'daily' | 'rush' | 'practice' | 'challenge' | 'first_run' | 'boss'
   puzzle_count: number
 }
 

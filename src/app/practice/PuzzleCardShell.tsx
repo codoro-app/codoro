@@ -59,6 +59,18 @@ export interface PuzzleCardShellProps {
    */
   shareActions?: readonly ShareAction[]
   /**
+   * The surface's `ChallengeButton` (challenge redesign), rendered as its
+   * own full-width row in the mobile drawer's footer, above the
+   * share-icon/Continue row — deliberately NOT folded into `shareActions`
+   * (a list of `ShareAction` rows rendered inside `ShareMenu`'s own sheet):
+   * the design record calls for a prominent, always-visible, accent-filled
+   * button, not one more row behind a "Share" tap. Desktop is unaffected —
+   * callers that also want it there render their own `<ChallengeButton>` in
+   * normal page flow (next to their own `<ShareMenu trigger="button">`),
+   * same convention `shareActions` itself already documents above.
+   */
+  challengeButton?: ReactNode
+  /**
    * Desktop right-rail target (v4 Phase 4.5 — "the right rail"). When set
    * and `isDesktop`, the post-commit Continue+feedback-panel block portals
    * into this element instead of rendering inline below the puzzle — the
@@ -355,6 +367,7 @@ export function PuzzleCardShell({
   forcedCommit,
   continueDestination = 'next-puzzle',
   shareActions = [],
+  challengeButton = null,
   sidebarSlot = null,
 }: PuzzleCardShellProps) {
   const [commit, setCommit] = useState<CommitState | null>(null)
@@ -578,6 +591,11 @@ export function PuzzleCardShell({
               >
                 {puzzle.explanation}
               </p>
+              {/* challenge redesign: its own full-width row, above the
+                  share-icon/Continue row — a prominent, always-visible CTA,
+                  not one more item squeezed into that compact row (see
+                  `challengeButton`'s own doc comment above). */}
+              {challengeButton && <div className="flex-none">{challengeButton}</div>}
               {/* 2b.11: footer row, not just the button — the share trigger
                   (when there are any shareActions) sits beside Continue
                   instead of after this shell's rendered output the way

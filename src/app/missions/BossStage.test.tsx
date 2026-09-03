@@ -44,6 +44,7 @@ function makeBossSession(overrides: Partial<BossSession> = {}): BossSession {
     willEndOnContinue: false,
     lastAnswerCorrect: null,
     answerNonce: 0,
+    runAttempts: [],
     handleAnswered: vi.fn(),
     handleContinue: vi.fn(),
     handleRunItBack: vi.fn(),

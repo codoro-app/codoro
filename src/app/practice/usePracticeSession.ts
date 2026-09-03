@@ -144,6 +144,20 @@ export interface PracticeSession {
   solvedThisSession: number
   /** The current streak's correct answers, in order — feeds the streak challenge link. Cleared on a miss so the link always encodes the live streak. */
   streakAttempts: readonly ChallengeAttemptInput[]
+  /**
+   * The single most recently answered puzzle's own attempt — correct or
+   * not, unlike `streakAttempts` (which drops to `[]` on a miss). Challenge
+   * redesign: `ChallengeButton` challenges the live streak when one exists,
+   * otherwise falls back to challenging just this one puzzle ("beat this
+   * one" per the design record) — that fallback needs an attempt WITH
+   * `time_ms` for a puzzle that may have just broken the streak, which
+   * `streakAttempts` alone can never hold. Overwritten on every
+   * `handleAnswered` call; the caller gates its use on
+   * `lastAttempt.puzzleId === puzzle.id` (same convention as PracticePage's
+   * own local `lastAnswer` state) so a stale value from a previous puzzle
+   * never leaks into a fresh, unanswered one.
+   */
+  lastAttempt: ChallengeAttemptInput | null
   /** Bumped on every recorded attempt (correct or not) — MasteryView takes this as a prop so it can refetch attempts instead of only reading them once on mount. */
   attemptVersion: number
   patternFilter: PatternSlug | null
@@ -174,6 +188,7 @@ export function usePracticeSession(): PracticeSession {
   const [streakPause, setStreakPause] = useState<StreakPauseState | null>(null)
   const [solvedThisSession, setSolvedThisSession] = useState(0)
   const [streakAttempts, setStreakAttempts] = useState<ChallengeAttemptInput[]>([])
+  const [lastAttempt, setLastAttempt] = useState<ChallengeAttemptInput | null>(null)
   const [attemptVersion, setAttemptVersion] = useState(0)
   const [patternFilter, setPatternFilterState] = useState<PatternSlug | null>(null)
   const [interactionFilter, setInteractionFilterState] = useState<InteractionFilter>(null)
@@ -490,6 +505,10 @@ export function usePracticeSession(): PracticeSession {
       setProfile(updatedProfile)
       setRatingDelta(delta)
       setCombo(newCombo)
+      // Challenge redesign: recorded unconditionally, correct or not — see
+      // `lastAttempt`'s own doc comment for why this can't just reuse
+      // `streakAttempts`.
+      setLastAttempt({ puzzleId: puzzle.id, correct: payload.correct, time_ms: timeMs })
       // The live streak's correct answers, in order — feeds the streak
       // challenge link. A miss (combo → 0) clears it, so the link always
       // encodes the current streak.
@@ -624,6 +643,7 @@ export function usePracticeSession(): PracticeSession {
     combo,
     solvedThisSession,
     streakAttempts,
+    lastAttempt,
     attemptVersion,
     patternFilter,
     setPatternFilter,

@@ -29,6 +29,16 @@
  * results accumulate in the hook and drive both the comparison screen and a
  * counter-challenge, which re-encodes the recipient's own run as a fresh
  * challenge link.
+ *
+ * Challenge redesign: `status === 'intro'` renders a landing hero ahead of
+ * puzzle 1 — named greeting (`payload.challengerName`, nullable — "Joe
+ * challenged you!" vs "A friend challenged you!"), puzzle count/pattern
+ * chips (from `session.puzzles`, not `payload.ids` alone — the payload
+ * carries no pattern metadata), and "Accept Challenge →", which calls
+ * `session.handleAccept` — the moment that actually starts puzzle 1's clock
+ * (see `useChallengeSession`'s own doc comment). This is what fixes the
+ * second of the two real gaps the redesign's design record names: dropping
+ * a recipient straight into puzzle 1 with zero framing.
  */
 import { Link } from 'wouter'
 import { useEffect, useState } from 'react'
@@ -37,6 +47,7 @@ import { ChallengeComparison } from './ChallengeComparison'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { TraceRunnerPuzzle } from '../trace/TraceRunner'
 import { useMediaQuery } from '../useMediaQuery'
+import { PATTERN_LABELS } from '../../content'
 import '../tokens.css'
 
 // 2b.0: was `.challenge-page` (challengePage.css, max-width breakpoint
@@ -45,6 +56,16 @@ const PAGE_SHELL_CLASS =
   'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[var(--space-4)] px-4 pb-4'
 const CTA_CLASS =
   'inline-flex self-start items-center min-h-11 py-2 px-3 rounded-sm border border-border bg-surface-1 text-accent font-semibold no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+// Same "prominent accent card" register as DailyPage.tsx's `.daily-hero`
+// treatment (reused verbatim by Rush/Boss's own end-of-run cards) — the
+// intro hero is this same visual language's first use ahead of a run
+// instead of after one.
+const INTRO_HERO_CLASS =
+  'flex flex-col items-center gap-4 p-4 lg:py-[28px] lg:px-[30px] rounded-xl border-[1.5px] border-accent [background:linear-gradient(160deg,var(--accent-dim),var(--surface-1))] text-center'
+const CHIP_CLASS =
+  'inline-flex items-center min-h-8 py-1 px-3 rounded-full bg-surface-0 border border-border text-text-1 text-sm font-semibold'
+const ACCEPT_BUTTON_CLASS =
+  'min-h-11 py-2 px-5 border-0 rounded-sm bg-accent text-accent-ink font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
 /** Pure, props-driven inner component — exported so tests can drive it directly against a raw fragment without a Router wrapper. */
 export interface ChallengePageForHashProps {
@@ -82,6 +103,37 @@ export function ChallengePageForHash({ hash }: ChallengePageForHashProps) {
         <Link href="/practice" className={CTA_CLASS}>
           Go to Practice
         </Link>
+      </div>
+    )
+  }
+
+  if (session.status === 'intro' && session.payload) {
+    const puzzleCount = session.payload.ids.length
+    // Deduplicated, in first-appearance order — a repeated pattern across
+    // several puzzles (or a challenge that legally repeats the same puzzle
+    // id back-to-back, see useChallengeSession's `puzzleIndex` doc comment)
+    // shows one chip, not one per puzzle.
+    const patterns = Array.from(new Set((session.puzzles ?? []).map((p) => p.pattern)))
+    return (
+      <div className={PAGE_SHELL_CLASS}>
+        <div className={INTRO_HERO_CLASS}>
+          <p className="m-0 text-xl font-bold text-text-0">
+            {session.payload.challengerName ?? 'A friend'} challenged you!
+          </p>
+          <div className="flex flex-wrap gap-2 justify-center">
+            <span className={CHIP_CLASS}>
+              {puzzleCount} puzzle{puzzleCount === 1 ? '' : 's'}
+            </span>
+            {patterns.map((pattern) => (
+              <span key={pattern} className={CHIP_CLASS}>
+                {PATTERN_LABELS[pattern]}
+              </span>
+            ))}
+          </div>
+          <button type="button" className={ACCEPT_BUTTON_CLASS} onClick={session.handleAccept}>
+            Accept Challenge →
+          </button>
+        </div>
       </div>
     )
   }

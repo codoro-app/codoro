@@ -9,8 +9,21 @@
  */
 import { z } from 'zod'
 
-/** Version of the on-the-wire payload format. Bump on any breaking shape change; decoders reject anything else wholesale. */
-export const CHALLENGE_PAYLOAD_VERSION = 1
+/**
+ * Version of the on-the-wire payload format. Bump on any breaking shape
+ * change; decoders reject anything else wholesale.
+ *
+ * 1 -> 2 (challenge redesign): adds `challengerName` (see
+ * ChallengePayloadSchema below). No decode-side back-compat shim for v1 —
+ * out of scope per the redesign's decision record (real usage pre-launch is
+ * effectively zero, and forgeability/no-migration-for-old-payloads is
+ * already this domain's stated stance, per this file's own module doc
+ * comment). A v1-shaped payload's `v: 1` simply fails the `z.literal(2)`
+ * check below and collapses to the codec's standard `null` — the same
+ * "unknown version" path every other decode failure already takes, no new
+ * code required.
+ */
+export const CHALLENGE_PAYLOAD_VERSION = 2
 
 /**
  * Hard cap on the number of puzzles a challenge carries. Keeps the encoded
@@ -51,6 +64,19 @@ export const ChallengePayloadSchema = z
     ids: z.array(z.string().min(1)).min(1).max(MAX_CHALLENGE_PUZZLES),
     results: z.array(ChallengeResultSchema).min(1).max(MAX_CHALLENGE_PUZZLES),
     totalMs: z.number().int().nonnegative(),
+    // v2 (challenge redesign): the challenger's display name at the moment
+    // they created this link, threaded through so the recipient's landing
+    // hero can greet them by name ("Joe challenged you!") instead of staying
+    // fully anonymous. `null` covers both "this profile has never set a
+    // name" and "they skipped the name prompt for this challenge" — both
+    // render the same generic "A friend challenged you!" fallback (see
+    // buildChallengeIntroText in src/app/challenge/ChallengePage.tsx), never
+    // a blocked share. Exactly as forgeable as every other field in this
+    // payload (this domain's stated, accepted stance — see the module doc
+    // comment above); the 1-40 bound mirrors UserProfileSchema's own
+    // `challengerName` cap (src/storage/schema.ts) so a payload can never
+    // carry a name longer than a profile could ever actually store.
+    challengerName: z.string().min(1).max(40).nullable(),
   })
   .refine((payload) => payload.ids.length === payload.results.length, {
     message: 'ids and results must have the same length',

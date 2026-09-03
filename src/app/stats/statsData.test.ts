@@ -42,6 +42,7 @@ function profile(overrides: Partial<UserProfile> = {}): UserProfile {
     missionStats: null,
     preferences: DEFAULT_PREFERENCES,
     anonId: 'test-anon-id',
+    challengerName: null,
     ...overrides,
   }
 }

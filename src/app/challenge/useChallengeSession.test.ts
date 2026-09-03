@@ -32,9 +32,12 @@ afterEach(() => {
   vi.mocked(getPuzzleBody).mockImplementation(realGetPuzzleBody)
 })
 
-/** Encodes raw attempts into a URL-fragment hash — same encode path every surface ships. */
-function fragmentFor(attempts: ChallengeAttemptInput[]): string {
-  const hash = buildChallengeUrl(buildChallengePayload(attempts)).split('#')[1]
+/** Encodes raw attempts into a URL-fragment hash — same encode path every surface ships. `challengerName` defaults to null; these tests don't exercise the intro hero's greeting copy. */
+function fragmentFor(
+  attempts: ChallengeAttemptInput[],
+  challengerName: string | null = null,
+): string {
+  const hash = buildChallengeUrl(buildChallengePayload(attempts, challengerName)).split('#')[1]
   if (!hash) throw new Error('expected buildChallengeUrl to produce a fragment')
   return hash
 }
@@ -53,10 +56,15 @@ describe('useChallengeSession — run-end re-entrancy', () => {
     // Task 6: the puzzle body now resolves via a real async getPuzzleBody
     // call — wait for that to settle before driving the handlers, or
     // handleAnswered/handleContinue are no-ops against a still-'loading'
-    // session.
+    // session. Challenge redesign: resolution now lands on 'intro', not
+    // 'playing' — handleAccept is the new gate into 'playing'.
     await waitFor(() => {
-      expect(result.current.status).toBe('playing')
+      expect(result.current.status).toBe('intro')
     })
+    act(() => {
+      result.current.handleAccept()
+    })
+    expect(result.current.status).toBe('playing')
 
     act(() => {
       result.current.handleAnswered({ correct: true, choiceIndex: 0 })
@@ -70,6 +78,72 @@ describe('useChallengeSession — run-end re-entrancy', () => {
     })
 
     expect(trackChallengeLinkComplete).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('useChallengeSession — intro status + handleAccept (challenge redesign)', () => {
+  it('holds at "intro" once resolved, never reaching "playing" on its own', async () => {
+    const hash = fragmentFor([{ puzzleId: 'con-005', correct: true, time_ms: 500 }])
+    const { result } = renderHook(() => useChallengeSession(hash))
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('intro')
+    })
+    // No puzzle is exposed yet — `puzzle` stays null outside 'playing', same
+    // guard as loading/broken.
+    expect(result.current.puzzle).toBeNull()
+
+    // Stays on 'intro' — no auto-advance, unlike the pre-redesign behavior.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(result.current.status).toBe('intro')
+  })
+
+  it('handleAccept flips status to "playing" and is idempotent against a second call', async () => {
+    const hash = fragmentFor([{ puzzleId: 'con-005', correct: true, time_ms: 500 }])
+    const { result } = renderHook(() => useChallengeSession(hash))
+    await waitFor(() => {
+      expect(result.current.status).toBe('intro')
+    })
+
+    act(() => {
+      result.current.handleAccept()
+      result.current.handleAccept()
+    })
+
+    expect(result.current.status).toBe('playing')
+    expect(result.current.puzzle?.id).toBe('con-005')
+  })
+
+  // The correctness fix this whole status exists for: puzzle 1's clock must
+  // start at handleAccept, not at resolution — otherwise however long a
+  // recipient spends reading the intro hero would unfairly count toward
+  // their first puzzle's time_ms.
+  it("excludes the pre-accept window from puzzle 1's recorded time_ms", async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      const hash = fragmentFor([{ puzzleId: 'con-005', correct: true, time_ms: 500 }])
+      const { result } = renderHook(() => useChallengeSession(hash))
+      await vi.waitFor(() => {
+        expect(result.current.status).toBe('intro')
+      })
+
+      // Simulate the recipient reading the hero for a while before accepting.
+      vi.advanceTimersByTime(5000)
+      act(() => {
+        result.current.handleAccept()
+      })
+
+      // Answer "immediately" after accepting — real elapsed time since
+      // accept is ~0ms, nowhere near the 5s spent on the intro hero.
+      act(() => {
+        result.current.handleAnswered({ correct: true, choiceIndex: 0 })
+      })
+
+      const recorded = result.current.results[0]
+      expect(recorded?.time_ms).toBeLessThan(1000)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
 
@@ -104,7 +178,10 @@ describe('useChallengeSession — review-fix regression coverage (async payload-
     // comment's "stays correct standalone" claim is about.
     rerender({ hash: hashB })
     await waitFor(() => {
-      expect(result.current.status).toBe('playing')
+      expect(result.current.status).toBe('intro')
+    })
+    act(() => {
+      result.current.handleAccept()
     })
     expect(result.current.puzzle?.id).toBe('tc-009')
 

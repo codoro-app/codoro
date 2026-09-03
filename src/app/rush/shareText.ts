@@ -6,10 +6,13 @@
  * concern here (Rush has no single "the puzzle" to protect), so the copy
  * stays punchy. Exact wording is Thomas's to tweak — this is the one
  * obvious place to do it.
+ *
+ * The run's challenge link used to have its own template function here
+ * (`buildRushChallengeText`) — removed by the challenge redesign, which
+ * replaced every surface's bespoke challenge-text builder with the shared
+ * `ChallengeButton` component (src/app/ChallengeButton.tsx). This file now
+ * only covers the plain, non-challenge "Share puzzle" result text.
  */
-import { buildChallengePayload, buildChallengeUrl } from '../../challenge'
-import type { ChallengeAttemptInput } from '../../challenge'
-
 export interface RushShareTextInput {
   solvedCount: number
   bestStreakThisRun: number
@@ -25,29 +28,4 @@ export function buildRushShareText({
   puzzleId,
 }: RushShareTextInput): string {
   return `Codoro Rush — ${String(solvedCount)} solved · 🔥 best ${String(bestStreakThisRun)} — ${SITE_URL}/puzzle/${puzzleId}`
-}
-
-/**
- * Clipboard challenge-link text for a finished Rush run (v2 Phase 5c) —
- * the run's headline stats plus a /challenge link replaying the run. Built
- * on the challenge domain's own codec (src/challenge): buildChallengePayload
- * truncates a longer run to its last MAX_CHALLENGE_PUZZLES puzzles, so the
- * encoded link always matches what the recipient actually plays even when
- * the headline counts the full run.
- */
-export interface RushChallengeTextInput {
-  solvedCount: number
-  bestStreakThisRun: number
-  /** The finished run's attempts, in play order — buildChallengePayload keeps the last MAX_CHALLENGE_PUZZLES. */
-  attempts: readonly ChallengeAttemptInput[]
-}
-
-export function buildRushChallengeText({
-  solvedCount,
-  bestStreakThisRun,
-  attempts,
-}: RushChallengeTextInput): string {
-  return `Beat my Codoro Rush — ${String(solvedCount)} solved · 🔥 best ${String(
-    bestStreakThisRun,
-  )} — ${buildChallengeUrl(buildChallengePayload([...attempts]))}`
 }

@@ -45,6 +45,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { CopyIcon, ShareIcon } from './Icons'
 import { Tooltip } from './Tooltip'
+import { shareOrCopy } from './shareOrCopy'
+import type { ActivateResult } from './shareOrCopy'
 
 export interface ShareAction {
   /** Stable identity for this action within one ShareMenu instance (e.g. 'puzzle' | 'challenge'). */
@@ -94,23 +96,13 @@ const ROW_COPY_BUTTON_CLASS =
 // puzzle underneath it (reported on-device: dismissing the Apple share
 // sheet was landing back on Continue/the feedback drawer instead). Only a
 // genuine completed share closes this sheet — same reasoning as closing
-// the native sheet itself.
-type ActivateResult = 'shared' | 'copied' | 'cancelled'
-
+// the native sheet itself. (Challenge redesign: the actual native-share/
+// clipboard-fallback logic and its `ActivateResult` type now live in
+// shareOrCopy.ts — see that module's doc comment for why it moved out of
+// this file — imported above alongside this file's other imports.)
 async function activate(action: ShareAction): Promise<ActivateResult> {
   action.onShared()
-  if (typeof navigator.share === 'function') {
-    try {
-      await navigator.share({ text: action.text })
-      return 'shared'
-    } catch (err) {
-      // User-cancelled sheets are a normal outcome, not a failure to
-      // recover from — only a real error falls through to clipboard.
-      if (err instanceof Error && err.name === 'AbortError') return 'cancelled'
-    }
-  }
-  await navigator.clipboard.writeText(action.text)
-  return 'copied'
+  return shareOrCopy(action.text)
 }
 
 async function copyDirectly(action: ShareAction): Promise<void> {

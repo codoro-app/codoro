@@ -277,6 +277,72 @@ describe('SettingsPage', () => {
     })
   })
 
+  describe('Challenge a friend (challenge redesign) — challengerName is editable here, not set-once', () => {
+    it('shows an empty field for a profile that has never set a name', async () => {
+      await saveProfile(createDefaultProfile())
+      render(<SettingsPage />)
+      await waitFor(() => screen.getByText('Settings'))
+
+      expect(screen.getByLabelText('Your name')).toHaveValue('')
+    })
+
+    it('pre-fills the field with an already-saved name', async () => {
+      await saveProfile({ ...createDefaultProfile(), challengerName: 'Alex' })
+      render(<SettingsPage />)
+      await waitFor(() => screen.getByText('Settings'))
+
+      expect(await screen.findByDisplayValue('Alex')).toBeInTheDocument()
+    })
+
+    it('typing a new name and blurring persists it, replacing an old saved value', async () => {
+      await saveProfile({ ...createDefaultProfile(), challengerName: 'Alex' })
+      render(<SettingsPage />)
+      await waitFor(() => screen.getByText('Settings'))
+
+      const user = userEvent.setup()
+      const input = await screen.findByDisplayValue('Alex')
+      await user.clear(input)
+      await user.type(input, 'Sam')
+      await user.tab()
+
+      await waitFor(() => {
+        expect(screen.getByRole('status')).toHaveTextContent('Saved')
+      })
+      expect((await loadProfile()).challengerName).toBe('Sam')
+    })
+
+    it('clearing the field back to blank saves it as null, not an empty string', async () => {
+      await saveProfile({ ...createDefaultProfile(), challengerName: 'Alex' })
+      render(<SettingsPage />)
+      await waitFor(() => screen.getByText('Settings'))
+
+      const user = userEvent.setup()
+      const input = await screen.findByDisplayValue('Alex')
+      await user.clear(input)
+      await user.tab()
+
+      await waitFor(() => {
+        expect(screen.getByRole('status')).toHaveTextContent('Saved')
+      })
+      expect((await loadProfile()).challengerName).toBeNull()
+    })
+
+    it('Enter commits the same as blur', async () => {
+      await saveProfile(createDefaultProfile())
+      render(<SettingsPage />)
+      await waitFor(() => screen.getByText('Settings'))
+
+      const user = userEvent.setup()
+      const input = screen.getByLabelText('Your name')
+      await user.type(input, 'Sam{Enter}')
+
+      await waitFor(() => {
+        expect(screen.getByRole('status')).toHaveTextContent('Saved')
+      })
+      expect((await loadProfile()).challengerName).toBe('Sam')
+    })
+  })
+
   // Launch instrumentation Item 2: SettingsPage's own Feedback section,
   // its own <h2> (no second <h1> — SettingsPage already has one).
   describe('Feedback section', () => {

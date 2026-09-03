@@ -32,12 +32,14 @@ import { useState } from 'react'
 import { RushIcon } from '../Icons'
 import { useRushSession } from './useRushSession'
 import { RushActivePlay } from './RushActivePlay'
-import { buildRushShareText, buildRushChallengeText } from './shareText'
+import { buildRushShareText } from './shareText'
 import { ShareMenu } from '../ShareMenu'
 import type { ShareAction } from '../ShareMenu'
+import { ChallengeButton } from '../ChallengeButton'
+import { useChallengerName } from '../useChallengerName'
 import { RouteSkeleton } from '../RouteSkeleton'
-import { trackShareClick, trackChallengeCreate } from '../../telemetry'
-import { truncateToChallengeLimit } from '../../challenge'
+import { trackShareClick } from '../../telemetry'
+import { saveProfile } from '../../storage'
 import { useMediaQuery } from '../useMediaQuery'
 // 2b.0: was `.rush-page` in rushPage.css (max-width breakpoint matches
 // Tailwind's `lg` exactly). Not test-asserted (grep-verified).
@@ -51,6 +53,12 @@ export function RushPage() {
   // target as PracticePage.tsx's identical `sidebarSlotEl`, forwarded to
   // RushActivePlay for its status row + PuzzleCardShell's own feedback.
   const [sidebarSlotEl, setSidebarSlotEl] = useState<HTMLDivElement | null>(null)
+  // Challenge redesign: see PracticePage.tsx's identical `challenger` call
+  // for why this composes onto session.profile via a direct saveProfile
+  // call rather than the hook touching storage itself.
+  const challenger = useChallengerName(session.profile, async (updated) => {
+    await saveProfile(updated)
+  })
 
   if (session.status === 'error') {
     return (
@@ -86,52 +94,46 @@ export function RushPage() {
   }
 
   // 2b.4: was separate RushShareCard/RushChallengeCard components (deleted)
-  // — one ShareMenu now covers both. `runSummary`/`puzzle` are captured
+  // — one ShareMenu now covers the plain "Share puzzle" action. The
+  // challenge action moved to `ChallengeButton` below (challenge redesign)
+  // — no longer folded into this sheet. `runSummary`/`puzzle` are captured
   // locally so narrowing survives into the onShared closures below.
   const runSummary = session.runSummary
   const puzzle = session.puzzle
   const shareActions: ShareAction[] =
-    session.phase === 'ended' && runSummary
+    session.phase === 'ended' && runSummary && puzzle
       ? [
-          ...(puzzle
-            ? [
-                {
-                  id: 'puzzle',
-                  label: 'Share puzzle',
-                  copiedLabel: 'Copied!',
-                  copyAriaLabel: 'Copy puzzle link',
-                  description: 'Copy a link to the puzzle you ended on',
-                  text: buildRushShareText({
-                    solvedCount: runSummary.solvedCount,
-                    bestStreakThisRun: runSummary.bestStreakThisRun,
-                    puzzleId: puzzle.id,
-                  }),
-                  onShared: () => {
-                    trackShareClick({ surface: 'rush', puzzle_id: puzzle.id })
-                  },
-                },
-              ]
-            : []),
           {
-            id: 'challenge',
-            label: 'Share challenge',
-            copiedLabel: 'Link copied!',
-            copyAriaLabel: 'Copy challenge link',
-            description: `Challenge a friend to beat your run of ${String(runSummary.solvedCount)}`,
-            text: buildRushChallengeText({
+            id: 'puzzle',
+            label: 'Share puzzle',
+            copiedLabel: 'Copied!',
+            copyAriaLabel: 'Copy puzzle link',
+            description: 'Copy a link to the puzzle you ended on',
+            text: buildRushShareText({
               solvedCount: runSummary.solvedCount,
               bestStreakThisRun: runSummary.bestStreakThisRun,
-              attempts: session.runAttempts,
+              puzzleId: puzzle.id,
             }),
             onShared: () => {
-              trackChallengeCreate({
-                surface: 'rush',
-                puzzle_count: truncateToChallengeLimit([...session.runAttempts]).length,
-              })
+              trackShareClick({ surface: 'rush', puzzle_id: puzzle.id })
             },
           },
         ]
       : []
+
+  // Challenge redesign: same run-ended gate as the "Share puzzle" action
+  // above, fed the run's full accumulated attempts (mirrors what
+  // buildRushChallengeText used to take).
+  const challengeButton =
+    session.phase === 'ended' && runSummary ? (
+      <ChallengeButton
+        attempts={session.runAttempts}
+        surface="rush"
+        introLabel={`beat my run of ${String(runSummary.solvedCount)}`}
+        challengerName={challenger.name}
+        onNameNeeded={challenger.setName}
+      />
+    ) : null
 
   // v4 Phase 4.5 ("the right rail"): computed as a variable, same reasoning
   // as DailyPage.tsx's identical `dailyHero` — this JSX used to render
@@ -186,6 +188,7 @@ export function RushPage() {
           </div>
         </div>
 
+        {challengeButton}
         <ShareMenu actions={shareActions} />
 
         <button

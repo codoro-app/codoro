@@ -31,11 +31,14 @@ import { useDailySession } from './useDailySession'
 import { useMediaQuery } from '../useMediaQuery'
 import { ShareMenu } from '../ShareMenu'
 import type { ShareAction } from '../ShareMenu'
+import { ChallengeButton } from '../ChallengeButton'
+import { useChallengerName } from '../useChallengerName'
 import { RouteSkeleton } from '../RouteSkeleton'
 import { FeedbackNudge } from '../FeedbackNudge'
 import { useFeedbackNudge } from '../useFeedbackNudge'
-import { buildShareText, buildDailyChallengeText } from './shareText'
-import { trackShareClick, trackChallengeCreate } from '../../telemetry'
+import { buildShareText } from './shareText'
+import { trackShareClick } from '../../telemetry'
+import { saveProfile } from '../../storage'
 
 // 2b.0: was `.daily-page` in dailyPage.css (max-width breakpoint matches
 // Tailwind's `lg` exactly). None of `.daily-page*`/`.daily-hero*` are
@@ -72,6 +75,12 @@ export function DailyPage() {
   // target as PracticePage.tsx's identical `sidebarSlotEl`, for a retry
   // attempt's own feedback/Continue block.
   const [sidebarSlotEl, setSidebarSlotEl] = useState<HTMLDivElement | null>(null)
+  // Challenge redesign: see PracticePage.tsx's identical `challenger` call
+  // for why this composes onto session.profile via a direct saveProfile
+  // call rather than the hook touching storage itself.
+  const challenger = useChallengerName(session.profile, async (updated) => {
+    await saveProfile(updated)
+  })
 
   if (session.status === 'error') {
     return (
@@ -101,10 +110,10 @@ export function DailyPage() {
   }
 
   // 2b.4: was separate ShareCard/ChallengeCard components (deleted) — one
-  // ShareMenu now covers both, degrading to a single button when the
-  // challenge attempt isn't ready yet, same conditional this list replaces.
-  // `puzzleId` is captured locally because TS doesn't retain narrowing of
-  // `session.puzzle` across the closures below.
+  // ShareMenu now covers the plain "Share puzzle" action. The challenge
+  // action moved to `ChallengeButton` below (challenge redesign) — no
+  // longer folded into this sheet. `puzzleId` is captured locally because TS
+  // doesn't retain narrowing of `session.puzzle` across the closures below.
   const puzzleId = session.puzzle.id
   const shareActions: ShareAction[] = session.completedToday
     ? [
@@ -124,26 +133,21 @@ export function DailyPage() {
             trackShareClick({ surface: 'daily', puzzle_id: puzzleId })
           },
         },
-        ...(session.challengeAttempt
-          ? [
-              {
-                id: 'challenge',
-                label: 'Share challenge',
-                copiedLabel: 'Link copied!',
-                copyAriaLabel: 'Copy challenge link',
-                description: 'Challenge a friend to beat your result',
-                text: buildDailyChallengeText({
-                  dayNumber: session.dayNumber,
-                  attempt: session.challengeAttempt,
-                }),
-                onShared: () => {
-                  trackChallengeCreate({ surface: 'daily', puzzle_count: 1 })
-                },
-              },
-            ]
-          : []),
       ]
     : []
+
+  // Challenge redesign: same gate as before (today's first attempt has
+  // landed) — `session.challengeAttempt` only becomes non-null once that's
+  // true, see useDailySession's own doc comment.
+  const challengeButton = session.challengeAttempt ? (
+    <ChallengeButton
+      attempts={[session.challengeAttempt]}
+      surface="daily"
+      introLabel="beat today's Daily"
+      challengerName={challenger.name}
+      onNameNeeded={challenger.setName}
+    />
+  ) : null
 
   // v4 Phase 4.5 ("the right rail"): the result hero + Share used to render
   // full-width in the main column below the day title (pushing the puzzle
@@ -280,6 +284,7 @@ export function DailyPage() {
         </div>
       </div>
 
+      {challengeButton}
       <ShareMenu actions={shareActions} />
 
       {!feedbackNudge.dismissed && (

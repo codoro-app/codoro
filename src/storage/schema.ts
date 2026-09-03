@@ -21,7 +21,7 @@ import { generateAnonId } from './anonId'
  * migrated through migrations.ts — see AttemptSchema's own doc comment for
  * why `checkpoint_results` (the v4 addition) doesn't go through this chain.
  */
-export const CURRENT_SCHEMA_VERSION = 10
+export const CURRENT_SCHEMA_VERSION = 11
 
 /** Mirrors engine's StreakState shape. */
 export const StreakStateSchema = z.object({
@@ -288,6 +288,17 @@ export const UserProfileSchema = z.object({
   // collision": two different people's data landing on one device must
   // not silently merge their identities in PostHog).
   anonId: z.string().min(1),
+  // Challenge redesign: the display name threaded into every challenge link
+  // this device creates ("Joe challenged you!" on the recipient's landing
+  // hero — see src/challenge/schema.ts's ChallengePayloadSchema doc
+  // comment). Mirrors `anonId`'s on-device-only, never-sent-to-telemetry
+  // posture — this is a player-typed value, not app-generated, so unlike
+  // anonId it's never registered as a telemetry super property. Set once via
+  // ChallengerNameSheet.tsx (first-ever challenge creation), reused after
+  // that, editable in Settings later (not this PR — see the design doc's
+  // decision record). `null` until set; a blank/skipped prompt never blocks
+  // sharing (ChallengeButton falls back to the generic "A friend" copy).
+  challengerName: z.string().min(1).max(40).nullable(),
 })
 
 export interface UserProfile {
@@ -314,6 +325,8 @@ export interface UserProfile {
   preferences: Preferences
   /** Stable anonymous ID (Phase 7 Item 6) — see UserProfileSchema's own doc comment on this field. */
   anonId: string
+  /** Player-set display name for outgoing challenge links, or null if never set/skipped — see UserProfileSchema's own doc comment on this field. */
+  challengerName: string | null
 }
 
 /**
@@ -410,5 +423,6 @@ export function createDefaultProfile(): UserProfile {
     missionStats: null,
     preferences: { ...DEFAULT_PREFERENCES },
     anonId: generateAnonId(),
+    challengerName: null,
   }
 }

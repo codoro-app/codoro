@@ -52,10 +52,13 @@ vi.mock('../../telemetry', () => ({
   trackError: vi.fn(),
   trackBossAttempt: vi.fn(),
   trackBossRunEnd: vi.fn(),
+  trackChallengeCreate: vi.fn(),
 }))
 
 const { loadProfile, saveProfile, appendAttempt, createDefaultProfile } =
   await import('../../storage')
+const { trackChallengeCreate } = await import('../../telemetry')
+const { decodeChallengePayload } = await import('../../challenge')
 const { BossPage } = await import('./BossPage')
 
 async function answerAndContinue(user: ReturnType<typeof userEvent.setup>, correct: boolean) {
@@ -205,5 +208,41 @@ describe('BossPage', () => {
     // The prior best run's split at depth 3 is 3000ms (0:03) — the exact
     // wording is asserted by ghostPace.test.ts; this only proves it's wired.
     expect(screen.getByText(/your best run got there in 0:03/i)).toBeInTheDocument()
+  })
+
+  it('shows a working "Challenge a friend" button after a run ends that re-encodes the run (net-new for Boss)', async () => {
+    const user = userEvent.setup()
+    render(<BossPage />)
+    await waitFor(() => screen.getByRole('button', { name: 'a' }))
+
+    await answerAndContinue(user, false)
+    await answerAndContinue(user, false)
+    await answerAndContinue(user, false)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /challenge a friend/i })).toBeInTheDocument()
+    })
+
+    const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
+    await user.click(screen.getByRole('button', { name: /challenge a friend/i }))
+    // No saved name yet on a fresh default profile — skip the prompt, same
+    // as PracticePage.test.tsx's identical first-use flow.
+    await user.click(screen.getByRole('button', { name: 'Skip' }))
+
+    expect(trackChallengeCreate).toHaveBeenCalledTimes(1)
+    expect(trackChallengeCreate).toHaveBeenCalledWith({ surface: 'boss', puzzle_count: 3 })
+
+    const url = writeTextSpy.mock.calls[0]?.[0]
+    if (typeof url !== 'string')
+      throw new Error('expected writeText to have been called with a URL')
+    expect(url).toMatch(/^Can you beat my Boss run \(reached wave 3\)\? getcodoro\.com\/challenge#/)
+    const decoded = decodeChallengePayload(url.split('#')[1] ?? '')
+    expect(decoded).not.toBeNull()
+    expect(decoded?.ids).toHaveLength(3)
+    expect(decoded?.results.every((result) => !result.correct)).toBe(true)
+    expect(decoded?.challengerName).toBeNull()
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Link copied!' })).toBeInTheDocument()
+    })
   })
 })

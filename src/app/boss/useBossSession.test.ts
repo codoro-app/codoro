@@ -477,6 +477,56 @@ describe('useBossSession', () => {
     expect(result.current.strikes).toBe(0)
   })
 
+  describe('runAttempts (challenge redesign — feeds the end-of-run challenge link)', () => {
+    it('accumulates every answer, correct and incorrect alike, in play order', async () => {
+      const { result } = renderHook(() => useBossSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+
+      answerAndContinue(result, true)
+      await waitFor(() => {
+        expect(result.current.position).toBe(2)
+      })
+      answerAndContinue(result, false)
+      await waitFor(() => {
+        expect(result.current.position).toBe(3)
+      })
+
+      expect(result.current.runAttempts).toEqual([
+        { puzzleId: 'b0', correct: true, time_ms: expect.any(Number) as number },
+        { puzzleId: 'b1', correct: false, time_ms: expect.any(Number) as number },
+      ])
+    })
+
+    it('resets on "Run it back", same as strikes/position', async () => {
+      const { result } = renderHook(() => useBossSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+
+      for (let i = 0; i < 3; i++) {
+        answerAndContinue(result, false)
+        await waitFor(() => {
+          expect(result.current.strikes).toBe(i + 1)
+        })
+      }
+      await waitFor(() => {
+        expect(result.current.phase).toBe('ended')
+      })
+      expect(result.current.runAttempts).toHaveLength(3)
+
+      act(() => {
+        result.current.handleRunItBack()
+      })
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+
+      expect(result.current.runAttempts).toEqual([])
+    })
+  })
+
   describe('BOSS_SETS rotation — resolved once at run start, not per puzzle', () => {
     it('a fresh profile (bossStats null, runsCompleted 0) resolves FIXTURE_SETS[0]', async () => {
       const { result } = renderHook(() => useBossSession())
