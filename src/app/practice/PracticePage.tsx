@@ -59,7 +59,7 @@ import { PuzzleCardShell } from './PuzzleCardShell'
 import { StatusBar } from './StatusBar'
 import { PatternPicker } from './PatternPicker'
 import { MasteryTeaser } from './MasteryTeaser'
-import { buildPracticeShareText, buildPracticeChallengeText } from './shareText'
+import { buildPracticeShareText } from './shareText'
 import { usePracticeSession } from './usePracticeSession'
 import { useMediaQuery } from '../useMediaQuery'
 import { RouteSkeleton } from '../RouteSkeleton'
@@ -69,8 +69,10 @@ import type { PatternSlug } from '../../content'
 import { CloseIcon } from '../Icons'
 import { ShareMenu } from '../ShareMenu'
 import type { ShareAction } from '../ShareMenu'
-import { trackShareClick, trackChallengeCreate } from '../../telemetry'
-import { truncateToChallengeLimit } from '../../challenge'
+import { ChallengeButton } from '../ChallengeButton'
+import { useChallengerName } from '../useChallengerName'
+import { trackShareClick } from '../../telemetry'
+import { saveProfile } from '../../storage'
 import { useEffect, useRef, useState } from 'react'
 import type { CommitPayload } from './interactionTypes'
 import { QUIZ_INTERACTIONS, QUIZ_INTERACTION_LABELS } from './interactionTypes'
@@ -132,6 +134,15 @@ export function PracticePage() {
   // PuzzleCardShell the real node. Mobile never reads this — PuzzleCardShell
   // ignores `sidebarSlot` whenever `!isDesktop`.
   const [sidebarSlotEl, setSidebarSlotEl] = useState<HTMLDivElement | null>(null)
+
+  // Challenge redesign: composes onto session.profile — see
+  // useChallengerName's own doc comment for why persistence is this page's
+  // own responsibility (a direct saveProfile call), not something the hook
+  // does itself. Called unconditionally, before any early return below (a
+  // hook can't follow those), same as every other hook in this component.
+  const challenger = useChallengerName(session.profile, async (updated) => {
+    await saveProfile(updated)
+  })
 
   // Tracks the puzzle's own solve state for the share card below (v2 Phase
   // 1b) — usePracticeSession's onAnswered callback doesn't expose committed
@@ -310,8 +321,10 @@ export function PracticePage() {
   ].filter((label): label is string => label !== null)
 
   // 2b.4: was separate PracticeShareCard/PracticeChallengeCard components
-  // (deleted) — one ShareMenu now covers both, empty until `answer` matches
-  // the currently displayed puzzle, same gate the old cards shared.
+  // (deleted) — one ShareMenu now covers the plain "Share puzzle" action,
+  // empty until `answer` matches the currently displayed puzzle, same gate
+  // the old cards shared. The challenge action moved to `ChallengeButton`
+  // below (challenge redesign) — no longer folded into this sheet.
   const answer = lastAnswer && lastAnswer.puzzleId === session.puzzle?.id ? lastAnswer : null
   const shareActions: ShareAction[] = answer
     ? [
@@ -326,26 +339,34 @@ export function PracticePage() {
             trackShareClick({ surface: 'practice', puzzle_id: answer.puzzleId })
           },
         },
-        ...(session.streakAttempts.length > 0
-          ? [
-              {
-                id: 'challenge',
-                label: 'Share challenge',
-                copiedLabel: 'Link copied!',
-                copyAriaLabel: 'Copy challenge link',
-                description: `Challenge a friend to beat your streak of ${String(session.streakAttempts.length)}`,
-                text: buildPracticeChallengeText({ attempts: session.streakAttempts }),
-                onShared: () => {
-                  trackChallengeCreate({
-                    surface: 'practice',
-                    puzzle_count: truncateToChallengeLimit([...session.streakAttempts]).length,
-                  })
-                },
-              },
-            ]
-          : []),
       ]
     : []
+
+  // Challenge redesign: replaces the old streak-gated `ShareAction` above —
+  // rendered unconditionally once `answer` exists (correct or not), not
+  // gated on `session.streakAttempts.length > 0` the way the deleted
+  // "Share challenge" row was. `lastAttempt` (not `answer`) supplies the
+  // single-puzzle fallback's `time_ms` — see its own doc comment in
+  // usePracticeSession.ts for why `answer` alone can't.
+  const lastAttempt =
+    session.lastAttempt && session.lastAttempt.puzzleId === session.puzzle?.id
+      ? session.lastAttempt
+      : null
+  const challengeAttempts =
+    session.streakAttempts.length > 0 ? session.streakAttempts : lastAttempt ? [lastAttempt] : []
+  const challengeIntroLabel =
+    session.streakAttempts.length > 0
+      ? `beat my streak of ${String(session.streakAttempts.length)}`
+      : 'beat this one'
+  const challengeButton = (
+    <ChallengeButton
+      attempts={challengeAttempts}
+      surface="practice"
+      introLabel={challengeIntroLabel}
+      challengerName={challenger.name}
+      onNameNeeded={challenger.setName}
+    />
+  )
 
   return (
     <>
@@ -490,6 +511,7 @@ export function PracticePage() {
                 onAnswered={handleAnswered}
                 onContinue={session.handleContinue}
                 shareActions={shareActions}
+                challengeButton={answer && challengeButton}
                 sidebarSlot={sidebarSlotEl}
               />
             </motion.div>
@@ -528,6 +550,7 @@ export function PracticePage() {
                   so mounting it unconditionally here is safe before an
                   answer exists. */}
               <div ref={setSidebarSlotEl} className="empty:hidden flex flex-col gap-3" />
+              {answer && challengeButton}
               <ShareMenu actions={shareActions} />
               <StatusBar
                 rating={session.profile.rating}

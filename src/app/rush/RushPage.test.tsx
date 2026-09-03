@@ -172,7 +172,7 @@ describe('RushPage', () => {
     })
   })
 
-  it('shows a working "Share challenge" action after a run ends that re-encodes the run', async () => {
+  it('shows a working "Challenge a friend" button after a run ends that re-encodes the run', async () => {
     const user = userEvent.setup()
     render(<RushPage />)
     await waitFor(() => {
@@ -183,12 +183,14 @@ describe('RushPage', () => {
     await answerAndContinue(user, false)
     await answerAndContinue(user, false)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /challenge a friend/i })).toBeInTheDocument()
     })
-    await user.click(screen.getByRole('button', { name: 'Share' }))
 
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
-    await user.click(screen.getByRole('button', { name: 'Share challenge' }))
+    await user.click(screen.getByRole('button', { name: /challenge a friend/i }))
+    // No saved name yet on a fresh default profile — skip the prompt, same
+    // as PracticePage.test.tsx's identical first-use flow.
+    await user.click(screen.getByRole('button', { name: 'Skip' }))
 
     expect(trackChallengeCreate).toHaveBeenCalledTimes(1)
     // All three run attempts (none correct here) are encoded — puzzle_count
@@ -198,12 +200,13 @@ describe('RushPage', () => {
     const url = writeTextSpy.mock.calls[0]?.[0]
     if (typeof url !== 'string')
       throw new Error('expected writeText to have been called with a URL')
-    expect(url).toMatch(/^Beat my Codoro Rush — 0 solved · 🔥 best 0 — getcodoro\.com\/challenge#/)
+    expect(url).toMatch(/^Can you beat my run of 0\? getcodoro\.com\/challenge#/)
 
     const decoded = decodeChallengePayload(url.split('#')[1] ?? '')
     expect(decoded).not.toBeNull()
     expect(decoded?.ids).toHaveLength(3)
     expect(decoded?.results.every((result) => !result.correct)).toBe(true)
+    expect(decoded?.challengerName).toBeNull()
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Link copied!' })).toBeInTheDocument()

@@ -68,6 +68,7 @@ import { getPuzzleBody, BOSS_SETS, resolveActiveBossSet } from '../../content'
 import { isDevPuzzleModeEnabled, resolveBossStubPuzzle } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle } from '../../content'
 import { trackError, trackBossAttempt, trackBossRunEnd } from '../../telemetry'
+import type { ChallengeAttemptInput } from '../../challenge'
 import type { CommitPayload } from '../practice/interactionTypes'
 
 /** Local calendar-date string (YYYY-MM-DD) — same convention as every other session hook. */
@@ -132,6 +133,8 @@ export interface BossSession {
   lastAnswerCorrect: boolean | null
   /** Bumped once per handleAnswered call — a remount key so the character reaction (keyed off it) replays its CSS animation on every answer, correct or wrong, the same `key={strikes}` trick the health bar's own hit-reaction already uses. */
   answerNonce: number
+  /** Every attempt of the current run, in play order (correct and incorrect alike) — feeds the end-of-run challenge link (challenge redesign — Boss's first-ever challenge affordance). Reset by startRun. Mirrors useRushSession.ts's identical `runAttempts` field. */
+  runAttempts: readonly ChallengeAttemptInput[]
   handleAnswered: (payload: CommitPayload) => void
   handleContinue: () => void
   handleRunItBack: () => void
@@ -154,6 +157,7 @@ export function useBossSession(): BossSession {
   const [willEndOnContinue, setWillEndOnContinue] = useState(false)
   const [lastAnswerCorrect, setLastAnswerCorrect] = useState<boolean | null>(null)
   const [answerNonce, setAnswerNonce] = useState(0)
+  const [runAttempts, setRunAttempts] = useState<ChallengeAttemptInput[]>([])
 
   const runIdRef = useRef(crypto.randomUUID())
   const servedAtRef = useRef(0)
@@ -248,6 +252,7 @@ export function useBossSession(): BossSession {
       setStrikes(0)
       setTotalPuzzles(activeSet.length)
       setRunSummary(null)
+      setRunAttempts([])
       // Task 6 (content-metadata-lazy-load follow-up): prefetch exactly this
       // run's active set, once, before serving its first puzzle — never
       // per-puzzle mid-run (boss sets are small and fixed, so resolving all
@@ -435,6 +440,13 @@ export function useBossSession(): BossSession {
       setStrikes(newStrikes)
       setLastAnswerCorrect(payload.correct)
       setAnswerNonce((n) => n + 1)
+      // Every answer lands in the run's challenge-link sequence, correct and
+      // incorrect alike — the link replays the whole run as it happened
+      // (mirrors useRushSession.ts's identical `runAttempts` accumulation).
+      setRunAttempts((prev) => [
+        ...prev,
+        { puzzleId: puzzle.id, correct: payload.correct, time_ms: timeMs },
+      ])
 
       const reachedEnd = position >= activeSetRef.current.length
       const willEnd = newStrikes >= BOSS_STRIKE_LIMIT || reachedEnd
@@ -471,6 +483,7 @@ export function useBossSession(): BossSession {
     willEndOnContinue,
     lastAnswerCorrect,
     answerNonce,
+    runAttempts,
     handleAnswered,
     handleContinue,
     handleRunItBack,

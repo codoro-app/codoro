@@ -186,7 +186,7 @@ describe('DailyPage', () => {
     })
   })
 
-  it('shows a working "Share challenge" action after the first attempt that re-encodes the served puzzle', async () => {
+  it('shows a working "Challenge a friend" button after the first attempt that re-encodes the served puzzle', async () => {
     const user = userEvent.setup()
     render(<DailyPage />)
 
@@ -205,12 +205,14 @@ describe('DailyPage', () => {
     if (!servedPuzzle) throw new Error('could not identify which fixture puzzle was served')
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /challenge a friend/i })).toBeInTheDocument()
     })
-    await user.click(screen.getByRole('button', { name: 'Share' }))
 
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
-    await user.click(screen.getByRole('button', { name: 'Share challenge' }))
+    await user.click(screen.getByRole('button', { name: /challenge a friend/i }))
+    // No saved name yet on a fresh default profile — skip the prompt, same
+    // as PracticePage.test.tsx's identical first-use flow.
+    await user.click(screen.getByRole('button', { name: 'Skip' }))
 
     expect(trackChallengeCreate).toHaveBeenCalledTimes(1)
     expect(trackChallengeCreate).toHaveBeenCalledWith({ surface: 'daily', puzzle_count: 1 })
@@ -218,12 +220,11 @@ describe('DailyPage', () => {
     const url = writeTextSpy.mock.calls[0]?.[0]
     if (typeof url !== 'string')
       throw new Error('expected writeText to have been called with a URL')
-    expect(url).toMatch(/^Beat my Codoro Daily #\d+ — getcodoro\.com\/challenge#/)
-    // The pitch itself contains a "#" (the day number), so split on the
-    // URL's own "challenge#" marker — not on the first "#" in the text.
-    const decoded = decodeChallengePayload(url.split('challenge#')[1] ?? '')
+    expect(url).toMatch(/^Can you beat today's Daily\? getcodoro\.com\/challenge#/)
+    const decoded = decodeChallengePayload(url.split('#')[1] ?? '')
     expect(decoded).not.toBeNull()
     expect(decoded?.ids).toEqual([servedPuzzle.id])
+    expect(decoded?.challengerName).toBeNull()
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Link copied!' })).toBeInTheDocument()

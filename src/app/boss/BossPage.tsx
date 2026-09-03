@@ -18,6 +18,9 @@ import { useBossSession } from './useBossSession'
 import { BossActivePlay } from './BossActivePlay'
 import { buildBossGhostPaceText } from './ghostPace'
 import { useMediaQuery } from '../useMediaQuery'
+import { ChallengeButton } from '../ChallengeButton'
+import { useChallengerName } from '../useChallengerName'
+import { saveProfile } from '../../storage'
 import './bossPage.css'
 
 // 2b.0: was `.boss-page` in bossPage.css (max-width breakpoint matches
@@ -32,6 +35,13 @@ export function BossPage() {
   // target as PracticePage.tsx's identical `sidebarSlotEl`, forwarded to
   // BossActivePlay for its status row + PuzzleCardShell's own feedback.
   const [sidebarSlotEl, setSidebarSlotEl] = useState<HTMLDivElement | null>(null)
+  // Challenge redesign: Boss's first-ever challenge affordance — see
+  // PracticePage.tsx's identical `challenger` call for why this composes
+  // onto session.profile via a direct saveProfile call rather than the hook
+  // touching storage itself.
+  const challenger = useChallengerName(session.profile, async (updated) => {
+    await saveProfile(updated)
+  })
   const ghostPaceText = session.runSummary
     ? buildBossGhostPaceText({
         depthReached: session.runSummary.depthReached,
@@ -115,6 +125,19 @@ export function BossPage() {
           </div>
           {ghostPaceText && <p className="m-0 text-sm text-text-1">{ghostPaceText}</p>}
         </div>
+
+        {/* Challenge redesign: Boss's first-ever challenge affordance — no
+            ShareMenu here at all (Boss never had one, "no share/challenge
+            cards this phase" per the original Boss build plan, superseded by
+            this pass), just the same always-visible ChallengeButton every
+            other surface now gets. */}
+        <ChallengeButton
+          attempts={session.runAttempts}
+          surface="boss"
+          introLabel={`beat my Boss run (reached wave ${String(session.runSummary.depthReached)})`}
+          challengerName={challenger.name}
+          onNameNeeded={challenger.setName}
+        />
 
         <button
           type="button"
