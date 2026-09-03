@@ -232,10 +232,15 @@ export function App() {
               </Route>
             )}
             <Route>
-              <div className="app-shell__main flex flex-col items-center gap-3 text-center">
+              <div className="app-shell__main flex flex-col items-center gap-3 py-8 text-center">
                 <DuckMascot pose="debugging" size={96} />
-                <p>Nothing here.</p>
-                <Link href="/">Back to Codoro</Link>
+                <p className="m-0 text-lg font-bold text-text-0">Nothing here.</p>
+                <Link
+                  href="/"
+                  className="text-sm font-bold text-accent no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+                >
+                  Back to Codoro
+                </Link>
               </div>
             </Route>
           </Switch>

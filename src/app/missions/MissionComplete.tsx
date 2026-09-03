@@ -14,7 +14,7 @@
  * surface (see schema.ts's MissionStageStats union) — see
  * MissionsPage.test.tsx's own regex-based guard against this regressing.
  */
-import { MissionIcon } from '../Icons'
+import { DuckMascot } from '../Mascot'
 import { MISSION_STAGE_META } from './missionStageMeta'
 import type { MissionSession } from './useMissionSession'
 import type { MissionStageStats } from '../../storage'
@@ -42,12 +42,7 @@ export function MissionComplete({ missionSession }: MissionCompleteProps) {
     // "correct"/accent styling here, never `--wrong`.
     <div className="flex flex-col gap-4 p-4 lg:py-[28px] lg:px-[30px] rounded-xl border-[1.5px] border-accent [background:linear-gradient(160deg,var(--accent-dim),var(--surface-1))]">
       <div className="flex items-center gap-3">
-        <div
-          className="flex items-center justify-center shrink-0 w-11 h-11 rounded-md bg-accent"
-          aria-hidden="true"
-        >
-          <MissionIcon size={22} />
-        </div>
+        <DuckMascot pose="happy" size={44} />
         <div className="flex flex-col gap-1">
           <p className="m-0 text-lg font-bold text-text-0">Mission complete</p>
           {finishedStats && finishedStats.completions > 1 && (
