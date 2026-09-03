@@ -50,6 +50,7 @@ import {
   SettingsIcon,
   TraceIcon,
 } from './Icons'
+import { DuckMark } from './Mascot'
 import { ROUTES } from './routes'
 import { Tooltip } from './Tooltip'
 
@@ -123,12 +124,7 @@ export function NavRail() {
         className={`${brandClass} bg-transparent no-underline cursor-pointer min-h-11`}
         aria-label="Home"
       >
-        <div
-          className="flex items-center justify-center w-7 h-7 flex-none rounded-sm bg-accent text-accent-ink font-mono font-bold text-md"
-          aria-hidden="true"
-        >
-          C
-        </div>
+        <DuckMark size={28} />
         {!collapsed && <span className="text-xl font-bold text-text-0">Codoro</span>}
       </Link>
       <Link

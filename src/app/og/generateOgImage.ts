@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import sharp from 'sharp'
 
-const BRAND_PURPLE = '#863bff'
+const BRAND_PURPLE = '#0e0f13'
 const SOURCE_SVG = resolve(import.meta.dirname, '../../../public/favicon.svg')
 const OUT_FILE = resolve(import.meta.dirname, '../../../public/og-image.png')
 

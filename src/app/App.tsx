@@ -3,6 +3,7 @@ import { Route, Switch, useLocation, Link } from 'wouter'
 import { ErrorBoundary } from './ErrorBoundary'
 import { PwaPrompts } from './pwa/PwaPrompts'
 import { AppShell } from './AppShell'
+import { DuckMascot } from './Mascot'
 import { RouteSkeleton } from './RouteSkeleton'
 import { useRouteMeta } from './useRouteMeta'
 
@@ -231,9 +232,15 @@ export function App() {
               </Route>
             )}
             <Route>
-              <div className="app-shell__main">
-                <p>Nothing here.</p>
-                <Link href="/">Back to Codoro</Link>
+              <div className="app-shell__main flex flex-col items-center gap-3 py-8 text-center">
+                <DuckMascot pose="debugging" size={96} />
+                <p className="m-0 text-lg font-bold text-text-0">Nothing here.</p>
+                <Link
+                  href="/"
+                  className="text-sm font-bold text-accent no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+                >
+                  Back to Codoro
+                </Link>
               </div>
             </Route>
           </Switch>

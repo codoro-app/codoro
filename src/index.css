@@ -147,6 +147,7 @@
   --danger-dim: #31121b;
   --warn: #ffb020;
   --warn-dim: #2e2408;
+  --mascot-yellow: #ffd23f;
 
   /* --- color: syntax highlighting (Prism .token* classes) --- */
   --syn-kw: #ff9e64;

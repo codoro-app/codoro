@@ -53,6 +53,7 @@ import { loadProfile } from '../storage'
 import { BottomNav } from './BottomNav'
 import { FeedbackLink } from './FeedbackLink'
 import { SettingsIcon } from './Icons'
+import { DuckMark } from './Mascot'
 import { NavRail } from './NavRail'
 import { DevPuzzleToggle } from './devTools/DevPuzzleToggle'
 import { applyPreferences } from './preferences/applyPreferences'
@@ -147,12 +148,7 @@ export function AppShell({ children }: AppShellProps) {
           className="flex items-center gap-2 min-h-11 py-2 bg-transparent no-underline cursor-pointer"
           aria-label="Codoro — Home"
         >
-          <div
-            className="flex items-center justify-center w-7 h-7 flex-none rounded-sm bg-accent text-accent-ink font-mono font-bold text-md"
-            aria-hidden="true"
-          >
-            C
-          </div>
+          <DuckMark size={28} />
           <span className="text-xl font-bold text-text-0">Codoro</span>
         </Link>
         {/* v4 Phase 4.1: Settings' mobile nav entry point (this bar was
