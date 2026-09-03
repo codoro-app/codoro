@@ -47,11 +47,19 @@ vi.mock('../../telemetry', () => ({
 const { appendAttempt, saveProfile } = await import('../../storage')
 const { ChallengePageForHash, ChallengePage } = await import('./ChallengePage')
 
-/** Encodes raw attempts into a URL-fragment hash — the same encode path every surface ships. */
-function fragmentFor(attempts: ChallengeAttemptInput[]): string {
-  const hash = buildChallengeUrl(buildChallengePayload(attempts)).split('#')[1]
+/** Encodes raw attempts into a URL-fragment hash — the same encode path every surface ships. `challengerName` defaults to null; most tests here don't exercise the intro hero's greeting copy (see the dedicated describe block below for that). */
+function fragmentFor(
+  attempts: ChallengeAttemptInput[],
+  challengerName: string | null = null,
+): string {
+  const hash = buildChallengeUrl(buildChallengePayload(attempts, challengerName)).split('#')[1]
   if (!hash) throw new Error('expected buildChallengeUrl to produce a fragment')
   return hash
+}
+
+/** Challenge redesign: every real challenge now lands on the intro hero before puzzle 1 — this clicks "Accept Challenge" once it's ready, the one new step every existing "drive it through the UI" test/helper below needed. */
+async function acceptChallenge(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: /accept challenge/i }))
 }
 
 /** A 2-puzzle challenge that is easy to drive through the real UI: con-005 (mcq) then tc-009 (scrubber). */
@@ -85,8 +93,10 @@ async function solveScrubberToCompletion(user: ReturnType<typeof userEvent.setup
   throw new Error('solveScrubberToCompletion: exceeded iteration budget without completing')
 }
 
-/** Drives a real 2-puzzle challenge (mcq con-005 → scrubber tc-009) to full completion through the actual UI, ending in the done state. */
+/** Drives a real 2-puzzle challenge (mcq con-005 → scrubber tc-009) to full completion through the actual UI, ending in the done state. Accepts the intro hero first (challenge redesign). */
 async function solveTwoPuzzleRun(user: ReturnType<typeof userEvent.setup>) {
+  await acceptChallenge(user)
+
   const [firstChoice] = await screen.findAllByRole('button')
   if (!firstChoice) throw new Error('expected at least one choice button')
   await user.click(firstChoice)
@@ -112,11 +122,13 @@ describe('ChallengePageForHash — dispatch against the real puzzlePool', () => 
   it.each(puzzlePool.map((puzzle) => [puzzle.id, puzzle.interaction] as const))(
     'renders %s (%s) without throwing',
     async (id, interaction) => {
+      const user = userEvent.setup()
       const { container } = render(
         <ChallengePageForHash
           hash={fragmentFor([{ puzzleId: id, correct: false, time_ms: 1000 }])}
         />,
       )
+      await acceptChallenge(user)
       if (interaction === 'scrubber') {
         await waitFor(() => {
           expect(container.querySelector('.trace-runner')).toBeInTheDocument()
@@ -128,6 +140,38 @@ describe('ChallengePageForHash — dispatch against the real puzzlePool', () => 
       }
     },
   )
+})
+
+describe('ChallengePageForHash — intro hero (challenge redesign)', () => {
+  it('greets by name when the payload carries a challengerName, and shows the puzzle count', async () => {
+    render(
+      <ChallengePageForHash
+        hash={fragmentFor([{ puzzleId: 'con-005', correct: false, time_ms: 1000 }], 'Joe')}
+      />,
+    )
+    expect(await screen.findByText('Joe challenged you!')).toBeInTheDocument()
+    expect(screen.getByText('1 puzzle')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /accept challenge/i })).toBeInTheDocument()
+    // No puzzle content until Accept is clicked.
+    expect(screen.queryByText(/prompt/i)).not.toBeInTheDocument()
+  })
+
+  it('falls back to the generic greeting when challengerName is null', async () => {
+    render(<ChallengePageForHash hash={twoPuzzleHash()} />)
+    expect(await screen.findByText('A friend challenged you!')).toBeInTheDocument()
+    expect(screen.getByText('2 puzzles')).toBeInTheDocument()
+  })
+
+  it('Accept Challenge advances into the first puzzle', async () => {
+    const user = userEvent.setup()
+    render(<ChallengePageForHash hash={twoPuzzleHash()} />)
+    await acceptChallenge(user)
+
+    await waitFor(() => {
+      expect(document.querySelector('.puzzle-card')).toBeInTheDocument()
+    })
+    expect(screen.queryByRole('button', { name: /accept challenge/i })).not.toBeInTheDocument()
+  })
 })
 
 describe('ChallengePageForHash — broken link states', () => {
@@ -244,6 +288,8 @@ describe('ChallengePageForHash — duplicate puzzle id regression', () => {
       />,
     )
 
+    await acceptChallenge(user)
+
     const [firstChoice] = await screen.findAllByRole('button')
     if (!firstChoice) throw new Error('expected at least one choice button')
     await user.click(firstChoice)
@@ -277,26 +323,25 @@ describe('ChallengePageForHash — comparison screen + counter-challenge', () =>
       screen.getByText(/You beat the challenge|friend beat you|it.s a tie/i),
     ).toBeInTheDocument()
     expect(screen.getByText(/they got/i)).toBeInTheDocument()
-    // 2b.11: "Share counter-challenge" is now a row inside ShareMenu's
-    // bottom sheet, behind a "Share" trigger — not an inline button.
-    expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Share' }))
-    expect(screen.getByRole('button', { name: 'Share counter-challenge' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Copy counter-challenge link' })).toBeInTheDocument()
+    // Challenge redesign: the counter-challenge is now a `ChallengeButton`,
+    // not a row behind a "Share" trigger.
+    expect(screen.getByRole('button', { name: /challenge a friend/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /practice more like this/i })).toHaveAttribute(
       'href',
       '/practice',
     )
   })
 
-  it('counter-challenge copies a link that re-encodes the recipient run', async () => {
+  it('counter-challenge copies a link that re-encodes the recipient run, prompting for a name on first use', async () => {
     const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
     const user = userEvent.setup()
     render(<ChallengePageForHash hash={twoPuzzleHash()} />)
     await solveTwoPuzzleRun(user)
 
-    await user.click(screen.getByRole('button', { name: 'Share' }))
-    await user.click(screen.getByRole('button', { name: 'Copy counter-challenge link' }))
+    await user.click(await screen.findByRole('button', { name: /challenge a friend/i }))
+    // No saved name yet on the mocked default profile — skip the prompt,
+    // same as every other surface's identical first-use flow.
+    await user.click(screen.getByRole('button', { name: 'Skip' }))
     await screen.findByRole('button', { name: 'Link copied!' })
 
     expect(trackChallengeCreate).toHaveBeenCalledWith({ surface: 'challenge', puzzle_count: 2 })
@@ -315,6 +360,7 @@ describe('ChallengePageForHash — comparison screen + counter-challenge', () =>
     }
     expect(decoded?.v).toBe(CHALLENGE_PAYLOAD_VERSION)
     expect(decoded?.totalMs).toBe(decoded?.results.reduce((sum, r) => sum + r.time_ms, 0))
+    expect(decoded?.challengerName).toBeNull()
   })
 })
 
@@ -328,10 +374,13 @@ describe('ChallengePage — the wrapper reads the real URL fragment', () => {
   // window.location.hash path a real browser load hits (Finding 4: what a
   // green suite can't see, a cold browser load can).
   it('renders the challenge puzzle from a real URL fragment, not the broken state', async () => {
+    const user = userEvent.setup()
     window.history.pushState({}, '', `/challenge#${twoPuzzleHash()}`)
     const { container } = render(<ChallengePage />)
 
     // Task 6: puzzle bodies resolve via a real async getPuzzleBody call now.
+    // Challenge redesign: resolution lands on the intro hero first.
+    await acceptChallenge(user)
     await waitFor(() => {
       expect(container.querySelector('.puzzle-card')).toBeInTheDocument()
     })
@@ -343,8 +392,10 @@ describe('ChallengePage — the wrapper reads the real URL fragment', () => {
   })
 
   it('remounts a fresh session when the URL fragment is edited', async () => {
+    const user = userEvent.setup()
     window.history.pushState({}, '', `/challenge#${twoPuzzleHash()}`)
     const { container } = render(<ChallengePage />)
+    await acceptChallenge(user)
     await waitFor(() => {
       expect(container.querySelector('.puzzle-card')).toBeInTheDocument()
     })

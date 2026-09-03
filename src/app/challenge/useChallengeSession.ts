@@ -29,6 +29,14 @@
  * hash change remounts a fresh session — the same keyed-remount convention
  * TraceRunnerPuzzle uses per puzzle, giving exactly-once view telemetry per
  * page load without any reset effect.
+ *
+ * Challenge redesign: `status` gains `'intro'`, reached the instant
+ * `resolution.status === 'resolved'` (in place of the old direct jump into
+ * `'playing'`) and held there until `handleAccept` is called — see its own
+ * doc comment for why this is what actually stamps puzzle 1's `servedAtRef`
+ * now, not resolution itself. `ChallengePageForHash` renders the new landing
+ * hero for this status (named greeting, puzzle count/pattern chips, "Accept
+ * Challenge →").
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getPuzzleBody } from '../../content'
@@ -41,7 +49,17 @@ import { trackChallengeLinkComplete, trackChallengeLinkView, trackError } from '
 import { resolveChallengeOutcome } from './challengeOutcome'
 import type { CommitPayload } from '../practice/interactionTypes'
 
-export type ChallengeSessionStatus = 'loading' | 'broken' | 'playing' | 'done'
+/**
+ * `'intro'` (challenge redesign): a new status ahead of `'playing'`, reached
+ * the instant `resolution.status === 'resolved'` and held there until
+ * `handleAccept` is called. `ChallengePageForHash` renders the new landing
+ * hero for this status — named greeting, puzzle count/pattern chips,
+ * "Accept Challenge →" — instead of dropping the recipient straight into
+ * puzzle 1 with no framing (the second of the two real gaps the redesign's
+ * design record names). See `handleAccept`'s own doc comment for why this
+ * is a correctness fix, not just a visual one.
+ */
+export type ChallengeSessionStatus = 'loading' | 'broken' | 'intro' | 'playing' | 'done'
 
 /**
  * Puzzle-body resolution state, kept as one discriminated value (not
@@ -61,6 +79,14 @@ export interface ChallengeSession {
   status: ChallengeSessionStatus
   /** The decoded payload when the link resolved to a playable challenge; null when broken. */
   payload: ChallengePayload | null
+  /**
+   * Every resolved puzzle body in play order, once `resolution.status ===
+   * 'resolved'` — available during BOTH `'intro'` and `'playing'` (unlike
+   * `puzzle`, `payload.ids`/`results` only carry ids and outcomes, not the
+   * pattern metadata the intro hero's chips need to show what kind of
+   * puzzles are coming). Null while loading/broken.
+   */
+  puzzles: readonly Puzzle[] | null
   /** The puzzle currently on screen — null unless status === 'playing'. */
   puzzle: Puzzle | null
   /**
@@ -90,6 +116,13 @@ export interface ChallengeSession {
   handleCheckpointAnswered: (result: CheckpointResult) => void
   /** Called on Continue — advances to the next puzzle, or into the done state after the last one. */
   handleContinue: () => void
+  /**
+   * Accepts the intro hero, flipping `status` from `'intro'` to `'playing'`
+   * — see `handleAccept`'s own doc comment below for what this actually
+   * does and why it matters for `time_ms` correctness. A no-op once already
+   * accepted, or before `resolution` has reached `'resolved'`.
+   */
+  handleAccept: () => void
 }
 
 export function useChallengeSession(hash: string): ChallengeSession {
@@ -225,21 +258,30 @@ export function useChallengeSession(hash: string): ChallengeSession {
   // ref-guards-a-callback pattern as checkpointResultsRef above.
   const runCompleteRef = useRef(false)
 
-  useEffect(() => {
-    if (resolution.status !== 'resolved') return
+  // Challenge redesign: whether the intro hero has been accepted. This USED
+  // to be a mount effect that stamped `servedAtRef.current = Date.now()`
+  // the instant `resolution` reached 'resolved' — puzzle 1 began serving
+  // immediately, with no framing screen in front of it. Now that framing
+  // screen (the intro hero) exists, and `accepted` gates the transition into
+  // `'playing'` (see `status` below); `handleAccept` is what actually stamps
+  // `servedAtRef` now, not this state setter — see its own doc comment for
+  // why that's a correctness fix, not just a sequencing one.
+  const [accepted, setAccepted] = useState(false)
+
+  const handleAccept = useCallback(() => {
+    if (resolution.status !== 'resolved' || accepted) return
+    // This is the real "the clock starts now" moment for puzzle 1: today's
+    // (pre-redesign) `time_ms` started the instant puzzle bodies resolved,
+    // which — once an intro hero sits in front of that first puzzle — would
+    // unfairly fold in however long the recipient spends reading it before
+    // tapping Accept. Stamping here instead of at resolve time is what keeps
+    // puzzle 1's `time_ms` measuring actual solve time, the same standard
+    // every later puzzle's `handleContinue`-stamped `servedAtRef` already
+    // meets. Date.now() is impure (react-hooks/purity), hence stamping it
+    // here, inside an event handler, not during render.
     servedAtRef.current = Date.now()
-    // Fires once, the instant the ids resolve and the first puzzle actually
-    // becomes servable — NOT at mount, unlike before (Task 6: puzzle bodies
-    // are now fetched via getPuzzleBody, a genuine async hop puzzlePool
-    // never had). Only fires once per mount even though the effect depends
-    // on `resolution.status`: that string only ever transitions into
-    // 'resolved' a single time (loading -> broken or loading -> resolved,
-    // never back), so this doesn't re-stamp on every render while playing —
-    // every subsequent puzzle's timestamp comes from handleContinue below,
-    // same as before. Date.now() is impure during render
-    // (react-hooks/purity), hence stamping it here rather than in a
-    // render-time initializer.
-  }, [resolution.status])
+    setAccepted(true)
+  }, [resolution, accepted])
 
   const currentPuzzle =
     resolution.status === 'resolved' ? (resolution.puzzles[puzzleIndex] ?? null) : null
@@ -347,13 +389,16 @@ export function useChallengeSession(hash: string): ChallengeSession {
       ? 'loading'
       : resolution.status === 'broken'
         ? 'broken'
-        : puzzleIndex >= resolution.puzzles.length
-          ? 'done'
-          : 'playing'
+        : !accepted
+          ? 'intro'
+          : puzzleIndex >= resolution.puzzles.length
+            ? 'done'
+            : 'playing'
 
   return {
     status,
     payload,
+    puzzles: resolution.status === 'resolved' ? resolution.puzzles : null,
     puzzle: status === 'playing' ? currentPuzzle : null,
     puzzleIndex,
     checkpointResults,
@@ -363,5 +408,6 @@ export function useChallengeSession(hash: string): ChallengeSession {
     handleAnswered,
     handleCheckpointAnswered,
     handleContinue,
+    handleAccept,
   }
 }
