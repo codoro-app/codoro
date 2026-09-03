@@ -18,6 +18,16 @@
  * src/storage/schema.ts's PreferencesSchema doc comment) — the export/
  * import section below is unchanged, just re-homed further down the page.
  *
+ * Challenge redesign: a "Challenge a friend" section holds the player's
+ * `challengerName` (src/storage/schema.ts's own field, not part of
+ * `preferences`) — a plain text field, not a first-use-only prompt. The
+ * redesign's own name-prompt sheet (`ChallengerNameSheet.tsx`, shown by
+ * `ChallengeButton` the first time a player creates a challenge) is a
+ * one-time on-ramp, not the only place this can ever be set — this section
+ * is where it's actually editable, same as every other `UserProfile` field
+ * a player might want to revisit.
+ *
+
  * The confirm-overwrite contract (locked by the Phase 7 build prompt's own
  * "decide precisely what that means" instruction): before writing anything,
  * show the player exactly what's about to be replaced — their current
@@ -118,6 +128,15 @@ export function SettingsPage() {
   const [importFlow, setImportFlow] = useState<ImportFlowState>({ kind: 'idle' })
   const [exportError, setExportError] = useState(false)
   const [preferencesError, setPreferencesError] = useState(false)
+  // Challenge redesign: `challengerNameDraft` is non-null only while the
+  // player has typed something this session that hasn't been saved yet
+  // (blur/Enter — see `saveChallengerName`) — the input's displayed value
+  // falls back to the loaded profile's own value once there's no in-progress
+  // edit, the same "draft overrides the source of truth until committed"
+  // shape `useChallengerName.ts` uses for its own optimistic `name`.
+  const [challengerNameDraft, setChallengerNameDraft] = useState<string | null>(null)
+  const [challengerNameError, setChallengerNameError] = useState(false)
+  const [challengerNameSaved, setChallengerNameSaved] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // v4 Phase 4.1: the profile's own preferences, or DEFAULT_PREFERENCES
@@ -155,6 +174,34 @@ export function SettingsPage() {
       cancelled = true
     }
   }, [])
+
+  // Challenge redesign: mirrors `updatePreference`'s shape (load-if-missing,
+  // apply optimistically, persist, surface a distinct error) but for the
+  // single `challengerName` field rather than one of `preferences`' — a
+  // blank field clears it back to `null` (challenges fall back to the
+  // generic "A friend" copy), not an empty string.
+  async function saveChallengerName(nextValue: string) {
+    setChallengerNameError(false)
+    setChallengerNameSaved(false)
+    const trimmed = nextValue.trim()
+    const base = profile ?? (await loadProfile())
+    const nextChallengerName = trimmed.length > 0 ? trimmed : null
+    if (nextChallengerName === base.challengerName) {
+      setChallengerNameDraft(null)
+      return
+    }
+    const nextProfile: UserProfile = { ...base, challengerName: nextChallengerName }
+    setProfile(nextProfile)
+    setChallengerNameDraft(null)
+    try {
+      await saveProfile(nextProfile)
+      setChallengerNameSaved(true)
+    } catch {
+      setChallengerNameError(true)
+    }
+  }
+
+  const challengerNameValue = challengerNameDraft ?? profile?.challengerName ?? ''
 
   async function handleExport() {
     setExportError(false)
@@ -352,6 +399,48 @@ export function SettingsPage() {
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 className={SECTION_HEADING_CLASS}>Challenge a friend</h2>
+        <p className={SECTION_COPY_CLASS}>
+          Your display name on outgoing challenge links — e.g. &ldquo;
+          {challengerNameValue.trim() || 'Alex'} challenged you!&rdquo; Leave it blank to challenge
+          as &ldquo;A friend&rdquo;.
+        </p>
+        {challengerNameError && (
+          <p className="mt-0 mb-2 text-danger text-sm" role="alert">
+            Something went wrong saving that — try again.
+          </p>
+        )}
+        <div className={PREF_ROW_CLASS}>
+          <div className="w-full">
+            <label htmlFor="challenger-name-setting" className={PREF_LABEL_CLASS}>
+              Your name
+            </label>
+            <input
+              id="challenger-name-setting"
+              type="text"
+              value={challengerNameValue}
+              maxLength={40}
+              placeholder="Not set"
+              className="mt-2 w-full min-h-11 py-2 px-3 rounded-sm border border-border bg-surface-0 text-text-0"
+              onChange={(event) => {
+                setChallengerNameDraft(event.target.value)
+                setChallengerNameSaved(false)
+              }}
+              onBlur={(event) => void saveChallengerName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') event.currentTarget.blur()
+              }}
+            />
+            {challengerNameSaved && (
+              <p className="mt-1 text-accent text-sm" role="status">
+                Saved
+              </p>
+            )}
           </div>
         </div>
       </section>
