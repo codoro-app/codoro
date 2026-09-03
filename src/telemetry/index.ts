@@ -29,6 +29,8 @@ export {
   trackRouteView,
   trackPageview,
   trackFeedbackLinkClicked,
+  trackFirstRunStepComplete,
+  trackFirstRunCompleted,
   trackError,
 } from './events'
 export type {
@@ -52,4 +54,6 @@ export type {
   SessionStartPayload,
   RouteViewPayload,
   FeedbackLinkClickedPayload,
+  FirstRunStepCompletePayload,
+  FirstRunCompletedPayload,
 } from './events'
