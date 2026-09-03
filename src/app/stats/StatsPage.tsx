@@ -18,6 +18,7 @@ import type { RatingWindowDays, RatingHistoryPoint, ActivityDay } from './statsD
 import { computeMastery, MIN_ATTEMPTS_FOR_MASTERY } from '../practice/mastery'
 import type { PatternMastery } from '../practice/mastery'
 import { PATTERN_LABELS, puzzleMeta } from '../../content'
+import { DuckMascot } from '../Mascot'
 import { useMediaQuery } from '../useMediaQuery'
 
 const PAGE_SHELL_CLASS =
@@ -148,9 +149,12 @@ export function StatsPage() {
   const emptyBanner =
     attempts.length === 0 ? (
       <div className="flex items-center justify-between gap-3 p-4 rounded-md border border-accent bg-accent-dim">
-        <p className="m-0 text-sm text-text-0">
-          You haven't solved any puzzles yet — your stats will start filling in as soon as you do.
-        </p>
+        <div className="flex items-center gap-3">
+          <DuckMascot pose="idle" size={56} />
+          <p className="m-0 text-sm text-text-0">
+            You haven't solved any puzzles yet — your stats will start filling in as soon as you do.
+          </p>
+        </div>
         <Link
           href="/practice"
           className="shrink-0 flex items-center min-h-11 py-1.5 px-3 rounded-full text-sm font-bold bg-accent text-accent-ink no-underline"

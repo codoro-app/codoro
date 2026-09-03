@@ -19,6 +19,8 @@
  * shared too) — Rush never renders this (timed, decision 8), Daily has no
  * in-session streak to speak of.
  */
+import { DuckMascot } from './Mascot'
+
 export interface StreakPauseProps {
   streak: number
   isNewBest: boolean
@@ -35,6 +37,7 @@ export function StreakPause({ streak, isNewBest, onKeepGoing, onDoneForNow }: St
         aria-modal="true"
         aria-label="Streak milestone"
       >
+        <DuckMascot pose="happy" size={96} />
         <p className="m-0 text-xl font-bold text-text-0">{streak} in a row</p>
         {isNewBest && <p className="m-0 text-sm font-semibold text-accent">New best streak</p>}
         <p className="m-0 text-sm text-text-1">
