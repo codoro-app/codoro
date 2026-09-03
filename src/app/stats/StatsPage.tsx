@@ -166,7 +166,14 @@ export function StatsPage() {
 
   const ratingHero = (
     <div className="flex flex-col gap-1">
-      <span className="text-sm font-bold text-text-1 uppercase tracking-[0.04em]">Rating</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-bold text-text-1 uppercase tracking-[0.04em]">Rating</span>
+        {/* Small, always-on brand touch — unlike emptyBanner's duck above
+            (only rendered pre-first-attempt), this one shows regardless of
+            attempt count, tucked beside the label rather than competing
+            with the big rating number below it. */}
+        <DuckMascot pose="idle" size={32} />
+      </div>
       <span className="text-4xl font-bold text-text-0 leading-none tabular-nums">
         {Math.round(profile.rating)}
       </span>

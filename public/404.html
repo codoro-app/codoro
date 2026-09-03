@@ -40,6 +40,48 @@
     </style>
   </head>
   <body>
+    <!-- Same "debugging" pose as DuckMascot (src/app/Mascot.tsx), redrawn
+         with literal hex instead of CSS custom properties: this file is a
+         static asset Cloudflare Pages serves directly for any unlisted
+         top-level path (see public/_redirects's own comment on why that
+         path never boots the React app), so it can't reach index.css's
+         tokens or React at all. Keep this in sync by hand if the mascot's
+         palette or debugging-pose geometry ever changes. -->
+    <svg aria-hidden="true" width="140" height="140" viewBox="0 0 200 200">
+      <ellipse cx="100" cy="196" rx="50" ry="7" fill="#000000" opacity="0.25" />
+      <polygon points="160,150 125,185 75,185 40,150 40,100 75,65 125,65 160,100" fill="#ffd23f" />
+      <polygon points="65,183 80,183 72,198" fill="#ffb020" />
+      <polygon points="105,183 120,183 112,198" fill="#ffb020" />
+      <polygon
+        points="72,105 98,100 92,148 76,142"
+        fill="none"
+        stroke="#0e0f13"
+        stroke-width="3"
+        stroke-linejoin="round"
+      />
+      <polygon points="135,83 115,103 85,103 65,83 65,53 85,33 115,33 135,53" fill="#ffd23f" />
+      <polygon points="128,76 170,86 128,100" fill="#ffb020" />
+      <path d="M91,57 L112,61" stroke="#0e0f13" stroke-width="3" stroke-linecap="round" />
+      <circle cx="103" cy="70" r="7" fill="#0e0f13" />
+      <circle cx="106" cy="67" r="2.5" fill="#c6f83c" />
+      <circle cx="162" cy="45" r="17" fill="none" stroke="#a3a6b0" stroke-width="5" />
+      <line
+        x1="174"
+        y1="57"
+        x2="188"
+        y2="71"
+        stroke="#a3a6b0"
+        stroke-width="6"
+        stroke-linecap="round"
+      />
+      <ellipse cx="162" cy="45" rx="7" ry="5" fill="#ff5470" />
+      <line x1="155" y1="42" x2="149" y2="38" stroke="#ff5470" stroke-width="2" />
+      <line x1="155" y1="48" x2="149" y2="52" stroke="#ff5470" stroke-width="2" />
+      <line x1="169" y1="42" x2="175" y2="38" stroke="#ff5470" stroke-width="2" />
+      <line x1="169" y1="48" x2="175" y2="52" stroke="#ff5470" stroke-width="2" />
+      <line x1="160" y1="40" x2="157" y2="34" stroke="#ff5470" stroke-width="1.5" />
+      <line x1="164" y1="40" x2="167" y2="34" stroke="#ff5470" stroke-width="1.5" />
+    </svg>
     <h1>404 — page not found</h1>
     <p>There's nothing at this address.</p>
     <a href="/">Back to Codoro</a>

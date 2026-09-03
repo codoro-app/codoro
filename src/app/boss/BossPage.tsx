@@ -13,7 +13,6 @@
  * deliberate scope decision, see the same plan).
  */
 import { useState } from 'react'
-import { BossIcon } from '../Icons'
 import { DuckMascot } from '../Mascot'
 import { useBossSession } from './useBossSession'
 import { BossActivePlay } from './BossActivePlay'
@@ -95,16 +94,7 @@ export function BossPage() {
             card is always the "correct"/accent styling, never `--wrong`. */}
         <div className="flex flex-col gap-4 p-4 lg:py-[28px] lg:px-[30px] rounded-xl border-[1.5px] border-accent [background:linear-gradient(160deg,var(--accent-dim),var(--surface-1))]">
           <div className="flex items-center gap-3">
-            {session.runSummary.cleared ? (
-              <DuckMascot pose="happy" size={44} />
-            ) : (
-              <div
-                className="flex items-center justify-center shrink-0 w-11 h-11 rounded-md bg-accent"
-                aria-hidden="true"
-              >
-                <BossIcon size={22} />
-              </div>
-            )}
+            <DuckMascot pose={session.runSummary.cleared ? 'happy' : 'sad'} size={44} />
             <div className="flex flex-col gap-1">
               <p className="m-0 text-lg font-bold text-text-0">
                 {session.runSummary.cleared ? 'Boss cleared!' : 'Run complete'}

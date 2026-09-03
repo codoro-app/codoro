@@ -109,7 +109,7 @@ describe('StatsPage', () => {
     vi.mocked(listAttempts).mockResolvedValue([
       attempt({ id: '1', localDateString: todayDateString(), userRatingAfter: 1487 }),
     ])
-    const { container } = render(<StatsPage />)
+    render(<StatsPage />)
 
     // Matches buildGraphPoints' own defaults (width=300, height=70,
     // padding=6): usableHeight = 70 - 6*2 = 58, so a vertically centered
@@ -119,7 +119,13 @@ describe('StatsPage', () => {
     const expectedCenteredY = '35'
 
     await waitFor(() => {
-      const circle = container.querySelector('circle')
+      // Scoped to the graph's own <svg role="img"> rather than a bare
+      // container-wide `querySelector('circle')` — the always-on
+      // DuckMascot next to the "Rating" label (see ratingHero) also
+      // renders <circle> elements (its eye) earlier in the DOM, so an
+      // unscoped query would grab those instead of the graph's point.
+      const graph = screen.getByRole('img', { name: 'Rating over time' })
+      const circle = graph.querySelector('circle')
       expect(circle).not.toBeNull()
       expect(circle).toHaveAttribute('cy', expectedCenteredY)
     })

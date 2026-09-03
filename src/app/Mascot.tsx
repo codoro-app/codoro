@@ -31,7 +31,7 @@ export function DuckMark({ size = 28 }: DuckMarkProps) {
   )
 }
 
-export type DuckPose = 'idle' | 'happy' | 'debugging'
+export type DuckPose = 'idle' | 'happy' | 'debugging' | 'sad'
 
 export interface DuckMascotProps {
   pose?: DuckPose
@@ -98,6 +98,30 @@ export function DuckMascot({ pose = 'idle', size = 96 }: DuckMascotProps) {
             height="6"
             fill="var(--accent)"
             transform="rotate(45 155 45)"
+          />
+        </>
+      )}
+      {pose === 'sad' && (
+        <>
+          {/* Inner-raised, worried brows (mirrors debugging's single raised
+              brow but symmetric) plus a downcast eye — the highlight sits
+              lower-left in the eye instead of idle's upper-right, reading as
+              a glance down rather than idle's straight-ahead look. */}
+          <path d="M90,58 L99,64" stroke="var(--surface-0)" strokeWidth="3" strokeLinecap="round" />
+          <path
+            d="M116,58 L107,64"
+            stroke="var(--surface-0)"
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+          <circle cx="103" cy="72" r="7" fill="var(--surface-0)" />
+          <circle cx="100" cy="75" r="2.5" fill="var(--accent)" />
+          <path
+            d="M91,90 Q103,98 115,90"
+            fill="none"
+            stroke="var(--surface-0)"
+            strokeWidth="4"
+            strokeLinecap="round"
           />
         </>
       )}

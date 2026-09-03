@@ -36,13 +36,19 @@ export interface MissionCompleteProps {
 
 export function MissionComplete({ missionSession }: MissionCompleteProps) {
   const { completedStages, finishedStats } = missionSession
+  // Trace/speed always "complete" on their own timer regardless of
+  // performance — boss is the only stage with a real pass/fail signal
+  // (`cleared`), so it's the one thing that can make this otherwise-always-
+  // positive screen show the sad duck instead of the happy one.
+  const bossStats = completedStages.find((summary) => summary.stats.stageId === 'boss')?.stats
+  const duckPose = bossStats?.stageId === 'boss' && !bossStats.cleared ? 'sad' : 'happy'
 
   return (
     // 2b.0: was `.daily-hero`/`.daily-hero__*` (dailyPage.css) — always the
     // "correct"/accent styling here, never `--wrong`.
     <div className="flex flex-col gap-4 p-4 lg:py-[28px] lg:px-[30px] rounded-xl border-[1.5px] border-accent [background:linear-gradient(160deg,var(--accent-dim),var(--surface-1))]">
       <div className="flex items-center gap-3">
-        <DuckMascot pose="happy" size={44} />
+        <DuckMascot pose={duckPose} size={44} />
         <div className="flex flex-col gap-1">
           <p className="m-0 text-lg font-bold text-text-0">Mission complete</p>
           {finishedStats && finishedStats.completions > 1 && (
