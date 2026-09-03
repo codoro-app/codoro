@@ -171,6 +171,74 @@ export function validateBossRun(
 }
 
 /**
+ * First-run's own bounds (docs/superpowers/plans/2026-09-03-first-run-
+ * sequence-design.md): exactly 3 entries, ids unique and resolving in the
+ * real pool, interaction sequence exactly `[tap-line, drag-order,
+ * scrubber]` (the escalating-complexity shape firstRun.ts's own doc comment
+ * explains), and every entry's `difficulty_rating` inside [1000, 1300] — a
+ * first-ever puzzle should feel winnable, not calibrate-y. Unlike
+ * validateBossRun there is no escalating-rating rule (first-run's premise is
+ * interaction complexity, not difficulty) and no scrubber exclusion (the
+ * 3rd entry is REQUIRED to be scrubber, the opposite of Boss's rule) — a
+ * deliberately different, smaller set of checks, not a parameterized reuse
+ * of validateBossRun.
+ */
+export const FIRST_RUN_LENGTH = 3
+export const FIRST_RUN_INTERACTION_SEQUENCE = ['tap-line', 'drag-order', 'scrubber'] as const
+export const FIRST_RUN_RATING_MIN = 1000
+export const FIRST_RUN_RATING_MAX = 1300
+
+export function validateFirstRunSet(
+  firstRunSet: readonly string[],
+  valid: readonly ValidatedPuzzle[],
+): string[] {
+  const errors: string[] = []
+  const byId = new Map(valid.map((entry) => [entry.puzzle.id, entry.puzzle]))
+
+  if (firstRunSet.length !== FIRST_RUN_LENGTH) {
+    errors.push(
+      `firstRun.ts: expected exactly ${String(FIRST_RUN_LENGTH)} entries, found ${String(firstRunSet.length)}`,
+    )
+  }
+
+  const seen = new Set<string>()
+
+  firstRunSet.forEach((id, index) => {
+    if (seen.has(id)) {
+      errors.push(`firstRun.ts: duplicate id "${id}" at position ${String(index)}`)
+      return
+    }
+    seen.add(id)
+
+    const puzzle = byId.get(id)
+    if (!puzzle) {
+      errors.push(
+        `firstRun.ts: entry "${id}" at position ${String(index)} does not match any valid puzzle`,
+      )
+      return
+    }
+
+    const expectedInteraction = FIRST_RUN_INTERACTION_SEQUENCE[index]
+    if (expectedInteraction !== undefined && puzzle.interaction !== expectedInteraction) {
+      errors.push(
+        `firstRun.ts: entry "${id}" at position ${String(index)} has interaction "${puzzle.interaction}", expected "${expectedInteraction}" — first-run's sequence must be exactly [${FIRST_RUN_INTERACTION_SEQUENCE.join(', ')}]`,
+      )
+    }
+
+    if (
+      puzzle.difficulty_rating < FIRST_RUN_RATING_MIN ||
+      puzzle.difficulty_rating > FIRST_RUN_RATING_MAX
+    ) {
+      errors.push(
+        `firstRun.ts: entry "${id}" at position ${String(index)} has difficulty_rating ${String(puzzle.difficulty_rating)}, outside the [${String(FIRST_RUN_RATING_MIN)}, ${String(FIRST_RUN_RATING_MAX)}] band a first-ever puzzle must stay inside`,
+      )
+    }
+  })
+
+  return errors
+}
+
+/**
  * The floor on how much of the swipe-binary library must be the "code is
  * fine" negative class (docs/v2-build-plan.md, Phase 6 item 5). A swipe
  * puzzle carries a 50% guess floor; if the library is ~all "find the bug",

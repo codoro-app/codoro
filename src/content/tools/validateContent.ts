@@ -10,6 +10,7 @@ import process from 'node:process'
 import { getDailyNumber } from '../../engine/daily'
 import { DAILY_CALENDAR } from '../dailyCalendar'
 import { BOSS_SETS } from '../bossRun'
+import { FIRST_RUN_SET } from '../firstRun'
 import { loadRawPuzzleFiles } from './loadPuzzles'
 import {
   findLongSnippetLines,
@@ -17,6 +18,7 @@ import {
   SNIPPET_LINE_LENGTH_MAX,
   validateBossRun,
   validateDailyCalendar,
+  validateFirstRunSet,
   validateInteractionMix,
   validateLanguageMix,
   validatePuzzleFiles,
@@ -104,6 +106,7 @@ function main(): void {
     ...errors,
     ...validateDailyCalendar(DAILY_CALENDAR, valid),
     ...validateAllBossSets(valid),
+    ...validateFirstRunSet(FIRST_RUN_SET, valid),
     ...validateRatingCluster(valid),
     ...validateLanguageMix(valid),
     ...validateInteractionMix(valid),
@@ -120,7 +123,7 @@ function main(): void {
 
   checkDailyCalendarRunway()
   console.log(
-    `validate:content: ${String(valid.length)} puzzle(s) OK, ${String(DAILY_CALENDAR.length)} daily-calendar entries OK, ${String(BOSS_SETS.length)} boss set(s) OK`,
+    `validate:content: ${String(valid.length)} puzzle(s) OK, ${String(DAILY_CALENDAR.length)} daily-calendar entries OK, ${String(BOSS_SETS.length)} boss set(s) OK, ${String(FIRST_RUN_SET.length)}-puzzle first-run set OK`,
   )
   checkSnippetLineLengths(valid)
 }

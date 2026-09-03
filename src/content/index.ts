@@ -129,6 +129,7 @@ export type { PatternSlug } from './patterns'
 
 export { DAILY_CALENDAR } from './dailyCalendar'
 export { BOSS_SETS, resolveActiveBossSet } from './bossRun'
+export { FIRST_RUN_SET } from './firstRun'
 
 // NOTE: `DEV_STUB_PUZZLES` is deliberately NOT re-exported here either —
 // import it from './devPuzzles' ('../../content/devPuzzles' etc.) instead.
