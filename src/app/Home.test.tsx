@@ -50,6 +50,7 @@ function baseProfile(): UserProfile {
     missionStats: null,
     preferences: DEFAULT_PREFERENCES,
     anonId: 'test-anon-id',
+    challengerName: null,
   }
 }
 

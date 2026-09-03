@@ -22,6 +22,7 @@ const validProfile = {
   missionStats: null,
   preferences: DEFAULT_PREFERENCES,
   anonId: 'test-anon-id-1',
+  challengerName: null,
 }
 
 const validAttempt = {

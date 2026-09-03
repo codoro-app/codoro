@@ -34,7 +34,7 @@ function base64urlOf(text: string): string {
 }
 
 describe('decodeChallengePayload — round trip', () => {
-  it('round-trips an exact payload through encode -> decode', () => {
+  it('round-trips an exact payload (with a challengerName) through encode -> decode', () => {
     const payload: ChallengePayload = {
       v: CHALLENGE_PAYLOAD_VERSION,
       ids: ['con-005', 'cf-001', 'tc-009'],
@@ -44,6 +44,22 @@ describe('decodeChallengePayload — round trip', () => {
         { correct: true, time_ms: 5200 },
       ],
       totalMs: 12500,
+      challengerName: 'Joe',
+    }
+    expect(roundTrip(payload)).toEqual(payload)
+  })
+
+  it('round-trips an exact payload with a null challengerName', () => {
+    const payload: ChallengePayload = {
+      v: CHALLENGE_PAYLOAD_VERSION,
+      ids: ['con-005', 'cf-001', 'tc-009'],
+      results: [
+        { correct: true, time_ms: 4200 },
+        { correct: false, time_ms: 3100 },
+        { correct: true, time_ms: 5200 },
+      ],
+      totalMs: 12500,
+      challengerName: null,
     }
     expect(roundTrip(payload)).toEqual(payload)
   })
@@ -54,12 +70,13 @@ describe('decodeChallengePayload — round trip', () => {
       ids: ['con-005'],
       results: [{ correct: true, time_ms: 9900 }],
       totalMs: 9900,
+      challengerName: null,
     }
     expect(roundTrip(payload)).toEqual(payload)
   })
 
   it('encodes to URL-safe base64url — no +, /, or = padding in the fragment', () => {
-    const encoded = fragmentOf(buildChallengePayload(sampleAttempts))
+    const encoded = fragmentOf(buildChallengePayload(sampleAttempts, null))
     expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/)
     expect(encoded).not.toContain('+')
     expect(encoded).not.toContain('/')
@@ -94,7 +111,29 @@ describe('decodeChallengePayload — failure modes collapse to null', () => {
   })
 
   it('rejects valid JSON with the wrong shape (missing fields)', () => {
-    expect(decodeChallengePayload(base64urlOf('{"v":1,"ids":["con-005"]}'))).toBeNull()
+    expect(decodeChallengePayload(base64urlOf('{"v":2,"ids":["con-005"]}'))).toBeNull()
+  })
+
+  it('rejects a v1-shaped payload wholesale — no back-compat decoding of pre-redesign links (deliberate, per the design record)', () => {
+    // Exactly what a real pre-redesign /challenge link's fragment decoded
+    // to: v: 1, no `challengerName` key at all.
+    const v1Shaped = JSON.stringify({
+      v: 1,
+      ids: ['con-005'],
+      results: [{ correct: true, time_ms: 100 }],
+      totalMs: 100,
+    })
+    expect(decodeChallengePayload(base64urlOf(v1Shaped))).toBeNull()
+  })
+
+  it('rejects a v2-shaped payload whose challengerName is missing entirely', () => {
+    const missingName = JSON.stringify({
+      v: CHALLENGE_PAYLOAD_VERSION,
+      ids: ['con-005'],
+      results: [{ correct: true, time_ms: 100 }],
+      totalMs: 100,
+    })
+    expect(decodeChallengePayload(base64urlOf(missingName))).toBeNull()
   })
 
   it('rejects a payload whose ids and results lengths differ', () => {
@@ -103,6 +142,7 @@ describe('decodeChallengePayload — failure modes collapse to null', () => {
       ids: ['con-005', 'cf-001'],
       results: [{ correct: true, time_ms: 100 }],
       totalMs: 100,
+      challengerName: null,
     })
     expect(decodeChallengePayload(base64urlOf(bad))).toBeNull()
   })
@@ -113,6 +153,7 @@ describe('decodeChallengePayload — failure modes collapse to null', () => {
       ids: [],
       results: [],
       totalMs: 0,
+      challengerName: null,
     })
     expect(decodeChallengePayload(base64urlOf(bad))).toBeNull()
   })
@@ -123,6 +164,7 @@ describe('decodeChallengePayload — failure modes collapse to null', () => {
       ids: ['con-005'],
       results: [{ correct: true, time_ms: 100 }],
       totalMs: 100,
+      challengerName: null,
     })
     expect(decodeChallengePayload(base64urlOf(bad))).toBeNull()
   })
@@ -154,7 +196,7 @@ describe('truncation (runs longer than MAX_CHALLENGE_PUZZLES)', () => {
       correct: i % 2 === 0,
       time_ms: 1000 + i,
     }))
-    const payload = buildChallengePayload(attempts)
+    const payload = buildChallengePayload(attempts, null)
     expect(payload.ids).toEqual(['p2', 'p3', 'p4', 'p5', 'p6'])
     expect(payload.results).toHaveLength(MAX_CHALLENGE_PUZZLES)
     // totalMs is the sum over the KEPT results — consistent with the ids/results shown.
@@ -169,13 +211,13 @@ describe('truncation (runs longer than MAX_CHALLENGE_PUZZLES)', () => {
       correct: true,
       time_ms: 100 + i,
     }))
-    expect(buildChallengePayload(attempts).ids).toEqual(['p0', 'p1', 'p2'])
+    expect(buildChallengePayload(attempts, null).ids).toEqual(['p0', 'p1', 'p2'])
   })
 })
 
 describe('buildChallengePayload', () => {
-  it('derives ids/results/totalMs from accumulated attempts in order', () => {
-    const payload = buildChallengePayload(sampleAttempts)
+  it('derives ids/results/totalMs from accumulated attempts in order, carrying the given challengerName', () => {
+    const payload = buildChallengePayload(sampleAttempts, 'Joe')
     expect(payload).toEqual({
       v: CHALLENGE_PAYLOAD_VERSION,
       ids: ['con-005', 'cf-001', 'tc-009'],
@@ -185,13 +227,19 @@ describe('buildChallengePayload', () => {
         { correct: true, time_ms: 5200 },
       ],
       totalMs: 12500,
+      challengerName: 'Joe',
     })
+  })
+
+  it('carries a null challengerName through unchanged (never set / skipped)', () => {
+    const payload = buildChallengePayload(sampleAttempts, null)
+    expect(payload.challengerName).toBeNull()
   })
 })
 
 describe('buildChallengeUrl', () => {
   it('produces a full shareable /challenge#... URL whose fragment decodes back', () => {
-    const payload = buildChallengePayload(sampleAttempts)
+    const payload = buildChallengePayload(sampleAttempts, null)
     const url = buildChallengeUrl(payload)
     expect(url).toMatch(/^getcodoro\.com\/challenge#/)
     const decoded = decodeChallengePayload(url.split('#')[1] ?? '')

@@ -171,6 +171,19 @@ function migrateV9ToV10(raw: Record<string, unknown>): Record<string, unknown> {
 }
 
 /**
+ * v10 -> v11: the challenge redesign adds `challengerName` (nullable) — see
+ * src/storage/schema.ts's UserProfileSchema doc comment. Every existing
+ * profile starts unnamed (`null`), same as a genuinely new profile
+ * (`createDefaultProfile`) — the player is prompted for a name the first
+ * time they create a challenge (`ChallengerNameSheet.tsx`), same on-ramp
+ * whether their profile predates this field or not. Every existing field is
+ * passed through unchanged; this migration only adds the new one.
+ */
+function migrateV10ToV11(raw: Record<string, unknown>): Record<string, unknown> {
+  return { ...raw, schema_version: 11, challengerName: null }
+}
+
+/**
  * Keyed by the version each migration migrates *from*. The first real entry:
  * schema v1 predates Daily mode, so any profile still on v1 gets a null
  * dailyCompletion (equivalent to "no Daily attempt recorded yet").
@@ -185,4 +198,5 @@ export const MIGRATIONS: Record<number, Migration> = {
   7: migrateV7ToV8,
   8: migrateV8ToV9,
   9: migrateV9ToV10,
+  10: migrateV10ToV11,
 }

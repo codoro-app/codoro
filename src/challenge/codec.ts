@@ -59,14 +59,26 @@ export function truncateToChallengeLimit(
   return attempts.slice(-MAX_CHALLENGE_PUZZLES)
 }
 
-/** Builds a versioned payload from accumulated session attempts, truncating longer runs to their last `MAX_CHALLENGE_PUZZLES`. */
-export function buildChallengePayload(attempts: ChallengeAttemptInput[]): ChallengePayload {
+/**
+ * Builds a versioned payload from accumulated session attempts, truncating
+ * longer runs to their last `MAX_CHALLENGE_PUZZLES`. `challengerName` (v2,
+ * challenge redesign) is every call site's own `profile.challengerName` —
+ * required here (not defaulted) so a caller can't forget to thread it
+ * through; pass `null` explicitly for "no name set / skipped", which is a
+ * legitimate, share-blocking-free value (see ChallengePayloadSchema's own
+ * doc comment).
+ */
+export function buildChallengePayload(
+  attempts: ChallengeAttemptInput[],
+  challengerName: string | null,
+): ChallengePayload {
   const kept = truncateToChallengeLimit(attempts)
   return {
     v: CHALLENGE_PAYLOAD_VERSION,
     ids: kept.map((attempt) => attempt.puzzleId),
     results: kept.map((attempt) => ({ correct: attempt.correct, time_ms: attempt.time_ms })),
     totalMs: kept.reduce((sum, attempt) => sum + attempt.time_ms, 0),
+    challengerName,
   }
 }
 
