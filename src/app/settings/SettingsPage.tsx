@@ -27,7 +27,6 @@
  * is where it's actually editable, same as every other `UserProfile` field
  * a player might want to revisit.
  *
-
  * The confirm-overwrite contract (locked by the Phase 7 build prompt's own
  * "decide precisely what that means" instruction): before writing anything,
  * show the player exactly what's about to be replaced — their current
