@@ -15,6 +15,7 @@
  * the reference's 2a (streak 0, muted icon) vs 2b (streak 1, warn-colored
  * icon) distinction.
  */
+import { useNumberTween } from './useNumberTween'
 import './practicePage.css'
 
 export interface StatusBarProps {
@@ -30,6 +31,11 @@ export interface StatusBarProps {
 export function StatusBar({ rating, streak, combo, solvedThisSession }: StatusBarProps) {
   const pillClass =
     'flex items-center gap-1.5 min-h-11 py-1.5 px-3 rounded-full bg-surface-1 border border-border text-text-0 font-bold tabular-nums'
+  // Tweens from the previous rating to the new one over ~600ms whenever it
+  // changes — never on first mount (see useNumberTween's own doc comment).
+  // A rating that silently changes is the single clearest signal that
+  // nothing is at stake (docs/design/practice-feedback-loop.md section 7).
+  const tweenedRating = useNumberTween(rating, 600)
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -50,7 +56,7 @@ export function StatusBar({ rating, streak, combo, solvedThisSession }: StatusBa
           <path d="M4 22h16" />
           <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
         </svg>
-        <span>{Math.round(rating)}</span>
+        <span>{Math.round(tweenedRating)}</span>
       </div>
       <div className={pillClass} title="Daily streak">
         <svg

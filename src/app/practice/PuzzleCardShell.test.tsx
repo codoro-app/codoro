@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PuzzleCardShell } from './PuzzleCardShell'
 import type {
@@ -168,7 +168,12 @@ describe('PuzzleCardShell', () => {
     expect(onAnswered).toHaveBeenCalledWith({ correct: true, choiceIndex: 0 })
     expect(screen.getByRole('status')).toBeInTheDocument()
     expect(screen.getByText('Nice — correct')).toBeInTheDocument()
-    expect(screen.getByText('+12')).toBeInTheDocument()
+    // The delta counts up from 0 (useNumberTween's animateOnMount) rather
+    // than appearing already-resolved — wait for it to settle at the real
+    // target instead of asserting synchronously.
+    await waitFor(() => {
+      expect(screen.getByText('+12')).toBeInTheDocument()
+    })
     expect(screen.getByText(mcqPuzzle.explanation)).toBeInTheDocument()
 
     const continueButton = screen.getByRole('button', { name: 'Next puzzle' })
@@ -410,7 +415,9 @@ describe('PuzzleCardShell', () => {
     await user.click(screen.getByRole('button', { name: 'Wrong order' }))
 
     expect(screen.getByText('Not quite')).toBeInTheDocument()
-    expect(screen.getByText('-9')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('-9')).toBeInTheDocument()
+    })
   })
 
   it('renders no delta text when ratingDelta is null', async () => {

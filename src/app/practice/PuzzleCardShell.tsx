@@ -18,6 +18,7 @@ import type { CSSProperties, ReactNode, RefObject } from 'react'
 import type { Puzzle } from '../../content'
 import type { CommitPayload } from './interactionTypes'
 import type { ImpactVariant } from './feel'
+import { useNumberTween } from './useNumberTween'
 import { highlightSnippet } from './highlightSnippet'
 import { CodeSnippet } from './CodeSnippet'
 import { Mcq } from './interactions/Mcq'
@@ -310,6 +311,27 @@ function FeedbackIcon({ correct }: { correct: boolean }) {
  * `drawerPanelClass`'s doc comment) — only the explanation paragraph next
  * to it is meant to give up height.
  */
+/**
+ * The rating delta's own span — promoted to the panel's visual anchor
+ * (larger, scale-in, counts up from 0 rather than appearing already-
+ * resolved) per docs/design/practice-feedback-loop.md section 7. Split out
+ * so `useNumberTween`'s `animateOnMount: true` shape applies per-commit:
+ * this component mounts fresh every time FeedbackHeader itself does (a new
+ * commit), so "animate from 0 on mount" is exactly "animate from 0 on each
+ * commit," not "animate from 0 on page load."
+ */
+function FeedbackDelta({ correct, ratingDelta }: { correct: boolean; ratingDelta: number }) {
+  const tweened = useNumberTween(ratingDelta, 500, { animateOnMount: true })
+  const rounded = Math.round(tweened)
+  return (
+    <span
+      className={`feedback-panel__delta scale-in font-mono font-extrabold tabular-nums text-2xl ${feedbackAccentClass(correct)}`}
+    >
+      {rounded > 0 ? `+${String(rounded)}` : String(rounded)}
+    </span>
+  )
+}
+
 function FeedbackHeader({
   correct,
   ratingDelta,
@@ -325,13 +347,7 @@ function FeedbackHeader({
       <span className={`flex-1 font-bold text-base ${feedbackAccentClass(correct)}`}>
         {correct ? 'Nice — correct' : 'Not quite'}
       </span>
-      {ratingDelta !== null && (
-        <span
-          className={`feedback-panel__delta font-mono font-bold tabular-nums ${feedbackAccentClass(correct)}`}
-        >
-          {ratingDelta > 0 ? `+${String(ratingDelta)}` : String(ratingDelta)}
-        </span>
-      )}
+      {ratingDelta !== null && <FeedbackDelta correct={correct} ratingDelta={ratingDelta} />}
     </div>
   )
 }
