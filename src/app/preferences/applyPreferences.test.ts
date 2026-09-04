@@ -16,6 +16,8 @@ describe('applyPreferences', () => {
       reducedMotion: true,
       codeFontSize: 'lg',
       theme: 'blue',
+      sound: true,
+      autoAdvance: true,
     }
     applyPreferences(preferences)
 

@@ -21,7 +21,7 @@ import { generateAnonId } from './anonId'
  * migrated through migrations.ts — see AttemptSchema's own doc comment for
  * why `checkpoint_results` (the v4 addition) doesn't go through this chain.
  */
-export const CURRENT_SCHEMA_VERSION = 12
+export const CURRENT_SCHEMA_VERSION = 13
 
 /** Mirrors engine's StreakState shape. */
 export const StreakStateSchema = z.object({
@@ -217,9 +217,7 @@ export interface MissionStats {
  * v4 Phase 4.1 ("Settings, for real"): device/UX preferences, versioned and
  * carried through export/import like every other UserProfile field — the
  * whole point being that v5's account sync picks these up for free without
- * a separate preferences payload. Each field earns its place (see the phase
- * amendment for the ones considered and dropped — sound and a second theme
- * mode don't exist in the codebase today):
+ * a separate preferences payload. Each field earns its place:
  *
  * - `timerOnTrace`: makes todo 14's "no timer on regular trace mode"
  *   (TracePage.tsx's hardcoded `timed={false}`) a preference instead of a
@@ -237,12 +235,24 @@ export interface MissionStats {
  *   'light' is a light-surfaced variant of the same brand accent (deepened
  *   to a legible shade for light backgrounds — see index.css's own comment
  *   on why the raw neon lime can't just be reused as-is).
+ * - `sound` (practice feedback loop, v13): Practice's synthesized impact
+ *   audio (feedbackSound.ts) — added because Practice now has audio at
+ *   all, where before this repo had none anywhere (grep-verified at the
+ *   time). Defaults `true`; the escape hatch is a one-tap mute in
+ *   StatusBar (something that makes noise unprompted needs a kill switch
+ *   in the moment, not just a settings toggle) — see StatusBar.tsx.
+ * - `autoAdvance` (practice feedback loop, v13): whether a correct commit
+ *   auto-advances Practice's PuzzleCardShell after a beat instead of
+ *   waiting for a Continue tap — see PuzzleCardShell.tsx's `autoAdvanceMs`
+ *   prop. Defaults `true`.
  */
 export const PreferencesSchema = z.object({
   timerOnTrace: z.boolean(),
   reducedMotion: z.boolean(),
   codeFontSize: z.enum(['sm', 'md', 'lg']),
   theme: z.enum(['default', 'blue', 'slate', 'light']),
+  sound: z.boolean(),
+  autoAdvance: z.boolean(),
 })
 
 export interface Preferences {
@@ -250,14 +260,18 @@ export interface Preferences {
   reducedMotion: boolean
   codeFontSize: 'sm' | 'md' | 'lg'
   theme: 'default' | 'blue' | 'slate' | 'light'
+  sound: boolean
+  autoAdvance: boolean
 }
 
-/** Every default matches today's actual shipped behavior — an existing player's app looks and behaves identically until they touch Settings. */
+/** Every default matches today's actual shipped behavior EXCEPT sound/autoAdvance, which are new mechanics defaulted on — see PreferencesSchema's own doc comment for why. */
 export const DEFAULT_PREFERENCES: Preferences = {
   timerOnTrace: false,
   reducedMotion: false,
   codeFontSize: 'md',
   theme: 'default',
+  sound: true,
+  autoAdvance: true,
 }
 
 export const UserProfileSchema = z.object({

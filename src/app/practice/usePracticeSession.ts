@@ -47,12 +47,17 @@ import { quizMeta } from '../../content'
 import { DEV_STUB_PUZZLES } from '../../content/devPuzzles'
 import { isDevPuzzleModeEnabled } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle, PatternSlug, QuizPuzzle } from '../../content'
-import { trackAttempt, trackError, trackStreakPause } from '../../telemetry'
+import {
+  trackComboShieldUsed,
+  trackError,
+  trackPracticeAttempt,
+  trackStreakPause,
+} from '../../telemetry'
 import type { ChallengeAttemptInput } from '../../challenge'
 import type { CommitPayload } from './interactionTypes'
-import { hapticTick } from './haptics'
-import { resolveStreakPause } from '../streakPauseLogic'
-import type { StreakPauseState } from '../streakPauseLogic'
+import { resolveOutcome } from './feel'
+import type { Outcome } from './feel'
+import { playImpact } from './playImpact'
 import { loadPuzzleBody } from './puzzleBodyCache'
 import { speculativeNextIds } from './speculativeSelection'
 
@@ -138,11 +143,15 @@ export interface PracticeSession {
   profile: UserProfile | null
   puzzle: ContentPuzzle | null
   ratingDelta: number | null
-  /** In-session correct-answer streak. Not persisted, not derived from stored attempts — resets on wrong, resets to 0 on reload. */
+  /** In-session correct-answer streak. Not persisted, not derived from stored attempts — resets on an unshielded wrong, resets to 0 on reload. A shielded miss (feel.ts) leaves it unchanged. */
   combo: number
+  /** Session-only banked shields (feel.ts) — same lifetime as `combo`, never persisted to the profile. */
+  shields: number
+  /** The Outcome (feel.ts) `resolveOutcome` produced for the most recent handleAnswered call — null before any answer this session. Drives PuzzleCardShell's `impact`/`autoAdvanceMs` props and ComboSurge. */
+  lastOutcome: Outcome | null
   /** Count of correct answers this session (page load). Session-only, not persisted — see PracticePage's progress-indicator doc comment for why this replaces a fixed-length "out of N" progress bar. */
   solvedThisSession: number
-  /** The current streak's correct answers, in order — feeds the streak challenge link. Cleared on a miss so the link always encodes the live streak. */
+  /** The current streak's correct answers, in order — feeds the streak challenge link. Cleared on an *unshielded* miss so the link always encodes the live streak; a shielded miss leaves this untouched (the streak survived). */
   streakAttempts: readonly ChallengeAttemptInput[]
   /**
    * The single most recently answered puzzle's own attempt — correct or
@@ -167,16 +176,12 @@ export interface PracticeSession {
   setInteractionFilter: (interaction: InteractionFilter) => void
   /** Sets both filters as one atomic update — see the implementation's doc comment for why this isn't just two sequential setter calls. */
   setFilters: (pattern: PatternSlug | null, interaction: InteractionFilter) => void
-  /** Non-null when the streak-pause moment (Phase 5b Item 7/8) should be shown — every 5th correct answer in a row. Cleared by either exit callback below. */
-  streakPause: StreakPauseState | null
-  /** Dismisses the pause and serves the next puzzle immediately — the streak continues uninterrupted. */
-  handleStreakPauseKeepGoing: () => void
-  /** Dismisses the pause only — the underlying puzzle's own feedback panel (with its own Continue button) is still there if the player changes their mind. */
-  handleStreakPauseDoneForNow: () => void
   handleAnswered: (payload: CommitPayload) => void
   handleContinue: () => void
   /** Re-attempts loadProfile() after a mount-time load failure (status === 'error'). */
   retryLoad: () => void
+  /** Optimistically flips preferences.sound and persists it — the StatusBar mute toggle's write path (see StatusBar.tsx). */
+  setSoundPreference: (enabled: boolean) => void
 }
 
 export function usePracticeSession(): PracticeSession {
@@ -185,7 +190,8 @@ export function usePracticeSession(): PracticeSession {
   const [puzzle, setPuzzle] = useState<ContentPuzzle | null>(null)
   const [ratingDelta, setRatingDelta] = useState<number | null>(null)
   const [combo, setCombo] = useState(0)
-  const [streakPause, setStreakPause] = useState<StreakPauseState | null>(null)
+  const [shields, setShields] = useState(0)
+  const [lastOutcome, setLastOutcome] = useState<Outcome | null>(null)
   const [solvedThisSession, setSolvedThisSession] = useState(0)
   const [streakAttempts, setStreakAttempts] = useState<ChallengeAttemptInput[]>([])
   const [lastAttempt, setLastAttempt] = useState<ChallengeAttemptInput | null>(null)
@@ -417,6 +423,26 @@ export function usePracticeSession(): PracticeSession {
     })()
   }, [serveNext])
 
+  // Optimistically flips preferences.sound and persists it — the StatusBar
+  // mute toggle's write path (see StatusBar.tsx). Mirrors updatePreference's
+  // shape in SettingsPage.tsx (apply immediately, persist in the
+  // background) but scoped to this one hook-owned field rather than a
+  // generic setter, since Practice only ever needs to flip sound from here.
+  const setSoundPreference = useCallback(
+    (enabled: boolean) => {
+      if (!profile) return
+      const updatedProfile: UserProfile = {
+        ...profile,
+        preferences: { ...profile.preferences, sound: enabled },
+      }
+      setProfile(updatedProfile)
+      saveProfile(updatedProfile).catch((error: unknown) => {
+        trackError(error, 'usePracticeSession: saveProfile (sound preference) failed')
+      })
+    },
+    [profile],
+  )
+
   const handleAnswered = useCallback(
     (payload: CommitPayload) => {
       if (!profile || !puzzle) return
@@ -473,18 +499,28 @@ export function usePracticeSession(): PracticeSession {
         }
       }
 
-      // Phase 5b Item 7/8: computed explicitly (not via setCombo's own
-      // functional updater) since the streak-pause check right below needs
-      // the actual new value synchronously, in this same closure.
-      const newCombo = payload.correct ? combo + 1 : 0
-      const pause = resolveStreakPause(newCombo, profile.bestRunStreak)
+      // Computed explicitly (not via setCombo's own functional updater)
+      // since the surge/best-streak check right below needs the actual new
+      // value synchronously, in this same closure.
+      const outcome = resolveOutcome({
+        correct: payload.correct,
+        combo,
+        shields,
+        rating: oldRating,
+      })
+      // Re-expresses the old resolveStreakPause(...).isNewBest gating (only
+      // ever updated on a streak-pause-eligible crossing) against the new
+      // tier-aware surge check — same behavior, new threshold. See
+      // docs/design/practice-feedback-loop.md §9.
+      const isNewBestStreak =
+        outcome.kind === 'correct' && outcome.surge && outcome.newCombo > profile.bestRunStreak
 
       const updatedProfile: UserProfile = {
         ...profile,
         rating: newRating,
         ratedAttemptCount: profile.ratedAttemptCount + 1,
         requeueState: newRequeueState,
-        bestRunStreak: pause?.isNewBest ? newCombo : profile.bestRunStreak,
+        bestRunStreak: isNewBestStreak ? outcome.newCombo : profile.bestRunStreak,
       }
 
       const attempt: Attempt = {
@@ -504,27 +540,42 @@ export function usePracticeSession(): PracticeSession {
 
       setProfile(updatedProfile)
       setRatingDelta(delta)
-      setCombo(newCombo)
+      setCombo(outcome.newCombo)
+      setShields(outcome.newShields)
+      setLastOutcome(outcome)
       // Challenge redesign: recorded unconditionally, correct or not — see
       // `lastAttempt`'s own doc comment for why this can't just reuse
       // `streakAttempts`.
       setLastAttempt({ puzzleId: puzzle.id, correct: payload.correct, time_ms: timeMs })
       // The live streak's correct answers, in order — feeds the streak
-      // challenge link. A miss (combo → 0) clears it, so the link always
-      // encodes the current streak.
+      // challenge link. A shielded miss leaves this untouched (the streak
+      // survived, so the link should still encode it); only a real,
+      // unshielded wrong clears it.
       if (payload.correct) {
         setSolvedThisSession((s) => s + 1)
         setStreakAttempts((prev) => [
           ...prev,
           { puzzleId: puzzle.id, correct: true, time_ms: timeMs },
         ])
-      } else {
+      } else if (outcome.kind === 'wrong') {
         setStreakAttempts([])
       }
       setAttemptVersion((v) => v + 1)
-      if (pause) {
-        setStreakPause(pause)
-        trackStreakPause({ mode: 'practice', streak: pause.streak, is_new_best: pause.isNewBest })
+      if (outcome.kind === 'correct' && outcome.surge) {
+        trackStreakPause({
+          mode: 'practice',
+          streak: outcome.newCombo,
+          is_new_best: isNewBestStreak,
+          tier: outcome.tier,
+          shields_banked: outcome.newShields,
+        })
+      }
+      if (outcome.kind === 'shielded') {
+        trackComboShieldUsed({
+          tier: outcome.tier,
+          combo: outcome.newCombo,
+          shields_remaining: outcome.newShields,
+        })
       }
 
       // Persistence failures here are non-fatal: the UI/telemetry below must
@@ -538,7 +589,7 @@ export function usePracticeSession(): PracticeSession {
         trackError(error, 'usePracticeSession: saveProfile failed')
       })
 
-      trackAttempt({
+      trackPracticeAttempt({
         puzzle_id: puzzle.id,
         correct: payload.correct,
         time_ms: timeMs,
@@ -546,11 +597,14 @@ export function usePracticeSession(): PracticeSession {
         interaction: puzzle.interaction,
         user_rating_before: oldRating,
         user_rating_after: newRating,
+        combo: outcome.newCombo,
+        impact_level: outcome.kind === 'correct' ? outcome.level : 0,
+        rating_tier: outcome.tier,
       })
 
-      hapticTick()
+      playImpact(outcome, updatedProfile.preferences)
     },
-    [profile, puzzle, combo, patternFilter, interactionFilter],
+    [profile, puzzle, combo, shields, patternFilter, interactionFilter],
   )
 
   const handleContinue = useCallback(() => {
@@ -563,15 +617,6 @@ export function usePracticeSession(): PracticeSession {
     recentIdsRef.current = [justServedId, ...recentIdsRef.current].slice(0, RECENT_IDS_WINDOW)
     serveNext(profile, patternFilter, interactionFilter)
   }, [profile, puzzle, patternFilter, interactionFilter, serveNext])
-
-  const handleStreakPauseKeepGoing = useCallback(() => {
-    setStreakPause(null)
-    handleContinue()
-  }, [handleContinue])
-
-  const handleStreakPauseDoneForNow = useCallback(() => {
-    setStreakPause(null)
-  }, [])
 
   const setPatternFilter = useCallback(
     (pattern: PatternSlug | null) => {
@@ -641,6 +686,8 @@ export function usePracticeSession(): PracticeSession {
     puzzle,
     ratingDelta,
     combo,
+    shields,
+    lastOutcome,
     solvedThisSession,
     streakAttempts,
     lastAttempt,
@@ -650,11 +697,9 @@ export function usePracticeSession(): PracticeSession {
     interactionFilter,
     setInteractionFilter,
     setFilters,
-    streakPause,
-    handleStreakPauseKeepGoing,
-    handleStreakPauseDoneForNow,
     handleAnswered,
     handleContinue,
     retryLoad,
+    setSoundPreference,
   }
 }

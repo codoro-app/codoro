@@ -375,6 +375,63 @@ describe('trackAttempt', () => {
   })
 })
 
+describe('trackStreakPause', () => {
+  it('captures streak_pause with tier + shields_banked (practice feedback loop additions)', async () => {
+    const { trackStreakPause } = await loadTelemetry('phc_test_key')
+    trackStreakPause({
+      mode: 'practice',
+      streak: 6,
+      is_new_best: false,
+      tier: 'steady',
+      shields_banked: 2,
+    })
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('streak_pause', {
+      mode: 'practice',
+      streak: 6,
+      is_new_best: false,
+      tier: 'steady',
+      shields_banked: 2,
+    })
+  })
+
+  it('still accepts a Trace-style payload with tier/shields_banked omitted', async () => {
+    const { trackStreakPause } = await loadTelemetry('phc_test_key')
+    trackStreakPause({ mode: 'trace', streak: 5, is_new_best: true })
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('streak_pause', {
+      mode: 'trace',
+      streak: 5,
+      is_new_best: true,
+    })
+  })
+})
+
+describe('trackComboShieldUsed', () => {
+  it('captures combo_shield_used with the exact payload shape', async () => {
+    const { trackComboShieldUsed } = await loadTelemetry('phc_test_key')
+    trackComboShieldUsed({ tier: 'novice', combo: 4, shields_remaining: 0 })
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('combo_shield_used', {
+      tier: 'novice',
+      combo: 4,
+      shields_remaining: 0,
+    })
+  })
+})
+
+describe('trackAutoAdvance', () => {
+  it('captures auto_advance with the exact payload shape', async () => {
+    const { trackAutoAdvance } = await loadTelemetry('phc_test_key')
+    trackAutoAdvance({ impact_level: 2, cancelled: false })
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('auto_advance', {
+      impact_level: 2,
+      cancelled: false,
+    })
+  })
+})
+
 describe('trackRushAttempt', () => {
   it('captures the "attempt" event with the locked shape plus run-level context', async () => {
     const { trackRushAttempt } = await loadTelemetry('phc_test_key')

@@ -63,7 +63,8 @@ import { buildPracticeShareText } from './shareText'
 import { usePracticeSession } from './usePracticeSession'
 import { useMediaQuery } from '../useMediaQuery'
 import { RouteSkeleton } from '../RouteSkeleton'
-import { StreakPause } from '../StreakPause'
+import { ComboSurge } from './ComboSurge'
+import { impactVariant } from './feel'
 import { PATTERN_LABELS, PATTERN_SLUGS } from '../../content'
 import type { PatternSlug } from '../../content'
 import { CloseIcon } from '../Icons'
@@ -71,7 +72,7 @@ import { ShareMenu } from '../ShareMenu'
 import type { ShareAction } from '../ShareMenu'
 import { ChallengeButton } from '../ChallengeButton'
 import { useChallengerName } from '../useChallengerName'
-import { trackShareClick } from '../../telemetry'
+import { trackAutoAdvance, trackShareClick } from '../../telemetry'
 import { saveProfile } from '../../storage'
 import { useEffect, useRef, useState } from 'react'
 import type { CommitPayload } from './interactionTypes'
@@ -113,6 +114,20 @@ const LINK_CLASS =
 const MASTERY_INLINE_CLASS =
   'flex items-center justify-center min-h-11 py-[13px] px-4 border border-border-strong rounded-sm bg-transparent text-accent font-sans text-base font-bold no-underline cursor-pointer whitespace-nowrap'
 
+// Auto-advance duration scales with the impact level (feel.ts) of the
+// correct answer that triggered it — a level-3 surge gets a longer beat to
+// read before the card advances than a plain level-0 correct. Only ever
+// looked up for a 'correct' outcome (shielded/wrong never auto-advance —
+// PuzzleCardShell itself gates the countdown on `committedPayload.correct`,
+// so passing autoAdvanceMs for those outcomes would be inert anyway, but we
+// don't even compute it — see `autoAdvanceMs` below).
+const AUTO_ADVANCE_MS_BY_LEVEL: Record<0 | 1 | 2 | 3, number> = {
+  0: 1400,
+  1: 1800,
+  2: 2200,
+  3: 2600,
+}
+
 export function PracticePage() {
   const [location, navigate] = useLocation()
   const search = useSearch()
@@ -134,6 +149,14 @@ export function PracticePage() {
   // PuzzleCardShell the real node. Mobile never reads this — PuzzleCardShell
   // ignores `sidebarSlot` whenever `!isDesktop`.
   const [sidebarSlotEl, setSidebarSlotEl] = useState<HTMLDivElement | null>(null)
+
+  // ComboSurge (replaces StreakPause for Practice): tracks which Outcome
+  // instance has already been dismissed, by object identity — safe because
+  // resolveOutcome (feel.ts) always returns a fresh object literal, so no
+  // two distinct answers can ever produce reference-equal outcomes. A new
+  // surge outcome (session.lastOutcome !== dismissedOutcome) always shows,
+  // regardless of whether an earlier surge was ever dismissed.
+  const [dismissedOutcome, setDismissedOutcome] = useState<typeof session.lastOutcome>(null)
 
   // Challenge redesign: composes onto session.profile — see
   // useChallengerName's own doc comment for why persistence is this page's
@@ -368,14 +391,43 @@ export function PracticePage() {
     />
   )
 
+  const activeSurge =
+    session.lastOutcome?.kind === 'correct' &&
+    session.lastOutcome.surge &&
+    session.lastOutcome !== dismissedOutcome
+      ? session.lastOutcome
+      : null
+
+  // Impact motion + auto-advance (Task 15): both derive from
+  // session.lastOutcome, set once per answer by usePracticeSession. The
+  // *next* card (new puzzle.id, remounted fresh by PuzzleCardShell's key)
+  // reads these same values on its first render too, but that's harmless —
+  // PuzzleCardShell only stamps data-impact and starts the auto-advance
+  // countdown once its own `committed` state is true, which a freshly
+  // mounted card never is.
+  const impact = session.lastOutcome ? impactVariant(session.lastOutcome) : null
+  const autoAdvanceMs =
+    session.profile.preferences.autoAdvance && session.lastOutcome?.kind === 'correct'
+      ? AUTO_ADVANCE_MS_BY_LEVEL[session.lastOutcome.level]
+      : undefined
+  // Telemetry only — PuzzleCardShell already calls onContinue itself once
+  // the countdown resolves uncancelled (or Continue is tapped manually), so
+  // this callback never needs to advance the session on its own.
+  const handleAutoAdvanceResolved = (cancelled: boolean) => {
+    if (session.lastOutcome?.kind === 'correct') {
+      trackAutoAdvance({ impact_level: session.lastOutcome.level, cancelled })
+    }
+  }
+
   return (
     <>
-      {session.streakPause && (
-        <StreakPause
-          streak={session.streakPause.streak}
-          isNewBest={session.streakPause.isNewBest}
-          onKeepGoing={session.handleStreakPauseKeepGoing}
-          onDoneForNow={session.handleStreakPauseDoneForNow}
+      {activeSurge && (
+        <ComboSurge
+          outcome={activeSurge}
+          isNewBest={session.profile.bestRunStreak === activeSurge.newCombo}
+          onDismiss={() => {
+            setDismissedOutcome(activeSurge)
+          }}
         />
       )}
 
@@ -386,6 +438,11 @@ export function PracticePage() {
             streak={session.profile.streak.currentStreak}
             combo={session.combo}
             solvedThisSession={session.solvedThisSession}
+            shields={session.shields}
+            soundEnabled={session.profile.preferences.sound}
+            onToggleSound={() => {
+              session.setSoundPreference(!session.profile?.preferences.sound)
+            }}
           />
         )}
 
@@ -513,6 +570,9 @@ export function PracticePage() {
                 shareActions={shareActions}
                 challengeButton={answer && challengeButton}
                 sidebarSlot={sidebarSlotEl}
+                autoAdvanceMs={autoAdvanceMs}
+                impact={impact}
+                onAutoAdvanceResolved={handleAutoAdvanceResolved}
               />
             </motion.div>
           </AnimatePresence>
@@ -557,6 +617,11 @@ export function PracticePage() {
                 streak={session.profile.streak.currentStreak}
                 combo={session.combo}
                 solvedThisSession={session.solvedThisSession}
+                shields={session.shields}
+                soundEnabled={session.profile.preferences.sound}
+                onToggleSound={() => {
+                  session.setSoundPreference(!session.profile?.preferences.sound)
+                }}
               />
               <MasteryTeaser refreshKey={session.attemptVersion} />
             </>

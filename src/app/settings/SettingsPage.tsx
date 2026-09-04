@@ -347,6 +347,57 @@ export function SettingsPage() {
 
         <div className={PREF_ROW_CLASS}>
           <div>
+            <div className={PREF_LABEL_CLASS}>Sound</div>
+            <div className={PREF_DESC_CLASS}>
+              Play a short tone on correct, shielded, and missed answers in Practice.
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={preferences.sound}
+            aria-label="Sound"
+            className={`relative flex-none w-10 h-[23px] rounded-full border-0 cursor-pointer ${
+              preferences.sound ? 'bg-accent' : 'bg-border-strong'
+            }`}
+            onClick={() => void updatePreference('sound', !preferences.sound)}
+          >
+            <span
+              className={`absolute top-[2px] left-[2px] w-[19px] h-[19px] rounded-full transition-transform duration-150 ease-out ${
+                preferences.sound ? 'translate-x-[17px] bg-accent-ink' : 'bg-text-0'
+              }`}
+            />
+          </button>
+        </div>
+
+        <div className={PREF_ROW_CLASS}>
+          <div>
+            <div className={PREF_LABEL_CLASS}>Auto-advance</div>
+            <div className={PREF_DESC_CLASS}>
+              After a correct answer in Practice, move on automatically instead of waiting for
+              Continue.
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={preferences.autoAdvance}
+            aria-label="Auto-advance"
+            className={`relative flex-none w-10 h-[23px] rounded-full border-0 cursor-pointer ${
+              preferences.autoAdvance ? 'bg-accent' : 'bg-border-strong'
+            }`}
+            onClick={() => void updatePreference('autoAdvance', !preferences.autoAdvance)}
+          >
+            <span
+              className={`absolute top-[2px] left-[2px] w-[19px] h-[19px] rounded-full transition-transform duration-150 ease-out ${
+                preferences.autoAdvance ? 'translate-x-[17px] bg-accent-ink' : 'bg-text-0'
+              }`}
+            />
+          </button>
+        </div>
+
+        <div className={PREF_ROW_CLASS}>
+          <div>
             <div className={PREF_LABEL_CLASS}>Code font size</div>
             <div className={PREF_DESC_CLASS}>Applies to every puzzle&apos;s code snippet.</div>
           </div>

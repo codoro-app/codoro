@@ -87,7 +87,10 @@ vi.mock('../../storage', async (importOriginal) => {
 })
 
 vi.mock('../../telemetry', () => ({
-  trackAttempt: vi.fn(),
+  trackPracticeAttempt: vi.fn(),
+  trackComboShieldUsed: vi.fn(),
+  trackStreakPause: vi.fn(),
+  trackAutoAdvance: vi.fn(),
   trackShareClick: vi.fn(),
   trackChallengeCreate: vi.fn(),
   trackError: vi.fn(),

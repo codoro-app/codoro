@@ -226,6 +226,40 @@ describe('SettingsPage', () => {
       expect((await loadProfile()).preferences.timerOnTrace).toBe(true)
     })
 
+    it('toggling Sound flips aria-checked and persists to storage', async () => {
+      await saveProfile(createDefaultProfile())
+      render(<SettingsPage />)
+      await waitFor(() => screen.getByText('Settings'))
+
+      const toggle = screen.getByRole('switch', { name: 'Sound' })
+      expect(toggle).toHaveAttribute('aria-checked', 'true')
+
+      const user = userEvent.setup()
+      await user.click(toggle)
+
+      await waitFor(() => {
+        expect(toggle).toHaveAttribute('aria-checked', 'false')
+      })
+      expect((await loadProfile()).preferences.sound).toBe(false)
+    })
+
+    it('toggling Auto-advance flips aria-checked and persists to storage', async () => {
+      await saveProfile(createDefaultProfile())
+      render(<SettingsPage />)
+      await waitFor(() => screen.getByText('Settings'))
+
+      const toggle = screen.getByRole('switch', { name: 'Auto-advance' })
+      expect(toggle).toHaveAttribute('aria-checked', 'true')
+
+      const user = userEvent.setup()
+      await user.click(toggle)
+
+      await waitFor(() => {
+        expect(toggle).toHaveAttribute('aria-checked', 'false')
+      })
+      expect((await loadProfile()).preferences.autoAdvance).toBe(false)
+    })
+
     it('picking a code font size updates aria-pressed and persists to storage', async () => {
       await saveProfile(createDefaultProfile())
       render(<SettingsPage />)
@@ -265,6 +299,8 @@ describe('SettingsPage', () => {
           reducedMotion: true,
           codeFontSize: 'lg' as const,
           theme: 'slate' as const,
+          sound: true,
+          autoAdvance: true,
         },
       }
       await saveProfile(seeded)

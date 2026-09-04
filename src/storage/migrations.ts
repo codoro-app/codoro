@@ -199,6 +199,25 @@ function migrateV11ToV12(raw: Record<string, unknown>): Record<string, unknown> 
 }
 
 /**
+ * v12 -> v13: the practice feedback loop adds `sound` and `autoAdvance` —
+ * see src/storage/schema.ts's PreferencesSchema doc comment. Unlike every
+ * migration above it, this one merges new keys INTO the existing nested
+ * `preferences` object rather than adding a top-level field — every other
+ * preference value on the profile must survive untouched. Both new keys
+ * default `true` for every existing profile (see DEFAULT_PREFERENCES'
+ * own doc comment for why sound defaults on despite being new/unprompted
+ * noise — StatusBar's mute toggle is the matching escape hatch).
+ */
+function migrateV12ToV13(raw: Record<string, unknown>): Record<string, unknown> {
+  const preferences = raw.preferences && typeof raw.preferences === 'object' ? raw.preferences : {}
+  return {
+    ...raw,
+    schema_version: 13,
+    preferences: { ...preferences, sound: true, autoAdvance: true },
+  }
+}
+
+/**
  * Keyed by the version each migration migrates *from*. The first real entry:
  * schema v1 predates Daily mode, so any profile still on v1 gets a null
  * dailyCompletion (equivalent to "no Daily attempt recorded yet").
@@ -215,4 +234,5 @@ export const MIGRATIONS: Record<number, Migration> = {
   9: migrateV9ToV10,
   10: migrateV10ToV11,
   11: migrateV11ToV12,
+  12: migrateV12ToV13,
 }

@@ -15,6 +15,7 @@
  * the reference's 2a (streak 0, muted icon) vs 2b (streak 1, warn-colored
  * icon) distinction.
  */
+import { useNumberTween } from './useNumberTween'
 import './practicePage.css'
 
 export interface StatusBarProps {
@@ -25,11 +26,69 @@ export interface StatusBarProps {
   combo: number
   /** Uncapped count of correct answers this session — see PracticePage's doc comment for why this replaces a fixed "out of N" progress bar in an endless practice mode. */
   solvedThisSession: number
+  /** Session-only banked shields (feel.ts) — rendered as pips next to the combo badge (only alongside it — a shield with no visible combo would be a stray icon with no context). A shield the player can't see isn't a mechanic, it's a surprise. */
+  shields: number
+  /** True = sound on. The mute toggle's aria-pressed is the inverse (pressed = muted). */
+  soundEnabled: boolean
+  onToggleSound: () => void
 }
 
-export function StatusBar({ rating, streak, combo, solvedThisSession }: StatusBarProps) {
+function SpeakerIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="var(--accent)"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polygon points="4 9 8 9 12 5 12 19 8 15 4 15 4 9" />
+      <path d="M16 8.5a4.5 4.5 0 0 1 0 7" />
+      <path d="M18.5 6a8 8 0 0 1 0 12" />
+    </svg>
+  )
+}
+
+function SpeakerMutedIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="var(--text-2)"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polygon points="4 9 8 9 12 5 12 19 8 15 4 15 4 9" />
+      <line x1="16" y1="9" x2="21" y2="14" />
+      <line x1="21" y1="9" x2="16" y2="14" />
+    </svg>
+  )
+}
+
+export function StatusBar({
+  rating,
+  streak,
+  combo,
+  solvedThisSession,
+  shields,
+  soundEnabled,
+  onToggleSound,
+}: StatusBarProps) {
   const pillClass =
     'flex items-center gap-1.5 min-h-11 py-1.5 px-3 rounded-full bg-surface-1 border border-border text-text-0 font-bold tabular-nums'
+  // Tweens from the previous rating to the new one over ~600ms whenever it
+  // changes — never on first mount (see useNumberTween's own doc comment).
+  // A rating that silently changes is the single clearest signal that
+  // nothing is at stake (docs/design/practice-feedback-loop.md section 7).
+  const tweenedRating = useNumberTween(rating, 600)
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -50,7 +109,7 @@ export function StatusBar({ rating, streak, combo, solvedThisSession }: StatusBa
           <path d="M4 22h16" />
           <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
         </svg>
-        <span>{Math.round(rating)}</span>
+        <span>{Math.round(tweenedRating)}</span>
       </div>
       <div className={pillClass} title="Daily streak">
         <svg
@@ -103,8 +162,37 @@ export function StatusBar({ rating, streak, combo, solvedThisSession }: StatusBa
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
           </svg>
           <span>{combo} in a row</span>
+          {shields > 0 && (
+            <span
+              className="flex items-center gap-1"
+              aria-label={`${String(shields)} shield${shields === 1 ? '' : 's'} banked`}
+            >
+              {Array.from({ length: shields }, (_, i) => (
+                <svg
+                  key={i}
+                  data-testid="shield-pip"
+                  aria-hidden="true"
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="var(--accent)"
+                >
+                  <path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3Z" />
+                </svg>
+              ))}
+            </span>
+          )}
         </div>
       )}
+      <button
+        type="button"
+        className={`${pillClass} !px-2.5`}
+        aria-label={soundEnabled ? 'Mute sound' : 'Unmute sound'}
+        aria-pressed={!soundEnabled}
+        onClick={onToggleSound}
+      >
+        {soundEnabled ? <SpeakerIcon /> : <SpeakerMutedIcon />}
+      </button>
     </div>
   )
 }
