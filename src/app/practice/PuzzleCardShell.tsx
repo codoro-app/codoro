@@ -14,9 +14,10 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { ReactNode, RefObject } from 'react'
+import type { CSSProperties, ReactNode, RefObject } from 'react'
 import type { Puzzle } from '../../content'
 import type { CommitPayload } from './interactionTypes'
+import type { ImpactVariant } from './feel'
 import { highlightSnippet } from './highlightSnippet'
 import { CodeSnippet } from './CodeSnippet'
 import { Mcq } from './interactions/Mcq'
@@ -86,6 +87,12 @@ export interface PuzzleCardShellProps {
    * this prop.
    */
   sidebarSlot?: HTMLElement | null
+  /** ms to wait before auto-advancing after a CORRECT commit. Omitted = today's behavior (Continue is the only way forward). Practice is currently the only caller that passes it. */
+  autoAdvanceMs?: number | undefined
+  /** Fires once the auto-advance countdown resolves — true if cancelled by interaction/visibility, false if it ran to completion and advanced. Never fires when autoAdvanceMs is omitted, or for a wrong commit (auto-advance never starts). */
+  onAutoAdvanceResolved?: (cancelled: boolean) => void
+  /** data-impact variant (feel.ts's ImpactVariant) to stamp on .puzzle-card once committed — drives practice.css's motion keyframes. Omitted/null renders no attribute (every non-Practice caller). */
+  impact?: ImpactVariant | null
 }
 
 interface CommitState {
@@ -329,20 +336,41 @@ function FeedbackHeader({
   )
 }
 
-/** The Continue button itself — shared by both of its placements below (mobile's sticky bar, desktop's inline slot) so the two stay in sync instead of drifting as two hand-copied buttons. */
+/**
+ * The Continue button itself — shared by both of its placements below
+ * (mobile's sticky bar, desktop's inline slot) so the two stay in sync
+ * instead of drifting as two hand-copied buttons. `autoAdvanceMs` (when
+ * set) renders a draining fill via the `continue-cta` class + `--auto-
+ * advance-ms` custom property (practice.css) — visible proof the app isn't
+ * silently stealing the tap (see PuzzleCardShellProps' `autoAdvanceMs` doc
+ * comment).
+ */
 function ContinueCta({
   className,
   destination,
   onContinue,
   buttonRef,
+  autoAdvanceMs,
 }: {
   className: string
   destination: ContinueDestination
   onContinue: () => void
   buttonRef?: RefObject<HTMLButtonElement | null>
+  autoAdvanceMs?: number | undefined
 }) {
   return (
-    <button type="button" className={className} onClick={onContinue} ref={buttonRef}>
+    <button
+      type="button"
+      className={`${className} continue-cta`}
+      style={
+        autoAdvanceMs !== undefined
+          ? ({ '--auto-advance-ms': `${String(autoAdvanceMs)}ms` } as CSSProperties)
+          : undefined
+      }
+      data-draining={autoAdvanceMs !== undefined ? 'true' : undefined}
+      onClick={onContinue}
+      ref={buttonRef}
+    >
       {continueLabel(destination)}
       <ContinueIcon destination={destination} />
     </button>
@@ -369,6 +397,9 @@ export function PuzzleCardShell({
   shareActions = [],
   challengeButton = null,
   sidebarSlot = null,
+  autoAdvanceMs,
+  onAutoAdvanceResolved,
+  impact = null,
 }: PuzzleCardShellProps) {
   const [commit, setCommit] = useState<CommitState | null>(null)
   // Purely a Continue-button placement switch (bug report, 2026-08-12) — see
@@ -447,6 +478,77 @@ export function PuzzleCardShell({
     }
   }, [puzzle.id])
 
+  // Auto-advance (practice feedback loop): correct commits only, opt-in via
+  // `autoAdvanceMs`. `drawerRef` covers the mobile sticky feedback drawer —
+  // a DOM SIBLING of `.puzzle-card` (see FEEDBACK_DRAWER_CLASS's render
+  // below), not a descendant, so `cardRef` alone would miss a cancel tap
+  // inside it on mobile. `autoAdvanceResolvedRef` guards against
+  // onAutoAdvanceResolved firing twice for one commit (e.g. a cancel event
+  // and the timeout racing in the same tick).
+  const drawerRef = useRef<HTMLDivElement | null>(null)
+  const [autoAdvanceStartedAt, setAutoAdvanceStartedAt] = useState<number | null>(null)
+  const autoAdvanceResolvedRef = useRef(false)
+
+  useEffect(() => {
+    autoAdvanceResolvedRef.current = false
+    // A new commit (or a fresh puzzle) always resets the countdown before
+    // deciding whether to start a new one — same external-prop-driven,
+    // one-time-per-commit posture as the forcedCommit effect above.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAutoAdvanceStartedAt(
+      committed && committedPayload?.correct && autoAdvanceMs !== undefined ? Date.now() : null,
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [committed, puzzle.id])
+
+  useEffect(() => {
+    if (autoAdvanceStartedAt === null || autoAdvanceMs === undefined) return
+
+    const resolve = (cancelled: boolean) => {
+      if (autoAdvanceResolvedRef.current) return
+      autoAdvanceResolvedRef.current = true
+      setAutoAdvanceStartedAt(null)
+      onAutoAdvanceResolved?.(cancelled)
+      if (!cancelled) onContinue()
+    }
+
+    const timer = window.setTimeout(() => {
+      resolve(false)
+    }, autoAdvanceMs)
+
+    // Cancel on any pointerdown/keydown inside the card or feedback panel,
+    // except on the Continue button itself — a tap there is "advance now",
+    // not "cancel". Scoped to cardRef + (mobile) drawerRef, not `document`:
+    // the spec is "anywhere in the card or feedback panel," not anywhere
+    // on the page.
+    const cancelOnInteraction = (event: Event) => {
+      if (event.target instanceof Node && continueButtonRef.current?.contains(event.target)) return
+      resolve(true)
+    }
+    const cancelOnHidden = () => {
+      if (document.hidden) resolve(true)
+    }
+
+    const targets = [cardRef.current, drawerRef.current].filter(
+      (el): el is HTMLDivElement => el !== null,
+    )
+    for (const el of targets) {
+      el.addEventListener('pointerdown', cancelOnInteraction)
+      el.addEventListener('keydown', cancelOnInteraction)
+    }
+    document.addEventListener('visibilitychange', cancelOnHidden)
+
+    return () => {
+      window.clearTimeout(timer)
+      for (const el of targets) {
+        el.removeEventListener('pointerdown', cancelOnInteraction)
+        el.removeEventListener('keydown', cancelOnInteraction)
+      }
+      document.removeEventListener('visibilitychange', cancelOnHidden)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAdvanceStartedAt, autoAdvanceMs])
+
   // tap-line renders the snippet itself, as its interactive tap-target
   // surface, and swipe-binary renders it inside its own draggable card
   // surface (the snippet has to move/tilt with the drag, Tinder-style) — a
@@ -469,6 +571,29 @@ export function PuzzleCardShell({
       ? null
       : highlightSnippet(puzzle.snippet, puzzle.language)
 
+  // Non-undefined only while the countdown is actually running — a
+  // committed-but-not-auto-advancing puzzle (wrong answer, or no
+  // autoAdvanceMs passed) renders the plain Continue button, no drain.
+  const activeAutoAdvanceMs = autoAdvanceStartedAt !== null ? autoAdvanceMs : undefined
+
+  // Both ContinueCta placements call this instead of `onContinue` directly:
+  // if a countdown was running, resolve it (cancelled: false — a manual tap
+  // isn't a cancellation, it's the countdown's own "advance now" case,
+  // which is real, not just the timeout eventually firing) BEFORE calling
+  // the real onContinue exactly once. Without this, the timer effect's
+  // still-pending window.setTimeout would fire later and call onContinue a
+  // SECOND time — the resolvedRef guard inside the effect makes that late
+  // fire a no-op for onAutoAdvanceResolved, but onContinue itself has no
+  // such guard, so the caller would silently serve two puzzles for one tap.
+  const handleContinueClick = () => {
+    if (autoAdvanceStartedAt !== null && !autoAdvanceResolvedRef.current) {
+      autoAdvanceResolvedRef.current = true
+      setAutoAdvanceStartedAt(null)
+      onAutoAdvanceResolved?.(false)
+    }
+    onContinue()
+  }
+
   // Extracted from the render tree below (2b.0 was inline in both spots
   // this now feeds) so it can render either in normal flow, inside
   // `.puzzle-card`, or — via `createPortal` further down — inside the
@@ -482,8 +607,9 @@ export function PuzzleCardShell({
           <ContinueCta
             className={DESKTOP_CONTINUE_CLASS}
             destination={continueDestination}
-            onContinue={onContinue}
+            onContinue={handleContinueClick}
             buttonRef={continueButtonRef}
+            autoAdvanceMs={activeAutoAdvanceMs}
           />
         </div>
         <div className={feedbackPanelClass(committedPayload.correct)} role="status">
@@ -558,6 +684,7 @@ export function PuzzleCardShell({
       <div
         ref={cardRef}
         tabIndex={-1}
+        data-impact={committed ? (impact ?? undefined) : undefined}
         className="puzzle-card focus:outline-none flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] mx-auto p-4"
       >
         <p className="m-0 text-center text-xl font-semibold text-text-0">{puzzle.prompt}</p>
@@ -578,7 +705,7 @@ export function PuzzleCardShell({
       {desktopResult && sidebarSlot && createPortal(desktopResult, sidebarSlot)}
 
       {committed && committedPayload && !isDesktop && (
-        <div className={FEEDBACK_DRAWER_CLASS}>
+        <div ref={drawerRef} className={FEEDBACK_DRAWER_CLASS}>
           <div className="w-full max-w-[var(--content-width-mobile)] mx-auto px-4 py-3">
             <div className={drawerPanelClass(committedPayload.correct)} role="status">
               <FeedbackHeader correct={committedPayload.correct} ratingDelta={ratingDelta} />
@@ -608,8 +735,9 @@ export function PuzzleCardShell({
                 <ContinueCta
                   className={`${FEEDBACK_CONTINUE_CLASS} flex-1`}
                   destination={continueDestination}
-                  onContinue={onContinue}
+                  onContinue={handleContinueClick}
                   buttonRef={continueButtonRef}
+                  autoAdvanceMs={activeAutoAdvanceMs}
                 />
               </div>
             </div>

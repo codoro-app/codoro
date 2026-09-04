@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { PuzzleCardShell } from './PuzzleCardShell'
 import type {
@@ -753,5 +753,131 @@ describe('PuzzleCardShell', () => {
       ),
     ).toThrow(/scrubber puzzle "scl-999" reached the quiz shell/)
     consoleError.mockRestore()
+  })
+
+  describe('auto-advance', () => {
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('does not auto-advance a wrong answer even when autoAdvanceMs is set', () => {
+      vi.useFakeTimers()
+      const onContinue = vi.fn()
+      render(
+        <PuzzleCardShell
+          puzzle={mcqPuzzle}
+          ratingDelta={-9}
+          onAnswered={vi.fn()}
+          onContinue={onContinue}
+          autoAdvanceMs={1400}
+        />,
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Wrong order' }))
+      vi.advanceTimersByTime(5000)
+      expect(onContinue).not.toHaveBeenCalled()
+    })
+
+    it('auto-advances a correct answer after autoAdvanceMs elapses', () => {
+      vi.useFakeTimers()
+      const onContinue = vi.fn()
+      render(
+        <PuzzleCardShell
+          puzzle={mcqPuzzle}
+          ratingDelta={12}
+          onAnswered={vi.fn()}
+          onContinue={onContinue}
+          autoAdvanceMs={1400}
+        />,
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+      vi.advanceTimersByTime(1400)
+      expect(onContinue).toHaveBeenCalledTimes(1)
+    })
+
+    it('cancels the countdown on a pointerdown inside the feedback panel (not on Continue) and never fires afterward', () => {
+      vi.useFakeTimers()
+      const onContinue = vi.fn()
+      const onAutoAdvanceResolved = vi.fn()
+      render(
+        <PuzzleCardShell
+          puzzle={mcqPuzzle}
+          ratingDelta={12}
+          onAnswered={vi.fn()}
+          onContinue={onContinue}
+          autoAdvanceMs={1400}
+          onAutoAdvanceResolved={onAutoAdvanceResolved}
+        />,
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+      vi.advanceTimersByTime(500)
+      fireEvent.pointerDown(screen.getByText(mcqPuzzle.explanation))
+      vi.advanceTimersByTime(2000)
+      expect(onContinue).not.toHaveBeenCalled()
+      expect(onAutoAdvanceResolved).toHaveBeenCalledWith(true)
+    })
+
+    it('tapping Continue during the countdown advances immediately and reports cancelled: false', () => {
+      vi.useFakeTimers()
+      const onContinue = vi.fn()
+      const onAutoAdvanceResolved = vi.fn()
+      render(
+        <PuzzleCardShell
+          puzzle={mcqPuzzle}
+          ratingDelta={12}
+          onAnswered={vi.fn()}
+          onContinue={onContinue}
+          autoAdvanceMs={1400}
+          onAutoAdvanceResolved={onAutoAdvanceResolved}
+        />,
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+      vi.advanceTimersByTime(200)
+      fireEvent.click(screen.getByRole('button', { name: 'Next puzzle' }))
+      expect(onContinue).toHaveBeenCalledTimes(1)
+      expect(onAutoAdvanceResolved).toHaveBeenCalledWith(false)
+    })
+
+    it('skips auto-advance entirely when autoAdvanceMs is undefined (every existing caller)', () => {
+      vi.useFakeTimers()
+      const onContinue = vi.fn()
+      render(
+        <PuzzleCardShell
+          puzzle={mcqPuzzle}
+          ratingDelta={12}
+          onAnswered={vi.fn()}
+          onContinue={onContinue}
+        />,
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+      vi.advanceTimersByTime(5000)
+      expect(onContinue).not.toHaveBeenCalled()
+    })
+
+    it('sets data-impact on .puzzle-card once committed, matching the impact prop', () => {
+      const { container } = render(
+        <PuzzleCardShell
+          puzzle={mcqPuzzle}
+          ratingDelta={12}
+          onAnswered={vi.fn()}
+          onContinue={vi.fn()}
+          impact="correct-2"
+        />,
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+      expect(container.querySelector('.puzzle-card')).toHaveAttribute('data-impact', 'correct-2')
+    })
+
+    it('renders no data-impact attribute before commit', () => {
+      const { container } = render(
+        <PuzzleCardShell
+          puzzle={mcqPuzzle}
+          ratingDelta={null}
+          onAnswered={vi.fn()}
+          onContinue={vi.fn()}
+          impact="correct-2"
+        />,
+      )
+      expect(container.querySelector('.puzzle-card')).not.toHaveAttribute('data-impact')
+    })
   })
 })
