@@ -68,7 +68,7 @@ describe('runMigrations', () => {
 })
 
 describe('MIGRATIONS: full chain from v1 to the current version', () => {
-  it('v1 -> v12, stamping schema_version 12, adding null dailyCompletion + rushStats + bestRunStreak 0 + bossStats + missionProgress + missionStats + DEFAULT_PREFERENCES + null challengerName + true firstRunCompleted + a generated anonId, and preserving every existing field untouched', () => {
+  it('v1 -> v13, stamping schema_version 13, adding null dailyCompletion + rushStats + bestRunStreak 0 + bossStats + missionProgress + missionStats + DEFAULT_PREFERENCES (incl. sound + autoAdvance) + null challengerName + true firstRunCompleted + a generated anonId, and preserving every existing field untouched', () => {
     const v1Profile = {
       schema_version: 1,
       rating: 1342.75,
@@ -85,7 +85,7 @@ describe('MIGRATIONS: full chain from v1 to the current version', () => {
     expect((anonId as string).length).toBeGreaterThan(0)
     expect(rest).toEqual({
       ...v1Profile,
-      schema_version: 12,
+      schema_version: 13,
       dailyCompletion: null,
       rushStats: null,
       bestRunStreak: 0,
@@ -95,6 +95,59 @@ describe('MIGRATIONS: full chain from v1 to the current version', () => {
       preferences: DEFAULT_PREFERENCES,
       challengerName: null,
       firstRunCompleted: true,
+    })
+  })
+})
+
+describe('MIGRATIONS[12]: v12 -> v13 (practice feedback loop: adds sound + autoAdvance)', () => {
+  it('stamps schema_version 13, adds sound+autoAdvance defaulted true, and preserves every existing preference value inside the nested object', () => {
+    const v12Profile = {
+      schema_version: 12,
+      rating: 1702.0,
+      ratedAttemptCount: 61,
+      streak: { currentStreak: 9, longestStreak: 30, lastActiveDate: '2026-09-01' },
+      requeueState: [{ puzzleId: 'p9', stage: 2, served: 4 }],
+      storagePersisted: true,
+      dailyCompletion: { date: '2026-09-01', attemptId: 'a30', correct: true },
+      rushStats: { bestScore: 70, bestStreak: 40, runs: 20, lastRunAt: '2026-08-30T09:00:00.000Z' },
+      bestRunStreak: 22,
+      bossStats: {
+        bestDepth: 10,
+        clears: 4,
+        runs: 10,
+        lastRunAt: '2026-08-31T12:00:00.000Z',
+        bestRunSplits: [800, 1700, 2600],
+      },
+      missionProgress: null,
+      missionStats: {
+        completions: 3,
+        lastRunAt: '2026-08-29T10:00:00.000Z',
+        lastCompletedAt: '2026-08-29T10:05:00.000Z',
+      },
+      // Deliberately non-default values on every existing preference key —
+      // the assertion below must prove these survive the nested merge, not
+      // just that the object still exists.
+      preferences: { timerOnTrace: true, reducedMotion: true, codeFontSize: 'lg', theme: 'blue' },
+      anonId: 'anon-feel-1',
+      challengerName: 'Alex',
+      firstRunCompleted: true,
+    }
+
+    const v12Migration = MIGRATIONS[12]
+    if (!v12Migration) throw new Error('MIGRATIONS[12] is not registered')
+    const migrated = v12Migration(v12Profile)
+
+    expect(migrated).toEqual({
+      ...v12Profile,
+      schema_version: 13,
+      preferences: {
+        timerOnTrace: true,
+        reducedMotion: true,
+        codeFontSize: 'lg',
+        theme: 'blue',
+        sound: true,
+        autoAdvance: true,
+      },
     })
   })
 })

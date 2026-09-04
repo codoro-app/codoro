@@ -265,6 +265,8 @@ describe('SettingsPage', () => {
           reducedMotion: true,
           codeFontSize: 'lg' as const,
           theme: 'slate' as const,
+          sound: true,
+          autoAdvance: true,
         },
       }
       await saveProfile(seeded)
