@@ -63,7 +63,7 @@ import { buildPracticeShareText } from './shareText'
 import { usePracticeSession } from './usePracticeSession'
 import { useMediaQuery } from '../useMediaQuery'
 import { RouteSkeleton } from '../RouteSkeleton'
-import { StreakPause } from '../StreakPause'
+import { ComboSurge } from './ComboSurge'
 import { PATTERN_LABELS, PATTERN_SLUGS } from '../../content'
 import type { PatternSlug } from '../../content'
 import { CloseIcon } from '../Icons'
@@ -134,6 +134,14 @@ export function PracticePage() {
   // PuzzleCardShell the real node. Mobile never reads this — PuzzleCardShell
   // ignores `sidebarSlot` whenever `!isDesktop`.
   const [sidebarSlotEl, setSidebarSlotEl] = useState<HTMLDivElement | null>(null)
+
+  // ComboSurge (replaces StreakPause for Practice): tracks which Outcome
+  // instance has already been dismissed, by object identity — safe because
+  // resolveOutcome (feel.ts) always returns a fresh object literal, so no
+  // two distinct answers can ever produce reference-equal outcomes. A new
+  // surge outcome (session.lastOutcome !== dismissedOutcome) always shows,
+  // regardless of whether an earlier surge was ever dismissed.
+  const [dismissedOutcome, setDismissedOutcome] = useState<typeof session.lastOutcome>(null)
 
   // Challenge redesign: composes onto session.profile — see
   // useChallengerName's own doc comment for why persistence is this page's
@@ -368,14 +376,22 @@ export function PracticePage() {
     />
   )
 
+  const activeSurge =
+    session.lastOutcome?.kind === 'correct' &&
+    session.lastOutcome.surge &&
+    session.lastOutcome !== dismissedOutcome
+      ? session.lastOutcome
+      : null
+
   return (
     <>
-      {session.streakPause && (
-        <StreakPause
-          streak={session.streakPause.streak}
-          isNewBest={session.streakPause.isNewBest}
-          onKeepGoing={session.handleStreakPauseKeepGoing}
-          onDoneForNow={session.handleStreakPauseDoneForNow}
+      {activeSurge && (
+        <ComboSurge
+          outcome={activeSurge}
+          isNewBest={session.profile.bestRunStreak === activeSurge.newCombo}
+          onDismiss={() => {
+            setDismissedOutcome(activeSurge)
+          }}
         />
       )}
 
