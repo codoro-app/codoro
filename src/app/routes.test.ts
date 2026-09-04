@@ -218,10 +218,19 @@ describe('vite.config.ts build config (v2 Phase 7b)', () => {
   })
 })
 
-// v2 Phase 7b Item 1c: favicon.svg and pwa-192.png are fetched on every real
-// page load (index.html's own <head>); og-image.png by OG/Twitter crawlers;
-// the four PWA-install-only icons for consistency with the same
-// SW-precache-revisioning justification /fonts/* already documents above.
+// v2 Phase 7b Item 1c: pwa-192.png is fetched on every real page load
+// (index.html's own <head>); the four PWA-install-only icons for
+// consistency with the same SW-precache-revisioning justification /fonts/*
+// already documents above.
+//
+// favicon.svg and og-image.png were originally in this same immutable
+// group but were carved out 2026-09 (see _headers' own comment on those two
+// entries): both are fetched directly by clients that are never
+// SW-controlled — the browser's own favicon fetch, and OG/Twitter
+// link-unfurl crawlers — so a year-long immutable cache on their unhashed
+// filenames left stale assets (notably the pre-Phase-6 bolt favicon) stuck
+// in crawler/CDN caches for up to a year after the file on disk changed.
+// They get a short revalidating max-age instead, asserted separately below.
 describe('public/_headers (v2 Phase 7b Item 1c)', () => {
   const headersPath = join(
     dirname(fileURLToPath(import.meta.url)),
@@ -234,11 +243,9 @@ describe('public/_headers (v2 Phase 7b Item 1c)', () => {
     .split(/\r?\n/)
     .map((line) => line.trim())
 
-  it('gives every root-level static icon/OG asset the same immutable cache policy as /fonts/*', () => {
+  it('gives every root-level static icon asset the same immutable cache policy as /fonts/*', () => {
     for (const path of [
-      '/favicon.svg',
       '/pwa-192.png',
-      '/og-image.png',
       '/icons.svg',
       '/pwa-512.png',
       '/pwa-maskable-192.png',
@@ -249,6 +256,14 @@ describe('public/_headers (v2 Phase 7b Item 1c)', () => {
       expect(headersLines[pathLineIndex + 1]).toBe(
         'Cache-Control: public, max-age=31536000, immutable',
       )
+    }
+  })
+
+  it('gives favicon.svg and og-image.png a short revalidating cache instead of immutable (2026-09 crawler-cache fix)', () => {
+    for (const path of ['/favicon.svg', '/og-image.png']) {
+      const pathLineIndex = headersLines.indexOf(path)
+      expect(pathLineIndex, `${path} rule not found`).toBeGreaterThanOrEqual(0)
+      expect(headersLines[pathLineIndex + 1]).toBe('Cache-Control: public, max-age=3600')
     }
   })
 })

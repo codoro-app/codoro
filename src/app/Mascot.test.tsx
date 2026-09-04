@@ -19,7 +19,7 @@ describe('DuckMark', () => {
 })
 
 describe('DuckMascot', () => {
-  it.each(['idle', 'happy', 'debugging', 'sad'] as const)(
+  it.each(['idle', 'happy', 'debugging', 'sad', 'celebrating'] as const)(
     'renders the %s pose without throwing',
     (pose) => {
       const { container } = render(<DuckMascot pose={pose} />)
