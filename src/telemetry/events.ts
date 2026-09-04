@@ -76,6 +76,28 @@ export function trackAttempt(payload: AttemptEventPayload): void {
   safeCapture('attempt', payload)
 }
 
+/**
+ * Practice's own run-level context, additive to the locked AttemptEventPayload
+ * shape above (mirrors RushAttemptContext/BossAttemptContext/
+ * TraceAttemptContext's established pattern below, rather than adding these
+ * as required fields directly to AttemptEventPayload — Daily's own
+ * useDailySession.ts calls the plain trackAttempt above and has no combo/
+ * tier concept to supply). `combo`/`rating_tier` come from feel.ts's
+ * Outcome; `impact_level` is 0 for wrong/shielded outcomes — the escalation
+ * concept only applies to correct answers (see
+ * docs/design/practice-feedback-loop.md §10).
+ */
+export interface PracticeAttemptContext {
+  combo: number
+  impact_level: number
+  rating_tier: string
+}
+
+/** Fires the same `attempt` event as trackAttempt, with Practice's combo/impact/tier context appended. */
+export function trackPracticeAttempt(payload: AttemptEventPayload & PracticeAttemptContext): void {
+  safeCapture('attempt', payload)
+}
+
 /** Run-level context attached to every Rush `attempt` event, additive to the locked AttemptEventPayload shape above (new fields, nothing renamed/removed). `timed_out` (Phase 5b Item 6): true when this attempt's outcome came from the per-puzzle clock reaching 0 rather than a real tap — a strike either way, but worth distinguishing at analysis time. */
 export interface RushAttemptContext {
   run_id: string
@@ -208,10 +230,25 @@ export interface StreakPausePayload {
   mode: 'practice' | 'trace'
   streak: number
   is_new_best: boolean
+  /** Practice feedback loop: feel.ts's RatingTier at the moment this fired. Optional — Trace's own resolveStreakPause-driven calls (streakPauseLogic.ts, unmodified) don't have a tier concept and omit both new fields. */
+  tier?: string
+  /** Shields banked immediately after this surge. Optional for the same reason as `tier`. */
+  shields_banked?: number
 }
 
 export function trackStreakPause(payload: StreakPausePayload): void {
   safeCapture('streak_pause', payload)
+}
+
+/** Fired on every `'shielded'` Outcome (feel.ts) — a miss absorbed by a banked shield instead of resetting the combo. */
+export interface ComboShieldUsedPayload {
+  tier: string
+  combo: number
+  shields_remaining: number
+}
+
+export function trackComboShieldUsed(payload: ComboShieldUsedPayload): void {
+  safeCapture('combo_shield_used', payload)
 }
 
 /**

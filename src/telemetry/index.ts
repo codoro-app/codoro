@@ -10,6 +10,8 @@ export { initTelemetry, registerAnonId } from './client'
 export {
   trackSessionStart,
   trackAttempt,
+  trackPracticeAttempt,
+  trackComboShieldUsed,
   trackRushAttempt,
   trackRushRunEnd,
   trackBossAttempt,
@@ -39,6 +41,8 @@ export type {
   MissionAbandonedPayload,
   MissionFinishedPayload,
   AttemptEventPayload,
+  PracticeAttemptContext,
+  ComboShieldUsedPayload,
   RushAttemptContext,
   RushRunEndPayload,
   BossAttemptContext,
