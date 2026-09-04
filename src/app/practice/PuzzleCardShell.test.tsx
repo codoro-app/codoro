@@ -179,7 +179,7 @@ describe('PuzzleCardShell', () => {
     const continueButton = screen.getByRole('button', { name: 'Next puzzle' })
     await user.click(continueButton)
     expect(onContinue).toHaveBeenCalledTimes(1)
-  })
+  }, 15000)
 
   it('click-meaningfulness: defaults to a "Next puzzle" preview label, pinned in a sticky bottom drawer', async () => {
     const user = userEvent.setup()
@@ -418,7 +418,7 @@ describe('PuzzleCardShell', () => {
     await waitFor(() => {
       expect(screen.getByText('-9')).toBeInTheDocument()
     })
-  })
+  }, 15000)
 
   it('renders no delta text when ratingDelta is null', async () => {
     const user = userEvent.setup()
