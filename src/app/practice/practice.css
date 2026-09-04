@@ -368,3 +368,215 @@
   opacity: 0.55;
   cursor: default;
 }
+
+/* --- practice feedback loop: impact motion --------------------------------
+ * Driven entirely by PuzzleCardShell.tsx's `data-impact` attribute on
+ * `.puzzle-card` (feel.ts's ImpactVariant) — pure CSS, no JS animation
+ * driver. Cleared for free when the shell remounts on the next puzzle
+ * (key={puzzle.id} at PracticePage's call site), so no explicit cleanup
+ * rule is needed here. Every transform stays under ~1.02 scale (this is a
+ * card with code in it, not a slot machine) — see
+ * docs/design/practice-feedback-loop.md section 7.
+ */
+
+@keyframes practice-pulse-1 {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.006);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes practice-pulse-2 {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.012);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes practice-pulse-3 {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes practice-glow-1 {
+  0% {
+    box-shadow: 0 0 0 0 var(--ok-dim);
+  }
+  40% {
+    box-shadow: 0 0 0 3px var(--ok-dim);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes practice-glow-3 {
+  0% {
+    box-shadow: 0 0 0 0 var(--accent);
+  }
+  30% {
+    box-shadow: 0 0 0 6px var(--ok-dim);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes practice-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-4px);
+  }
+  40% {
+    transform: translateX(4px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+@keyframes practice-shield-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--accent-dim);
+    transform: scale(1);
+  }
+  40% {
+    box-shadow: 0 0 0 4px var(--accent-dim);
+    transform: scale(0.996);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    transform: scale(1);
+  }
+}
+
+.puzzle-card[data-impact='correct-1'] {
+  animation:
+    practice-pulse-1 0.32s ease-out,
+    practice-glow-1 0.4s ease-out;
+}
+
+.puzzle-card[data-impact='correct-2'] {
+  animation:
+    practice-pulse-2 0.34s ease-out,
+    practice-glow-1 0.45s ease-out;
+}
+
+.puzzle-card[data-impact='correct-3'] {
+  animation:
+    practice-pulse-3 0.36s ease-out,
+    practice-glow-3 0.5s ease-out;
+}
+
+.puzzle-card[data-impact='wrong'] {
+  animation: practice-shake 0.2s ease-in-out;
+  box-shadow: 0 0 0 2px var(--danger-dim);
+}
+
+/* Shielded: no shake — reads as "caught," not a failure. */
+.puzzle-card[data-impact='shielded'] {
+  animation: practice-shield-pulse 0.36s ease-out;
+}
+
+/* Both the app-level preference override AND the OS-level media query drop
+ * every transform, keeping colour-only feedback — mirrors src/index.css's
+ * own [data-reduced-motion='true'] kill-switch pattern exactly, scoped
+ * here to just these new rules. */
+[data-reduced-motion='true'] .puzzle-card[data-impact] {
+  animation: none !important;
+  box-shadow: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .puzzle-card[data-impact] {
+    animation: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/* --- practice feedback loop: auto-advance draining Continue button ------- */
+
+@keyframes continue-cta-drain {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.continue-cta[data-draining='true'] {
+  position: relative;
+  overflow: hidden;
+}
+
+.continue-cta[data-draining='true']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgb(255 255 255 / 18%);
+  animation: continue-cta-drain var(--auto-advance-ms, 1400ms) linear forwards;
+  pointer-events: none;
+}
+
+[data-reduced-motion='true'] .continue-cta[data-draining='true']::after {
+  animation: none !important;
+  width: 0 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .continue-cta[data-draining='true']::after {
+    animation: none !important;
+    width: 0 !important;
+  }
+}
+
+/* --- practice feedback loop: promoted feedback-panel delta --------------- */
+
+@keyframes feedback-delta-scale-in {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.scale-in {
+  animation: feedback-delta-scale-in 0.22s ease-out;
+}
+
+[data-reduced-motion='true'] .scale-in {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scale-in {
+    animation: none !important;
+  }
+}
