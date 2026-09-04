@@ -402,6 +402,11 @@ export function PracticePage() {
             streak={session.profile.streak.currentStreak}
             combo={session.combo}
             solvedThisSession={session.solvedThisSession}
+            shields={session.shields}
+            soundEnabled={session.profile.preferences.sound}
+            onToggleSound={() => {
+              session.setSoundPreference(!session.profile?.preferences.sound)
+            }}
           />
         )}
 
@@ -573,6 +578,11 @@ export function PracticePage() {
                 streak={session.profile.streak.currentStreak}
                 combo={session.combo}
                 solvedThisSession={session.solvedThisSession}
+                shields={session.shields}
+                soundEnabled={session.profile.preferences.sound}
+                onToggleSound={() => {
+                  session.setSoundPreference(!session.profile?.preferences.sound)
+                }}
               />
               <MasteryTeaser refreshKey={session.attemptVersion} />
             </>

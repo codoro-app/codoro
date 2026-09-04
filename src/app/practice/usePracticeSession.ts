@@ -180,6 +180,8 @@ export interface PracticeSession {
   handleContinue: () => void
   /** Re-attempts loadProfile() after a mount-time load failure (status === 'error'). */
   retryLoad: () => void
+  /** Optimistically flips preferences.sound and persists it — the StatusBar mute toggle's write path (see StatusBar.tsx). */
+  setSoundPreference: (enabled: boolean) => void
 }
 
 export function usePracticeSession(): PracticeSession {
@@ -420,6 +422,26 @@ export function usePracticeSession(): PracticeSession {
       }
     })()
   }, [serveNext])
+
+  // Optimistically flips preferences.sound and persists it — the StatusBar
+  // mute toggle's write path (see StatusBar.tsx). Mirrors updatePreference's
+  // shape in SettingsPage.tsx (apply immediately, persist in the
+  // background) but scoped to this one hook-owned field rather than a
+  // generic setter, since Practice only ever needs to flip sound from here.
+  const setSoundPreference = useCallback(
+    (enabled: boolean) => {
+      if (!profile) return
+      const updatedProfile: UserProfile = {
+        ...profile,
+        preferences: { ...profile.preferences, sound: enabled },
+      }
+      setProfile(updatedProfile)
+      saveProfile(updatedProfile).catch((error: unknown) => {
+        trackError(error, 'usePracticeSession: saveProfile (sound preference) failed')
+      })
+    },
+    [profile],
+  )
 
   const handleAnswered = useCallback(
     (payload: CommitPayload) => {
@@ -678,5 +700,6 @@ export function usePracticeSession(): PracticeSession {
     handleAnswered,
     handleContinue,
     retryLoad,
+    setSoundPreference,
   }
 }
