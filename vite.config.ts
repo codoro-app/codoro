@@ -6,7 +6,12 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
-const BRAND_PURPLE = '#863bff'
+// Was '#863bff' (pre-dark/lime-redesign brand purple) — matches the same
+// fix already applied to generatePwaIcons.ts/generateOgImage.ts's own
+// BRAND_PURPLE and index.html's theme-color meta (duck mascot rollout,
+// #104); this one was missed in that pass. #0e0f13 is --surface-0, the
+// actual app background these values should match.
+const BRAND_PURPLE = '#0e0f13'
 
 // v2 Phase 7b: the entry chunk's own stylesheet (app-shell CSS every route
 // needs before first paint — tokens, index.css, app.css) is the only
