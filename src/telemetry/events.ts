@@ -251,6 +251,16 @@ export function trackComboShieldUsed(payload: ComboShieldUsedPayload): void {
   safeCapture('combo_shield_used', payload)
 }
 
+/** Fired once an auto-advance countdown resolves — either it ran to completion (cancelled: false) or was interrupted by interaction/visibility (cancelled: true). Never fired for a manual Continue tap when autoAdvanceMs was never set (preferences.autoAdvance off, or a wrong answer). */
+export interface AutoAdvancePayload {
+  impact_level: number
+  cancelled: boolean
+}
+
+export function trackAutoAdvance(payload: AutoAdvancePayload): void {
+  safeCapture('auto_advance', payload)
+}
+
 /**
  * Fired whenever a "Challenge a friend" affordance produces a shareable
  * challenge link — the start of every challenge flow (Phase 5c). `surface`
