@@ -117,6 +117,13 @@ describe('PracticePage', () => {
     window.history.pushState({}, '', '/practice')
     selectNextCalls.count = 0
     selectNextCalls.pools = []
+    // combo/shields/solvedThisSession now persist to sessionStorage
+    // (usePracticeSession.ts regression fix) — jsdom's sessionStorage is a
+    // module-level global shared across every `it()` in this file, so
+    // without clearing it a value written by one test (this file renders
+    // the real, unmocked usePracticeSession) leaks into the next test's
+    // fresh render. Same fix as usePracticeSession.test.ts's own beforeEach.
+    sessionStorage.clear()
   })
 
   it('keys the rendered PuzzleCardShell by puzzle.id (required concern-b fix)', () => {

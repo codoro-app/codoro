@@ -221,6 +221,13 @@ describe('usePracticeSession', () => {
     // this a call-count assertion in one test could be silently satisfied by
     // a promise this same cache resolved during an earlier test.
     resetPuzzleBodyCacheForTests()
+    // jsdom's sessionStorage is a module-level global too, shared across
+    // every `it()` in this file (RTL's own cleanup doesn't touch it) — since
+    // combo/shields/solvedThisSession now persist there (regression fix,
+    // see the describe block below), a value written by one test would
+    // otherwise leak into the next test's fresh `renderHook()` and break
+    // every "starts at 0 on mount" assertion above.
+    sessionStorage.clear()
   })
 
   afterEach(() => {
@@ -763,6 +770,57 @@ describe('usePracticeSession', () => {
       expect(result.current.shields).toBe(0)
       expect(result.current.streakAttempts).toHaveLength(0)
       expect(result.current.lastOutcome).toMatchObject({ kind: 'wrong' })
+    })
+  })
+
+  // Regression (found stress-testing #107, not the external cold-browser
+  // report): combo/shields/solvedThisSession were plain useState, scoped to
+  // this hook's mount — an incidental navigation away from /practice and
+  // back (Settings, Daily, browser back) silently unmounted and remounted
+  // this hook, zeroing an active combo and any banked shields with no
+  // warning. All three are documented (feel.ts/StatusBar.tsx) as
+  // "session-only," so the fix backs them with sessionStorage — its own
+  // lifetime (survives navigation within a tab, clears on tab close)
+  // matches that stated intent, which bare useState never actually
+  // delivered.
+  describe('session state persists across an incidental navigation (sessionStorage)', () => {
+    it('combo, banked shields, and solvedThisSession survive an unmount/remount (simulated route change)', async () => {
+      const { result, unmount } = renderHook(() => usePracticeSession())
+      await waitFor(() => {
+        expect(result.current.status).toBe('ready')
+      })
+
+      // 3 correct answers in a row: combo -> 3, banks a shield (novice
+      // surge, same sequence as the "surge crossing" test above), and
+      // solvedThisSession -> 3.
+      for (let i = 0; i < 3; i++) {
+        act(() => {
+          result.current.handleAnswered({ correct: true, choiceIndex: 0 })
+        })
+        if (i < 2) {
+          act(() => {
+            result.current.handleContinue()
+          })
+        }
+      }
+      expect(result.current.combo).toBe(3)
+      expect(result.current.shields).toBe(1)
+      expect(result.current.solvedThisSession).toBe(3)
+
+      // Unmount (e.g. navigating to Settings) and mount a fresh instance
+      // (navigating back to /practice) — exactly what AppShell's
+      // per-route `children` swap does today; usePracticeSession itself
+      // has no way to observe route changes, so the regression and its fix
+      // both live entirely in whether state survives this remount.
+      unmount()
+      const remounted = renderHook(() => usePracticeSession())
+      await waitFor(() => {
+        expect(remounted.result.current.status).toBe('ready')
+      })
+
+      expect(remounted.result.current.combo).toBe(3)
+      expect(remounted.result.current.shields).toBe(1)
+      expect(remounted.result.current.solvedThisSession).toBe(3)
     })
   })
 
