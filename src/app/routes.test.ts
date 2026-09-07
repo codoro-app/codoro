@@ -17,7 +17,13 @@ const SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN =
 
 describe('labelForPath', () => {
   it('labels the known routes', () => {
-    expect(labelForPath('/')).toBe('Home')
+    // Regression (post-#107 SEO fix): '/' used to label as the literal word
+    // "Home" — the only <h1> on the page (AppShell.tsx renders it sr-only
+    // for every route without its own real heading), so a search crawler's
+    // one signal for the root page's content was that single word. Matches
+    // ROUTE_META['/'].title/index.html's <title> exactly, so the sr-only h1
+    // and the tab title agree on what the page is.
+    expect(labelForPath('/')).toBe('Codoro — Daily coding puzzles')
     expect(labelForPath('/browse')).toBe('Browse')
     expect(labelForPath('/practice')).toBe('Practice')
     expect(labelForPath('/legal')).toBe('Legal')
