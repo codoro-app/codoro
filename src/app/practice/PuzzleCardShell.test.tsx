@@ -117,6 +117,15 @@ const scrubberPuzzle: ScrubberPuzzle = {
   ],
 }
 
+// Regression fixture (post-#107): explanation carries the inline markdown
+// real puzzle content uses (backtick code spans) — verifies both feedback
+// render sites parse it via renderInlineMarkdown instead of printing the
+// backticks literally.
+const mcqPuzzleWithCode: McqPuzzle = {
+  ...mcqPuzzle,
+  explanation: 'Use `break outer` to exit the outer loop from inside the switch.',
+}
+
 describe('PuzzleCardShell', () => {
   it('renders the prompt and a static syntax-highlighted snippet for mcq puzzles', () => {
     const { container } = render(
@@ -180,6 +189,54 @@ describe('PuzzleCardShell', () => {
     await user.click(continueButton)
     expect(onContinue).toHaveBeenCalledTimes(1)
   }, 15000)
+
+  it('mobile feedback drawer: renders a backtick span in the explanation as an actual <code> element, not literal backticks', async () => {
+    const user = userEvent.setup()
+    const { container } = render(
+      <PuzzleCardShell
+        puzzle={mcqPuzzleWithCode}
+        ratingDelta={12}
+        onAnswered={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+
+    const code = container.querySelector('.feedback-panel code')
+    expect(code).not.toBeNull()
+    expect(code?.textContent).toBe('break outer')
+    // The raw string (backticks intact) should not appear anywhere as a
+    // single text node — it must have been split into code/text spans.
+    expect(screen.queryByText(mcqPuzzleWithCode.explanation)).toBeNull()
+  })
+
+  it('desktop sidebar panel: renders a backtick span in the explanation as an actual <code> element, not literal backticks', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query === '(min-width: 1024px)',
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    )
+    const user = userEvent.setup()
+    const { container } = render(
+      <PuzzleCardShell
+        puzzle={mcqPuzzleWithCode}
+        ratingDelta={12}
+        onAnswered={vi.fn()}
+        onContinue={vi.fn()}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+
+    const code = container.querySelector('.feedback-panel code')
+    expect(code).not.toBeNull()
+    expect(code?.textContent).toBe('break outer')
+
+    vi.unstubAllGlobals()
+  })
 
   it('click-meaningfulness: defaults to a "Next puzzle" preview label, pinned in a sticky bottom drawer', async () => {
     const user = userEvent.setup()
