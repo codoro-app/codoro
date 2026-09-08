@@ -4,6 +4,8 @@ Companion to `docs/v5-build-plan.md` (the _what_ and the DoDs). This is the _how
 
 **Read first, every session:** the Invariants below and the Footgun Register at the bottom. A task that violates an invariant is wrong even if its tests pass.
 
+**Amended 2026-08-31** — read the amendment at the bottom of this file too. It adds invariants I9/I10, corrects the `profiles` and `scores` DDL below (S1/S3) *before* migration 0001 is written, adds task T2a, and adds footguns F18–F23. The DDL in this document is superseded by the DDL in that amendment.
+
 **Renumbered 2026-08-27 (same day it was written).** This was `2026-08-27-v4-accounts-implementation-plan.md`; accounts moved from v4 to v5 when a UI/polish version was inserted ahead of it (`docs/v4-build-plan.md`). Nothing in the substance changed — the tasks, contracts, schemas, decisions and the F1–F17 register are byte-for-byte the ones written on 2026-08-26/27; only the version labels and phase numbers shifted (4.x → 5.x, v5 → v6, v6 → v7). Clerk/Cloudflare **package** versions on the platform-unknowns line are untouched and are not roadmap versions.
 
 ## Invariants (violating any of these is a defect, not a style choice)
@@ -349,3 +351,107 @@ The mistakes this plan is positioned to make. Each one is cited at the task that
 | F15 | **Re-deriving the day key**                     | The Worker computes "today" its own way while the client uses the Daily calendar's UTC day function. Near midnight they disagree, scores land on the wrong day, and the leaderboard contradicts the game — intermittently, by timezone.                                                                                              | T10 imports the _same_ day function from shared code; a test walks the UTC boundary from both sides                                                                                                                                                                                                |
 | F16 | **Unsubscribe behind a login**                  | An unsubscribe link that lands on a sign-in page, or asks for a confirmation click. Users mark it spam instead — which costs the sending domain's reputation, i.e. the whole channel.                                                                                                                                                | T12's `GET /api/email/unsubscribe?token=<HMAC>` works logged-out in one click, plus `List-Unsubscribe` / `List-Unsubscribe-Post` headers on every send; verified from a real inbox, not from a unit test                                                                                           |
 | F17 | **Wildcarding CSP for Clerk**                   | Clerk's scripts/frames don't load, so the CSP gets a `*` (or the directive gets dropped) to make it work. v3's CSP hardening is gone in one line and nobody notices until it matters.                                                                                                                                                | T13 adds the exact Clerk hosts, narrowly, and reviews the CSP diff line by line as a named DoD item                                                                                                                                                                                                |
+
+---
+
+# Amendment — 2026-08-31 (backend confirmed, storage ceiling, security posture)
+
+Companion to the amendment at the bottom of `docs/v5-build-plan.md`, which carries the reasoning. This section carries the *mechanics*: the invariants, schema and footguns that change. Everything above this line stands unless named here.
+
+## New invariants
+
+| #   | Invariant | Concrete test |
+| --- | --- | --- |
+| I9  | **No authorization decision is made in the browser.** The client may hide a control; it may never be the reason an action is allowed. v5 ships no admin role and no moderation surface at all | No endpoint's handler branches on a client-supplied role, capability or flag. The authz suite's user-A-vs-user-B pattern is the only permission model in v5 |
+| I10 | **No authentication credential is ever written to web storage.** Session lives in Clerk's httpOnly cookie; the JWT from `getToken()` is held in memory for the life of a request and never persisted | Grep-able: no `localStorage`/`sessionStorage`/IndexedDB write anywhere in `src/` whose value derives from `getToken()`, a Clerk session, or an `Authorization` header. A test asserts it. (Play state in IndexedDB is unaffected — this rule is about credentials, not data) |
+
+## Schema delta to migration 0001 (S1, S3)
+
+Migration 0001 has not been written yet, so these are corrections to the DDL above rather than a migration 0002. Write it once, correctly.
+
+**`profiles` — payload compressed, size recorded (S1):**
+
+```sql
+CREATE TABLE profiles (
+  clerk_user_id  TEXT PRIMARY KEY REFERENCES users(clerk_user_id) ON DELETE CASCADE,
+  revision       INTEGER NOT NULL,          -- server-incremented, optimistic concurrency
+  schema_version INTEGER NOT NULL,          -- client CURRENT_SCHEMA_VERSION at write
+  payload        BLOB NOT NULL,             -- gzip of the export-format JSON (S1)
+  payload_bytes  INTEGER NOT NULL,          -- compressed size, for the S4 ceiling check
+  updated_at     INTEGER NOT NULL
+);
+```
+
+Compression and decompression happen **in the Worker** (`CompressionStream`/`DecompressionStream`, both available in workerd). The API contract in the table above is unchanged — `PUT` takes JSON, `GET` returns JSON — so T7's sync work, its fixtures and F11's 256 KB cap are untouched. **F11's cap applies to the decompressed JSON**, checked before compressing; `payload_bytes` is recorded after. Rationale for server-side rather than client-side: it keeps an encoding concern out of the sync engine and its property tests, at a cost of a few milliseconds of Worker CPU.
+
+**`scores` split into a window and an all-time table (S3):**
+
+```sql
+-- rolling window: retained 90 days, pruned on the 5.5 cron
+CREATE TABLE scores (
+  clerk_user_id TEXT NOT NULL REFERENCES users(clerk_user_id) ON DELETE CASCADE,
+  mode          TEXT NOT NULL CHECK (mode IN ('daily','rush','boss')),
+  day           TEXT NOT NULL,             -- YYYY-MM-DD (UTC day key, same as DAILY_CALENDAR)
+  score         INTEGER NOT NULL,
+  run_meta      TEXT,                      -- JSON, bounded 2 KB, display-only
+  updated_at    INTEGER NOT NULL,
+  PRIMARY KEY (clerk_user_id, mode, day)
+);
+CREATE INDEX idx_scores_board ON scores (mode, day, score DESC);
+
+-- all-time: exactly one row per user per mode, never pruned
+CREATE TABLE scores_best (
+  clerk_user_id TEXT NOT NULL REFERENCES users(clerk_user_id) ON DELETE CASCADE,
+  mode          TEXT NOT NULL CHECK (mode IN ('daily','rush','boss')),
+  score         INTEGER NOT NULL,
+  achieved_day  TEXT NOT NULL,
+  updated_at    INTEGER NOT NULL,
+  PRIMARY KEY (clerk_user_id, mode)
+);
+CREATE INDEX idx_scores_best_board ON scores_best (mode, score DESC);
+```
+
+`idx_scores_alltime` is **deleted, not renamed**. It was a correctness bug, not just an inefficiency: ranking `scores (mode, score DESC)` returns per-user-per-*day* rows, so one strong player with ten good days takes ten of the top ten. `POST /api/scores` now writes both tables in one `batch()` — upsert-keep-best into `scores` on the day key, and upsert-keep-best into `scores_best` on the mode key. `GET /api/leaderboard?window=day` reads `scores`; `window=all` reads `scores_best`. **A test asserts the all-time board contains no duplicate user.**
+
+The 90-day prune is a `DELETE FROM scores WHERE day < ?` on the Workers Cron trigger introduced in 5.5, chunked (D1 rejects unbounded bulk deletes). Until 5.5 exists the table simply grows; that is fine for the window between phases and must not become the permanent state.
+
+**`reports` — missing entirely from the DDL above (gap, not a change):** the build plan's 5.0 item 5 says `POST /api/report` "writes to a `reports` table", and migration 0001's DDL never defines one. It is defined here.
+
+```sql
+CREATE TABLE reports (
+  id          TEXT PRIMARY KEY,            -- uuid v4, server-generated
+  puzzle_id   TEXT NOT NULL,               -- validated against the real content index before insert
+  reason      TEXT NOT NULL CHECK (reason IN ('wrong-answer','unclear','renders-broken','typo','other')),
+  app_version TEXT NOT NULL,
+  created_at  INTEGER NOT NULL
+);
+CREATE INDEX idx_reports_puzzle ON reports (puzzle_id, created_at DESC);
+```
+
+No `clerk_user_id` — the endpoint is unauthenticated by design, and adding a nullable one would invite an authenticated variant nobody designed. **No IP column, hashed or otherwise**: abuse control is the edge rate limiter, and an IP is PII the PII practice does not permit us to keep. The enum is fixed and enforced by the CHECK constraint *as well as* by request validation — belt and braces on the one endpoint that accepts anonymous writes. There is no free-text column in v5; `other` is deliberately low-information, and the moment somebody wants to know *why*, that is a v6 decision with a moderation surface attached, not a column added quietly here.
+
+## New task
+
+**T2a — `profileStore` boundary (S2; folds into T2, no separate session).** `workers/src/profileStore.ts` is the *only* module that touches `profiles.payload`. Surface: `get(userId)`, `put(userId, json, meta)`, `delete(userId)` — JSON in, JSON out, compression internal. Route handlers and `db.ts` call it; nobody else selects that column. Enforced by a test that greps the worker source for `payload` outside `profileStore.ts` and fails on a hit, the same shape as the SW denylist assertion in F13.
+
+Why it earns a name: the payload is the only field in the schema with unbounded per-user growth and no natural retention policy, so it is the one thing that will move to R2. Behind this interface that move is a swap; without it, it is a refactor of every sync path in the app.
+
+## New footguns
+
+| #   | Footgun | Why it bites | Defence |
+| --- | --- | --- | --- |
+| F18 | **D1's 10 GB wall is silent until it isn't** | D1 does not degrade at the cap — writes fail. `profiles` reaches it at ~200k users uncompressed; `scores` reaches it inside a year at six-figure DAU with no retention | S1 + S3 push the ceiling out; S2 makes the escape cheap; S4 makes the number observable in T14. The exit trigger (3 GB) is in `workers/README.md`, not in anyone's memory |
+| F19 | **"Just put the token in localStorage"** | It is the first thing every tutorial does, it makes a bug go away in five minutes, and it converts any future XSS into full account takeover from anywhere | I10, with a grep test. Clerk's cookie default is the design; same-origin `/api/*` (T0) is what makes it work |
+| F20 | **Hiding a button and calling it a permission** | The natural shape of "add an admin thing" is a client flag, because it renders correctly and demos correctly | I9. v5 has no admin role; when one appears, it is a server-side check with an authz test, and the button is cosmetic |
+| F21 | **Compressing on the client instead of the Worker** | It looks like a bandwidth win and quietly puts an encoding step inside the sync engine, so every T7 merge fixture and every schema-skew test now has to know about gzip | S1 is explicit: Worker-side. The API stays JSON on both ends |
+| F22 | **Pointing Strix at production, or at anything not ours** | An autonomous exploitation agent is not a linter. Running one against infrastructure you do not control is unlawful in most jurisdictions regardless of intent, and against production it is an outage waiting to happen | The workflow hardcodes the `codoro-dev` target; it never reads a target URL from an input, a PR body, or an env var a contributor can set |
+| F23 | **Trusting a tool's finding as a work order** | Both CodeRabbit and Strix produce confident output. A proof-of-concept is evidence; an AI review comment is an opinion | Findings are triaged into the phase by a human. 5.6's security pass owns the verdict; neither tool's output closes a DoD line by itself |
+
+## Platform facts checked 2026-08-31 (F7 applies — re-verify at install)
+
+- D1: max database size **10 GB** (Workers Paid) / 500 MB (Free); 1 TB per account; 50,000 databases per account (Paid); max row/BLOB **2 MB**; max SQL statement 100 KB; 1,000 queries per Worker invocation (Paid); single-threaded, sequential — ~1,000 queries/sec at 1 ms each.
+- D1 read replication: available, sequential consistency via the Sessions API and bookmarks; **no extra storage or compute charge** — billing stays `rows_read`/`rows_written`.
+- Clerk MFA strategies: authenticator app (TOTP), SMS code, backup codes; passkeys count as multi-factor on their own. **SMS and passkeys require a paid plan for production use** (free in development). Instance-wide "require MFA" exists as a dashboard toggle — deliberately not used (B1).
+- Clerk pricing: free to **50,000 monthly retained users**, then ~$0.02/user tapering with volume. The "Clerk gets expensive" concern does not bind anywhere near v5's horizon.
+- CodeRabbit: Free plan covers unlimited public and private repos but is **PR summarisation only**; full agentic PR review starts at Pro (~$24/dev/month annually).
+- Strix: Apache-2.0; Docker + an LLM provider API key; CLI, headless (`-n`) and GitHub Actions modes; targets a running app, a repo, or an OpenAPI/Swagger/Postman spec.
