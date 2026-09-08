@@ -30,7 +30,12 @@ export type RouteKey = keyof typeof ROUTES
 // <main> landmark's aria-label (route-change focus management) and, later,
 // a <title>.
 export function labelForPath(path: string): string {
-  if (path === '/') return 'Home'
+  // Was the literal word 'Home' — the sole content signal on the page's
+  // only <h1> (AppShell.tsx renders this sr-only for every route without
+  // its own real heading), including the root path most likely to get
+  // indexed for a search like "daily coding puzzle" (SEO regression found
+  // post-#107). Matches ROUTE_META['/'].title/index.html's <title> exactly.
+  if (path === '/') return 'Codoro — Daily coding puzzles'
   if (path === '/browse') return 'Browse'
   if (path === '/challenge') return 'Challenge'
   const entry = Object.values(ROUTES).find((route) => route.path === path)

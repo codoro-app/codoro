@@ -67,6 +67,41 @@ type InteractionFilter = QuizPuzzle['interaction'] | null
 // `recentIds` — see that file's doc comment.
 const RECENT_IDS_WINDOW = 20
 
+// Regression fix (found stress-testing #107): combo/shields/solvedThisSession
+// are documented (see PracticeSession's own field comments, feel.ts,
+// StatusBar.tsx) as "session-only," but were plain useState scoped to this
+// hook's mount — an incidental navigation away from /practice and back
+// (Settings, Daily, browser back) unmounts and remounts this hook, silently
+// zeroing an active combo and any banked shields. sessionStorage's own
+// lifetime (survives navigation within a tab, clears on tab close) is
+// exactly the "session-only" meaning already documented, so this closes the
+// gap between that stated intent and what bare useState actually delivered
+// — key convention (`codoro:` prefix, try/catch for Safari private
+// browsing) matches NavRail.tsx's readCollapsed/writeCollapsed.
+const SESSION_COMBO_KEY = 'codoro:practice:combo'
+const SESSION_SHIELDS_KEY = 'codoro:practice:shields'
+const SESSION_SOLVED_KEY = 'codoro:practice:solved-this-session'
+
+function readSessionCount(key: string): number {
+  try {
+    const raw = sessionStorage.getItem(key)
+    const parsed = raw === null ? 0 : Number(raw)
+    return Number.isFinite(parsed) ? parsed : 0
+  } catch {
+    return 0
+  }
+}
+
+function writeSessionCount(key: string, value: number): void {
+  try {
+    sessionStorage.setItem(key, String(value))
+  } catch {
+    // Safari private browsing (and similar) can throw — worst case combo/
+    // shields/solvedThisSession don't survive a navigation, same as before
+    // this fix.
+  }
+}
+
 /** Local calendar-date string (YYYY-MM-DD) from wall-clock time — never a date library, per the brief. */
 function todayDateString(date = new Date()): string {
   const year = date.getFullYear()
@@ -143,13 +178,13 @@ export interface PracticeSession {
   profile: UserProfile | null
   puzzle: ContentPuzzle | null
   ratingDelta: number | null
-  /** In-session correct-answer streak. Not persisted, not derived from stored attempts — resets on an unshielded wrong, resets to 0 on reload. A shielded miss (feel.ts) leaves it unchanged. */
+  /** In-session correct-answer streak. Never persisted to the profile, not derived from stored attempts — resets on an unshielded wrong. Backed by sessionStorage (SESSION_COMBO_KEY), so it survives a navigation away and back or a same-tab reload, and only resets to 0 when the tab itself closes. A shielded miss (feel.ts) leaves it unchanged. */
   combo: number
-  /** Session-only banked shields (feel.ts) — same lifetime as `combo`, never persisted to the profile. */
+  /** Session-only banked shields (feel.ts) — same lifetime as `combo` (sessionStorage-backed, survives navigation/reload, clears on tab close), never persisted to the profile. */
   shields: number
   /** The Outcome (feel.ts) `resolveOutcome` produced for the most recent handleAnswered call — null before any answer this session. Drives PuzzleCardShell's `impact`/`autoAdvanceMs` props and ComboSurge. */
   lastOutcome: Outcome | null
-  /** Count of correct answers this session (page load). Session-only, not persisted — see PracticePage's progress-indicator doc comment for why this replaces a fixed-length "out of N" progress bar. */
+  /** Count of correct answers this session. Never persisted to the profile — same sessionStorage-backed lifetime as `combo`/`shields` (survives navigation/reload, clears on tab close) — see PracticePage's progress-indicator doc comment for why this replaces a fixed-length "out of N" progress bar. */
   solvedThisSession: number
   /** The current streak's correct answers, in order — feeds the streak challenge link. Cleared on an *unshielded* miss so the link always encodes the live streak; a shielded miss leaves this untouched (the streak survived). */
   streakAttempts: readonly ChallengeAttemptInput[]
@@ -189,15 +224,32 @@ export function usePracticeSession(): PracticeSession {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [puzzle, setPuzzle] = useState<ContentPuzzle | null>(null)
   const [ratingDelta, setRatingDelta] = useState<number | null>(null)
-  const [combo, setCombo] = useState(0)
-  const [shields, setShields] = useState(0)
+  const [combo, setCombo] = useState(() => readSessionCount(SESSION_COMBO_KEY))
+  const [shields, setShields] = useState(() => readSessionCount(SESSION_SHIELDS_KEY))
   const [lastOutcome, setLastOutcome] = useState<Outcome | null>(null)
-  const [solvedThisSession, setSolvedThisSession] = useState(0)
+  const [solvedThisSession, setSolvedThisSession] = useState(() =>
+    readSessionCount(SESSION_SOLVED_KEY),
+  )
   const [streakAttempts, setStreakAttempts] = useState<ChallengeAttemptInput[]>([])
   const [lastAttempt, setLastAttempt] = useState<ChallengeAttemptInput | null>(null)
   const [attemptVersion, setAttemptVersion] = useState(0)
   const [patternFilter, setPatternFilterState] = useState<PatternSlug | null>(null)
   const [interactionFilter, setInteractionFilterState] = useState<InteractionFilter>(null)
+
+  // Mirrors combo/shields/solvedThisSession into sessionStorage on every
+  // change — see SESSION_COMBO_KEY's own doc comment above for why. A plain
+  // side effect (no setState call inside), so this doesn't trip the
+  // react-hooks/set-state-in-effect lint rule useMediaQuery.ts's own doc
+  // comment mentions.
+  useEffect(() => {
+    writeSessionCount(SESSION_COMBO_KEY, combo)
+  }, [combo])
+  useEffect(() => {
+    writeSessionCount(SESSION_SHIELDS_KEY, shields)
+  }, [shields])
+  useEffect(() => {
+    writeSessionCount(SESSION_SOLVED_KEY, solvedThisSession)
+  }, [solvedThisSession])
 
   // Plain refs, not state: these feed the *next* selection call rather than
   // driving a render themselves.

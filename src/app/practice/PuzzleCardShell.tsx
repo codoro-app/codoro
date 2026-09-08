@@ -20,6 +20,7 @@ import type { CommitPayload } from './interactionTypes'
 import type { ImpactVariant } from './feel'
 import { useNumberTween } from './useNumberTween'
 import { highlightSnippet } from './highlightSnippet'
+import { renderInlineMarkdown } from './inlineMarkdown'
 import { CodeSnippet } from './CodeSnippet'
 import { Mcq } from './interactions/Mcq'
 import { SwipeBinary } from './interactions/SwipeBinary'
@@ -630,7 +631,9 @@ export function PuzzleCardShell({
         </div>
         <div className={feedbackPanelClass(committedPayload.correct)} role="status">
           <FeedbackHeader correct={committedPayload.correct} ratingDelta={ratingDelta} />
-          <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">{puzzle.explanation}</p>
+          <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">
+            {renderInlineMarkdown(puzzle.explanation)}
+          </p>
         </div>
       </>
     ) : null
@@ -732,7 +735,7 @@ export function PuzzleCardShell({
                 className="m-0 flex-1 min-h-0 overflow-y-auto text-text-0 text-[0.9375rem] leading-[1.45]"
                 style={{ WebkitOverflowScrolling: 'touch' }}
               >
-                {puzzle.explanation}
+                {renderInlineMarkdown(puzzle.explanation)}
               </p>
               {/* challenge redesign: its own full-width row, above the
                   share-icon/Continue row — a prominent, always-visible CTA,
