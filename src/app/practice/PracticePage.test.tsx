@@ -208,7 +208,12 @@ describe('PracticePage', () => {
     const url = writeTextSpy.mock.calls[0]?.[0]
     if (typeof url !== 'string')
       throw new Error('expected writeText to have been called with a URL')
-    expect(url).toMatch(/^Can you beat my streak of 1\? getcodoro\.com\/challenge#/)
+    // v5 Phase 5.4, pulled forward: an `?og=...` param now sits between
+    // `/challenge` and the fragment (see ChallengeButton.tsx) — optional in
+    // this regex since the param's own encoding is covered by codec.test.ts.
+    expect(url).toMatch(
+      /^Can you beat my streak of 1\? getcodoro\.com\/challenge(?:\?og=[A-Za-z0-9_-]+)?#/,
+    )
 
     const decoded = decodeChallengePayload(url.split('#')[1] ?? '')
     expect(decoded).not.toBeNull()
@@ -243,8 +248,12 @@ describe('PracticePage', () => {
     if (typeof url !== 'string')
       throw new Error('expected writeText to have been called with a URL')
     // The empty streak (a miss clears it) falls back to "beat this one" —
-    // never a 0-puzzle streak challenge.
-    expect(url).toMatch(/^Can you beat this one\? getcodoro\.com\/challenge#/)
+    // never a 0-puzzle streak challenge. The optional `?og=...` segment is
+    // v5 Phase 5.4, pulled forward (see ChallengeButton.tsx); its own
+    // encoding is covered by codec.test.ts.
+    expect(url).toMatch(
+      /^Can you beat this one\? getcodoro\.com\/challenge(?:\?og=[A-Za-z0-9_-]+)?#/,
+    )
     const decoded = decodeChallengePayload(url.split('#')[1] ?? '')
     expect(decoded?.ids).toHaveLength(1)
     expect(decoded?.results[0]?.correct).toBe(false)
