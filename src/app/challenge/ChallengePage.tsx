@@ -44,6 +44,7 @@ import { Link } from 'wouter'
 import { useEffect, useState } from 'react'
 import { useChallengeSession } from './useChallengeSession'
 import { ChallengeComparison } from './ChallengeComparison'
+import { GhostBar } from './GhostBar'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { TraceRunnerPuzzle } from '../trace/TraceRunner'
 import { useMediaQuery } from '../useMediaQuery'
@@ -157,6 +158,16 @@ export function ChallengePageForHash({ hash }: ChallengePageForHashProps) {
   return (
     <>
       <div className={PAGE_SHELL_CLASS}>
+        {/* Ghost race (async-challenge feel pass): races the challenger's
+            own recorded time for THIS puzzle position — self-hides when the
+            payload has no result there (defensive; ids/results are
+            length-matched by the schema) or before the clock has started. */}
+        <GhostBar
+          challengerName={session.payload?.challengerName ?? null}
+          theirResult={session.payload?.results[session.puzzleIndex]}
+          yourResult={session.results[session.puzzleIndex]}
+          servedAt={session.servedAt}
+        />
         {puzzle.interaction === 'scrubber' ? (
           // Keyed by puzzleIndex (position), not puzzle.id: a challenge
           // payload can legally repeat the same id back-to-back (see

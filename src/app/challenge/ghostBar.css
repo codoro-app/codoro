@@ -1,0 +1,69 @@
+/* Ghost race bar (async challenge "feel live" pass) — same draining-bar
+   mechanism as practice.css's `.continue-cta[data-draining]` auto-advance
+   bar: a CSS custom property drives a ::before fill via `animation-duration`
+   / a static `transform`, so the visual runs on the compositor, not React
+   re-renders. */
+
+.ghost-bar {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: var(--radius-full, 999px);
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.ghost-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--accent-dim);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.ghost-bar[data-ghost-status='running']::before {
+  animation: ghost-bar-fill var(--ghost-duration-ms) linear forwards;
+}
+
+.ghost-bar[data-ghost-status='beaten']::before {
+  transform: scaleX(var(--ghost-frozen-fraction, 0));
+}
+
+.ghost-bar[data-ghost-status='finished'] {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.ghost-bar[data-ghost-status='finished']::before {
+  background: var(--danger-dim);
+  transform: scaleX(1);
+}
+
+.ghost-bar__label {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes ghost-bar-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Text-only under reduced motion, per the build plan: no animated/static
+   fill at all, just the label and its state change (color/border still
+   change on 'finished' — that's a state change, not motion). */
+@media (prefers-reduced-motion: reduce) {
+  .ghost-bar::before {
+    display: none;
+  }
+}
