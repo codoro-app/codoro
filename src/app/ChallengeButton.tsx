@@ -43,7 +43,7 @@
  * second fork of it.
  */
 import { useState } from 'react'
-import { buildChallengePayload, buildChallengeUrl } from '../challenge'
+import { buildChallengeOgParam, buildChallengePayload, buildChallengeUrl } from '../challenge'
 import type { ChallengeAttemptInput } from '../challenge'
 import { trackChallengeCreate } from '../telemetry'
 import type { ChallengeCreatePayload } from '../telemetry'
@@ -93,7 +93,12 @@ export function ChallengeButton({
 
   async function dispatch(action: PendingAction, name: string | null) {
     const payload = buildChallengePayload([...attempts], name)
-    const url = buildChallengeUrl(payload)
+    // v5 Phase 5.4, pulled forward — see buildChallengeOgParam's own doc
+    // comment. Both values are already sitting right here on `payload`; this
+    // is what a Cloudflare Pages Function reads to render a real unfurl
+    // card instead of today's generic static one.
+    const ogParam = buildChallengeOgParam(name, payload.ids.length)
+    const url = buildChallengeUrl(payload, ogParam)
     const text = `Can you ${introLabel}? ${url}`
     // Fired on activation, before the share/copy resolves — matches every
     // other challenge-creating surface's pre-2b.4 "fire on click" convention

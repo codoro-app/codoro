@@ -116,6 +116,8 @@ v5 gives players an identity and — the part that actually serves retention —
 
 v3 Phase 4 item 5, carried unchanged: per-route and per-puzzle `<title>`/description/OG tags injected at the edge — covers `/challenge` (dynamic payload, unreachable by build-time prerender; the "until a v3 edge function exists" note comes due here). Per-puzzle OG **images** stay deferred unless trivially cheap — decide in the build prompt, record the decision.
 
+> **Update 2026-09-08:** Pulled forward and shipped pre-5.0 on 2026-09-08 — see PR #110. Only `/challenge` covered; per-puzzle `/puzzle/:id` OG remains in 5.4 proper.
+
 **DoD:**
 
 - [ ] Unfurls verified with real debuggers (Slack/Discord/X) against staging `/puzzle/:id` and `/challenge` URLs
