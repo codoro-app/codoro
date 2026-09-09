@@ -880,6 +880,55 @@ describe('PuzzleCardShell', () => {
       expect(onAutoAdvanceResolved).toHaveBeenCalledWith(true)
     })
 
+    it('cancels the countdown on a pointerdown in a desktop sidebar element that is a sibling of sidebarSlot (e.g. the Challenge/Share controls PracticePage renders there)', () => {
+      vi.stubGlobal(
+        'matchMedia',
+        vi.fn((query: string) => ({
+          matches: query === '(min-width: 1024px)',
+          media: query,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+        })),
+      )
+      vi.useFakeTimers()
+      const onContinue = vi.fn()
+      const onAutoAdvanceResolved = vi.fn()
+
+      // Mirrors PracticePage.tsx's real desktop layout: `sidebarSlotEl` is a
+      // bare <div> inside an <aside>, and PracticePage renders the
+      // Challenge/Share controls as ITS OWN siblings of that div — not
+      // through this component at all. PuzzleCardShell never sees those
+      // elements directly; this is the DOM shape the fix has to reach via
+      // `sidebarSlot`'s own parent.
+      const aside = document.createElement('aside')
+      const sidebarSlotEl = document.createElement('div')
+      const challengeButtonEl = document.createElement('button')
+      aside.append(sidebarSlotEl, challengeButtonEl)
+      document.body.append(aside)
+
+      try {
+        render(
+          <PuzzleCardShell
+            puzzle={mcqPuzzle}
+            ratingDelta={12}
+            onAnswered={vi.fn()}
+            onContinue={onContinue}
+            autoAdvanceMs={1400}
+            onAutoAdvanceResolved={onAutoAdvanceResolved}
+            sidebarSlot={sidebarSlotEl}
+          />,
+        )
+        fireEvent.click(screen.getByRole('button', { name: 'Missing break after gold' }))
+        vi.advanceTimersByTime(500)
+        fireEvent.pointerDown(challengeButtonEl)
+        vi.advanceTimersByTime(2000)
+        expect(onContinue).not.toHaveBeenCalled()
+        expect(onAutoAdvanceResolved).toHaveBeenCalledWith(true)
+      } finally {
+        aside.remove()
+      }
+    })
+
     it('tapping Continue during the countdown advances immediately and reports cancelled: false', () => {
       vi.useFakeTimers()
       const onContinue = vi.fn()
