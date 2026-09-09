@@ -110,6 +110,8 @@ export interface ChallengeSession {
   solved: boolean | null
   /** Per-puzzle results for completed puzzles, in play order. Drives the comparison screen and counter-challenge. */
   results: readonly ChallengeAttemptInput[]
+  /** When the current puzzle's clock started (the same signal `time_ms` is measured from) — null before `handleAccept`. Ghost race reads this; nothing else needs a second clock. */
+  servedAt: number | null
   /** Called the instant a quiz answer commits (PuzzleCardShell's onAnswered) — records that puzzle's result. */
   handleAnswered: (payload: CommitPayload) => void
   /** Called per scrubber checkpoint answer; records the puzzle's result once every checkpoint is answered. */
@@ -242,6 +244,10 @@ export function useChallengeSession(hash: string): ChallengeSession {
   const [results, setResults] = useState<ChallengeAttemptInput[]>([])
   const [checkpointResults, setCheckpointResults] = useState<CheckpointResult[]>([])
   const servedAtRef = useRef(0)
+  // Ghost race (async-challenge feel pass): reactive mirror of servedAtRef —
+  // see handleAccept's doc comment for why both exist. null until the first
+  // puzzle's clock actually starts (intro hero hasn't been accepted yet).
+  const [servedAt, setServedAt] = useState<number | null>(null)
   // Source of truth for "how many checkpoints answered so far", mutated
   // synchronously — the same ref-plus-state pair useTraceSession and
   // ScrubberLinkPuzzle use. setState updaters must stay pure (React may
@@ -279,7 +285,16 @@ export function useChallengeSession(hash: string): ChallengeSession {
     // every later puzzle's `handleContinue`-stamped `servedAtRef` already
     // meets. Date.now() is impure (react-hooks/purity), hence stamping it
     // here, inside an event handler, not during render.
-    servedAtRef.current = Date.now()
+    const now = Date.now()
+    servedAtRef.current = now
+    // Ghost race (async-challenge feel pass): `servedAt` state mirrors
+    // `servedAtRef` exactly, captured from the SAME `Date.now()` call — the
+    // ref alone drives time_ms math above and is never itself exposed
+    // (mutating a ref doesn't re-render), but useGhostRace needs a reactive
+    // value to key its own countdown off of. No second clock: this is the
+    // one and only "the clock starts now" moment, just also stored where a
+    // consumer can read it.
+    setServedAt(now)
     setAccepted(true)
   }, [resolution, accepted])
 
@@ -381,7 +396,11 @@ export function useChallengeSession(hash: string): ChallengeSession {
     setPuzzleIndex(nextIndex)
     setCheckpointResults([])
     checkpointResultsRef.current = []
-    servedAtRef.current = Date.now()
+    // Same servedAtRef + servedAt pairing as handleAccept above, for the
+    // next puzzle's clock.
+    const now = Date.now()
+    servedAtRef.current = now
+    setServedAt(now)
   }, [resolution, isComplete, puzzleIndex, payload, results])
 
   const status: ChallengeSessionStatus =
@@ -405,6 +424,7 @@ export function useChallengeSession(hash: string): ChallengeSession {
     isComplete,
     solved,
     results,
+    servedAt,
     handleAnswered,
     handleCheckpointAnswered,
     handleContinue,
