@@ -535,9 +535,20 @@ export function PuzzleCardShell({
 
     // Cancel on any pointerdown/keydown inside the card or feedback panel,
     // except on the Continue button itself — a tap there is "advance now",
-    // not "cancel". Scoped to cardRef + (mobile) drawerRef, not `document`:
-    // the spec is "anywhere in the card or feedback panel," not anywhere
-    // on the page.
+    // not "cancel". Scoped to cardRef + (mobile) drawerRef + (desktop)
+    // sidebarSlot's own parent, not `document`: the spec is "anywhere in the
+    // card or feedback panel," not anywhere on the page.
+    //
+    // sidebarSlot's parent, not sidebarSlot itself: on desktop this
+    // component only portals its OWN Continue+feedback content into
+    // `sidebarSlot` (`desktopResult` above) — it never renders
+    // `challengeButton`/`shareActions` there itself. PracticePage.tsx (the
+    // only caller that passes both `sidebarSlot` and `autoAdvanceMs`) renders
+    // those controls as sidebarSlot's own SIBLINGS, one level up, in its own
+    // `<aside>`. Watching sidebarSlot alone would miss every tap on them,
+    // which is exactly the bug this fixes: on desktop, tapping "Challenge a
+    // friend" never cancelled the countdown, so it kept running underneath
+    // and silently advanced to the next puzzle out from under the player.
     const cancelOnInteraction = (event: Event) => {
       if (event.target instanceof Node && continueButtonRef.current?.contains(event.target)) return
       resolve(true)
@@ -546,8 +557,8 @@ export function PuzzleCardShell({
       if (document.hidden) resolve(true)
     }
 
-    const targets = [cardRef.current, drawerRef.current].filter(
-      (el): el is HTMLDivElement => el !== null,
+    const targets = [cardRef.current, drawerRef.current, sidebarSlot?.parentElement ?? null].filter(
+      (el): el is HTMLElement => el !== null,
     )
     for (const el of targets) {
       el.addEventListener('pointerdown', cancelOnInteraction)
