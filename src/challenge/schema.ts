@@ -83,3 +83,23 @@ export const ChallengePayloadSchema = z
   })
 
 export type ChallengePayload = z.infer<typeof ChallengePayloadSchema>
+
+/**
+ * The minimal, server-visible companion to a challenge link (v5 Phase 5.4,
+ * pulled forward pre-v5 — see the OG-card build plan). Carries ONLY what an
+ * unfurl card needs — challenger name and puzzle count, never `totalMs`,
+ * never puzzle ids, never results — encoded into the `?og=` query param
+ * `buildChallengeUrl` places in front of the fragment. The fragment above
+ * remains the only place the full payload lives; this is a deliberate,
+ * narrow exception to codec.ts's "nothing about a challenge reaches the
+ * server" stance, not a replacement for it (see codec.ts's own doc comment).
+ * `n`/`c`'s bounds mirror `ChallengePayloadSchema`'s own
+ * `challengerName`/`ids` caps exactly, so this can never carry a value the
+ * full payload couldn't have produced.
+ */
+export const ChallengeOgParamSchema = z.object({
+  n: z.string().min(1).max(40).nullable(),
+  c: z.number().int().positive().max(MAX_CHALLENGE_PUZZLES),
+})
+
+export type ChallengeOgParam = z.infer<typeof ChallengeOgParamSchema>

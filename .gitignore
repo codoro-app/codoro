@@ -32,6 +32,9 @@ dist-ssr
 *.tsbuildinfo
 coverage
 
+# wrangler's local dev state (pnpm dev:pages) — machine-local, not source
+.wrangler/
+
 # Claude Code local state
 .claude/
 

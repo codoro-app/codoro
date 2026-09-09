@@ -2,8 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ChallengeButton } from './ChallengeButton'
-import { decodeChallengePayload } from '../challenge'
+import { decodeChallengeOgParam, decodeChallengePayload } from '../challenge'
 import type { ChallengeAttemptInput } from '../challenge'
+
+/** Pulls the `?og=` param's raw value out of a built challenge URL, or null if absent. */
+function ogParamOf(url: string): string | null {
+  return /\?og=([A-Za-z0-9_-]+)#/.exec(url)?.[1] ?? null
+}
 
 const trackChallengeCreate = vi.fn()
 vi.mock('../telemetry', () => ({
@@ -185,6 +190,59 @@ describe('ChallengeButton', () => {
       )
     })
     expect(await screen.findByRole('button', { name: 'Link copied!' })).toBeInTheDocument()
+  })
+
+  describe('the ?og= param (v5 Phase 5.4, pulled forward — edge unfurl card)', () => {
+    it('encodes the challenger name and puzzle count for a named challenger', async () => {
+      const user = userEvent.setup()
+      const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
+      render(
+        <ChallengeButton
+          attempts={attempts}
+          surface="practice"
+          introLabel="beat this one"
+          challengerName="Joe"
+          onNameNeeded={vi.fn()}
+        />,
+      )
+
+      await user.click(screen.getByRole('button', { name: /challenge a friend/i }))
+
+      await waitFor(() => {
+        expect(writeTextSpy).toHaveBeenCalled()
+      })
+      const url = writeTextSpy.mock.calls[0]?.[0]
+      if (typeof url !== 'string') throw new Error('expected writeText to have been called')
+      const ogParam = ogParamOf(url)
+      if (!ogParam) throw new Error('expected an og param in the built URL')
+      expect(decodeChallengeOgParam(ogParam)).toEqual({ n: 'Joe', c: 1 })
+    })
+
+    it('encodes a null challenger name when the name was skipped', async () => {
+      const user = userEvent.setup()
+      const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
+      render(
+        <ChallengeButton
+          attempts={attempts}
+          surface="practice"
+          introLabel="beat this one"
+          challengerName={null}
+          onNameNeeded={vi.fn()}
+        />,
+      )
+
+      await user.click(screen.getByRole('button', { name: /challenge a friend/i }))
+      await user.click(screen.getByRole('button', { name: 'Skip' }))
+
+      await waitFor(() => {
+        expect(writeTextSpy).toHaveBeenCalled()
+      })
+      const url = writeTextSpy.mock.calls[0]?.[0]
+      if (typeof url !== 'string') throw new Error('expected writeText to have been called')
+      const ogParam = ogParamOf(url)
+      if (!ogParam) throw new Error('expected an og param in the built URL')
+      expect(decodeChallengeOgParam(ogParam)).toEqual({ n: null, c: 1 })
+    })
   })
 
   describe('the dedicated "Copy challenge link" control (desktop feedback: navigator.share can be Windows Nearby Share, which has no way to paste into an email)', () => {

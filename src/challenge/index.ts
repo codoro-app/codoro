@@ -6,10 +6,12 @@
  * content/, and telemetry/.
  */
 export { CHALLENGE_PAYLOAD_VERSION, MAX_CHALLENGE_PUZZLES } from './schema'
-export type { ChallengeAttemptInput, ChallengePayload } from './schema'
+export type { ChallengeAttemptInput, ChallengeOgParam, ChallengePayload } from './schema'
 export {
+  buildChallengeOgParam,
   buildChallengePayload,
   buildChallengeUrl,
+  decodeChallengeOgParam,
   decodeChallengePayload,
   truncateToChallengeLimit,
 } from './codec'

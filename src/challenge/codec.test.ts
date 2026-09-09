@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildChallengeOgParam,
   buildChallengePayload,
   buildChallengeUrl,
+  decodeChallengeOgParam,
   decodeChallengePayload,
   truncateToChallengeLimit,
 } from './codec'
@@ -244,5 +246,54 @@ describe('buildChallengeUrl', () => {
     expect(url).toMatch(/^getcodoro\.com\/challenge#/)
     const decoded = decodeChallengePayload(url.split('#')[1] ?? '')
     expect(decoded).toEqual(payload)
+  })
+
+  it('inserts the og param in front of the fragment when given one, without touching the fragment', () => {
+    const payload = buildChallengePayload(sampleAttempts, 'Joe')
+    const ogParam = buildChallengeOgParam('Joe', payload.ids.length)
+    const url = buildChallengeUrl(payload, ogParam)
+    expect(url).toMatch(/^getcodoro\.com\/challenge\?og=[A-Za-z0-9_-]+#[A-Za-z0-9_-]+$/)
+    const [, afterChallenge] = url.split('/challenge')
+    const [query, fragment] = (afterChallenge ?? '').split('#')
+    expect(query).toBe(`?og=${ogParam}`)
+    expect(decodeChallengePayload(fragment ?? '')).toEqual(payload)
+  })
+})
+
+describe('buildChallengeOgParam / decodeChallengeOgParam', () => {
+  it('round-trips a named challenger and puzzle count', () => {
+    const encoded = buildChallengeOgParam('Joe', 3)
+    expect(decodeChallengeOgParam(encoded)).toEqual({ n: 'Joe', c: 3 })
+  })
+
+  it('round-trips a null challenger name', () => {
+    const encoded = buildChallengeOgParam(null, 5)
+    expect(decodeChallengeOgParam(encoded)).toEqual({ n: null, c: 5 })
+  })
+
+  it('encodes to URL-safe base64url — no +, /, or = padding', () => {
+    const encoded = buildChallengeOgParam('Joe', 3)
+    expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/)
+  })
+
+  it('rejects a puzzle count of zero', () => {
+    expect(decodeChallengeOgParam(base64urlOf('{"n":null,"c":0}'))).toBeNull()
+  })
+
+  it('rejects a puzzle count above MAX_CHALLENGE_PUZZLES', () => {
+    const tooMany = base64urlOf(JSON.stringify({ n: null, c: MAX_CHALLENGE_PUZZLES + 1 }))
+    expect(decodeChallengeOgParam(tooMany)).toBeNull()
+  })
+
+  it('rejects a challenger name longer than 40 characters', () => {
+    const tooLong = base64urlOf(JSON.stringify({ n: 'x'.repeat(41), c: 1 }))
+    expect(decodeChallengeOgParam(tooLong)).toBeNull()
+  })
+
+  it('rejects garbage input wholesale', () => {
+    expect(decodeChallengeOgParam('!!!not-base64!!!')).toBeNull()
+    expect(decodeChallengeOgParam(base64urlOf('not json'))).toBeNull()
+    expect(decodeChallengeOgParam(base64urlOf('{"n":null}'))).toBeNull()
+    expect(decodeChallengeOgParam('')).toBeNull()
   })
 })

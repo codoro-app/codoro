@@ -8,14 +8,29 @@
  * /challenge be a plain static route (no _redirects glob, no SW denylist
  * entry beyond the route itself) rather than a dynamic one.
  *
+ * v5 Phase 5.4, pulled forward pre-v5: `buildChallengeUrl` can also place a
+ * separate, narrow `?og=` query param in front of that fragment (see
+ * `buildChallengeOgParam`/`decodeChallengeOgParam` below), carrying only the
+ * challenger's display name and puzzle count so a Cloudflare Pages Function
+ * can render a real unfurl card. This is a deliberate, bounded exception to
+ * the paragraph above: the challenger's name and puzzle count DO now reach
+ * Cloudflare's edge (and whatever query-string logging happens there) —
+ * puzzle ids, results, and totalMs still never leave the fragment, and
+ * nothing about the fragment's own handling changes.
+ *
  * Decode contract: every failure mode — bad/truncated base64, truncated
  * UTF-8, invalid JSON, wrong shape, unknown version — collapses to a single
  * `null`, the same "reject wholesale" standard as importData
  * (src/storage/exportImport.ts). The caller renders one legible
  * broken-link state for all of them, never a partial payload.
  */
-import { CHALLENGE_PAYLOAD_VERSION, ChallengePayloadSchema, MAX_CHALLENGE_PUZZLES } from './schema'
-import type { ChallengeAttemptInput, ChallengePayload } from './schema'
+import {
+  CHALLENGE_PAYLOAD_VERSION,
+  ChallengeOgParamSchema,
+  ChallengePayloadSchema,
+  MAX_CHALLENGE_PUZZLES,
+} from './schema'
+import type { ChallengeAttemptInput, ChallengeOgParam, ChallengePayload } from './schema'
 
 // Scheme-less on purpose: matches the existing share-text convention
 // (getcodoro.com/puzzle/<id> — see each surface's shareText.ts), which the
@@ -26,8 +41,12 @@ const SITE_URL = 'getcodoro.com'
 const JSON_ENCODER = new TextEncoder()
 // fatal: a truncated/otherwise-malformed UTF-8 sequence throws instead of
 // silently substituting U+FFFD — so decode can catch it and return null
-// rather than handing a garbage string to JSON.parse.
-const JSON_DECODER = new TextDecoder('utf-8', { fatal: true })
+// rather than handing a garbage string to JSON.parse. ignoreBOM: false is
+// the spec default (unchanged behavior) — spelled out because this file is
+// now also typechecked under functions/'s @cloudflare/workers-types project
+// (v5 Phase 5.4, pulled forward), whose TextDecoder types require it
+// explicitly where lib.dom.d.ts leaves it optional.
+const JSON_DECODER = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false })
 
 function toBase64Url(bytes: Uint8Array): string {
   let binary = ''
@@ -82,9 +101,56 @@ export function buildChallengePayload(
   }
 }
 
-/** Full shareable challenge URL — the entire payload encoded into the fragment. */
-export function buildChallengeUrl(payload: ChallengePayload): string {
-  return `${SITE_URL}/challenge#${toBase64Url(JSON_ENCODER.encode(JSON.stringify(payload)))}`
+/**
+ * Full shareable challenge URL — the entire payload encoded into the
+ * fragment, exactly as before. `ogParam` (optional, built by
+ * `buildChallengeOgParam`) is inserted as a `?og=` query param in front of
+ * the fragment when supplied; omitting it reproduces the pre-5.4 URL shape
+ * byte-for-byte, which is what keeps every existing caller/test unchanged.
+ */
+export function buildChallengeUrl(payload: ChallengePayload, ogParam?: string): string {
+  const fragment = toBase64Url(JSON_ENCODER.encode(JSON.stringify(payload)))
+  const query = ogParam ? `?og=${ogParam}` : ''
+  return `${SITE_URL}/challenge${query}#${fragment}`
+}
+
+/**
+ * Encodes the minimal `{ n, c }` OG-card companion (see `ChallengeOgParamSchema`
+ * in schema.ts) for `buildChallengeUrl`'s `?og=` param. Same base64url
+ * alphabet as the fragment codec above, but independently encoded/decoded —
+ * the edge Pages Function that reads this never needs to touch the fragment
+ * or `ChallengePayloadSchema` at all.
+ */
+export function buildChallengeOgParam(challengerName: string | null, puzzleCount: number): string {
+  const param: ChallengeOgParam = { n: challengerName, c: puzzleCount }
+  return toBase64Url(JSON_ENCODER.encode(JSON.stringify(param)))
+}
+
+/**
+ * Decodes a `?og=` query param back into `{ n, c }`, or `null` for every
+ * failure mode — same "reject wholesale" contract as `decodeChallengePayload`
+ * above (bad base64, truncated UTF-8, invalid JSON, wrong shape all collapse
+ * to one outcome). Accepts the raw param value (already `decodeURIComponent`d
+ * by the caller reading it off a URL, same as `window.location.hash` for the
+ * fragment).
+ */
+export function decodeChallengeOgParam(encoded: string): ChallengeOgParam | null {
+  const bytes = fromBase64Url(encoded)
+  if (!bytes) return null
+  let json: string
+  try {
+    json = JSON_DECODER.decode(bytes)
+  } catch {
+    return null
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(json)
+  } catch {
+    return null
+  }
+  const result = ChallengeOgParamSchema.safeParse(parsed)
+  return result.success ? result.data : null
 }
 
 /**
