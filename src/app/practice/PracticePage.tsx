@@ -368,15 +368,21 @@ export function PracticePage() {
   // Challenge redesign: replaces the old streak-gated `ShareAction` above —
   // rendered unconditionally once `answer` exists (correct or not), not
   // gated on `session.streakAttempts.length > 0` the way the deleted
-  // "Share challenge" row was. `lastAttempt` (not `answer`) supplies the
-  // single-puzzle fallback's `time_ms` — see its own doc comment in
-  // usePracticeSession.ts for why `answer` alone can't.
-  const lastAttempt =
-    session.lastAttempt && session.lastAttempt.puzzleId === session.puzzle?.id
-      ? session.lastAttempt
-      : null
+  // "Share challenge" row was. `session.lastAttempt`/`session.streakAttempts`
+  // supply the actual attempt data — unlike `answer` (this file's own local
+  // state, scoped to the puzzle currently on screen for Share's benefit),
+  // they're never stale: usePracticeSession only ever updates them from a
+  // real handleAnswered call, so they always hold the most recent genuine
+  // attempt(s), whether or not that attempt belongs to the puzzle currently
+  // displayed. `time_ms` for the single-puzzle fallback comes from
+  // `session.lastAttempt` — see its own doc comment in usePracticeSession.ts
+  // for why `answer` alone can't supply it.
   const challengeAttempts =
-    session.streakAttempts.length > 0 ? session.streakAttempts : lastAttempt ? [lastAttempt] : []
+    session.streakAttempts.length > 0
+      ? session.streakAttempts
+      : session.lastAttempt
+        ? [session.lastAttempt]
+        : []
   const challengeIntroLabel =
     session.streakAttempts.length > 0
       ? `beat my streak of ${String(session.streakAttempts.length)}`
@@ -390,6 +396,15 @@ export function PracticePage() {
       onNameNeeded={challenger.setName}
     />
   )
+  // Recovery fix: continuing (manually or via auto-advance) past an
+  // answered puzzle without challenging it used to hide the Challenge
+  // action the instant the next, unanswered puzzle rendered — the button
+  // above is only ever placed where `answer` (this puzzle's own answer)
+  // gates it. `challengeAttempts` itself isn't stale the way `answer` would
+  // be here (see its own comment above), so once this puzzle has genuinely
+  // been answered `answer` becomes non-null again and this naturally stops
+  // rendering, replaced by the normal post-answer challenge/share block.
+  const missedChallenge = answer === null && challengeAttempts.length > 0
 
   const activeSurge =
     session.lastOutcome?.kind === 'correct' &&
@@ -542,6 +557,20 @@ export function PracticePage() {
               <CloseIcon size={12} />
               Clear filters
             </button>
+          </div>
+        )}
+
+        {/* Recovery fix: shown on both mobile and desktop (unlike the
+            post-answer challengeButton block below, which is desktop-sidebar-
+            only, and the mobile drawer prop, which is gated on THIS puzzle's
+            own commit) — the whole point is surfacing it on a fresh,
+            unanswered puzzle. Self-clears the instant this puzzle is
+            answered (`missedChallenge` above goes false), no dismiss button
+            needed. */}
+        {missedChallenge && (
+          <div className="flex flex-wrap items-center gap-2 py-2 px-3 rounded-md bg-surface-1 border border-border">
+            <span className="text-text-1 text-sm">Missed it? Challenge your last answer:</span>
+            {challengeButton}
           </div>
         )}
 
