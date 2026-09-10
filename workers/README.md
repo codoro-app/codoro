@@ -221,3 +221,49 @@ an account-plan toggle, not a database migration — deferring it costs
 nothing. Buy it when the first of: 5.2's in-Worker gzip (S1) measured
 against the 10 ms CPU ceiling (the real trigger — not storage), prod D1
 nearing 500 MB, or sustained traffic near 100k req/day.
+
+## Rate limiting
+
+Two `ratelimits` bindings (Cloudflare's GA rate-limiting binding, not the
+legacy `unsafe` form), declared in `wrangler.jsonc`'s `dev`/`production`
+envs: `RATE_LIMITER_PER_IP` and `RATE_LIMITER_PER_USER`. Both are real,
+Durable-Object-backed fixed-window counters locally too (miniflare's
+`RateLimiterObject`, confirmed by reading the installed package's source,
+not assumed) — no cloud credentials needed to test this, same F5 property
+D1 has.
+
+**F7 finding:** the binding's real, typed contract
+(`@cloudflare/workers-types`' `RateLimitOptions`) is `{ key: string }`
+only — no per-call `limit`/`period` override, despite the local emulator
+also accepting those fields as a testing convenience. So the numeric
+policy (how many, over what window) is fixed **per binding**, in
+`wrangler.jsonc`'s `simple: {limit, period}` block, not something a route
+can set for itself. What varies per route is the bucket `key` — every
+route gets its own prefix so two routes never share a counter — and
+whether the per-user bucket applies at all, in `src/limits.ts`'s
+`ROUTE_LIMITS` table (`{ perUser: boolean }`). A route that genuinely
+needs a different number than the shared default gets a new, distinctly
+named `ratelimits` binding, not a per-call override of an existing one.
+
+`src/rateLimit.ts`'s `rateLimit(routeKey, limit)` middleware checks the
+per-IP bucket (`CF-Connecting-IP`) on every request it mounts on, and the
+per-user bucket too when `limit.perUser` is true and `clerkAuth()` (T3)
+ran first and set a `userId`. Either bucket failing returns `429` with
+`Retry-After: 60`. Both checks are independent by design: a single IP
+juggling many accounts is still capped by the IP bucket; a single
+compromised account fanned out over many IPs is still capped by the user
+bucket.
+
+This binding does **burst damping only** — 10s/60s fixed windows, counted
+per Cloudflare location, not globally. It is deliberately not the source
+of truth for any exact quota. "One `scores` row per user per mode per
+day" is that table's own `PRIMARY KEY` (migration 0001), and holds
+regardless of the rate limiter's existence —
+`test/quotaIndependence.test.ts` proves this by calling `recordScore()`
+directly, with no rate-limit middleware anywhere on the call path.
+
+`ROUTE_LIMITS` is empty as of T4 — no real route mounts `rateLimit()` yet
+(proven instead against a throwaway test app, `test/rateLimit.test.ts`,
+the same pattern T2's `db.ts` and T3's `auth.ts` used before their first
+real caller existed). T4a's `POST /api/report` is the first real
+consumer.

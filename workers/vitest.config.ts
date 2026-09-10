@@ -27,6 +27,15 @@ import { cloudflareTest, readD1Migrations } from '@cloudflare/vitest-pool-worker
 // config-build time and hands them to the "workers" project as a
 // TEST_MIGRATIONS binding (see test/support/migrations.ts) -- test state
 // and deployed state come from the exact same files, never a copy.
+//
+// T4's `ratelimits` override below replaces wrangler.jsonc's dev-env
+// numbers (100/60, sized for real traffic) with small, fast-to-trip ones
+// for tests -- a burst test proving "the Nth request in a window gets 429"
+// needs N to be single digits, not 100, to run in milliseconds. This is a
+// local-only override (miniflare's WorkerOptions.ratelimits, confirmed in
+// the installed miniflare's own type defs); it has no effect on what
+// `wrangler deploy` ships, same relationship TEST_MIGRATIONS has to the
+// real migrations directory it's read from, not a copy of.
 export default defineConfig({
   test: {
     projects: [
@@ -40,6 +49,10 @@ export default defineConfig({
                 TEST_MIGRATIONS: await readD1Migrations(
                   fileURLToPath(new URL('./migrations', import.meta.url)),
                 ),
+              },
+              ratelimits: {
+                RATE_LIMITER_PER_IP: { namespace_id: '14', simple: { limit: 3, period: 10 } },
+                RATE_LIMITER_PER_USER: { namespace_id: '1983', simple: { limit: 3, period: 10 } },
               },
             },
           })),
