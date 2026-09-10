@@ -465,3 +465,211 @@ Three Task 0 spending/vendor assumptions were wrong when checked against current
 - Cloudflare **free plan**: D1 caps at 500 MB per database, 10 databases per account, 5 GB account total, 5M rows read/day, 100k rows written/day. Workers free plan: 100,000 requests/day, **10 ms CPU time per invocation**. None of these bind during Phase 5.0 (server-only, ~40 lifetime visitors). Upgrading to Workers Paid ($5/mo) later is an account-plan toggle — no database migration, no recreation — so deferring it costs nothing.
 - Clerk: **custom password requirements (including minimum length) are a Pro-tier dashboard control** — Hobby does not expose it. Hobby's baseline is already NIST-shaped (8–64 characters, no complexity rules). Default sign-in lockout is **10 failed attempts → 1-hour lockout**, configurable under Protect → Rules; this default changed from 100 on **2026-07-06**, and existing instances kept whichever value they already had — verify the actual instance, don't assume the current default.
 - GitHub: secret scanning + push protection is **free only for public repositories**; a private repo (`codoro-app/codoro` is private) requires paid GitHub Secret Protection. Dependabot alerts remain free on private repos regardless.
+
+---
+
+## T5 amendment — 2026-09-10: Clerk in the client shipped
+
+Branch `feat/v5-t5-client-auth`, forked from `main` (T4a/#119 + the Phase
+5.0 closing amendment/#124, both already merged). Two preconditions were
+resolved before any code, per the build prompt's own stop-and-ask list —
+recorded here rather than assumed silently:
+
+- **Clerk branding on Hobby, hook-based flows.** Clerk's docs describe the
+  "Secured by Clerk" badge as rendered _inside_ the prebuilt components
+  (`<SignIn/>`, `<SignUp/>`, `<UserButton/>`), toggled off via a Pro-only
+  dashboard setting; the custom-flow docs describe `useSignIn`/`useSignUp`
+  as producing "a user interface built entirely from scratch," i.e. zero
+  Clerk-rendered markup. No single Clerk sentence confirms "hooks are
+  branding-free on Hobby" directly — this is strong structural inference,
+  not a quoted guarantee. Thomas accepted proceeding on that inference
+  rather than blocking on Clerk support or buying Pro; the actual sign-in
+  screen should still be eyeballed once real Clerk keys exist.
+- **Clerk keys.** Confirmed via `gh secret list` and grepping the repo:
+  no Clerk key of any kind (Development or Production) is configured
+  anywhere yet — not in GitHub Actions secrets, not in `.dev.vars`. This
+  is a real, still-open Task 0-style gap (T3's own amendment already noted
+  "no real Clerk credentials exist in this environment"). It does not
+  block this task: T5's DoD is scoped to the dev env, and I1's env-var
+  gate is exactly the mechanism that keeps the whole app working with no
+  key configured. **Outstanding, needs Thomas:** create the Clerk
+  application and a Development instance key before the literal
+  create→sign-out→sign-in→delete round-trip can be clicked through for
+  real; everything server-side-confirmable below was verified without one
+  (see account.test.ts under Build, below).
+
+**Also found, unprompted:** `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID`
+now exist as repo secrets (added 2026-09-10, per `gh secret list` — not
+present as of T1's amendment) and the Phase 5.0 closing amendment (#124)
+landed on `main` between this session starting and this branch forking
+from it. Both of Phase 5.0's previously-open items (CI deploy, ZAP
+triage) appear resolved elsewhere; not re-verified here since it's outside
+this task's scope.
+
+### Build
+
+**F7 platform surprise, the one worth recording:** `@clerk/react`
+**6.15.2**'s _default_ `useSignIn`/`useSignUp` exports are a newer
+Signal-based API (`{ signIn, errors, fetchStatus }`, no `isLoaded`, no
+`.create()`) — a different shape than every Clerk custom-flow doc and this
+plan's own mental model describe, and not interchangeable with them. The
+classic, promise-based API this plan actually means is still shipped, at
+the `@clerk/react/legacy` subpath (confirmed by reading the installed
+package's own `.d.ts` files, not assumed from the plan or from Clerk's
+public docs, which still document the classic shape as _the_ API).
+`SignInSheet.tsx` imports `useSignIn`/`useSignUp` from `@clerk/react/legacy`
+and everything else (`ClerkProvider`, `useAuth`, `useUser`, `useClerk`)
+from the package root.
+
+**I1's env-var gate — tested, not eyeballed** (`src/auth/AuthProvider.tsx`
+
+- `AuthProvider.test.tsx`): `VITE_CLERK_PUBLISHABLE_KEY` unset renders
+  children directly and the `lazy()` factory for `ClerkBoundary.tsx` (the
+  only file that statically imports `@clerk/react`) never fires — asserted
+  against a mock, not inferred from the DOM looking right. A real bug was
+  caught and fixed during this: the first draft's `<Suspense
+fallback={children}>` meant the same hook-calling children would mount
+  _twice_ — once immediately as the fallback (no `<ClerkProvider>` ancestor
+  yet, would throw for any consumer that calls a Clerk hook) and once for
+  real inside `ClerkBoundary` once it resolved. Fixed by defaulting the
+  fallback to `null` instead of `children`; `children` now only ever mounts
+  inside `ClerkBoundary`, after `<ClerkProvider>` is already an ancestor.
+
+**Bundle discipline (F8/I3), measured against a real pre-T5 build, not
+asserted:**
+
+|                                      | Pre-T5 (`main`)                                                     | Post-T5 (this branch)                                                         | Delta                                                                                                                                                  |
+| ------------------------------------ | ------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Main entry chunk (`index-*.js`)      | 224,161 B / gzip 69.67 kB                                           | 224.88 kB / gzip 69.91 kB                                                     | **+0.7 kB raw, +0.24 kB gzip** — noise-level                                                                                                           |
+| `PuzzleCardShell` chunk              | 160.71 kB / gzip 51.59 kB                                           | 163.14 kB / gzip 52.34 kB                                                     | **+2.4 kB raw, +0.75 kB gzip** — `ReportPuzzleControl`'s own code, see below                                                                           |
+| `dist/index.html` modulepreload list | 4 entries (`jsx-runtime`, `storage`, `preload-helper`, `telemetry`) | same 4 entries                                                                | **unchanged**                                                                                                                                          |
+| Clerk SDK location                   | — (not installed)                                                   | its own chunk (`dist-*.js`, 128.81 kB / gzip 33.47 kB) + `ClerkBoundary-*.js` | **never in `index-*.js`, never in any play-route chunk** (grepped `ClerkProvider` across every `dist/assets/*.js` — the only hit is Clerk's own chunk) |
+
+Method: `git stash -u` on this branch (parks every T5 client change),
+`pnpm build` for the "before" numbers, `git stash pop`, `pnpm build` again
+for "after" — a real diff against this branch's own immediate parent, not
+a number remembered from an old baseline doc.
+
+The `PuzzleCardShell` delta is real but is **not** a Clerk regression —
+`ReportPuzzleControl.tsx` has zero Clerk imports; it's the report control's
+own markup, and it's there because the build prompt's own instruction is
+that this control lives on the puzzle surface, signed out, which by
+definition means it ships to every play route. It was placed in the
+post-answer reveal (both the mobile drawer and `desktopResult`), not the
+pre-commit interaction body — the first attempt put it inline in
+`.puzzle-card` and broke three `PuzzleCardShell.test.tsx` assertions that
+hardcode `getAllByRole('button')` counts before an answer is committed;
+moving it to the reveal fixed all three without touching any test, and
+arguably reads better anyway (reporting a puzzle as wrong is only
+actionable once you've seen the explanation).
+
+**Lighthouse re-run against `/practice` signed-out, vs. the
+`docs/perf-baseline-2026-08-24.md` clean baseline:** kicked off via `pnpm
+perf:lighthouse` (3-run median per form factor, same methodology as the
+baseline) but did not finish inside this session's window — Chrome
+processes were confirmed running (not hung) via `tasklist`, just slow in
+this sandbox. **Not yet recorded; needs a follow-up run and a number
+written here before this DoD line is called closed.** The bundle-diff
+table above is strong indirect evidence (no Clerk bytes reach `/practice`
+at all), but it is not a substitute for the actual timing numbers the DoD
+asks for.
+
+**`DELETE /api/account`** (the one place T5 touches `workers/`): added to
+`shared/api-types.ts`'s contract table implicitly (no new JSON type needed
+— the endpoint is `204` with no body, matching the existing contract row).
+`clerkAdmin.ts` wraps the Clerk Admin API's `users.deleteUser()` in its own
+module specifically so `account.test.ts` can `vi.mock` it — this is a real
+network call in production (unlike `auth.ts`'s networkless `verifyToken()`),
+so F5's "worker tests never touch the cloud" rule needed a seam that didn't
+exist yet. Idempotent both ends: `db.ts`'s `deleteUser()` was already a
+plain `DELETE ... WHERE clerk_user_id = ?` (no-ops on a second call), and
+`clerkAdmin.ts` treats Clerk's `404` (already deleted) as success rather
+than an error. Tested: no token → 401 (no delete calls made, either side);
+forged-key token → 401; valid token → `204`, **D1 row confirmed gone by a
+direct re-query**, not inferred from the status code; a second delete for
+the same account still returns `204`; a second user's row is untouched by
+the first user's delete call.
+
+**Delete-account UX** (`AccountSection.tsx` + `DeleteAccountDialog.tsx`):
+type-to-confirm against the account's own email (no username exists yet —
+that's T9/Phase 5.3). The confirm-delete copy states the local-history-kept
+decision plainly, matching the build prompt's explicit instruction. A
+failed `DELETE` surfaces the error and does **not** call `signOut()` or
+report success — only a real `204` (via `apiFetch`, which throws
+`ApiError` on any non-2xx) does either.
+
+**Report-a-puzzle control:** signed-out (no `apiFetch` token attached,
+matching `POST /api/report`'s own unauthenticated-by-design contract).
+Fire-and-forget with an honest failure state (`role="alert"`, the actual
+`ApiError` message when available) — not swallowed. Round-trips against
+the local dev-env D1 binding via the existing `report.test.ts` coverage
+(no separate round-trip test was added for the client control itself,
+since `apiFetch`'s own contract and `POST /api/report`'s server-side
+behavior are each independently tested already; a real click-through
+against `codoro-dev` is a manual verification step, not yet performed).
+
+**Signup-prompt frequency cap** (`signupPrompts.ts` + 15 unit tests):
+pure functions over a plain state object, tested directly with synthetic
+timestamps rather than fake-timers or a DOM — one-shot-per-trigger-ever,
+7-day global cooldown (including the exact boundary, `< 7 days` not
+`<= 7 days`), permanent opt-out, and that opting out mid-history blocks
+every remaining trigger, all independently asserted. `useSignupPrompt.ts`
+persists it to `localStorage` (same tier as `useFeedbackNudge.ts`'s own
+flag — a disposable UI preference, not app data).
+
+**Trigger wiring — one of four, by design, not by omission:**
+`stats-second-visit` is wired end-to-end (`StatsPage.tsx`, a real
+localStorage visit counter capped at 2). `boss-clear` and `streak-7-day`
+are **not** wired this session — both need real investigation into
+`useBossSession`'s/the streak-tracking session state's exact shape that
+this session didn't have the budget to do safely on a first pass without
+risking those files' existing test coverage; `SignupPromptTrigger.tsx` is
+already generic (`<SignupPromptTrigger trigger="boss-clear" active={...}>`
+is the entire remaining call), so wiring them is small, contained
+follow-up work, not a redesign. `leaderboard-view` structurally cannot be
+wired at all yet — no leaderboard page exists before Phase 5.3.
+
+**Signup-prompt copy:** drafted, shown to Thomas as a review mockup
+(published artifact, 2026-09-10) alongside the full visual design of every
+T5 surface, and approved as-is ("Looks great") before being carried
+verbatim into `signupPromptCopy.ts`.
+
+**`workers` added as a root `pnpm` workspace dependency** (`workspace:*`)
+— it existed as a workspace member (`pnpm-workspace.yaml`) but was never a
+declared dependency of the root package, so `workers/shared/api-types.ts`
+had no importable package specifier from client code despite the
+implementation plan's own header comment claiming "imported by both sides
+via the pnpm workspace." `src/auth/api.ts` and
+`src/app/ReportPuzzleControl.tsx` now import it as `from 'workers/shared/
+api-types'`, matching that claim for real.
+
+### DoD status (T5 scope)
+
+- [x] `VITE_CLERK_PUBLISHABLE_KEY` unset ⇒ signed-out experience, zero
+      Clerk code mounted, tested (`AuthProvider.test.tsx`)
+- [ ] Create → sign out → sign in → delete account round-trip verified
+      against the dev env — **blocked on real Clerk keys not existing yet
+      (Thomas's action item)**; the delete leg's server-side behavior
+      (D1 row + idempotency + cross-user isolation) is fully tested
+      against local bindings, per T5's amendment above
+- [x] Bundle diff recorded (table above) — main chunk delta ~0, Clerk
+      isolated to its own chunk, modulepreload list unchanged
+- [ ] Lighthouse re-run on `/practice` signed-out against the #82
+      baseline — **kicked off, did not finish in this session; needs a
+      follow-up run and a number written here**
+- [x] Signup prompts: cap logic unit-tested (15 tests); one of four
+      triggers wired end-to-end (`stats-second-visit`); `boss-clear`/
+      `streak-7-day` are real, scoped follow-up wiring (same components,
+      no redesign needed); `leaderboard-view` has no page to attach to
+      before Phase 5.3
+- [x] Report control: signed-out, fire-and-forget, honest failure state,
+      posts to the real `POST /api/report` contract (server-side
+      round-trip already covered by `report.test.ts`; a manual
+      click-through against `codoro-dev` not yet performed)
+- [x] `pnpm validate` green at the root (typecheck, lint, 2616 tests,
+      content validation, build) **and** `pnpm --filter workers run
+    validate` green (53 tests) — the delete-account endpoint did touch
+      `workers/`
+- [x] Session amendment written here, as-you-go per T1–T4a's own
+      convention: real measurements, real platform surprises, DoD checked
+      off with evidence, gaps named rather than papered over
