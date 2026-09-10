@@ -14,8 +14,8 @@
     "preview": "vite preview",
     "perf:lighthouse": "tsx tools/perfLighthouse.ts",
     "typecheck": "tsc -b",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "eslint . --ignore-pattern workers",
+    "lint:fix": "eslint . --fix --ignore-pattern workers",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
@@ -28,8 +28,19 @@
     "author:scrubber-puzzles": "tsx src/content/tools/authorScrubberPuzzles.ts",
     "generate:pwa-icons": "tsx src/app/pwa/generatePwaIcons.ts",
     "generate:og-image": "tsx src/app/og/generateOgImage.ts",
-    "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm validate:content && pnpm build",
+    "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm validate:content && pnpm build && pnpm --filter workers run validate",
+    "audit": "pnpm audit --audit-level=high",
     "prepare": "husky"
+  },
+  "pnpm": {
+    "overrides": {
+      "brace-expansion": ">=5.0.9",
+      "undici": ">=7.29.0",
+      "fast-uri": ">=3.1.6",
+      "nanoid": ">=3.3.18",
+      "browserslist": ">=4.28.7",
+      "sharp": ">=0.35.4"
+    }
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -80,7 +91,7 @@
     "lighthouse": "^13.4.1",
     "lint-staged": "^17.0.8",
     "prettier": "^3.9.5",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.4",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.1",
     "typescript": "~6.0.2",

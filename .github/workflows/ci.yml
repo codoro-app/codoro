@@ -34,3 +34,66 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      # workers/ is a fully independent pnpm workspace package: its own
+      # tsconfig.json, its own eslint.config.js, and its own vitest config
+      # (@cloudflare/vitest-pool-workers, runs inside workerd) — none of the
+      # root steps above reach it. Deliberately NOT sharing root's `eslint .`
+      # (which now --ignore-patterns `workers`): mixing the two tsconfigs
+      # into one ESLint projectService Program measured a ~31s lint
+      # ballooning to 5+ minutes and climbing (see the v5 Phase 5.0
+      # amendment in docs/v5-build-plan.md) — two independent ESLint
+      # processes is the fix, not a style preference.
+      - name: Validate workers (typecheck + lint + test, real local D1, no cloud credentials)
+        run: pnpm --filter workers run validate
+
+      # C3: a new high-severity advisory fails the build, in the same job as
+      # the rest of validate.
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high
+
+      # C3, corrected 2026-09-10: private repos don't get free GitHub secret
+      # scanning, so gitleaks is the decision outright, not a fallback.
+      # Runs the OSS scanner's own Docker image directly rather than the
+      # gitleaks-action wrapper, which gates organization accounts
+      # (codoro-app is one) behind a separate license key — the underlying
+      # scanner is free regardless of account type.
+      - name: Scan for leaked secrets (gitleaks)
+        run: docker run --rm -v "${{ github.workspace }}:/repo" ghcr.io/gitleaks/gitleaks:latest git /repo -v
+
+  # T1 DoD: "CI deploy job for dev env on merge to main." Only ever deploys
+  # `--env dev` — the `production` env in wrangler.jsonc exists and is
+  # correctly configured, but promoting it is "a deliberate manual step
+  # until launch" (T2 process note), never automatic.
+  #
+  # Requires two repo secrets that Task 0 doesn't cover (it's a CI
+  # concern, not a Clerk/D1/Cloudflare-dashboard one): CLOUDFLARE_API_TOKEN
+  # (a scoped token — Workers Scripts:Edit, Workers Routes:Edit, D1:Edit —
+  # NOT the interactive OAuth login this session used, which can't be
+  # exported) and CLOUDFLARE_ACCOUNT_ID. Until both exist, this job fails
+  # loudly on the `wrangler deploy` step rather than silently skipping,
+  # which is the right failure mode for a required deploy step.
+  deploy-dev:
+    needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      # VERSION isn't in wrangler.jsonc (see workers/src/env.d.ts) — passed
+      # here so /api/health's F1 diagnostic reports exactly which commit is
+      # live, not just which env.
+      - name: Deploy dev env
+        run: pnpm --filter workers exec wrangler deploy --env dev --var VERSION:${{ github.sha }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

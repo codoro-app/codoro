@@ -1,0 +1,17 @@
+# Local-only Worker secrets for `wrangler dev`. Copy this file to `.dev.vars`
+# (gitignored) and fill in real values from the Clerk/Resend dashboards —
+# never commit `.dev.vars` itself. For real deployments these are set with
+# `wrangler secret put <NAME> --env <dev|production>`, never here and never
+# in wrangler.jsonc (Task 0 secrets hygiene).
+#
+# None of these are read by any code yet — /api/health (T1) needs no
+# secrets. Listed now so the full secret surface is documented up front;
+# each is wired by the task named beside it.
+
+# T3 — Clerk JWT verification middleware (@clerk/backend `verify()`)
+CLERK_SECRET_KEY=
+CLERK_JWT_KEY=
+
+# T12 — email re-engagement (Resend + unsubscribe tokens)
+RESEND_API_KEY=
+UNSUB_HMAC_SECRET=
