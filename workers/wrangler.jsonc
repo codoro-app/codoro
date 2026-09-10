@@ -48,12 +48,20 @@
           "database_id": "4f892888-a78a-4987-bc1e-ef87ee479445"
         }
       ],
-      // T4 owns the real limit/period numbers (workers/src/limits.ts,
-      // route → {perIp, perUser}); these are placeholders so the binding
-      // exists and the config validates before that task lands — T1 wires
-      // the binding, it doesn't set policy. namespace_ids are Thomas's
-      // Task 0 choices: distinct on purpose (14 = per-IP, 1983 = per-user),
-      // since two bindings sharing a namespace_id share counters.
+      // T4 landed the mechanism (workers/src/rateLimit.ts) and the config
+      // table (workers/src/limits.ts, route → {perUser}) — 100/60 below is
+      // now real policy, not a placeholder: F7 finding, the real
+      // `ratelimits` binding's typed contract (@cloudflare/workers-types'
+      // RateLimitOptions) is `{ key }` only, no per-call limit/period
+      // override, so the numeric policy has to live here, fixed per
+      // binding, not per route. 100/60 is a shared default for any route
+      // that doesn't need something stricter; T4a's POST /api/report wants
+      // its own, tighter per-IP number ("strict per-IP rate limiting" —
+      // plan) — that's the moment to add a third, distinctly-named
+      // `ratelimits` entry, not to retune this shared one underneath every
+      // other route. namespace_ids are Thomas's Task 0 choices: distinct on
+      // purpose (14 = per-IP, 1983 = per-user), since two bindings sharing
+      // a namespace_id share counters.
       "ratelimits": [
         { "name": "RATE_LIMITER_PER_IP", "namespace_id": "14", "simple": { "limit": 100, "period": 60 } },
         { "name": "RATE_LIMITER_PER_USER", "namespace_id": "1983", "simple": { "limit": 100, "period": 60 } }
