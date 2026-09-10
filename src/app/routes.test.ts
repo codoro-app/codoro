@@ -141,6 +141,39 @@ describe('SW_NAVIGATE_FALLBACK_DENYLIST_PATTERN', () => {
   })
 })
 
+// v5 Phase 5.0 (T1), F13/I8: a cached 401 or a stale sync payload served
+// from the SW's precache/runtime cache is silent data corruption — worse
+// than no caching at all, because there's no error anywhere to notice it
+// by. Same readFileSync-against-the-real-source convention as the
+// navigateFallbackDenylist guard above, since vite.config.ts's workbox
+// config isn't importable from src/ (it lives in its own isolated
+// tsconfig.node.json project).
+describe('SW config excludes /api/* (v5 Phase 5.0 T1, F13/I8)', () => {
+  const viteConfigPath = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'vite.config.ts')
+  const viteConfigSource = readFileSync(viteConfigPath, 'utf-8')
+
+  it('adds an explicit /api/ entry to navigateFallbackDenylist', () => {
+    expect(viteConfigSource).toContain('/^\\/api\\//')
+  })
+
+  it('denies the navigate fallback for /api/health with the real pattern', () => {
+    expect('/api/health'.startsWith('/api/')).toBe(true)
+  })
+
+  it('excludes /api/* from runtime caching via a NetworkOnly handler', () => {
+    const runtimeCachingMatch = /runtimeCaching:\s*\[([\s\S]*?)\],\s*cleanupOutdatedCaches/.exec(
+      viteConfigSource,
+    )
+    expect(
+      runtimeCachingMatch,
+      'runtimeCaching: [...] array not found in vite.config.ts',
+    ).not.toBeNull()
+    const runtimeCachingBlock = runtimeCachingMatch?.[1] ?? ''
+    expect(runtimeCachingBlock).toContain('/^\\/api\\//')
+    expect(runtimeCachingBlock).toContain("handler: 'NetworkOnly'")
+  })
+})
+
 // public/_redirects had no drift guard at all — unlike the SW denylist
 // above, which at least got a hand-synced mirror test — even though it's
 // the file deciding whether a route exists on production in the first

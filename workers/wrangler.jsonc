@@ -1,0 +1,92 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Not deployed at the top level — every deploy targets an explicit named
+  // env (`--env dev` / `--env production`, see package.json scripts).
+  // `main`/`compatibility_date` are shared; everything env-specific
+  // (bindings, vars, routes, worker name) lives in the two blocks below so
+  // dev and production can never silently diverge in binding NAMES (F6) —
+  // only in the values those names point at.
+  // Groups dev/production as sibling environments of one Worker family in
+  // the Cloudflare dashboard (wrangler warns without this); each env's
+  // "name" below still sets its own actually-deployed script name.
+  "name": "codoro-api",
+  "main": "src/index.ts",
+  // Pinned below the newest date the *installed* @cloudflare/vitest-pool-workers'
+  // bundled workerd binary supports locally (checked at install, F7: that
+  // package pins its own miniflare/workerd version, currently capped at
+  // 2026-08-22 — a later date here makes the local test runtime refuse to
+  // start with "newest date supported by this server binary is
+  // 2026-08-22", independent of what the real deployed Worker or
+  // `wrangler pages dev` support). Bump this only after confirming the
+  // installed vitest-pool-workers' ceiling has moved too.
+  "compatibility_date": "2026-08-01",
+
+  // Worker secrets (CLERK_SECRET_KEY, CLERK_JWT_KEY — added in T3; RESEND_API_KEY,
+  // UNSUB_HMAC_SECRET — added in T12) are set via `wrangler secret put <NAME> --env <env>`
+  // per env, never here. Locally they come from `.dev.vars` (gitignored;
+  // `.dev.vars.example` lists the same names with empty values).
+
+  "env": {
+    "dev": {
+      "name": "codoro-api-dev",
+      "vars": {
+        "ENVIRONMENT": "dev",
+        // Same-origin decision (T0/R2/I10): the API is served from the
+        // Pages zone's own domain, never a separate api. subdomain.
+        "APP_ORIGIN": "https://getcodoro.com",
+        // F1's one-curl diagnostic: which Clerk instance this deployment is
+        // paired with. Label-only until T3 wires CLERK_JWT_KEY-based
+        // verification — a mismatch is impossible to have today (no
+        // production Clerk instance exists yet, see Task 0), but the field
+        // exists now so /api/health's shape never changes underneath T3.
+        "CLERK_INSTANCE": "development"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "codoro-dev",
+          "database_id": "4f892888-a78a-4987-bc1e-ef87ee479445"
+        }
+      ],
+      // T4 owns the real limit/period numbers (workers/src/limits.ts,
+      // route → {perIp, perUser}); these are placeholders so the binding
+      // exists and the config validates before that task lands — T1 wires
+      // the binding, it doesn't set policy. namespace_ids are Thomas's
+      // Task 0 choices: distinct on purpose (14 = per-IP, 1983 = per-user),
+      // since two bindings sharing a namespace_id share counters.
+      "ratelimits": [
+        { "name": "RATE_LIMITER_PER_IP", "namespace_id": "14", "simple": { "limit": 100, "period": 60 } },
+        { "name": "RATE_LIMITER_PER_USER", "namespace_id": "1983", "simple": { "limit": 100, "period": 60 } }
+      ],
+      // Verified in T1 to coexist with the existing Pages Function
+      // (functions/challenge.ts) on this same zone — see the phase
+      // amendment. This is the real "staging" the build plan's DoDs refer
+      // to; there is no separate dev domain (docs/superpowers/plans/2026-08-31-v5-phase-5.0-coding-plan.md,
+      // "Environment notes").
+      "routes": [{ "pattern": "getcodoro.com/api/*", "zone_name": "getcodoro.com" }]
+    },
+    "production": {
+      "name": "codoro-api",
+      "vars": {
+        "ENVIRONMENT": "production",
+        "APP_ORIGIN": "https://getcodoro.com",
+        "CLERK_INSTANCE": "production"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "codoro-prod",
+          "database_id": "81fda56a-1906-4b87-a5a7-06175ad41ae0"
+        }
+      ],
+      "ratelimits": [
+        { "name": "RATE_LIMITER_PER_IP", "namespace_id": "14", "simple": { "limit": 100, "period": 60 } },
+        { "name": "RATE_LIMITER_PER_USER", "namespace_id": "1983", "simple": { "limit": 100, "period": 60 } }
+      ],
+      // Not deployed by CI or by this phase — "production apply is a
+      // deliberate manual step until launch" (T2 process note). Declared
+      // here so the config is correct and ready, not so it's live.
+      "routes": [{ "pattern": "getcodoro.com/api/*", "zone_name": "getcodoro.com" }]
+    }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "workers",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --env dev",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "validate": "pnpm typecheck && pnpm lint && pnpm test",
+    "deploy:dev": "wrangler deploy --env dev",
+    "deploy:production": "wrangler deploy --env production",
+    "migrations:apply:dev": "wrangler d1 migrations apply DB --env dev",
+    "migrations:apply:production": "wrangler d1 migrations apply DB --env production --remote"
+  },
+  "dependencies": {
+    "hono": "^4.13.7"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "5.20260908.1",
+    "typescript": "~6.0.2",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.130.0"
+  }
+}

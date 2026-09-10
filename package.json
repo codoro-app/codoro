@@ -14,8 +14,8 @@
     "preview": "vite preview",
     "perf:lighthouse": "tsx tools/perfLighthouse.ts",
     "typecheck": "tsc -b",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "eslint . --ignore-pattern workers",
+    "lint:fix": "eslint . --fix --ignore-pattern workers",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "vitest run",
@@ -28,7 +28,8 @@
     "author:scrubber-puzzles": "tsx src/content/tools/authorScrubberPuzzles.ts",
     "generate:pwa-icons": "tsx src/app/pwa/generatePwaIcons.ts",
     "generate:og-image": "tsx src/app/og/generateOgImage.ts",
-    "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm validate:content && pnpm build",
+    "validate": "pnpm typecheck && pnpm lint && pnpm test && pnpm validate:content && pnpm build && pnpm --filter workers run validate",
+    "audit": "pnpm audit --audit-level=high",
     "prepare": "husky"
   },
   "lint-staged": {

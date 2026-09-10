@@ -283,6 +283,24 @@ export default defineConfig({
         // treatment as /missions) — the rating-history/pattern-accuracy page.
         navigateFallbackDenylist: [
           /^\/(?!(?:practice|daily|rush|boss|browse|legal|trace|missions|stats|challenge|settings|puzzle\/[^/?]+)?(?:\?|$))/,
+          // v5 Phase 5.0 (T1): explicit, on top of the allowlist regex above
+          // (which already denies /api/* as an unrecognized path) rather
+          // than relying on that as the only defense. A cached 401 or a
+          // stale sync payload served from the precache is silent data
+          // corruption (I8/F13) — this line stays correct even if the
+          // allowlist regex is ever restructured to no longer imply it.
+          /^\/api\//,
+        ],
+        // I8/F13: /api/* must never be served from a Workbox runtime cache
+        // either — a cached auth response or sync payload would be silent
+        // data corruption. NetworkOnly means Workbox intercepts the route
+        // but always goes to the network, never reading or writing a cache
+        // entry for it.
+        runtimeCaching: [
+          {
+            urlPattern: /^\/api\//,
+            handler: 'NetworkOnly',
+          },
         ],
         cleanupOutdatedCaches: true,
       },
@@ -296,7 +314,10 @@ export default defineConfig({
     // collects test files from any git worktree checked out under
     // .claude/worktrees/ (see superpowers:using-git-worktrees), running the
     // whole suite a second time against a second, possibly stale, copy.
-    exclude: [...configDefaults.exclude, '**/.claude/**'],
+    // workers/ has its own vitest config (@cloudflare/vitest-pool-workers,
+    // runs inside workerd) — this jsdom suite must never try to collect
+    // its test files, which would fail outside a Worker runtime.
+    exclude: [...configDefaults.exclude, '**/.claude/**', 'workers/**'],
     coverage: {
       provider: 'v8',
       include: ['src/engine/**/*.ts', 'src/storage/**/*.ts'],

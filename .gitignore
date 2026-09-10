@@ -28,6 +28,11 @@ dist-ssr
 .env.local
 !.env.example
 
+# Worker secrets for `wrangler dev` (workers/) — real secrets are
+# `wrangler secret put`, never a committed file
+.dev.vars
+!.dev.vars.example
+
 # Build info / coverage
 *.tsbuildinfo
 coverage
