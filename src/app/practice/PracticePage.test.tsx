@@ -277,6 +277,69 @@ describe('PracticePage', () => {
     })
   })
 
+  // Regression fix: continuing (manually, or via auto-advance) past an
+  // answered puzzle used to hide "Challenge a friend" the instant the next,
+  // unanswered puzzle rendered — the same puzzle.id gate Share correctly
+  // uses (a challenge for puzzle-you-just-left is a completely different
+  // concern from a share link for puzzle-currently-on-screen). Unlike
+  // Share, a missed challenge is still valid data (session.lastAttempt/
+  // streakAttempts are never stale, only hidden) — so it should stay
+  // reachable until a genuinely newer attempt supersedes it.
+  it('keeps "Challenge a friend" available on the next, unanswered puzzle if you continue without using it — clearing only once that puzzle is itself answered', async () => {
+    const user = userEvent.setup()
+    render(<PracticePage />)
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+
+    await user.click(nth(screen.getAllByRole('button', { name: 'a' }), 0))
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /challenge a friend/i })).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Next puzzle' }))
+    // Wait for the OLD card's feedback panel (role="status") to fully
+    // unmount before asserting anything — otherwise this can race the
+    // AnimatePresence exit transition and accidentally observe the old,
+    // already-committed card's own Challenge button still present, which
+    // would pass even without this fix.
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+    await waitFor(() => {
+      expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
+    })
+    // Still visible — the streak-of-1 attempt just continued past hasn't
+    // been challenged yet, and this new puzzle hasn't been answered.
+    expect(screen.getByRole('button', { name: /challenge a friend/i })).toBeInTheDocument()
+
+    const writeTextSpy = vi.spyOn(navigator.clipboard, 'writeText')
+    writeTextSpy.mockClear()
+    await user.click(screen.getByRole('button', { name: /challenge a friend/i }))
+    await user.click(screen.getByRole('button', { name: 'Skip' }))
+    const missedUrl = writeTextSpy.mock.calls[0]?.[0]
+    if (typeof missedUrl !== 'string')
+      throw new Error('expected writeText to have been called with a URL')
+    // Still the streak of 1 from the puzzle continued past, not a 0-puzzle
+    // fallback for this fresh, unanswered puzzle.
+    expect(missedUrl).toMatch(/^Can you beat my streak of 1\?/)
+
+    // Answering wrong on this puzzle clears the streak — a genuinely newer
+    // attempt now exists, so it supersedes (not stacks with) the one just
+    // challenged above.
+    await user.click(nth(screen.getAllByRole('button', { name: 'b' }), 0))
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /challenge a friend/i })).toBeInTheDocument()
+    })
+    writeTextSpy.mockClear()
+    await user.click(screen.getByRole('button', { name: /challenge a friend/i }))
+    await user.click(screen.getByRole('button', { name: 'Skip' }))
+    const newUrl = writeTextSpy.mock.calls[0]?.[0]
+    if (typeof newUrl !== 'string')
+      throw new Error('expected writeText to have been called with a URL')
+    expect(newUrl).toMatch(/^Can you beat this one\?/)
+  }, 15000)
+
   it('browse-by-pattern: selecting a pattern filters subsequent puzzles and shows a way back to all patterns', async () => {
     const user = userEvent.setup()
     render(<PracticePage />)
