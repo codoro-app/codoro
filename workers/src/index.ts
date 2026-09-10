@@ -1,13 +1,16 @@
 import { Hono } from 'hono'
-import { insertReport } from './db'
+import { clerkAuth } from './auth'
+import { deleteClerkUser } from './clerkAdmin'
+import { deleteUser, insertReport } from './db'
 import { routeLimit } from './limits'
 import { VALID_PUZZLE_IDS } from './puzzleIds.generated'
 import { rateLimit } from './rateLimit'
 import { ReportBodySchema } from './report'
+import type { AuthVariables } from './auth'
 import type { Env } from './env'
 import type { ApiErrorResponse, HealthResponse, ReportResponse } from '../shared/api-types'
 
-const app = new Hono<{ Bindings: Env; Variables: { userId?: string } }>()
+const app = new Hono<{ Bindings: Env; Variables: Partial<AuthVariables> }>()
 
 // The only route in T1 (build plan Phase 5.0 item 1). Unauthenticated by
 // nature — a health check that required a token couldn't tell you the
@@ -64,6 +67,38 @@ app.post(
     })
 
     return c.json<ReportResponse>({ ok: true }, 201)
+  },
+)
+
+// T5: the one place this Worker's client-auth phase touches `workers/` —
+// everything else in T5 is client-side (see the implementation plan's own
+// note). Deletes the D1 `users` row (cascades to profiles/scores/
+// scores_best/email_prefs via ON DELETE CASCADE, migration 0001) and the
+// Clerk user via the Admin API (clerkAdmin.ts). **Idempotent**, per the API
+// contract: a second call for an already-deleted user still returns 204 —
+// `deleteUser()`'s DELETE matches zero rows silently, and
+// `deleteClerkUser()` treats Clerk's 404 as already-done, not an error.
+// Confirming the deletion actually happened (re-querying D1 + the Clerk
+// Admin API afterward) is the client's own DoD step and T13's full sweep,
+// not this handler's job — this handler's contract is just "the delete
+// call itself doesn't lie about succeeding."
+app.delete(
+  '/api/account',
+  clerkAuth(),
+  rateLimit('DELETE /api/account', routeLimit('DELETE /api/account')),
+  async (c) => {
+    const userId = c.get('userId')
+    if (!userId) {
+      // Unreachable in practice — clerkAuth() above already 401s before
+      // this handler runs — but c.get('userId') types as `string |
+      // undefined` (Variables is Partial<AuthVariables> at the app level,
+      // see this file's own Hono<> declaration), so this satisfies the
+      // compiler without an unsafe assertion.
+      return c.json<ApiErrorResponse>({ error: 'Unauthorized' }, 401)
+    }
+    await deleteUser(c.env.DB, userId)
+    await deleteClerkUser(c.env.CLERK_SECRET_KEY, userId)
+    return c.body(null, 204)
   },
 )
 

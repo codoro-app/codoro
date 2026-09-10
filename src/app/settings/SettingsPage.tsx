@@ -457,7 +457,7 @@ export function SettingsPage() {
         <h2 className={SECTION_HEADING_CLASS}>Challenge a friend</h2>
         <p className={SECTION_COPY_CLASS}>
           Your display name on outgoing challenge links — e.g. &ldquo;
-          {challengerNameValue.trim() || 'Alex'} challenged you!&rdquo; Leave it blank to challenge
+          {challengerNameValue.trim() || 'Ducky'} challenged you!&rdquo; Leave it blank to challenge
           as &ldquo;A friend&rdquo;.
         </p>
         {challengerNameError && (
