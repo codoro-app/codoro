@@ -29,3 +29,37 @@ export interface HealthResponse {
 export interface ApiErrorResponse {
   error: string
 }
+
+/**
+ * T4a: `POST /api/report`'s fixed reason enum. This is the ONE place it's
+ * written -- `reports`' own `CHECK` constraint (migration 0001) and
+ * `report.ts`'s Zod schema are both built from (or asserted against) this
+ * same array, not a hand-copied list, so the three can't silently drift.
+ */
+export const REPORT_REASONS = [
+  'wrong-answer',
+  'unclear',
+  'renders-broken',
+  'typo',
+  'other',
+] as const
+export type ReportReason = (typeof REPORT_REASONS)[number]
+
+/**
+ * `POST /api/report`'s request body. Unauthenticated by design (T4a) --
+ * guest-first is law and most reporters will not have accounts. No
+ * free-text field: `reason` is a closed enum, `puzzleId` is checked
+ * against the real content index, `appVersion` is an opaque diagnostic
+ * string (not validated against a format -- it's never interpreted, only
+ * stored for later triage).
+ */
+export interface ReportRequest {
+  puzzleId: string
+  reason: ReportReason
+  appVersion: string
+}
+
+/** `POST /api/report`'s success response. */
+export interface ReportResponse {
+  ok: true
+}

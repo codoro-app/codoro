@@ -4,21 +4,23 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev --env dev",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "generate:puzzle-ids": "node scripts/generatePuzzleIds.mjs",
+    "dev": "pnpm run generate:puzzle-ids && wrangler dev --env dev",
+    "typecheck": "pnpm run generate:puzzle-ids && tsc --noEmit",
+    "lint": "pnpm run generate:puzzle-ids && eslint .",
+    "lint:fix": "pnpm run generate:puzzle-ids && eslint . --fix",
+    "test": "pnpm run generate:puzzle-ids && vitest run",
+    "test:watch": "pnpm run generate:puzzle-ids && vitest",
     "validate": "pnpm typecheck && pnpm lint && pnpm test",
-    "deploy:dev": "wrangler deploy --env dev",
-    "deploy:production": "wrangler deploy --env production",
+    "deploy:dev": "pnpm run generate:puzzle-ids && wrangler deploy --env dev",
+    "deploy:production": "pnpm run generate:puzzle-ids && wrangler deploy --env production",
     "migrations:apply:dev": "wrangler d1 migrations apply DB --env dev",
     "migrations:apply:production": "wrangler d1 migrations apply DB --env production --remote"
   },
   "dependencies": {
     "@clerk/backend": "^3.17.2",
-    "hono": "^4.13.7"
+    "hono": "^4.13.7",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.22.0",

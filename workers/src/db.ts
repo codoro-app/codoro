@@ -117,3 +117,29 @@ export async function getAllTimeLeaderboard(
     .all<ScoreBestRow>()
   return result.results
 }
+
+export interface NewReportRow {
+  puzzleId: string
+  reason: string
+  appVersion: string
+  now: number
+}
+
+/**
+ * T4a: `POST /api/report`'s only write. `id` is server-generated here
+ * (`crypto.randomUUID()`, Web Crypto -- available in workerd with no
+ * import, same API a browser has), never client-supplied -- there is no
+ * `clerk_user_id`/IP column to omit-by-construction (migration 0001's
+ * comment on this table), and `reason`'s enum is enforced twice over
+ * (report.ts's Zod schema before this is ever called, and the table's own
+ * `CHECK` constraint here) -- this function trusts its caller to have
+ * already validated `reason` and `puzzleId`, it does not re-validate them.
+ */
+export async function insertReport(db: D1Database, input: NewReportRow): Promise<void> {
+  await db
+    .prepare(
+      'INSERT INTO reports (id, puzzle_id, reason, app_version, created_at) VALUES (?, ?, ?, ?, ?)',
+    )
+    .bind(crypto.randomUUID(), input.puzzleId, input.reason, input.appVersion, input.now)
+    .run()
+}

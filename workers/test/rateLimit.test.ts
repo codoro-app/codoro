@@ -14,7 +14,11 @@ import type { Env } from '../src/env'
 // vitest.config.ts's comment on that override, and limits.ts's comment on
 // why the numeric limit lives on the binding, not per call).
 const testApp = new Hono<{ Bindings: Env; Variables: { userId?: string } }>()
-testApp.get('/ip-only', rateLimit('GET /ip-only', { perUser: false }), (c) => c.json({ ok: true }))
+testApp.get(
+  '/ip-only',
+  rateLimit('GET /ip-only', { perIpBinding: 'RATE_LIMITER_PER_IP', perUser: false }),
+  (c) => c.json({ ok: true }),
+)
 testApp.get(
   '/ip-and-user',
   async (c, next) => {
@@ -25,7 +29,7 @@ testApp.get(
     if (userId) c.set('userId', userId)
     await next()
   },
-  rateLimit('GET /ip-and-user', { perUser: true }),
+  rateLimit('GET /ip-and-user', { perIpBinding: 'RATE_LIMITER_PER_IP', perUser: true }),
   (c) => c.json({ ok: true }),
 )
 

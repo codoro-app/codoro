@@ -32,6 +32,15 @@
  */
 export interface RouteLimit {
   /**
+   * Which per-IP `ratelimits` binding this route counts against --
+   * `RATE_LIMITER_PER_IP` (the shared 100/60 default) unless a route needs
+   * something stricter, in which case it gets its own distinctly-named
+   * binding (T4a's `RATE_LIMITER_REPORT_IP`, added because
+   * `wrangler.jsonc`'s binding-level policy can't vary by call, only by
+   * which binding is used -- see this file's own doc comment above).
+   */
+  perIpBinding: 'RATE_LIMITER_PER_IP' | 'RATE_LIMITER_REPORT_IP'
+  /**
    * Per-user bucket, checked in addition to the always-on per-IP bucket --
    * only meaningful on routes where `clerkAuth()` (T3) runs before
    * `rateLimit()` so `c.get('userId')` is populated. Unauthenticated-by-
@@ -44,11 +53,32 @@ export interface RouteLimit {
 }
 
 /**
- * Keyed by `"<METHOD> <path>"`. Empty today is correct, not a placeholder
- * to "fill in later": T4's own DoD is the rate-limiting mechanism and its
- * tests, proven the same way T2's db.ts and T3's auth.ts were proven --
- * against a throwaway test app (test/rateLimit.test.ts) -- since no real
- * route mounts it yet. T4a (`POST /api/report`) adds this table's first
- * real entry.
+ * Keyed by `"<METHOD> <path>"`. T4a adds this table's first real entry
+ * (`POST /api/report`); T4 itself proved the mechanism against a
+ * throwaway test app (test/rateLimit.test.ts) with an empty table, the
+ * same pattern T2's db.ts and T3's auth.ts used before their first real
+ * caller existed.
  */
-export const ROUTE_LIMITS: Record<string, RouteLimit> = {}
+export const ROUTE_LIMITS: Record<string, RouteLimit> = {
+  'POST /api/report': { perIpBinding: 'RATE_LIMITER_REPORT_IP', perUser: false },
+}
+
+/**
+ * `ROUTE_LIMITS[key]` types as `RouteLimit | undefined` under
+ * `tsconfig.json`'s `noUncheckedIndexedAccess` -- correctly, since a typo'd
+ * key really would be `undefined` at runtime. Route registration
+ * (`src/index.ts`) calls this instead of indexing directly: a missing
+ * entry throws immediately at Worker startup (module evaluation), not on
+ * the first real request, so a route wired to `rateLimit()` without a
+ * matching `ROUTE_LIMITS` entry fails loudly and immediately rather than
+ * 500ing on whoever happens to hit it first.
+ */
+export function routeLimit(key: string): RouteLimit {
+  const limit = ROUTE_LIMITS[key]
+  if (!limit) {
+    throw new Error(
+      `No rate limit configured for route "${key}" -- add it to ROUTE_LIMITS in limits.ts.`,
+    )
+  }
+  return limit
+}

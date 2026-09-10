@@ -36,7 +36,7 @@ export function rateLimit(
 ): MiddlewareHandler<{ Bindings: Env; Variables: { userId?: string } }> {
   return async (c: LimitedContext, next: Next) => {
     const ip = c.req.header('CF-Connecting-IP') ?? 'unknown'
-    const ipOutcome = await c.env.RATE_LIMITER_PER_IP.limit({ key: `${routeKey}:ip:${ip}` })
+    const ipOutcome = await c.env[limit.perIpBinding].limit({ key: `${routeKey}:ip:${ip}` })
     if (!ipOutcome.success) {
       return tooManyRequests(c)
     }

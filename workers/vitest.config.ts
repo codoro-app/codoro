@@ -53,6 +53,10 @@ export default defineConfig({
               ratelimits: {
                 RATE_LIMITER_PER_IP: { namespace_id: '14', simple: { limit: 3, period: 10 } },
                 RATE_LIMITER_PER_USER: { namespace_id: '1983', simple: { limit: 3, period: 10 } },
+                // T4a: a distinct small number (2, not 3) so a report-route
+                // test can tell "hit my own bucket" apart from "hit the
+                // shared default bucket" if the two were ever confused.
+                RATE_LIMITER_REPORT_IP: { namespace_id: '77', simple: { limit: 2, period: 10 } },
               },
             },
           })),
