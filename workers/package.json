@@ -17,11 +17,13 @@
     "migrations:apply:production": "wrangler d1 migrations apply DB --env production --remote"
   },
   "dependencies": {
+    "@clerk/backend": "^3.17.2",
     "hono": "^4.13.7"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.22.0",
     "@cloudflare/workers-types": "5.20260908.1",
+    "jose": "^6",
     "typescript": "~6.0.2",
     "vitest": "^4.1.10",
     "wrangler": "^4.130.0"
