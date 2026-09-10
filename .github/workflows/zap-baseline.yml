@@ -1,0 +1,60 @@
+name: ZAP baseline scan (dev env)
+
+# Phase 5.0's DAST slot (build plan amendment C2, corrected 2026-09-10):
+# Strix's run #1 is cut, not deferred -- 5.0's entire external surface is one
+# health check and one Zod-validated, enum-bound, content-index-checked
+# write, which a passive/baseline DAST scan covers as well as an LLM agent
+# would, for $0. Strix itself moves to Phase 5.6 in full.
+#
+# Manually triggered only -- never runs on push/PR, never scans anything
+# automatically. F22 is binding here exactly as it would be on Strix: the
+# target is hardcoded below and this workflow never reads a target from an
+# input, a PR body, or a settable env var. Never production (T2 process
+# note: production apply/scanning is a deliberate manual step, not
+# automatic), never a host this project does not own.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  zap-health:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - name: ZAP baseline scan — /api/health
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: 'https://getcodoro.com/api/health'
+          # `fail_action: false` -- findings are triaged by a human
+          # afterward (F23: a scan result is evidence, not a work order),
+          # not treated as a pass/fail gate. `allow_issue_writing` defaults
+          # true (verified against action.yml, not assumed): the action
+          # files/updates a GitHub issue titled `issue_title` with the
+          # report every run, alerts or not -- left at its default
+          # deliberately, since that issue *is* the human triage surface
+          # this step exists to produce, not an unwanted side effect.
+          fail_action: false
+          issue_title: 'ZAP baseline: /api/health'
+
+  zap-report:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      # POST /api/report is the plan's explicit second target ("strict
+      # per-IP rate limiting" -- T4a -- makes it the sharpest abuse surface:
+      # the only unauthenticated write in the system). ZAP's baseline scan
+      # is passive -- it issues its initial request to `target` with GET
+      # regardless of the route's real method, then analyzes that response;
+      # it does not spider or fuzz POST bodies. That GET is expected to
+      # 404 (Hono only registers this route for POST), which is itself a
+      # legitimate response for ZAP's passive header/disclosure rules to
+      # check -- not a scan failure.
+      - name: ZAP baseline scan — /api/report
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: 'https://getcodoro.com/api/report'
+          fail_action: false
+          issue_title: 'ZAP baseline: /api/report'
