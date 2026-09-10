@@ -16,6 +16,9 @@ importers:
 
   .:
     dependencies:
+      '@clerk/react':
+        specifier: ^6
+        version: 6.15.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@use-gesture/react':
         specifier: ^10.3.1
         version: 10.3.1(react@19.2.7)
@@ -37,6 +40,9 @@ importers:
       react-dom:
         specifier: ^19.2.7
         version: 19.2.7(react@19.2.7)
+      workers:
+        specifier: workspace:*
+        version: link:workers
       wouter:
         specifier: ^3.10.0
         version: 3.10.0(react@19.2.7)
@@ -805,6 +811,13 @@ packages:
   '@clerk/backend@3.17.2':
     resolution: {integrity: sha512-pQz/+ClFBcL4OijAX3gDcXQYNqr1JbabAqY8szuU8/Dcvuuk3WgUmQDGyIU0tIqmitdd17RLppDmhN088pADew==}
     engines: {node: '>=20.9.0'}
+
+  '@clerk/react@6.15.2':
+    resolution: {integrity: sha512-7oI6Mcfzrlsnrz8JXNyXLgjK1uhO9mTEg2ut0bUfcgXwUSAqY6QG+/UGXUV/hHeeLKOrxrnOe6gQ8/TT4RQvwg==}
+    engines: {node: '>=20.9.0'}
+    peerDependencies:
+      react: ^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0
+      react-dom: ^18.0.0 || ~19.0.3 || ~19.1.4 || ~19.2.3 || ~19.3.0-0
 
   '@clerk/shared@4.31.1':
     resolution: {integrity: sha512-j3cDEZ/j7r5tAv4mmo2JhpFRtL1z0JghjCgvBJjZSR6Q4ZVIlwd2Bv0loM+opKReeN17H30u1/WHEBl7pZuxrw==}
@@ -4999,6 +5012,13 @@ snapshots:
     transitivePeerDependencies:
       - react
       - react-dom
+
+  '@clerk/react@6.15.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+    dependencies:
+      '@clerk/shared': 4.31.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      react: 19.2.7
+      react-dom: 19.2.7(react@19.2.7)
+      tslib: 2.8.1
 
   '@clerk/shared@4.31.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:

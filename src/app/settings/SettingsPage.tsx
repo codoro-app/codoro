@@ -60,6 +60,7 @@ import {
   saveProfile,
 } from '../../storage'
 import type { ExportedData, Preferences, UserProfile } from '../../storage'
+import { AccountSection } from '../../auth/AccountSection'
 import { FeedbackLink } from '../FeedbackLink'
 import { applyPreferences } from '../preferences/applyPreferences'
 
@@ -286,6 +287,11 @@ export function SettingsPage() {
   return (
     <div className={PAGE_SHELL_CLASS}>
       <h1 className="text-2xl text-text-0 m-0">Settings</h1>
+
+      <section>
+        <h2 className={SECTION_HEADING_CLASS}>Account</h2>
+        <AccountSection />
+      </section>
 
       <section>
         <h2 className={SECTION_HEADING_CLASS}>Preferences</h2>

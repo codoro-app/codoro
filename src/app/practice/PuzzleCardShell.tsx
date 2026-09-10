@@ -27,6 +27,7 @@ import { SwipeBinary } from './interactions/SwipeBinary'
 import { TapLine } from './interactions/TapLine'
 import { DragOrder } from './interactions/DragOrder'
 import { useMediaQuery } from '../useMediaQuery'
+import { ReportPuzzleControl } from '../ReportPuzzleControl'
 import { ShareMenu } from '../ShareMenu'
 import type { ShareAction } from '../ShareMenu'
 import '../tokens.css'
@@ -645,6 +646,14 @@ export function PuzzleCardShell({
           <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">
             {renderInlineMarkdown(puzzle.explanation)}
           </p>
+          {/* T5 (v2 todo item 18): low-prominence, placed alongside the
+              reveal/explanation rather than the pre-answer interaction body
+              — reporting a puzzle as wrong/broken is only actionable once
+              its answer has actually been seen, and keeping it out of the
+              interaction body avoids perturbing every mode's existing
+              pre-commit button-count assertions (getAllByRole('button')
+              across Practice/Daily/Rush/Boss/Missions/Challenge tests). */}
+          <ReportPuzzleControl puzzleId={puzzle.id} />
         </div>
       </>
     ) : null
@@ -770,6 +779,10 @@ export function PuzzleCardShell({
                   autoAdvanceMs={activeAutoAdvanceMs}
                 />
               </div>
+              {/* T5 (v2 todo item 18) — see desktopResult's identical
+                  placement above for why it lives in the reveal, not the
+                  interaction body. */}
+              <ReportPuzzleControl puzzleId={puzzle.id} />
             </div>
           </div>
         </div>
