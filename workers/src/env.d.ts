@@ -20,6 +20,15 @@ interface WorkerEnv {
   DB: D1Database
   RATE_LIMITER_PER_IP: RateLimit
   RATE_LIMITER_PER_USER: RateLimit
+  /**
+   * T4a: `POST /api/report`'s own, stricter per-IP bucket — the plan calls
+   * for "strict per-IP rate limiting" on this route specifically, which
+   * the shared RATE_LIMITER_PER_IP's 100/60 default isn't (see T4's own
+   * amendment note anticipating exactly this: "that's the moment to add a
+   * third, distinctly-named ratelimits entry, not to retune this shared
+   * one underneath every other route").
+   */
+  RATE_LIMITER_REPORT_IP: RateLimit
   ENVIRONMENT: 'dev' | 'production'
   APP_ORIGIN: string
   /** F1's one-curl diagnostic — see wrangler.jsonc's CLERK_INSTANCE comment. */

@@ -262,8 +262,50 @@ regardless of the rate limiter's existence —
 `test/quotaIndependence.test.ts` proves this by calling `recordScore()`
 directly, with no rate-limit middleware anywhere on the call path.
 
-`ROUTE_LIMITS` is empty as of T4 — no real route mounts `rateLimit()` yet
-(proven instead against a throwaway test app, `test/rateLimit.test.ts`,
-the same pattern T2's `db.ts` and T3's `auth.ts` used before their first
-real caller existed). T4a's `POST /api/report` is the first real
-consumer.
+`ROUTE_LIMITS` was empty through T4 — proven instead against a throwaway
+test app, `test/rateLimit.test.ts`, the same pattern T2's `db.ts` and T3's
+`auth.ts` used before their first real caller existed. T4a's
+`POST /api/report` is the first real consumer, and needed a number
+stricter than the shared 100/60 default ("strict per-IP rate limiting" —
+plan), which the binding-level design above says can't be a per-call
+override — so T4a added a third binding, `RATE_LIMITER_REPORT_IP`
+(5 requests/60s, `namespace_id` self-chosen as `77`, same "arbitrary,
+account-unique integer" convention as `14`/`1983`), rather than retuning
+the shared one underneath every future route.
+
+## POST /api/report
+
+Unauthenticated by design (T4a) — guest-first is law and most reporters
+will not have accounts, so this is the only anonymous write in the system
+and therefore its sharpest abuse surface. Body: `{ puzzleId, reason,
+appVersion }`. No free-text field reaches storage, in any form:
+
+- `reason` is checked twice, independently: `src/report.ts`'s Zod schema
+  (`z.enum(REPORT_REASONS)`) and `reports`' own `CHECK` constraint
+  (migration 0001). Both read from `REPORT_REASONS`
+  (`shared/api-types.ts`), the one place the enum is written.
+- `puzzleId` is checked against `VALID_PUZZLE_IDS`
+  (`src/puzzleIds.generated.ts`), generated from the real
+  `src/content/puzzles/**/*.json` files at typecheck/lint/test/deploy time
+  (`workers/scripts/generatePuzzleIds.mjs`, wired into every relevant
+  `package.json` script). **F7 finding:** the plan says "import the
+  puzzleMeta module #82 created, do not duplicate it" — but that module
+  (`src/content/index.ts`) is populated via a Vite virtual module
+  (`virtual:codoro-puzzle-meta`, resolved by `vite.config.ts`'s
+  `puzzleMetaPlugin`), which only exists inside the root Vite build.
+  `workers/` is bundled by wrangler's esbuild, which has no knowledge of
+  Vite plugins — a literal import of that module would fail to resolve
+  the moment wrangler tried to bundle it. `generatePuzzleIds.mjs` reads
+  the exact same source files `puzzleMetaPlugin` does, the same way, so
+  there is still exactly one source of truth (the puzzle JSON files); this
+  and that plugin are two independent readers of it, not two copies of
+  derived data. The generated file is gitignored — regenerated fresh every
+  run, never stale, same reasoning `.dev.vars` gets.
+- `appVersion` is stored but never interpreted — a length bound only.
+
+Rate limited per-IP only (`RATE_LIMITER_REPORT_IP`, see above) — no
+`clerk_user_id`/IP column "for later" (migration 0001's `reports` table has
+exactly five columns: `id`, `puzzle_id`, `reason`, `app_version`,
+`created_at`); `test/report.test.ts` asserts the stored row's column set
+directly, not just that the response looked right. No moderation UI, no
+admin read endpoint — both are v6 decisions with a surface attached.

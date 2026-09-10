@@ -33,6 +33,11 @@ dist-ssr
 .dev.vars
 !.dev.vars.example
 
+# T4a: generated from src/content/puzzles/**/*.json at typecheck/lint/test/
+# deploy time (workers/scripts/generatePuzzleIds.mjs) — never stale, so
+# never committed, same reasoning as .dev.vars above.
+workers/src/puzzleIds.generated.ts
+
 # Build info / coverage
 *.tsbuildinfo
 coverage

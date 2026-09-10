@@ -64,7 +64,14 @@
       // a namespace_id share counters.
       "ratelimits": [
         { "name": "RATE_LIMITER_PER_IP", "namespace_id": "14", "simple": { "limit": 100, "period": 60 } },
-        { "name": "RATE_LIMITER_PER_USER", "namespace_id": "1983", "simple": { "limit": 100, "period": 60 } }
+        { "name": "RATE_LIMITER_PER_USER", "namespace_id": "1983", "simple": { "limit": 100, "period": 60 } },
+        // T4a: POST /api/report's own bucket, self-chosen namespace_id
+        // (same "arbitrary, account-unique integer" convention as 14/1983
+        // above, distinct from both — not a pre-provisioned Cloudflare
+        // resource, so no Task 0 dependency). 5/60 is deliberately tighter
+        // than the shared 100/60 default ("strict per-IP rate limiting" —
+        // plan): this is the only unauthenticated write in the system.
+        { "name": "RATE_LIMITER_REPORT_IP", "namespace_id": "77", "simple": { "limit": 5, "period": 60 } }
       ],
       // Verified in T1 to coexist with the existing Pages Function
       // (functions/challenge.ts) on this same zone — see the phase
@@ -89,7 +96,14 @@
       ],
       "ratelimits": [
         { "name": "RATE_LIMITER_PER_IP", "namespace_id": "14", "simple": { "limit": 100, "period": 60 } },
-        { "name": "RATE_LIMITER_PER_USER", "namespace_id": "1983", "simple": { "limit": 100, "period": 60 } }
+        { "name": "RATE_LIMITER_PER_USER", "namespace_id": "1983", "simple": { "limit": 100, "period": 60 } },
+        // T4a: POST /api/report's own bucket, self-chosen namespace_id
+        // (same "arbitrary, account-unique integer" convention as 14/1983
+        // above, distinct from both — not a pre-provisioned Cloudflare
+        // resource, so no Task 0 dependency). 5/60 is deliberately tighter
+        // than the shared 100/60 default ("strict per-IP rate limiting" —
+        // plan): this is the only unauthenticated write in the system.
+        { "name": "RATE_LIMITER_REPORT_IP", "namespace_id": "77", "simple": { "limit": 5, "period": 60 } }
       ],
       // Not deployed by CI or by this phase — "production apply is a
       // deliberate manual step until launch" (T2 process note). Declared
