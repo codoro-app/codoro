@@ -89,6 +89,19 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # T4a bugfix, found the hard way (2026-09-10, first real deploy):
+      # this job calls `wrangler deploy` directly via `pnpm exec`, which
+      # bypasses workers/package.json's `deploy:dev` script entirely --
+      # that script's own `generate:puzzle-ids` prefix (wired for local
+      # `pnpm run deploy:dev`) never ran here. A fresh checkout has no
+      # workers/src/puzzleIds.generated.ts (gitignored, T4a), so wrangler's
+      # esbuild failed to resolve src/index.ts's `./puzzleIds.generated`
+      # import and the deploy failed outright. Generating it as its own
+      # step, explicitly, doesn't depend on which script happens to wrap
+      # `wrangler deploy`.
+      - name: Generate puzzle ids
+        run: pnpm --filter workers run generate:puzzle-ids
+
       # VERSION isn't in wrangler.jsonc (see workers/src/env.d.ts) — passed
       # here so /api/health's F1 diagnostic reports exactly which commit is
       # live, not just which env.
