@@ -30,6 +30,22 @@ interface WorkerEnv {
    * exactly which commit is live. Undefined for local `wrangler dev`.
    */
   VERSION?: string
+  /**
+   * T3: the Clerk Development/Production instance's JWKS public key (PEM),
+   * from the dashboard's API keys page — "Show JWT public key". This is
+   * what makes verifyToken() networkless (auth.ts). Set via `wrangler
+   * secret put CLERK_JWT_KEY --env <env>`, never in wrangler.jsonc.
+   */
+  CLERK_JWT_KEY: string
+  /**
+   * T3: Clerk's secret key. Declared alongside CLERK_JWT_KEY per
+   * .dev.vars.example's documented T3 secret pair, though auth.ts's
+   * networkless verifyToken() call only reads CLERK_JWT_KEY today — this
+   * is here for parity with what Task 0 provisions, and for later tasks
+   * (e.g. T13's Clerk Admin API calls for account deletion) that will need
+   * it. Set via `wrangler secret put CLERK_SECRET_KEY --env <env>`.
+   */
+  CLERK_SECRET_KEY: string
 }
 
 /**

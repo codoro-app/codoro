@@ -4,11 +4,14 @@
 # `wrangler secret put <NAME> --env <dev|production>`, never here and never
 # in wrangler.jsonc (Task 0 secrets hygiene).
 #
-# None of these are read by any code yet — /api/health (T1) needs no
-# secrets. Listed now so the full secret surface is documented up front;
-# each is wired by the task named beside it.
+# /api/health (T1) needs no secrets. Listed now so the full secret surface
+# is documented up front; each is wired by the task named beside it.
 
-# T3 — Clerk JWT verification middleware (@clerk/backend `verify()`)
+# T3 — Clerk JWT verification middleware. CLERK_JWT_KEY is read
+# (@clerk/backend's `verifyToken()` -- NOT `verify()`; T3 found the plan's
+# note about a consolidated `verify()` doesn't match what's installed,
+# see the phase amendment). CLERK_SECRET_KEY is declared for parity/future
+# use (e.g. T13's Clerk Admin API calls) but not read by T3's own code path.
 CLERK_SECRET_KEY=
 CLERK_JWT_KEY=
 
