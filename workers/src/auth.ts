@@ -35,6 +35,13 @@ type AuthedContext = Context<{ Bindings: Env; Variables: AuthVariables }>
  * (expired, forged signature, wrong audience/authorizedParties, malformed)
  * — every failure mode collapses to one generic 401 below, since
  * distinguishing them in the response body only helps an attacker iterate.
+ *
+ * Clock skew (F4) is left at @clerk/backend's default (`clockSkewInMs`,
+ * 5000ms) — not passed here at all. Clerk session tokens are short-lived by
+ * design; if intermittent 401s ever show up in the field, the fix is the
+ * client's `getToken()`-per-request pattern (T5's `src/auth/api.ts`), not
+ * widening this tolerance. Widening it just extends how long a leaked
+ * token stays usable.
  */
 export function clerkAuth(): MiddlewareHandler<{ Bindings: Env; Variables: AuthVariables }> {
   return async (c, next: Next) => {

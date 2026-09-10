@@ -62,6 +62,15 @@ describe('clerkAuth', () => {
     expect(res.status).toBe(401)
   })
 
+  it('rejects a syntactically malformed bearer token (not a real JWT at all)', async () => {
+    const res = await testApp.request(
+      '/protected',
+      { headers: { Authorization: 'Bearer not-a-real-jwt' } },
+      testEnv(),
+    )
+    expect(res.status).toBe(401)
+  })
+
   it('accepts a valid token and attaches the sub claim as userId', async () => {
     const token = await signTestToken({
       privateKey: keypair.privateKey,
