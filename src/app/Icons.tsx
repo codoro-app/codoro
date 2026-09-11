@@ -253,6 +253,28 @@ export function ShareIcon({ size = 20 }: IconProps) {
   )
 }
 
+// T5: ReportPuzzleControl's icon trigger (Lucide `flag`) — a puzzle-quality
+// report, not a share/social action, so it gets its own glyph rather than
+// reusing ShareIcon at a different size.
+export function FlagIcon({ size = 20 }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+      <line x1="4" y1="22" x2="4" y2="15" />
+    </svg>
+  )
+}
+
 // Authored for DragOrder's handle (v3 Phase 2b.6): the conventional 6-dot
 // vertical grip (Lucide `grip-vertical`) — two columns of three dots reads
 // as "drag me along this axis," matching the list's actual reorder
