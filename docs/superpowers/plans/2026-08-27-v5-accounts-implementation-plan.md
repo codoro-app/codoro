@@ -564,15 +564,46 @@ arguably reads better anyway (reporting a puzzle as wrong is only
 actionable once you've seen the explanation).
 
 **Lighthouse re-run against `/practice` signed-out, vs. the
-`docs/perf-baseline-2026-08-24.md` clean baseline:** kicked off via `pnpm
-perf:lighthouse` (3-run median per form factor, same methodology as the
-baseline) but did not finish inside this session's window — Chrome
-processes were confirmed running (not hung) via `tasklist`, just slow in
-this sandbox. **Not yet recorded; needs a follow-up run and a number
-written here before this DoD line is called closed.** The bundle-diff
-table above is strong indirect evidence (no Clerk bytes reach `/practice`
-at all), but it is not a substitute for the actual timing numbers the DoD
-asks for.
+`docs/perf-baseline-2026-08-24.md` clean baseline** (run locally by Thomas
+after this session's own in-sandbox attempt got stuck — see the footgun
+note below — via plain `pnpm perf:lighthouse`, 3-run median per form
+factor, local build+serve, same methodology as the baseline):
+
+| Metric      | Mobile (baseline → now) | Desktop (baseline → now) |
+| ----------- | ----------------------- | ------------------------ |
+| Performance | 75 → **83**             | 99 → **98**              |
+| FCP         | 2225 ms → **2188 ms**   | 557 ms → **543 ms**      |
+| LCP         | 3816 ms → **4356 ms**   | 983 ms → **1022 ms**     |
+| TBT         | 64 ms → **43 ms**       | 0 ms → **0 ms**          |
+| CLS         | 0.227 → **0.000**       | 0.000 → **0.000**        |
+
+Read with one honest caveat: the 2026-08-24 baseline predates a full
+month of unrelated shipped work (the v4 UI/Settings rebuild, PWA prompts,
+challenge redesign, and more) — this is "current `/practice` vs. an
+outdated baseline," not an isolated T5-only diff, so most of these deltas
+(the CLS improvement especially) are not attributable to T5. The one
+number worth a second look on its own is mobile LCP, up ~540 ms (3816 → 4356) — plausibly noise (TBT/LCP variance run-to-run is exactly why the
+baseline methodology takes a 3-run median, not a single sample) or
+plausibly something in the interim work, but **not** Clerk: the bundle-diff
+table above is the actual isolated T5 measurement (this branch vs. its own
+immediate parent, same commit graph, nothing else different), and it shows
+~0 impact with Clerk's SDK never reaching this chunk at all. Both pieces
+of evidence stand: the bundle diff isolates T5's contribution precisely;
+this Lighthouse run answers the DoD's literal "run it and record real
+numbers" ask.
+
+**Footgun, worth recording for whoever runs this next:** this session's
+own in-sandbox `pnpm perf:lighthouse` attempt spawned Chrome processes
+that never converged (61 `chrome.exe`/`node.exe` processes accumulated
+over 45+ minutes with zero output — a healthy run cleans up between each
+of its 6 audits, not pile up indefinitely) and was killed. Re-run locally
+(as Thomas did, successfully) rather than in that sandbox. Separately, the
+local run's teardown threw `EPERM` deleting chrome-launcher's temp profile
+directory (`rmSync` on `%TEMP%\lighthouse.<pid>`) — Windows file-locking on
+a directory a just-killed Chrome child process still had a handle on,
+after the real audit work had already completed and printed. Harmless to
+the results; if it blocks a future run's exit code from CI or a script
+expects a clean exit, retry once or delete the stale temp dir by hand.
 
 **`DELETE /api/account`** (the one place T5 touches `workers/`): added to
 `shared/api-types.ts`'s contract table implicitly (no new JSON type needed
@@ -654,9 +685,11 @@ api-types'`, matching that claim for real.
       against local bindings, per T5's amendment above
 - [x] Bundle diff recorded (table above) — main chunk delta ~0, Clerk
       isolated to its own chunk, modulepreload list unchanged
-- [ ] Lighthouse re-run on `/practice` signed-out against the #82
-      baseline — **kicked off, did not finish in this session; needs a
-      follow-up run and a number written here**
+- [x] Lighthouse re-run on `/practice` signed-out against the #82
+      baseline — run locally by Thomas (this session's own in-sandbox
+      attempt got stuck and was killed); numbers + the honest caveat that
+      the baseline predates a month of unrelated work are in the table
+      above
 - [x] Signup prompts: cap logic unit-tested (15 tests); one of four
       triggers wired end-to-end (`stats-second-visit`); `boss-clear`/
       `streak-7-day` are real, scoped follow-up wiring (same components,
@@ -668,7 +701,7 @@ api-types'`, matching that claim for real.
       click-through against `codoro-dev` not yet performed)
 - [x] `pnpm validate` green at the root (typecheck, lint, 2616 tests,
       content validation, build) **and** `pnpm --filter workers run
-    validate` green (53 tests) — the delete-account endpoint did touch
+  validate` green (53 tests) — the delete-account endpoint did touch
       `workers/`
 - [x] Session amendment written here, as-you-go per T1–T4a's own
       convention: real measurements, real platform surprises, DoD checked
