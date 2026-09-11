@@ -43,6 +43,7 @@ import { useEffect, useState } from 'react'
 import { useClerk } from '@clerk/react'
 import { isClerkAPIResponseError } from '@clerk/react/errors'
 import { useSignIn, useSignUp } from '@clerk/react/legacy'
+import { loadProfile, saveProfile } from '../storage'
 
 type Mode = 'sign-in' | 'sign-up'
 /** 'verify-email' only ever follows a sign-up whose create() came back
@@ -84,6 +85,32 @@ function clerkErrorMessage(err: unknown, fallback: string): string {
     return detail.longMessage || detail.message
   }
   return fallback
+}
+
+/**
+ * Fills a brand-new account's `challengerName` (the display name shown on
+ * outgoing challenge links, src/storage/schema.ts's `UserProfile` field)
+ * from the username just chosen at sign-up, so a player who's never
+ * touched Settings' own "Challenge a friend" field isn't stuck being
+ * anonymous there. Only ever fills a *blank* value -- never overwrites a
+ * name someone already deliberately set (local-only, predates any
+ * account, and is not itself a Clerk field, so sign-up has no way to know
+ * about it except by reading local storage here).
+ *
+ * Best-effort and silent: called after `setActive`/`onComplete` already
+ * fired, purely a nice-to-have follow-up, not a step sign-up depends on --
+ * local storage being briefly unavailable shouldn't surface as a sign-up
+ * error.
+ */
+async function fillChallengerNameFromUsername(username: string) {
+  try {
+    const profile = await loadProfile()
+    if (!profile.challengerName) {
+      await saveProfile({ ...profile, challengerName: username })
+    }
+  } catch {
+    // best-effort, see doc comment above
+  }
 }
 
 export interface SignInSheetProps {
@@ -157,6 +184,7 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
         if (attempt.status === 'complete') {
           await setActive({ session: attempt.createdSessionId })
           onComplete()
+          void fillChallengerNameFromUsername(username)
         } else {
           // Ask Clerk to actually send the code -- create() alone never
           // triggers it (see file header). A failure here still moves to
@@ -199,6 +227,7 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
       if (attempt.status === 'complete') {
         await setActive({ session: attempt.createdSessionId })
         onComplete()
+        void fillChallengerNameFromUsername(username)
       } else {
         // The code itself was accepted but something else Clerk requires
         // is still missing (e.g. a field toggled on in the Clerk dashboard
