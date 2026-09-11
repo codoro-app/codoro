@@ -406,6 +406,20 @@ export function PracticePage() {
   // rendering, replaced by the normal post-answer challenge/share block.
   const missedChallenge = answer === null && challengeAttempts.length > 0
 
+  // Design update: this used to render inline, up top, on both mobile and
+  // desktop -- moved so desktop joins every other challenge-adjacent
+  // element on this page in the right-rail sidebar, and mobile (no sidebar
+  // to move it into) moves to the bottom of the page, below the puzzle
+  // card, rather than being the first thing a player sees. Still
+  // self-clears the instant this puzzle is answered (`missedChallenge`
+  // above goes false) -- no dismiss button needed.
+  const missedChallengeBanner = missedChallenge ? (
+    <div className="flex flex-wrap items-center gap-2 py-2 px-3 rounded-md bg-surface-1 border border-border">
+      <span className="text-text-1 text-sm">Missed it? Challenge your last answer:</span>
+      {challengeButton}
+    </div>
+  ) : null
+
   const activeSurge =
     session.lastOutcome?.kind === 'correct' &&
     session.lastOutcome.surge &&
@@ -560,20 +574,6 @@ export function PracticePage() {
           </div>
         )}
 
-        {/* Recovery fix: shown on both mobile and desktop (unlike the
-            post-answer challengeButton block below, which is desktop-sidebar-
-            only, and the mobile drawer prop, which is gated on THIS puzzle's
-            own commit) — the whole point is surfacing it on a fresh,
-            unanswered puzzle. Self-clears the instant this puzzle is
-            answered (`missedChallenge` above goes false), no dismiss button
-            needed. */}
-        {missedChallenge && (
-          <div className="flex flex-wrap items-center gap-2 py-2 px-3 rounded-md bg-surface-1 border border-border">
-            <span className="text-text-1 text-sm">Missed it? Challenge your last answer:</span>
-            {challengeButton}
-          </div>
-        )}
-
         {session.status === 'empty' || session.puzzle === null ? (
           <p className="text-center text-text-1 py-8">
             {activeFilterLabels.length > 0
@@ -606,6 +606,12 @@ export function PracticePage() {
             </motion.div>
           </AnimatePresence>
         )}
+
+        {/* Mobile only -- desktop's copy of this same banner renders in the
+            sidebar below instead. Placed after the puzzle card (and
+            therefore after its feedback drawer, which overlays near the
+            bottom of the viewport) rather than above it. */}
+        {!isDesktop && missedChallengeBanner}
       </div>
 
       {isDesktop && (
@@ -639,6 +645,11 @@ export function PracticePage() {
                   so mounting it unconditionally here is safe before an
                   answer exists. */}
               <div ref={setSidebarSlotEl} className="empty:hidden flex flex-col gap-3" />
+              {/* missedChallengeBanner and `answer && challengeButton` are
+                  mutually exclusive by construction (missedChallenge is
+                  only true while `answer === null`) -- exactly one of the
+                  two ever renders here. */}
+              {missedChallengeBanner}
               {answer && challengeButton}
               <ShareMenu actions={shareActions} />
               <StatusBar
