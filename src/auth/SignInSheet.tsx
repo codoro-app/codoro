@@ -22,9 +22,26 @@
  * calls prepare immediately after a non-complete create(), and adds the
  * code-entry stage + attemptEmailAddressVerification to actually finish
  * the round trip.
+ *
+ * Username (added same pass): Clerk's Production instance has "Require
+ * username" on (Configure > User & authentication > Username), so a
+ * sign-up with only email+password never reaches 'complete' -- it sticks
+ * at 'missing_requirements' forever. Verifying the (correct) email code a
+ * second time against that stuck attempt then throws Clerk's
+ * "verification_already_verified" -- confusing, because the email step
+ * genuinely did succeed; the account as a whole just never finished. Now
+ * collected at sign-up and sent through in the same create() call.
+ *
+ * Error messages: every catch block used to show one fixed string
+ * regardless of what actually failed (password too short, email/username
+ * taken, network error, ...), discarding Clerk's own specific message.
+ * clerkErrorMessage() below surfaces that real message when Clerk sent
+ * one, falling back to the generic string only for truly unexpected
+ * errors.
  */
 import { useEffect, useState } from 'react'
 import { useClerk } from '@clerk/react'
+import { isClerkAPIResponseError } from '@clerk/react/errors'
 import { useSignIn, useSignUp } from '@clerk/react/legacy'
 
 type Mode = 'sign-in' | 'sign-up'
@@ -40,6 +57,26 @@ const PRIMARY_BUTTON_CLASS =
   'min-h-11 w-full mt-1.5 py-3 px-4 rounded-md border-0 bg-accent text-accent-ink text-md font-bold cursor-pointer disabled:opacity-60 disabled:cursor-default'
 const SWITCH_LINE_CLASS = 'text-center text-sm text-text-1 mt-4'
 const LINK_BUTTON_CLASS = 'text-accent font-bold bg-transparent border-0 cursor-pointer p-0'
+
+/**
+ * Clerk throws a `ClerkAPIResponseError` carrying an `errors` array of
+ * `{ message, longMessage, code }` -- the actual, specific reason a
+ * request failed (e.g. "Passwords must be 10 characters or more.",
+ * "That username is taken."). Falls back to `fallback` for anything that
+ * isn't a Clerk API error (network failure, `signIn`/`signUp` not yet
+ * loaded, etc.), where there's no user-facing detail to surface.
+ */
+function clerkErrorMessage(err: unknown, fallback: string): string {
+  if (isClerkAPIResponseError(err) && err.errors[0]) {
+    const detail = err.errors[0]
+    // `longMessage` is typed as always-present, but Clerk can send it as an
+    // empty string when there's no long-form detail for a given error code
+    // -- `||` (not `??`) is deliberate here to also fall through on that.
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
+    return detail.longMessage || detail.message
+  }
+  return fallback
+}
 
 export interface SignInSheetProps {
   /** Called after a sign-in or sign-up attempt completes successfully. */
@@ -57,6 +94,7 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
   const [mode, setMode] = useState<Mode>('sign-in')
   const [stage, setStage] = useState<Stage>('credentials')
   const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -107,7 +145,7 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
         }
       } else {
         if (!signUp) throw new Error('not-ready')
-        const attempt = await signUp.create({ emailAddress: email, password })
+        const attempt = await signUp.create({ emailAddress: email, password, username })
         if (attempt.status === 'complete') {
           await setActive({ session: attempt.createdSessionId })
           onComplete()
@@ -117,18 +155,26 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
           // the verify stage so "Resend code" is right there as the retry.
           try {
             await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
-          } catch {
-            setError('Could not send the verification email. Use "Resend code" to try again.')
+          } catch (prepareErr) {
+            setError(
+              clerkErrorMessage(
+                prepareErr,
+                'Could not send the verification email. Use "Resend code" to try again.',
+              ),
+            )
           }
           setStage('verify-email')
           setResendCooldown(RESEND_COOLDOWN_SECONDS)
         }
       }
-    } catch {
+    } catch (err) {
       setError(
-        mode === 'sign-in'
-          ? 'Wrong email or password.'
-          : 'Could not create an account with that email.',
+        clerkErrorMessage(
+          err,
+          mode === 'sign-in'
+            ? 'Wrong email or password.'
+            : 'Could not create an account with that email.',
+        ),
       )
     } finally {
       setSubmitting(false)
@@ -146,10 +192,19 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
         await setActive({ session: attempt.createdSessionId })
         onComplete()
       } else {
-        setError("That code didn't work. Double-check it and try again.")
+        // The code itself was accepted but something else Clerk requires
+        // is still missing (e.g. a field toggled on in the Clerk dashboard
+        // that this form doesn't collect) -- a generic "wrong code"
+        // message would be actively misleading here since retrying the
+        // same code next throws "already verified".
+        setError(
+          attempt.status === 'missing_requirements'
+            ? "Your email's verified, but your account needs something else this form doesn't collect yet. Contact support."
+            : "That code didn't work. Double-check it and try again.",
+        )
       }
-    } catch {
-      setError("That code didn't work. Double-check it and try again.")
+    } catch (err) {
+      setError(clerkErrorMessage(err, "That code didn't work. Double-check it and try again."))
     } finally {
       setVerifying(false)
     }
@@ -162,8 +217,8 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
     try {
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
       setResendCooldown(RESEND_COOLDOWN_SECONDS)
-    } catch {
-      setError('Could not resend the code. Try again in a moment.')
+    } catch (err) {
+      setError(clerkErrorMessage(err, 'Could not resend the code. Try again in a moment.'))
     } finally {
       setResending(false)
     }
@@ -256,6 +311,29 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
           ? 'Your streak and rating sync across devices once you’re in.'
           : 'Local play stays exactly as it is — this just adds sync and a name on the board.'}
       </p>
+
+      {mode === 'sign-up' && (
+        <>
+          <label className="text-xs font-semibold text-text-1" htmlFor="auth-username">
+            Username
+          </label>
+          <input
+            id="auth-username"
+            type="text"
+            autoComplete="username"
+            required
+            minLength={4}
+            maxLength={64}
+            pattern="[A-Za-z0-9_]+"
+            title="4-64 characters: letters, numbers, and underscores only"
+            value={username}
+            onChange={(event) => {
+              setUsername(event.target.value)
+            }}
+            className={FIELD_CLASS}
+          />
+        </>
+      )}
 
       <label className="text-xs font-semibold text-text-1" htmlFor="auth-email">
         Email
