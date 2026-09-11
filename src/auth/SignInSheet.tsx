@@ -127,7 +127,10 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
         type="password"
         autoComplete={mode === 'sign-in' ? 'current-password' : 'new-password'}
         required
-        minLength={8}
+        // Clerk's Production password policy requires 10+ (Configure > User
+        // & authentication > Password) -- scoped to sign-up only so a future
+        // account with a shorter pre-policy password can still sign in.
+        minLength={mode === 'sign-up' ? 10 : undefined}
         maxLength={64}
         value={password}
         onChange={(event) => {
