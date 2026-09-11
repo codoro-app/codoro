@@ -61,6 +61,10 @@ export interface RouteLimit {
  */
 export const ROUTE_LIMITS: Record<string, RouteLimit> = {
   'POST /api/report': { perIpBinding: 'RATE_LIMITER_REPORT_IP', perUser: false },
+  // T5: authenticated, so both buckets apply — the shared per-IP default is
+  // fine here (unlike /api/report, this isn't an anonymous abuse surface;
+  // rate limiting it at all is just the "every route rate-limited" rule).
+  'DELETE /api/account': { perIpBinding: 'RATE_LIMITER_PER_IP', perUser: true },
 }
 
 /**

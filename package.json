@@ -52,6 +52,7 @@
     ]
   },
   "dependencies": {
+    "@clerk/react": "^6",
     "@use-gesture/react": "^10.3.1",
     "framer-motion": "^12.42.2",
     "idb": "^8.0.3",
@@ -60,7 +61,8 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "wouter": "^3.10.0",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "workers": "workspace:*"
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.112.1",

@@ -18,8 +18,27 @@ import type { RatingWindowDays, RatingHistoryPoint, ActivityDay } from './statsD
 import { computeMastery, MIN_ATTEMPTS_FOR_MASTERY } from '../practice/mastery'
 import type { PatternMastery } from '../practice/mastery'
 import { PATTERN_LABELS, puzzleMeta } from '../../content'
+import { SignupPromptTrigger } from '../../auth/SignupPromptTrigger'
 import { DuckMascot } from '../Mascot'
 import { useMediaQuery } from '../useMediaQuery'
+
+// T5's "stats-page second visit" signup-prompt trigger. A disposable UI
+// counter (same tier as useFeedbackNudge.ts's own localStorage flag), not
+// app data -- caps at 2 so a long-time player's localStorage doesn't grow a
+// counter forever for a check that only ever cares about "exactly once
+// already, this being the second."
+const VISIT_COUNT_KEY = 'codoro:stats-visit-count'
+
+function bumpAndReadStatsVisitCount(): number {
+  try {
+    const current = Number(localStorage.getItem(VISIT_COUNT_KEY) ?? '0')
+    const next = Math.min(current + 1, 2)
+    localStorage.setItem(VISIT_COUNT_KEY, String(next))
+    return next
+  } catch {
+    return 0
+  }
+}
 
 const PAGE_SHELL_CLASS =
   'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[var(--space-4)] px-4 pb-4'
@@ -109,6 +128,10 @@ export function StatsPage() {
   // CTA + activity calendar + lifetime totals. Mobile (no sidebar) renders
   // everything inline in its original single-column order.
   const isDesktop = useMediaQuery('(min-width: 1024px)')
+  // Read once, on mount -- deliberately not in the data-loading effect
+  // below, so the trigger's "active" flag doesn't depend on the profile
+  // fetch's timing.
+  const [statsVisitCount] = useState(bumpAndReadStatsVisitCount)
 
   useEffect(() => {
     cancelledRef.current = false
@@ -361,6 +384,8 @@ export function StatsPage() {
           {totalsGrid}
         </aside>
       )}
+
+      <SignupPromptTrigger trigger="stats-second-visit" active={statsVisitCount === 2} />
     </>
   )
 }
