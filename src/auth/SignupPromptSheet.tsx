@@ -12,9 +12,14 @@
  * it only renders when the cap logic has already decided to show it (at
  * most once per trigger, globally rate-limited to one per 7 days).
  */
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { AuthProvider } from './AuthProvider'
-import { SignInSheet } from './SignInSheet'
+
+// Lazy for the same reason AccountSection.tsx's identical import is lazy --
+// see that file's doc comment for the real Rollup CSS-chunking bug this
+// avoids (a shared module statically imported from two separate lazy
+// chunks produced a dead CSS-preload reference that crashed the page).
+const SignInSheet = lazy(async () => ({ default: (await import('./SignInSheet')).SignInSheet }))
 
 export interface SignupPromptCopy {
   icon: string
@@ -53,7 +58,9 @@ export function SignupPromptSheet({ copy, onShown, onDismiss, onOptOut }: Signup
         <div className={BACKDROP_CLASS} onClick={onDismiss} />
         <div className={SHEET_CLASS} role="dialog" aria-modal="true" aria-label="Create account">
           <AuthProvider>
-            <SignInSheet onComplete={onDismiss} />
+            <Suspense fallback={null}>
+              <SignInSheet onComplete={onDismiss} />
+            </Suspense>
           </AuthProvider>
         </div>
       </>

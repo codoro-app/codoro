@@ -61,10 +61,26 @@ function inlineCriticalCss(): Plugin {
           typeof asset.source === 'string'
             ? asset.source
             : Buffer.from(asset.source).toString('utf-8')
-        // Delete the now-orphaned CSS asset so it doesn't linger in the SW
-        // precache manifest as dead weight (working against the _headers
-        // cache-lifetime fix's own spirit).
-        Reflect.deleteProperty(bundle, fileName)
+        // **Do NOT delete the asset from `bundle` here** (2026-09-11
+        // correction — this used to `Reflect.deleteProperty(bundle,
+        // fileName)`, on the assumption that nothing else references this
+        // file once it's inlined). That assumption broke, live, on
+        // getcodoro.com/settings: Rollup bakes each lazy chunk's own CSS
+        // preload-dependency list (Vite's `__vite__mapDeps` arrays) into
+        // that chunk's file content *before* this post-order
+        // transformIndexHtml hook ever runs. T5's new auth chunks
+        // (AuthProvider/SettingsPage/StatsPage) are the first lazy chunks
+        // whose dependency graph transitively references this same root
+        // CSS chunk — deleting the physical file after their references
+        // were already written left a dangling filename with nothing
+        // behind it. Vite's own preload-helper treats a failed CSS
+        // preload as a hard rejection of the whole dynamic import, which
+        // React's lazy() surfaces as a real render error — this crashed
+        // the page for every visitor hitting an affected route, not a
+        // cosmetic 404. Leaving the file in the bundle costs one small,
+        // already-computed CSS file lingering in the SW precache
+        // manifest (the original comment's "dead weight" concern) —
+        // real, but bounded and inert, versus a page that doesn't load.
         return html.replace(match[0], `<style>${css}</style>`)
       },
     },
