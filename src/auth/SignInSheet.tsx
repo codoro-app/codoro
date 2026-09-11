@@ -11,18 +11,35 @@
  * mental model describe. The classic, promise-based API this plan actually
  * means (`{ isLoaded, signIn, setActive }` / `.create()`) is still shipped,
  * at the `@clerk/react/legacy` subpath. Imported from there, deliberately.
+ *
+ * Email verification step (added after v5.1 shipped without it): creating
+ * a sign-up does NOT send a verification email on its own -- Clerk only
+ * sends it once `prepareEmailAddressVerification` is explicitly called.
+ * The original handleSubmit called `signUp.create()`, saw a non-'complete'
+ * status, and just told the user to "check your email" without ever
+ * asking Clerk to send anything (confirmed in production: zero email-send
+ * events in Clerk's own Logs for any of those attempts). This file now
+ * calls prepare immediately after a non-complete create(), and adds the
+ * code-entry stage + attemptEmailAddressVerification to actually finish
+ * the round trip.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useClerk } from '@clerk/react'
 import { useSignIn, useSignUp } from '@clerk/react/legacy'
 
 type Mode = 'sign-in' | 'sign-up'
+/** 'verify-email' only ever follows a sign-up whose create() came back
+ * needing email verification -- sign-in never enters it. */
+type Stage = 'credentials' | 'verify-email'
+
+const RESEND_COOLDOWN_SECONDS = 30
 
 const FIELD_CLASS =
   'w-full min-h-11 py-[11px] px-3 rounded-md border border-border bg-surface-1 text-text-0 text-md'
 const PRIMARY_BUTTON_CLASS =
   'min-h-11 w-full mt-1.5 py-3 px-4 rounded-md border-0 bg-accent text-accent-ink text-md font-bold cursor-pointer disabled:opacity-60 disabled:cursor-default'
 const SWITCH_LINE_CLASS = 'text-center text-sm text-text-1 mt-4'
+const LINK_BUTTON_CLASS = 'text-accent font-bold bg-transparent border-0 cursor-pointer p-0'
 
 export interface SignInSheetProps {
   /** Called after a sign-in or sign-up attempt completes successfully. */
@@ -38,16 +55,40 @@ export interface SignInSheetProps {
  */
 export function SignInSheet({ onComplete }: SignInSheetProps) {
   const [mode, setMode] = useState<Mode>('sign-in')
+  const [stage, setStage] = useState<Stage>('credentials')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [verifying, setVerifying] = useState(false)
+  const [resending, setResending] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
 
   const { isLoaded: signInLoaded, signIn } = useSignIn()
   const { isLoaded: signUpLoaded, signUp } = useSignUp()
   const { setActive } = useClerk()
 
   const isLoaded = mode === 'sign-in' ? signInLoaded : signUpLoaded
+
+  // Ticks the resend cooldown down to 0 once a second; re-armed by every
+  // prepare call (initial send and each resend) via setResendCooldown.
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const id = setInterval(() => {
+      setResendCooldown((seconds) => Math.max(0, seconds - 1))
+    }, 1000)
+    return () => {
+      clearInterval(id)
+    }
+  }, [resendCooldown])
+
+  function switchMode(next: Mode) {
+    setMode(next)
+    setStage('credentials')
+    setCode('')
+    setError(null)
+  }
 
   async function handleSubmit(event: React.SyntheticEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -71,12 +112,16 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
           await setActive({ session: attempt.createdSessionId })
           onComplete()
         } else {
-          // Email verification (Clerk's default Hobby-plan flow) is a
-          // real follow-up step this component doesn't build yet -- v5.1's
-          // scope is the round-trip working end to end for the common
-          // case; a partial/needs-verification result surfaces honestly
-          // rather than silently looking like success.
-          setError('Almost there — check your email to finish creating your account.')
+          // Ask Clerk to actually send the code -- create() alone never
+          // triggers it (see file header). A failure here still moves to
+          // the verify stage so "Resend code" is right there as the retry.
+          try {
+            await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
+          } catch {
+            setError('Could not send the verification email. Use "Resend code" to try again.')
+          }
+          setStage('verify-email')
+          setResendCooldown(RESEND_COOLDOWN_SECONDS)
         }
       }
     } catch {
@@ -88,6 +133,114 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  async function handleVerify(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError(null)
+    if (!signUp || verifying) return
+    setVerifying(true)
+    try {
+      const attempt = await signUp.attemptEmailAddressVerification({ code })
+      if (attempt.status === 'complete') {
+        await setActive({ session: attempt.createdSessionId })
+        onComplete()
+      } else {
+        setError("That code didn't work. Double-check it and try again.")
+      }
+    } catch {
+      setError("That code didn't work. Double-check it and try again.")
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  async function handleResend() {
+    if (!signUp || resending || resendCooldown > 0) return
+    setError(null)
+    setResending(true)
+    try {
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' })
+      setResendCooldown(RESEND_COOLDOWN_SECONDS)
+    } catch {
+      setError('Could not resend the code. Try again in a moment.')
+    } finally {
+      setResending(false)
+    }
+  }
+
+  if (stage === 'verify-email') {
+    return (
+      <form onSubmit={(event) => void handleVerify(event)} className="flex flex-col gap-3">
+        <p className="text-xs uppercase tracking-wide text-text-2 m-0">Almost there</p>
+        <p className="text-xl font-bold text-text-0 m-0">Check your email</p>
+        <p className="text-sm text-text-1 m-0 mb-1">
+          We sent a 6-digit code to <span className="text-text-0 font-semibold">{email}</span>.
+        </p>
+
+        <label className="text-xs font-semibold text-text-1" htmlFor="auth-verify-code">
+          Verification code
+        </label>
+        <input
+          id="auth-verify-code"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete="one-time-code"
+          maxLength={6}
+          required
+          aria-describedby={error ? 'auth-verify-error' : undefined}
+          value={code}
+          onChange={(event) => {
+            setCode(event.target.value.replace(/\D/g, '').slice(0, 6))
+          }}
+          className={`${FIELD_CLASS} tracking-[0.3em] text-center`}
+        />
+
+        {error && (
+          <p id="auth-verify-error" className="text-sm text-danger m-0" role="alert">
+            {error}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          className={PRIMARY_BUTTON_CLASS}
+          disabled={verifying || code.length < 6}
+        >
+          {verifying ? 'Verifying…' : 'Verify email'}
+        </button>
+
+        <p className={SWITCH_LINE_CLASS}>
+          {resendCooldown > 0 ? (
+            <>Resend code in {resendCooldown}s</>
+          ) : (
+            <>
+              Didn't get it?{' '}
+              <button
+                type="button"
+                className={LINK_BUTTON_CLASS}
+                disabled={resending}
+                onClick={() => void handleResend()}
+              >
+                {resending ? 'Sending…' : 'Resend code'}
+              </button>
+            </>
+          )}
+        </p>
+        <p className={SWITCH_LINE_CLASS}>
+          <button
+            type="button"
+            className={LINK_BUTTON_CLASS}
+            onClick={() => {
+              switchMode('sign-up')
+            }}
+          >
+            Use a different email
+          </button>
+        </p>
+      </form>
+    )
   }
 
   return (
@@ -169,10 +322,9 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
             No account yet?{' '}
             <button
               type="button"
-              className="text-accent font-bold bg-transparent border-0 cursor-pointer p-0"
+              className={LINK_BUTTON_CLASS}
               onClick={() => {
-                setMode('sign-up')
-                setError(null)
+                switchMode('sign-up')
               }}
             >
               Create one
@@ -183,10 +335,9 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
             Already have one?{' '}
             <button
               type="button"
-              className="text-accent font-bold bg-transparent border-0 cursor-pointer p-0"
+              className={LINK_BUTTON_CLASS}
               onClick={() => {
-                setMode('sign-in')
-                setError(null)
+                switchMode('sign-in')
               }}
             >
               Sign in
