@@ -51,8 +51,16 @@ type Stage = 'credentials' | 'verify-email'
 
 const RESEND_COOLDOWN_SECONDS = 30
 
+// bg-surface-2 + border-border-strong (not surface-1/border-border): the
+// sheet itself is bg-surface-1, so an input using that same pair was
+// nearly invisible against it -- only a border's worth of contrast,
+// which barely registers for an empty field with no autofill highlight
+// (reported: "hard to see" on the new username field, which was the
+// first field a fresh sign-up actually saw un-autofilled). Same
+// surface-2/border-strong pairing DeleteAccountDialog.tsx already uses
+// for its own input against the same surface-1 backdrop.
 const FIELD_CLASS =
-  'w-full min-h-11 py-[11px] px-3 rounded-md border border-border bg-surface-1 text-text-0 text-md'
+  'w-full min-h-11 py-[11px] px-3 rounded-md border border-border-strong bg-surface-2 text-text-0 text-md'
 const PRIMARY_BUTTON_CLASS =
   'min-h-11 w-full mt-1.5 py-3 px-4 rounded-md border-0 bg-accent text-accent-ink text-md font-bold cursor-pointer disabled:opacity-60 disabled:cursor-default'
 const SWITCH_LINE_CLASS = 'text-center text-sm text-text-1 mt-4'
