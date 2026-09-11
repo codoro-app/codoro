@@ -15,6 +15,8 @@ import { useState } from 'react'
 import { ApiError, apiFetch } from '../auth/api'
 import { REPORT_REASONS } from 'workers/shared/api-types'
 import type { ReportReason, ReportResponse } from 'workers/shared/api-types'
+import { FlagIcon } from './Icons'
+import { Tooltip } from './Tooltip'
 
 const REASON_LABELS: Record<ReportReason, string> = {
   'wrong-answer': 'The marked answer is wrong',
@@ -32,8 +34,12 @@ const APP_VERSION: string = (import.meta.env.VITE_APP_VERSION as string | undefi
 
 type Status = 'collapsed' | 'expanded' | 'sending' | 'sent' | 'error'
 
-const LINK_BUTTON_CLASS =
-  'text-xs text-text-2 underline underline-offset-2 bg-transparent border-0 cursor-pointer p-0'
+// Same icon-trigger treatment as ShareMenu's `trigger="icon"` mode (matched
+// class-for-class) -- this control now lives in the same right-rail sidebar
+// as the share/challenge icons, so it reads as one family of controls
+// rather than a mismatched text link (the theme complaint this replaces).
+const ICON_TRIGGER_CLASS =
+  'flex items-center justify-center shrink-0 min-w-11 min-h-11 rounded-sm border border-border bg-surface-1 text-text-1 cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
 export function ReportPuzzleControl({ puzzleId }: { puzzleId: string }) {
   const [status, setStatus] = useState<Status>('collapsed')
@@ -59,7 +65,7 @@ export function ReportPuzzleControl({ puzzleId }: { puzzleId: string }) {
 
   if (status === 'sent') {
     return (
-      <p className="m-0 text-right text-xs text-accent" role="status">
+      <p className="m-0 text-xs text-accent" role="status">
         Thanks — sent. We&apos;ll take a look.
       </p>
     )
@@ -68,15 +74,20 @@ export function ReportPuzzleControl({ puzzleId }: { puzzleId: string }) {
   if (status === 'collapsed') {
     return (
       <div className="flex justify-end">
-        <button
-          type="button"
-          className={LINK_BUTTON_CLASS}
-          onClick={() => {
-            setStatus('expanded')
-          }}
-        >
-          Report this puzzle
-        </button>
+        <Tooltip label="Report this puzzle" className="shrink-0">
+          <button
+            type="button"
+            className={ICON_TRIGGER_CLASS}
+            aria-haspopup="dialog"
+            aria-expanded={false}
+            aria-label="Report this puzzle"
+            onClick={() => {
+              setStatus('expanded')
+            }}
+          >
+            <FlagIcon size={18} />
+          </button>
+        </Tooltip>
       </div>
     )
   }
