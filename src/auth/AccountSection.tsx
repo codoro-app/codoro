@@ -11,12 +11,27 @@
  * never as AuthProvider's Suspense fallback (see AuthProvider.tsx's own
  * doc comment for why that split matters).
  */
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useClerk } from '@clerk/react'
 import { AuthProvider, hasClerkKey } from './AuthProvider'
 import { DeleteAccountDialog } from './DeleteAccountDialog'
-import { SignInSheet } from './SignInSheet'
 import { useAuthToken } from './useAuthToken'
+
+// Lazy, not a static import: SignInSheet.tsx is also statically imported by
+// SignupPromptSheet.tsx (a second, unrelated lazy route). Two separate lazy
+// chunks statically importing the same shared module is exactly the shape
+// that tripped a real Rollup CSS-code-splitting bug found live on
+// getcodoro.com/settings -- a dead `assets/index-<hash>.css` reference
+// baked into the shared chunk's own preload list, for a file Rollup
+// computes a hash for but never actually emits, which made Vite's
+// `__vitePreload` reject the whole dynamic import and crash the page via
+// the ErrorBoundary. Reproduced in a fully clean local build (no cache),
+// so it's a real bug in this chunk graph, not a deploy artifact. Giving
+// SignInSheet its own independent lazy boundary at each of its two call
+// sites (matching ClerkBoundary.tsx's already-working pattern) avoids the
+// shared-chunk shape entirely. No UX change: this was already only
+// rendered once a sheet/dialog opens.
+const SignInSheet = lazy(async () => ({ default: (await import('./SignInSheet')).SignInSheet }))
 
 const CARD_CLASS = 'rounded-md border border-border bg-surface-1 py-4 px-4'
 const PRIMARY_BUTTON_CLASS =
@@ -90,11 +105,13 @@ function AccountSectionBody() {
               }}
             />
             <div className={SHEET_CLASS} role="dialog" aria-modal="true" aria-label="Sign in">
-              <SignInSheet
-                onComplete={() => {
-                  setShowSignIn(false)
-                }}
-              />
+              <Suspense fallback={null}>
+                <SignInSheet
+                  onComplete={() => {
+                    setShowSignIn(false)
+                  }}
+                />
+              </Suspense>
             </div>
           </div>
         )}
