@@ -73,12 +73,18 @@
         // plan): this is the only unauthenticated write in the system.
         { "name": "RATE_LIMITER_REPORT_IP", "namespace_id": "77", "simple": { "limit": 5, "period": 60 } }
       ],
-      // Verified in T1 to coexist with the existing Pages Function
-      // (functions/challenge.ts) on this same zone — see the phase
-      // amendment. This is the real "staging" the build plan's DoDs refer
-      // to; there is no separate dev domain (docs/superpowers/plans/2026-08-31-v5-phase-5.0-coding-plan.md,
-      // "Environment notes").
-      "routes": [{ "pattern": "getcodoro.com/api/*", "zone_name": "getcodoro.com" }]
+      // No `routes` here (2026-09-11 amendment): originally bound to
+      // getcodoro.com/api/* alongside functions/challenge.ts (T1) as a
+      // stand-in "staging" since no separate dev domain existed. Once a
+      // real Clerk Production instance was provisioned and `codoro-api`
+      // (the `production` env below) was deployed to that same route for
+      // real, the two collided -- Cloudflare only lets one Worker own a
+      // given route, and CI's `deploy-dev` job (runs on every push to
+      // main) started failing outright with "Can't deploy routes that are
+      // assigned to another worker." `production` keeps the route
+      // permanently now; `dev` deploys to its default *.workers.dev
+      // subdomain instead. A real separate dev domain/route is a future
+      // decision, not something to silently re-add here.
     },
     "production": {
       "name": "codoro-api",
