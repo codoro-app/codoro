@@ -142,6 +142,20 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
         </p>
       )}
 
+      {/*
+       * Required mount point for Clerk's bot-protection CAPTCHA
+       * (https://clerk.com/docs/guides/development/custom-flows/authentication/bot-sign-up-protection).
+       * Without it, Clerk falls back to a pure "Invisible" check with
+       * nowhere to render an interactive challenge if Cloudflare Turnstile
+       * can't clear the visitor silently (seen in production: a
+       * browser-extension-heavy session made Turnstile's invisible pass
+       * fail, and with no div to escalate into, signUp.create() posted
+       * with no captcha token and Clerk's backend rejected it with a 422).
+       * Empty and invisible in the common case; Turnstile only renders
+       * into it when an interactive challenge is actually needed.
+       */}
+      <div id="clerk-captcha" />
+
       <button type="submit" className={PRIMARY_BUTTON_CLASS} disabled={!isLoaded || submitting}>
         {submitting ? 'Please wait…' : mode === 'sign-in' ? 'Sign in' : 'Create account'}
       </button>
