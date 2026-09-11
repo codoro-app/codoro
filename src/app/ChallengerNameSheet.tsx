@@ -80,7 +80,7 @@ export function ChallengerNameSheet({ onContinue, onSkip }: ChallengerNameSheetP
         <div className="w-9 h-1 rounded-full bg-border self-center mb-3" aria-hidden="true" />
         <p className="m-0 mb-1 text-text-0 font-bold">What should we call you?</p>
         <p className="m-0 mb-3 text-sm text-text-1">
-          Shown to whoever you challenge — e.g. &ldquo;Alex challenged you!&rdquo; You can change
+          Shown to whoever you challenge — e.g. &ldquo;Ducky challenged you!&rdquo; You can change
           this anytime in Settings.
         </p>
         <label htmlFor="challenger-name-input" className="sr-only">

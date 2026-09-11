@@ -60,6 +60,7 @@ import {
   saveProfile,
 } from '../../storage'
 import type { ExportedData, Preferences, UserProfile } from '../../storage'
+import { AccountSection } from '../../auth/AccountSection'
 import { FeedbackLink } from '../FeedbackLink'
 import { applyPreferences } from '../preferences/applyPreferences'
 
@@ -288,6 +289,11 @@ export function SettingsPage() {
       <h1 className="text-2xl text-text-0 m-0">Settings</h1>
 
       <section>
+        <h2 className={SECTION_HEADING_CLASS}>Account</h2>
+        <AccountSection />
+      </section>
+
+      <section>
         <h2 className={SECTION_HEADING_CLASS}>Preferences</h2>
         {preferencesError && (
           <p className="mt-0 mb-2 text-danger text-sm" role="alert">
@@ -457,7 +463,7 @@ export function SettingsPage() {
         <h2 className={SECTION_HEADING_CLASS}>Challenge a friend</h2>
         <p className={SECTION_COPY_CLASS}>
           Your display name on outgoing challenge links — e.g. &ldquo;
-          {challengerNameValue.trim() || 'Alex'} challenged you!&rdquo; Leave it blank to challenge
+          {challengerNameValue.trim() || 'Ducky'} challenged you!&rdquo; Leave it blank to challenge
           as &ldquo;A friend&rdquo;.
         </p>
         {challengerNameError && (
