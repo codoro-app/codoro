@@ -65,6 +65,15 @@ export const ROUTE_LIMITS: Record<string, RouteLimit> = {
   // fine here (unlike /api/report, this isn't an anonymous abuse surface;
   // rate limiting it at all is just the "every route rate-limited" rule).
   'DELETE /api/account': { perIpBinding: 'RATE_LIMITER_PER_IP', perUser: true },
+  // T7: same reasoning as DELETE /api/account -- authenticated, not an
+  // anonymous abuse surface, shared per-IP default is fine. PUT is the
+  // route T8's debounced push hits repeatedly during normal play, so the
+  // per-user bucket (not just per-IP) matters here specifically: a buggy
+  // client retry-looping would otherwise only be caught by the shared IP
+  // bucket, which every other signed-in device behind the same IP/NAT
+  // would also pay for.
+  'PUT /api/profile': { perIpBinding: 'RATE_LIMITER_PER_IP', perUser: true },
+  'GET /api/profile': { perIpBinding: 'RATE_LIMITER_PER_IP', perUser: true },
 }
 
 /**

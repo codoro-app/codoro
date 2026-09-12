@@ -63,3 +63,71 @@ export interface ReportRequest {
 export interface ReportResponse {
   ok: true
 }
+
+/**
+ * T7: `PUT`/`GET /api/profile`'s request/response shapes. `payload` is
+ * opaque `unknown` on purpose (S2) -- the Worker stores and returns it
+ * byte-for-byte, it never interprets the client's `ExportedData` shape.
+ *
+ * No `clientUpdatedAt` field, unlike the original plan's PUT body
+ * description -- T6's merge engine (src/sync/merge.ts) already found this
+ * field doesn't exist anywhere in the client schema; the one real
+ * timestamp the client has is `ExportedData.exportedAt`, which isn't part
+ * of the sync-concurrency contract itself, so it isn't part of this wire
+ * shape either. `updatedAt` in the response is the *server's* write-time
+ * clock (set by the route handler, not echoed from the client).
+ */
+export interface ProfilePutRequest {
+  schemaVersion: number
+  payload: unknown
+  /**
+   * The revision this client last saw. `0` means "I believe no server
+   * row exists yet" -- the sentinel that lets the very first push from a
+   * device use the same optimistic-concurrency path as every later one
+   * (profileStore.ts's `putIfMatch`).
+   */
+  baseRevision: number
+  /**
+   * The v2 anonId to link, first push only. First-write-wins (T7's DoD):
+   * once `users.linked_anon_id` is non-null, later values are ignored,
+   * never overwritten.
+   */
+  // `| undefined` alongside the `?` is deliberate, not redundant: under
+  // exactOptionalPropertyTypes, `anonId?: string | null` and
+  // `anonId?: string | null | undefined` are different types -- the
+  // former forbids an explicitly-present `undefined` value, which is
+  // exactly what Zod's `.optional()` produces in its inferred output
+  // type (found via tsc: `satisfies z.ZodType<ProfilePutRequest>` in
+  // profile.ts failed without this). JSON itself never carries a literal
+  // `undefined`, so this is a TS-level accommodation only, not a wire
+  // contract change.
+  anonId?: string | null | undefined
+}
+
+export interface ProfilePutResponse {
+  ok: true
+  revision: number
+}
+
+/**
+ * 409 body -- carries the current server state so the client can run it
+ * through T6's merge engine locally and retry, without a second round
+ * trip just to fetch what it already just conflicted against.
+ */
+export interface ProfileConflictResponse {
+  error: 'Conflict'
+  current: {
+    revision: number
+    schemaVersion: number
+    payload: unknown
+    updatedAt: number
+  }
+}
+
+/** `GET /api/profile`'s success response. `404` (no body) if no row yet. */
+export interface ProfileGetResponse {
+  revision: number
+  schemaVersion: number
+  payload: unknown
+  updatedAt: number
+}

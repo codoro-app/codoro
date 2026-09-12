@@ -44,6 +44,53 @@ export async function deleteUser(db: D1Database, clerkUserId: string): Promise<v
   await db.prepare('DELETE FROM users WHERE clerk_user_id = ?').bind(clerkUserId).run()
 }
 
+/**
+ * T7's finding: the plan's PUT /api/profile description assumes "row
+ * creation for users: already handled by T3's lazy-insert-on-first-
+ * authenticated-write" -- checked directly against this file and
+ * `src/index.ts`, no such call exists anywhere outside tests (every
+ * `insertUser` call site is a test fixture seeding its own row). Nothing
+ * before T7 needed a `users` row to exist for an authenticated write to
+ * succeed -- DELETE /api/account tolerates a missing row by design
+ * (idempotent), and no other authenticated write route exists yet. T7 is
+ * the first one that does (profiles.clerk_user_id REFERENCES
+ * users.clerk_user_id), so this is where the lazy-insert this file's own
+ * doc comment already assumed gets built, once, for every future
+ * authenticated write route to reuse.
+ *
+ * `INSERT ... ON CONFLICT DO NOTHING` rather than get-then-insert: a
+ * single statement, race-safe under concurrent first-writes the same way
+ * `recordScore`'s upsert already is, no separate existence check needed.
+ */
+export async function getOrCreateUser(db: D1Database, clerkUserId: string): Promise<void> {
+  await db
+    .prepare(
+      'INSERT INTO users (clerk_user_id, created_at) VALUES (?, ?) ON CONFLICT (clerk_user_id) DO NOTHING',
+    )
+    .bind(clerkUserId, Date.now())
+    .run()
+}
+
+/**
+ * T7: first-write-wins for the v2 `anonId` link. The `WHERE ... IS NULL`
+ * guard is what makes "written only once" true regardless of how many
+ * times a client (mistakenly or not) sends a later, different value --
+ * there is no application-level branch to get this wrong, same style as
+ * `recordScore`'s keep-best WHERE clause.
+ */
+export async function linkAnonIdIfUnset(
+  db: D1Database,
+  clerkUserId: string,
+  anonId: string,
+): Promise<void> {
+  await db
+    .prepare(
+      'UPDATE users SET linked_anon_id = ? WHERE clerk_user_id = ? AND linked_anon_id IS NULL',
+    )
+    .bind(anonId, clerkUserId)
+    .run()
+}
+
 export type ScoreMode = 'daily' | 'rush' | 'boss'
 
 export interface RecordScoreInput {
