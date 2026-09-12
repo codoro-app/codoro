@@ -15,24 +15,24 @@ describe('shouldShowSignupPrompt', () => {
     expect(shouldShowSignupPrompt(DEFAULT_SIGNUP_PROMPT_STATE, 'boss-clear', NOW)).toBe(true)
   })
 
-  it('never shows the same trigger a second time, even long after any cooldown', () => {
+  it('allows the same trigger to recur once the 3-day cooldown has fully elapsed', () => {
     const state = recordSignupPromptShown(DEFAULT_SIGNUP_PROMPT_STATE, 'boss-clear', NOW)
-    expect(shouldShowSignupPrompt(state, 'boss-clear', NOW + 365 * DAY_MS)).toBe(false)
+    expect(shouldShowSignupPrompt(state, 'boss-clear', NOW + 3 * DAY_MS)).toBe(true)
   })
 
-  it('blocks a different trigger inside the 7-day global cooldown', () => {
+  it('blocks a different trigger inside the 3-day global cooldown', () => {
     const state = recordSignupPromptShown(DEFAULT_SIGNUP_PROMPT_STATE, 'boss-clear', NOW)
-    expect(shouldShowSignupPrompt(state, 'streak-7-day', NOW + 6 * DAY_MS)).toBe(false)
+    expect(shouldShowSignupPrompt(state, 'streak-7-day', NOW + 2 * DAY_MS)).toBe(false)
   })
 
-  it('allows a different trigger once the 7-day cooldown has fully elapsed', () => {
+  it('allows a different trigger once the 3-day cooldown has fully elapsed', () => {
     const state = recordSignupPromptShown(DEFAULT_SIGNUP_PROMPT_STATE, 'boss-clear', NOW)
-    expect(shouldShowSignupPrompt(state, 'streak-7-day', NOW + 7 * DAY_MS)).toBe(true)
+    expect(shouldShowSignupPrompt(state, 'streak-7-day', NOW + 3 * DAY_MS)).toBe(true)
   })
 
-  it('is still blocked at exactly the boundary (< 7 days, not <=)', () => {
+  it('is still blocked at exactly the boundary (< 3 days, not <=)', () => {
     const state = recordSignupPromptShown(DEFAULT_SIGNUP_PROMPT_STATE, 'boss-clear', NOW)
-    expect(shouldShowSignupPrompt(state, 'streak-7-day', NOW + 7 * DAY_MS - 1)).toBe(false)
+    expect(shouldShowSignupPrompt(state, 'streak-7-day', NOW + 3 * DAY_MS - 1)).toBe(false)
   })
 
   it('never shows anything once permanently opted out, regardless of cooldown or trigger history', () => {
@@ -47,7 +47,7 @@ describe('shouldShowSignupPrompt', () => {
     expect(shouldShowSignupPrompt(state, 'streak-7-day', NOW + 30 * DAY_MS)).toBe(false)
   })
 
-  it('all four trigger types are independently one-shot across a long play history', () => {
+  it('all five trigger types can each fire in turn, spaced past the cooldown', () => {
     let state: SignupPromptState = DEFAULT_SIGNUP_PROMPT_STATE
     let t = NOW
     const seen: string[] = []
@@ -56,24 +56,31 @@ describe('shouldShowSignupPrompt', () => {
       'streak-7-day',
       'leaderboard-view',
       'stats-second-visit',
+      'puzzle-milestone',
     ] as const) {
       if (shouldShowSignupPrompt(state, trigger, t)) {
         seen.push(trigger)
         state = recordSignupPromptShown(state, trigger, t)
       }
-      t += 8 * DAY_MS // clear the cooldown before the next trigger fires
+      t += 4 * DAY_MS // clear the (now 3-day) cooldown before the next trigger fires
     }
-    // Every trigger gets exactly one shot, in order, spaced past cooldown.
-    expect(seen).toEqual(['boss-clear', 'streak-7-day', 'leaderboard-view', 'stats-second-visit'])
-    // And none of them fire a second time even much later.
-    for (const trigger of [
+    expect(seen).toEqual([
       'boss-clear',
       'streak-7-day',
       'leaderboard-view',
       'stats-second-visit',
-    ] as const) {
-      expect(shouldShowSignupPrompt(state, trigger, t + 365 * DAY_MS)).toBe(false)
-    }
+      'puzzle-milestone',
+    ])
+  })
+
+  it('a trigger already shown once can still fire again later -- the cap is cooldown-only, not one-shot', () => {
+    let state: SignupPromptState = DEFAULT_SIGNUP_PROMPT_STATE
+    state = recordSignupPromptShown(state, 'boss-clear', NOW)
+    state = recordSignupPromptShown(state, 'boss-clear', NOW + 10 * DAY_MS)
+    // Immediately after the second showing, still within cooldown.
+    expect(shouldShowSignupPrompt(state, 'boss-clear', NOW + 10 * DAY_MS + DAY_MS)).toBe(false)
+    // Cooldown counted from the *second* showing, not the first.
+    expect(shouldShowSignupPrompt(state, 'boss-clear', NOW + 10 * DAY_MS + 3 * DAY_MS)).toBe(true)
   })
 })
 
@@ -84,10 +91,11 @@ describe('recordSignupPromptShown', () => {
     expect(state.lastShownAt).toBe(NOW)
   })
 
-  it('is idempotent for a trigger already recorded -- does not duplicate or bump the timestamp', () => {
+  it('does not duplicate an already-recorded trigger in shownTriggers, but does bump lastShownAt', () => {
     const first = recordSignupPromptShown(DEFAULT_SIGNUP_PROMPT_STATE, 'boss-clear', NOW)
     const second = recordSignupPromptShown(first, 'boss-clear', NOW + 100 * DAY_MS)
-    expect(second).toEqual(first)
+    expect(second.shownTriggers).toEqual(['boss-clear'])
+    expect(second.lastShownAt).toBe(NOW + 100 * DAY_MS)
   })
 
   it('does not mutate the input state object', () => {
