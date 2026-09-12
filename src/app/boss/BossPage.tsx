@@ -21,6 +21,7 @@ import { useMediaQuery } from '../useMediaQuery'
 import { ChallengeButton } from '../ChallengeButton'
 import { useChallengerName } from '../useChallengerName'
 import { saveProfile } from '../../storage'
+import { SignupPromptTrigger } from '../../auth/SignupPromptTrigger'
 import './bossPage.css'
 
 // 2b.0: was `.boss-page` in bossPage.css (max-width breakpoint matches
@@ -164,6 +165,11 @@ export function BossPage() {
           {runEndedContent}
         </aside>
       )}
+
+      <SignupPromptTrigger
+        trigger="boss-clear"
+        active={session.phase === 'ended' && session.runSummary?.cleared === true}
+      />
     </>
   )
 }

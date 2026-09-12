@@ -1,8 +1,10 @@
 /**
- * T5: draft copy for the four signup-prompt trigger moments — reviewed and
- * approved against the mockup (2026-09-10). Each names the concrete thing
- * that just happened rather than a generic "sign up now," tone deliberately
- * flat/matter-of-fact rather than hypey.
+ * T5: draft copy for the signup-prompt trigger moments — the original four
+ * reviewed and approved against the mockup (2026-09-10); `puzzle-milestone`
+ * added in the Phase 5.2 Piece 0 revision (2026-09-12, see signupPrompts.ts's
+ * own doc comment) as a fifth, lower-bar trigger. Each names the concrete
+ * thing that just happened rather than a generic "sign up now," tone
+ * deliberately flat/matter-of-fact rather than hypey.
  */
 import type { SignupPromptCopy } from './SignupPromptSheet'
 import type { SignupPromptTrigger } from './signupPrompts'
@@ -27,5 +29,10 @@ export const SIGNUP_PROMPT_COPY: Record<SignupPromptTrigger, SignupPromptCopy> =
     icon: '◷',
     title: 'This is all on one device, for now.',
     body: 'An account backs up this rating and history so a lost phone doesn’t mean starting over.',
+  },
+  'puzzle-milestone': {
+    icon: '✓',
+    title: 'Three down.',
+    body: 'Create an account now and none of this — rating, streak, history — is stuck on just this device.',
   },
 }

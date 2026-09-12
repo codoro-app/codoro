@@ -79,6 +79,7 @@ import { computeMastery } from './practice/mastery'
 import { PATTERN_LABELS, puzzleMeta } from '../content'
 import { FeedbackNudge } from './FeedbackNudge'
 import { useFeedbackNudge } from './useFeedbackNudge'
+import { SignupPromptTrigger } from '../auth/SignupPromptTrigger'
 import { FirstRunSequence } from './firstRun/FirstRunSequence'
 
 // Launch instrumentation follow-up (feedback nudges): the fallback trigger
@@ -504,6 +505,9 @@ export function Home() {
           </div>
         </aside>
       )}
+
+      <SignupPromptTrigger trigger="streak-7-day" active={profile.streak.currentStreak === 7} />
+      <SignupPromptTrigger trigger="puzzle-milestone" active={profile.ratedAttemptCount === 3} />
     </>
   )
 }

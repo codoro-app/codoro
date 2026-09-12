@@ -9,13 +9,18 @@
  * functions have from its own hook, just with real state transitions this
  * time instead of a single boolean flag.
  *
- * The four trigger points and the cap shape are locked by the build plan,
- * settled in the implementation plan's own "Open design questions" table:
- * one prompt per trigger type *ever*, a 7-day global cooldown between any
- * two prompts (regardless of trigger), and a permanent "don't ask again"
- * that suppresses every future trigger. All three checks are independent —
- * a trigger can be blocked by its own one-time flag even during an
- * otherwise-open cooldown window, and vice versa.
+ * Phase 5.2 Piece 0 revision (2026-09-12): the original one-shot-per-trigger
+ * cap made the prompt too rare in practice — `boss-clear` and `streak-7-day`
+ * are both real moments, but a meaningful slice of users never clear Boss or
+ * hold a 7-day streak, so those two alone left them never prompted at all.
+ * The cap is now cooldown-only: any trigger can recur once the global
+ * cooldown (shortened 7d -> 3d) has elapsed, and a fifth, low-bar trigger
+ * (`puzzle-milestone`) was added alongside the original four so there's a
+ * near-universal early moment that doesn't depend on which modes a player
+ * happens to touch. `shownTriggers` is kept as a shown-at-least-once
+ * bookkeeping list (useful for analytics/copy variety later) but no longer
+ * gates `shouldShowSignupPrompt` — only the cooldown and the permanent
+ * opt-out do.
  */
 
 export const SIGNUP_PROMPT_TRIGGERS = [
@@ -23,12 +28,13 @@ export const SIGNUP_PROMPT_TRIGGERS = [
   'streak-7-day',
   'leaderboard-view',
   'stats-second-visit',
+  'puzzle-milestone',
 ] as const
 
 export type SignupPromptTrigger = (typeof SIGNUP_PROMPT_TRIGGERS)[number]
 
 export interface SignupPromptState {
-  /** Trigger types that have already shown a prompt, ever. */
+  /** Trigger types that have shown a prompt at least once (bookkeeping only — does not gate). */
   shownTriggers: SignupPromptTrigger[]
   /** Epoch ms of the most recent prompt shown (any trigger), or null. */
   lastShownAt: number | null
@@ -42,23 +48,26 @@ export const DEFAULT_SIGNUP_PROMPT_STATE: SignupPromptState = {
   optedOut: false,
 }
 
-const GLOBAL_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000
+const GLOBAL_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000
 
 /**
- * The one function every trigger site calls before rendering a prompt.
- * Three independent gates, all must pass:
+ * The one function every trigger site calls before rendering a prompt. Two
+ * independent gates, both must pass:
  *   1. Permanent opt-out not set.
- *   2. This exact trigger has never shown before.
- *   3. At least 7 days have passed since any prompt last showed (or none
- *      ever has).
+ *   2. At least 3 days have passed since any prompt last showed (or none
+ *      ever has) — regardless of which trigger fired last or is asking now,
+ *      so the same trigger recurring is allowed once the cooldown clears.
  */
 export function shouldShowSignupPrompt(
   state: SignupPromptState,
-  trigger: SignupPromptTrigger,
+  // Kept in the signature for every call site's clarity ("is *this* trigger
+  // allowed to show") and so a future trigger-specific rule has somewhere to
+  // hang without changing every caller -- but the cooldown-only cap below
+  // doesn't currently read it.
+  _trigger: SignupPromptTrigger,
   now: number,
 ): boolean {
   if (state.optedOut) return false
-  if (state.shownTriggers.includes(trigger)) return false
   if (state.lastShownAt !== null && now - state.lastShownAt < GLOBAL_COOLDOWN_MS) return false
   return true
 }
@@ -66,18 +75,21 @@ export function shouldShowSignupPrompt(
 /**
  * Records that `trigger`'s prompt was actually shown -- called once, at the
  * moment the sheet renders, not at dismiss/create-account time (a prompt
- * that appeared and was ignored still consumed its one-per-trigger-ever
- * shot and started the cooldown, same as one that was actively dismissed).
+ * that appeared and was ignored still started the cooldown, same as one
+ * that was actively dismissed). `lastShownAt` always advances, including on
+ * a repeat trigger -- that's what makes the recurring cooldown work.
+ * `shownTriggers` stays a deduped "ever shown" list purely for bookkeeping.
  */
 export function recordSignupPromptShown(
   state: SignupPromptState,
   trigger: SignupPromptTrigger,
   now: number,
 ): SignupPromptState {
-  if (state.shownTriggers.includes(trigger)) return state
   return {
     ...state,
-    shownTriggers: [...state.shownTriggers, trigger],
+    shownTriggers: state.shownTriggers.includes(trigger)
+      ? state.shownTriggers
+      : [...state.shownTriggers, trigger],
     lastShownAt: now,
   }
 }
