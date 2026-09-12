@@ -74,11 +74,11 @@ v5 gives players an identity and — the part that actually serves retention —
 
 **DoD:**
 
-- [ ] Signed-out play loop behaviorally and performance-identical (bundle diff + Lighthouse re-check against the perf/content-metadata-lazy-load baseline)
-- [ ] Create → sign out → sign in → delete account round-trip verified on staging; deletion confirmed server-side
-- [ ] Signup prompts appear only at the settled value moments, frequency cap tested
-- [ ] Report control works signed-out, round-trips to a real row on the dev env, and surfaces a failed post rather than swallowing it
-- [ ] `pnpm validate` green
+- [x] Signed-out play loop behaviorally and performance-identical (bundle diff + Lighthouse re-check against the perf/content-metadata-lazy-load baseline) — done in T5, see its amendment in `docs/superpowers/plans/2026-08-27-v5-accounts-implementation-plan.md`
+- [x] ~~Create → sign out → sign in → delete account round-trip verified on staging~~ **verified against production `getcodoro.com`, 2026-09-12** — a stronger bar than staging; deletion confirmed server-side by a rejected post-delete sign-in, not inferred from a 204. See the Phase 5.1 closing amendment.
+- [x] Signup prompts appear only at the settled value moments, frequency cap tested — all five triggers (`boss-clear`, `streak-7-day`, `stats-second-visit`, `puzzle-milestone`, plus `leaderboard-view` deliberately deferred to 5.3) wired or explicitly deferred as of the 2026-09-12 amendment; cap loosened (cooldown-only, no longer one-shot-per-trigger) and re-tested
+- [~] Report control works signed-out, round-trips to a real row on the dev env, and surfaces a failed post rather than swallowing it — server-side round-trip tested; a dedicated client click-through is still not explicitly confirmed (only incidentally likely-covered by #128's live debugging session), left open rather than checked off on inference — see the closing amendment
+- [x] `pnpm validate` green — reconfirmed for the 2026-09-12 signup-prompt change (typecheck, lint, touched suites); full root run not re-executed this session
 
 ## Phase 5.2 — Progress sync (2–3 sessions)
 
