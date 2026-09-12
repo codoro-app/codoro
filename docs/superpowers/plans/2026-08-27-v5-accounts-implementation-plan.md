@@ -701,8 +701,131 @@ api-types'`, matching that claim for real.
       click-through against `codoro-dev` not yet performed)
 - [x] `pnpm validate` green at the root (typecheck, lint, 2616 tests,
       content validation, build) **and** `pnpm --filter workers run
-  validate` green (53 tests) — the delete-account endpoint did touch
+validate` green (53 tests) — the delete-account endpoint did touch
       `workers/`
 - [x] Session amendment written here, as-you-go per T1–T4a's own
       convention: real measurements, real platform surprises, DoD checked
       off with evidence, gaps named rather than papered over
+
+## Phase 5.1 closing amendment — 2026-09-12: the fix-PR trail, the round-trip actually clicked, and the two remaining triggers wired
+
+Written per this task's own "Recommend doing that now" line, before starting
+Phase 5.2's Piece 0 in earnest — `docs/v5-build-plan.md`'s Phase 5.1 DoD
+checklist had sat all-unchecked since T5, which is how "is 5.1 done?" turns
+into a recurring question instead of a closed one. Checked against the repo
+directly (`git log`, `gh pr list`), not assumed from either amendment's own
+claims.
+
+**What actually shipped, beyond T5's own amendment:** T5 merged to `main` as
+#126 with the DoD above still carrying one unblocked box and two explicitly
+named gaps. Once Thomas had real Clerk Production keys and ran the actual
+flow via Claude in Chrome against `getcodoro.com`, seven follow-up PRs
+landed — the real-world verification evidence this phase's DoD asks for,
+not a hypothetical:
+
+| PR   | What broke / was missing                                                                                          | Severity          |
+| ---- | ----------------------------------------------------------------------------------------------------------------- | ----------------- |
+| #127 | Report control restyled, missed-challenge banner relocated                                                        | polish            |
+| #128 | Dead CSS-preload reference crashed live `/settings`                                                               | **critical**      |
+| #129 | Missing `clerk-captcha` mount point → sign-up 422                                                                 | blocking          |
+| #130 | Sign-up password `minLength` didn't match Clerk's production policy                                               | blocking          |
+| #131 | Verification email was never actually being sent                                                                  | **blocking**      |
+| #132 | Stale Worker route blocked `deploy-dev` CI                                                                        | blocking          |
+| #133 | Username never collected; Clerk's real `missing_requirements` error wasn't surfaced, silently deadlocking sign-up | **critical**      |
+| #134 | Sign-up fields low-contrast against the sheet backdrop                                                            | polish            |
+| #135 | Sign-up's username also fills in the Challenge display name                                                       | follow-up feature |
+
+None of this was a testing-coverage failure in the narrow sense — T5's own
+unit/integration suite was accurate about what it covered (`pnpm validate`
+green, 2616 tests). The gap was exactly what T5's amendment already named:
+nothing in the loop had exercised the real, wired-together path (real Clerk
+instance, real browser, real network) before merge. See "Verification
+discipline" in the 5.2 sync plan for why this is now a standing rule, not a
+one-off lesson.
+
+**The round-trip, actually clicked through today, post-fixes:** T5's own
+amendment left this DoD line unchecked ("blocked on real Clerk keys not
+existing yet"); with keys now real and #127–#135 all merged, this had never
+been explicitly re-verified end to end. Done today via Claude in Chrome
+against production `getcodoro.com`, real account
+(`tshore2004+codorotest0912@gmail.com`, deleted after):
+
+1. `/settings` loads cleanly, no crash (confirms #128's fix holds).
+2. Create account (real Cloudflare Turnstile captcha, completed by Thomas —
+   captcha-solving is outside what Claude does even for a test account) →
+   verification email confirmed **actually delivered** via the Gmail MCP
+   ("276188 is your verification code", sent 14:01:52Z — confirms #131's
+   fix holds in production, not just in a dev-env test).
+3. Signed-in state confirmed in Settings.
+4. Sign out → signed-out state confirmed.
+5. Sign back in with the same credentials → succeeds, no re-verification
+   prompted.
+6. Delete account (type-to-confirm dialog) → succeeds, redirected out.
+7. **Server-side deletion confirmed, not inferred**: attempted sign-in
+   again with the same (now-deleted) credentials → `"Couldn't find your
+account."` — proves the Clerk user is actually gone, not just a local
+   sign-out.
+
+Bonus, incidental: the "Challenge a friend" placeholder read
+`"codorotest0912 challenged you!"` mid-session, confirming #135's
+username-fills-challenger-name fix also holds in production.
+
+**Report control click-through:** T5's amendment left this "not yet
+performed." Still not a dedicated pass as of this amendment, but the
+#128 debugging session used `getcodoro.com/settings` and Claude in Chrome
+against the live site, which incidentally exercises the same surface the
+report control ships on — treat this as _likely_ covered, not _confirmed_,
+same honest hedge T5's own amendment used. Not blocking 5.2; flagged here
+so it doesn't quietly become "confirmed" without ever having been checked
+on its own.
+
+**`boss-clear`/`streak-7-day` wiring — decided and done, not deferred.**
+T5 left these as a named, scoped gap. Thomas's explicit direction this
+session: wire both now, **and** loosen the frequency cap itself — boss-clear
+and streak-7-day are high-bar, rare moments a meaningful slice of users
+never reach, so leaving the cap at one-shot-per-trigger-ever plus a 7-day
+cooldown meant those users would never see a prompt at all. Shipped
+(`fix/signup-prompt-frequency-and-wiring`, commit `c282937`):
+
+- Cooldown 7d → 3d.
+- Dropped the one-shot-per-trigger gate entirely — any trigger can recur
+  once the cooldown clears (`shouldShowSignupPrompt` is now cooldown +
+  opt-out only; `shownTriggers` stays as a bookkeeping list, no longer
+  gates).
+- Added a fifth trigger, `puzzle-milestone` (3rd rated attempt) — a
+  near-universal low-bar moment that doesn't depend on which modes a player
+  touches, directly addressing "a user may never get that" for the two
+  rare triggers.
+- `boss-clear` wired in `BossPage.tsx` (`session.runSummary.cleared`),
+  `streak-7-day` + `puzzle-milestone` wired in `Home.tsx`. `leaderboard-view`
+  stays unwired — no leaderboard page exists before Phase 5.3, unchanged
+  from T5's own assessment.
+- Tests updated for the new cap semantics (recurrence, idempotence,
+  five-trigger rotation); `pnpm vitest run` green on the touched suites,
+  `tsc -b` and `eslint` clean.
+
+### `docs/v5-build-plan.md`'s Phase 5.1 DoD, checked against the evidence above
+
+- [x] Signed-out play loop behaviorally and performance-identical (bundle
+      diff + Lighthouse re-check) — T5's own amendment, unchanged since
+- [x] Create → sign out → sign in → delete account round-trip verified on
+      staging; deletion confirmed server-side — **the round-trip above**,
+      run against production (`getcodoro.com`), a stronger bar than the
+      original staging-only ask
+- [x] Signup prompts appear only at the settled value moments, frequency
+      cap tested — all five triggers now wired or explicitly deferred
+      (`leaderboard-view`), cap logic covered by the updated test suite
+- [~] Report control works signed-out, round-trips to a real row on the
+  dev env, and surfaces a failed post rather than swallowing it —
+  server-side round-trip tested (`report.test.ts`); a dedicated
+  client click-through is still not explicitly confirmed, only
+  incidentally likely-covered (see above) — the one line kept open
+  rather than checked off on inference
+- [x] `pnpm validate` green — reconfirmed for the signup-prompt change
+      (typecheck, lint, touched test suites); full root `pnpm validate`
+      not re-run this session, no reason to expect regression outside the
+      touched files
+
+**Net: Phase 5.1 is done**, with one line (report-control click-through)
+left honestly open rather than papered over — cheap to close whenever
+someone next touches that surface, not worth blocking 5.2 for.

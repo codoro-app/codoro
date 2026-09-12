@@ -1,0 +1,184 @@
+{
+  "schema_version": 13,
+  "exportedAt": "2026-09-12T14:13:07.971Z",
+  "profile": {
+    "schema_version": 13,
+    "rating": 1225.624085988069,
+    "ratedAttemptCount": 9,
+    "streak": {
+      "currentStreak": 0,
+      "longestStreak": 0,
+      "lastActiveDate": null
+    },
+    "requeueState": [
+      {
+        "puzzleId": "rec-009",
+        "stage": 0,
+        "served": 1
+      }
+    ],
+    "storagePersisted": null,
+    "dailyCompletion": null,
+    "rushStats": null,
+    "bestRunStreak": 0,
+    "bossStats": null,
+    "missionProgress": null,
+    "missionStats": null,
+    "preferences": {
+      "timerOnTrace": false,
+      "reducedMotion": false,
+      "codeFontSize": "md",
+      "theme": "default",
+      "sound": true,
+      "autoAdvance": true
+    },
+    "anonId": "cb0e9057-0da4-4dec-a82c-58b55a13d603",
+    "challengerName": null,
+    "firstRunCompleted": true
+  },
+  "attempts": [
+    {
+      "id": "54f8ee22-1e30-402a-a07f-76c2027c57d3",
+      "puzzleId": "cf-002",
+      "puzzleRating": 1300,
+      "mode": "practice",
+      "correct": false,
+      "time_ms": 28169,
+      "choice_index": 2,
+      "checkpoint_results": null,
+      "userRatingBefore": 1200,
+      "userRatingAfter": 1188.4820799936924,
+      "localDateString": "2026-09-12",
+      "createdAt": "2026-09-12T14:09:09.661Z"
+    },
+    {
+      "id": "91838b1c-40c8-47cb-b4b9-ce2e91f5bbb4",
+      "puzzleId": "oob-021",
+      "puzzleRating": 1150,
+      "mode": "practice",
+      "correct": false,
+      "time_ms": 9758,
+      "choice_index": null,
+      "checkpoint_results": null,
+      "userRatingBefore": 1188.4820799936924,
+      "userRatingAfter": 1170.7171262193908,
+      "localDateString": "2026-09-12",
+      "createdAt": "2026-09-12T14:09:45.003Z"
+    },
+    {
+      "id": "7ad450c4-56f5-4a4e-88d2-97d77ebf3034",
+      "puzzleId": "dsm-016",
+      "puzzleRating": 1125,
+      "mode": "practice",
+      "correct": true,
+      "time_ms": 69986,
+      "choice_index": null,
+      "checkpoint_results": [
+        {
+          "correct": true,
+          "choiceIndex": 3
+        },
+        {
+          "correct": true,
+          "choiceIndex": 1
+        },
+        {
+          "correct": true,
+          "choiceIndex": 1
+        },
+        {
+          "correct": true,
+          "choiceIndex": 3
+        }
+      ],
+      "userRatingBefore": 1170.7171262193908,
+      "userRatingAfter": 1184.62384219939,
+      "localDateString": "2026-09-12",
+      "createdAt": "2026-09-12T14:11:00.004Z"
+    },
+    {
+      "id": "cc6e5c28-0fe2-46ab-8049-5ec496aa6452",
+      "puzzleId": "str-013",
+      "puzzleRating": 1050,
+      "mode": "practice",
+      "correct": true,
+      "time_ms": 8623,
+      "choice_index": 0,
+      "checkpoint_results": null,
+      "userRatingBefore": 1184.62384219939,
+      "userRatingAfter": 1194.7168903985876,
+      "localDateString": "2026-09-12",
+      "createdAt": "2026-09-12T14:11:32.168Z"
+    },
+    {
+      "id": "9b766842-ddb4-484c-bc48-c776cd298ee8",
+      "puzzleId": "rec-009",
+      "puzzleRating": 1200,
+      "mode": "practice",
+      "correct": false,
+      "time_ms": 11082,
+      "choice_index": null,
+      "checkpoint_results": null,
+      "userRatingBefore": 1194.7168903985876,
+      "userRatingAfter": 1178.9601678367044,
+      "localDateString": "2026-09-12",
+      "createdAt": "2026-09-12T14:11:57.440Z"
+    },
+    {
+      "id": "85f00a70-3e99-4a5f-b392-d44dd9e5d308",
+      "puzzleId": "res-010",
+      "puzzleRating": 1375,
+      "mode": "practice",
+      "correct": true,
+      "time_ms": 9245,
+      "choice_index": null,
+      "checkpoint_results": null,
+      "userRatingBefore": 1178.9601678367044,
+      "userRatingAfter": 1203.1381272672768,
+      "localDateString": "2026-09-12",
+      "createdAt": "2026-09-12T14:12:13.025Z"
+    },
+    {
+      "id": "1eb20cd2-600e-4260-a628-4d7b17f6c597",
+      "puzzleId": "tc-023",
+      "puzzleRating": 1275,
+      "mode": "practice",
+      "correct": true,
+      "time_ms": 13915,
+      "choice_index": 0,
+      "checkpoint_results": null,
+      "userRatingBefore": 1203.1381272672768,
+      "userRatingAfter": 1222.4010902987216,
+      "localDateString": "2026-09-12",
+      "createdAt": "2026-09-12T14:12:28.366Z"
+    },
+    {
+      "id": "1d0d3658-0d8e-484c-a838-81a20bd27b4f",
+      "puzzleId": "rec-009",
+      "puzzleRating": 1200,
+      "mode": "practice",
+      "correct": false,
+      "time_ms": 9008,
+      "choice_index": null,
+      "checkpoint_results": null,
+      "userRatingBefore": 1222.4010902987216,
+      "userRatingAfter": 1205.370909091101,
+      "localDateString": "2026-09-12",
+      "createdAt": "2026-09-12T14:12:38.483Z"
+    },
+    {
+      "id": "f560ad38-9ca2-4dd7-bb22-6c863b9db240",
+      "puzzleId": "cf-002",
+      "puzzleRating": 1300,
+      "mode": "practice",
+      "correct": true,
+      "time_ms": 10555,
+      "choice_index": 6,
+      "checkpoint_results": null,
+      "userRatingBefore": 1205.370909091101,
+      "userRatingAfter": 1225.624085988069,
+      "localDateString": "2026-09-12",
+      "createdAt": "2026-09-12T14:12:50.143Z"
+    }
+  ]
+}
