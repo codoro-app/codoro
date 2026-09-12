@@ -1,14 +1,25 @@
 import { Hono } from 'hono'
 import { clerkAuth } from './auth'
 import { deleteClerkUser } from './clerkAdmin'
-import { deleteUser, insertReport } from './db'
+import { deleteUser, getOrCreateUser, insertReport, linkAnonIdIfUnset } from './db'
 import { routeLimit } from './limits'
+import {
+  buildProfileConflictResponse,
+  buildProfileGetResponse,
+  parseProfilePutBody,
+} from './profile'
+import { profileStore } from './profileStore'
 import { VALID_PUZZLE_IDS } from './puzzleIds.generated'
 import { rateLimit } from './rateLimit'
 import { ReportBodySchema } from './report'
 import type { AuthVariables } from './auth'
 import type { Env } from './env'
-import type { ApiErrorResponse, HealthResponse, ReportResponse } from '../shared/api-types'
+import type {
+  ApiErrorResponse,
+  HealthResponse,
+  ProfilePutResponse,
+  ReportResponse,
+} from '../shared/api-types'
 
 const app = new Hono<{ Bindings: Env; Variables: Partial<AuthVariables> }>()
 
@@ -99,6 +110,107 @@ app.delete(
     await deleteUser(c.env.DB, userId)
     await deleteClerkUser(c.env.CLERK_SECRET_KEY, userId)
     return c.body(null, 204)
+  },
+)
+
+// T7: `PUT /api/profile` -- optimistic-concurrency sync push. Row creation
+// for `users` is NOT "already handled by T3" the way the plan assumed
+// (db.ts's getOrCreateUser doc comment covers the finding) -- this route is
+// what actually calls it, first, before the FK-constrained profiles write.
+// The size cap (S4) is checked against the decompressed JSON's byte length
+// (parseProfilePutBody, profile.ts), before profileStore.putIfMatch's own
+// internal gzip (S1) -- two different layers, per the 2026-08-31 amendment.
+// anonId link-once is attempted only after a successful write, never on a
+// rejected/conflicting one -- a client whose push was rejected will retry
+// the whole submission, so recording anonId against a write that didn't
+// happen would be premature. `requireOwnership()` (auth.ts) has no second
+// id to check here -- unlike a route that reads a resource id from the
+// request, this always reads and writes exactly the authenticated caller's
+// own row (`c.get('userId')`), same as DELETE /api/account above.
+//
+// Neither this handler nor GET below spells the wire field's real name --
+// `parseProfilePutBody`/`buildProfileGetResponse`/
+// `buildProfileConflictResponse` (profile.ts) are the only place it's
+// written, alongside profileStore.ts's D1 column; both are exempted from
+// workers/test/static/profileStorePayloadGuard.test.ts's grep guard for the
+// same reason, this file deliberately is not.
+app.put(
+  '/api/profile',
+  clerkAuth(),
+  rateLimit('PUT /api/profile', routeLimit('PUT /api/profile')),
+  async (c) => {
+    const userId = c.get('userId')
+    if (!userId) {
+      return c.json<ApiErrorResponse>({ error: 'Unauthorized' }, 401)
+    }
+
+    let raw: unknown
+    try {
+      raw = await c.req.json()
+    } catch {
+      return c.json<ApiErrorResponse>({ error: 'Invalid JSON body' }, 400)
+    }
+
+    const parsed = parseProfilePutBody(raw)
+    if (!parsed.ok) {
+      if (parsed.reason === 'too-large') {
+        return c.json<ApiErrorResponse>({ error: 'Profile data too large' }, 413)
+      }
+      return c.json<ApiErrorResponse>({ error: 'Invalid profile body' }, 400)
+    }
+
+    await getOrCreateUser(c.env.DB, userId)
+
+    const { baseRevision, schemaVersion, json } = parsed
+    const result = await profileStore.putIfMatch(
+      c.env.DB,
+      userId,
+      json,
+      { schemaVersion, updatedAt: Date.now() },
+      baseRevision,
+    )
+
+    if (!result.ok) {
+      const current = await profileStore.get(c.env.DB, userId)
+      // Unreachable in practice -- a conflict means a row already existed
+      // at write time, so profileStore.get() finding nothing immediately
+      // after would mean it was deleted in between (e.g. account
+      // deletion racing a push). Typed defensively rather than asserted,
+      // same style as the DELETE /api/account handler's unreachable
+      // `!userId` branch above.
+      if (!current) {
+        return c.json<ApiErrorResponse>({ error: 'Conflict' }, 409)
+      }
+      return c.json(buildProfileConflictResponse(current), 409)
+    }
+
+    if (parsed.anonId) {
+      await linkAnonIdIfUnset(c.env.DB, userId, parsed.anonId)
+    }
+
+    const status = baseRevision === 0 ? 201 : 200
+    return c.json<ProfilePutResponse>({ ok: true, revision: result.newRevision }, status)
+  },
+)
+
+// T7: `GET /api/profile` -- sync pull. Same ownership note as PUT above:
+// always the authenticated caller's own row, nothing else to check.
+app.get(
+  '/api/profile',
+  clerkAuth(),
+  rateLimit('GET /api/profile', routeLimit('GET /api/profile')),
+  async (c) => {
+    const userId = c.get('userId')
+    if (!userId) {
+      return c.json<ApiErrorResponse>({ error: 'Unauthorized' }, 401)
+    }
+
+    const record = await profileStore.get(c.env.DB, userId)
+    if (!record) {
+      return c.json<ApiErrorResponse>({ error: 'Not found' }, 404)
+    }
+
+    return c.json(buildProfileGetResponse(record))
   },
 )
 
