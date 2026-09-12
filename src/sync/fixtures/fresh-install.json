@@ -1,0 +1,34 @@
+{
+  "schema_version": 13,
+  "exportedAt": "2026-09-12T14:08:10.682Z",
+  "profile": {
+    "schema_version": 13,
+    "rating": 1200,
+    "ratedAttemptCount": 0,
+    "streak": {
+      "currentStreak": 0,
+      "longestStreak": 0,
+      "lastActiveDate": null
+    },
+    "requeueState": [],
+    "storagePersisted": null,
+    "dailyCompletion": null,
+    "rushStats": null,
+    "bestRunStreak": 0,
+    "bossStats": null,
+    "missionProgress": null,
+    "missionStats": null,
+    "preferences": {
+      "timerOnTrace": false,
+      "reducedMotion": false,
+      "codeFontSize": "md",
+      "theme": "default",
+      "sound": true,
+      "autoAdvance": true
+    },
+    "anonId": "cb0e9057-0da4-4dec-a82c-58b55a13d603",
+    "challengerName": null,
+    "firstRunCompleted": false
+  },
+  "attempts": []
+}
