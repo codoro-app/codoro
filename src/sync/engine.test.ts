@@ -1,0 +1,665 @@
+import 'fake-indexeddb/auto'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { deleteDB } from 'idb'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ApiError } from '../auth/api'
+import type { ApiRequestOptions } from '../auth/api'
+import type { ProfilePutRequest } from '../../workers/shared/api-types'
+import type { ExportedData } from '../storage'
+import { CURRENT_SCHEMA_VERSION, createDefaultProfile, loadProfile, saveProfile } from '../storage'
+import { readQueueEntry, recordQueueFailure } from './queue'
+
+// apiFetch is the ONLY thing engine.ts is allowed to reach the network
+// through (per the brief: "it does not construct fetches or re-derive the
+// ApiError taxonomy") -- mocked here; ApiError itself stays real so
+// `err instanceof ApiError` in engine.ts keeps working against thrown mocks.
+vi.mock('../auth/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../auth/api')>()
+  return { ...actual, apiFetch: vi.fn() }
+})
+
+const trackSyncPush = vi.fn()
+const trackSyncPull = vi.fn()
+const trackSyncConflict = vi.fn()
+vi.mock('../telemetry', () => ({
+  trackSyncPush: (...args: unknown[]): void => {
+    trackSyncPush(...args)
+  },
+  trackSyncPull: (...args: unknown[]): void => {
+    trackSyncPull(...args)
+  },
+  trackSyncConflict: (...args: unknown[]): void => {
+    trackSyncConflict(...args)
+  },
+}))
+
+const { apiFetch } = await import('../auth/api')
+const apiFetchMock = vi.mocked(apiFetch)
+const { createSyncEngine, SYNC_META_STORAGE_KEY, LAST_MUTATED_AT_STORAGE_KEY, readSyncMeta } =
+  await import('./engine')
+type SyncEngine = ReturnType<typeof createSyncEngine>
+
+const FIXTURES_DIR = join(dirname(fileURLToPath(import.meta.url)), 'fixtures')
+function loadFixture(name: string): ExportedData {
+  return JSON.parse(readFileSync(join(FIXTURES_DIR, `${name}.json`), 'utf-8')) as ExportedData
+}
+const longLived = loadFixture('long-lived')
+
+function conflictError(): ApiError {
+  return new ApiError('client', 'Conflict', 409)
+}
+function tooLargeError(): ApiError {
+  return new ApiError('client', 'Profile data too large', 413)
+}
+function networkError(): ApiError {
+  return new ApiError('network', 'Could not reach the server.')
+}
+function notFoundError(): ApiError {
+  return new ApiError('not-found', 'Not found', 404)
+}
+
+function methodOf(opts?: ApiRequestOptions): string | undefined {
+  return opts?.method
+}
+
+/**
+ * The default every test starts from: a fresh account (GET 404) that
+ * pushes cleanly as revision 1 (PUT succeeds). This keeps `handleSignedIn`'s
+ * own setup call side-effect-free for tests that don't care about it (no
+ * leftover queue entry, no leftover non-'success' telemetry call to reason
+ * around) -- tests that DO care override apiFetchMock explicitly afterward.
+ */
+function mockDefaultFreshAccount(): void {
+  apiFetchMock.mockImplementation((_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+    if (methodOf(opts) === 'GET') return Promise.reject(notFoundError())
+    if (methodOf(opts) === 'PUT') return Promise.resolve({ ok: true, revision: 1 })
+    return Promise.reject(new Error('unexpected method in default mock'))
+  })
+}
+
+describe('sync engine', () => {
+  let engine: SyncEngine
+  const getToken = vi.fn(() => Promise.resolve('test-token'))
+
+  beforeEach(() => {
+    localStorage.clear()
+    apiFetchMock.mockReset()
+    trackSyncPush.mockReset()
+    trackSyncPull.mockReset()
+    trackSyncConflict.mockReset()
+    getToken.mockClear()
+    mockDefaultFreshAccount()
+    engine = createSyncEngine({ getToken })
+  })
+
+  afterEach(async () => {
+    localStorage.clear()
+    await deleteDB('codoro')
+  })
+
+  describe('first sign-in migration (local profile, server 404)', () => {
+    it('pushes the local profile as revision 1 and links anonId on that same push', async () => {
+      const local = await loadProfile() // seeds a real fresh default profile in IndexedDB
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') return Promise.reject(notFoundError())
+          if (methodOf(opts) === 'PUT') return Promise.resolve({ ok: true, revision: 1 })
+          return Promise.reject(new Error('unexpected method'))
+        },
+      )
+
+      await engine.handleSignedIn('user_a')
+
+      const putCall = apiFetchMock.mock.calls.find(([, opts]) => methodOf(opts) === 'PUT')
+      if (!putCall) throw new Error('expected a PUT call to have been made')
+      const putOpts = putCall[1]
+      const body = putOpts?.body as ProfilePutRequest
+      expect(body.baseRevision).toBe(0)
+      expect(body.anonId).toBe(local.anonId)
+      expect((body.payload as ExportedData).profile.anonId).toBe(local.anonId)
+
+      expect(readSyncMeta()).toEqual({ userId: 'user_a', baseRevision: 1 })
+      expect(trackSyncPush).toHaveBeenCalledWith({ outcome: 'success' })
+    })
+  })
+
+  describe('B1 (review finding) — a genuinely malformed remote blob degrades silently instead of throwing', () => {
+    it('pull() resolves with { kind: "error" } rather than rejecting when merge() throws', async () => {
+      // Mirrors merge.ts's own doc comment: a behind-schema blob that fails
+      // to migrate cleanly throws inside migrateRemoteProfileIfBehind(),
+      // "T8 catches it like any other pull failure per I2." Before the B1
+      // fix, this rejected doPull() -- and, reached via push()'s
+      // conflict-retry, would have been an unhandled rejection.
+      const malformedRemote = {
+        schema_version: CURRENT_SCHEMA_VERSION - 1,
+        exportedAt: new Date().toISOString(),
+        profile: { schema_version: CURRENT_SCHEMA_VERSION - 1, rating: 'not a number' },
+        attempts: [],
+      }
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') {
+            return Promise.resolve({
+              revision: 1,
+              schemaVersion: malformedRemote.schema_version,
+              payload: malformedRemote,
+              updatedAt: Date.now(),
+            })
+          }
+          return Promise.reject(new Error('push must not be attempted in this test'))
+        },
+      )
+
+      await expect(engine.pull()).resolves.toEqual({ kind: 'error' })
+      expect(trackSyncPull).toHaveBeenCalledWith({ outcome: 'error' })
+    })
+  })
+
+  describe('B2 (review finding) — the local mutation clock, not "now," decides latest-wins fields', () => {
+    it('lets a genuinely newer remote value win a latest-wins field, even though a fresh exportData() call would stamp "now"', async () => {
+      // Reproduces the review's exact repro: without B2's fix, local's
+      // exportedAt is always the moment exportData() is called (i.e. "now"),
+      // which is always >= any remote's necessarily-earlier push timestamp
+      // -- so latest-wins fields (challengerName here) could never let
+      // remote win. Seeding an OLD recorded mutation time directly
+      // simulates "this device's last real local change was long ago,"
+      // which a fresh exportData() call alone can never express.
+      localStorage.setItem(LAST_MUTATED_AT_STORAGE_KEY, '2000-01-01T00:00:00.000Z')
+      const localProfile = { ...createDefaultProfile(), challengerName: 'LOCAL-OLD' }
+      await saveProfile(localProfile)
+
+      const remote: ExportedData = {
+        schema_version: CURRENT_SCHEMA_VERSION,
+        exportedAt: new Date(Date.now() - 1000).toISOString(), // 1s ago -- newer than the seeded year-2000 clock
+        profile: { ...createDefaultProfile(), challengerName: 'REMOTE-NEW' },
+        attempts: [],
+      }
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') {
+            return Promise.resolve({
+              revision: 2,
+              schemaVersion: remote.schema_version,
+              payload: remote,
+              updatedAt: Date.now(),
+            })
+          }
+          return Promise.reject(new Error('push must not be attempted in this test'))
+        },
+      )
+
+      await engine.pull()
+
+      expect((await loadProfile()).challengerName).toBe('REMOTE-NEW')
+    })
+
+    it('keeps a genuinely newer local value when the recorded mutation clock is newer than a stale remote', async () => {
+      localStorage.setItem(LAST_MUTATED_AT_STORAGE_KEY, new Date().toISOString())
+      const localProfile = { ...createDefaultProfile(), challengerName: 'LOCAL-NEW' }
+      await saveProfile(localProfile)
+
+      const remote: ExportedData = {
+        schema_version: CURRENT_SCHEMA_VERSION,
+        exportedAt: '2000-01-01T00:00:00.000Z',
+        profile: { ...createDefaultProfile(), challengerName: 'REMOTE-OLD' },
+        attempts: [],
+      }
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') {
+            return Promise.resolve({
+              revision: 2,
+              schemaVersion: remote.schema_version,
+              payload: remote,
+              updatedAt: Date.now(),
+            })
+          }
+          return Promise.reject(new Error('push must not be attempted in this test'))
+        },
+      )
+
+      await engine.pull()
+
+      expect((await loadProfile()).challengerName).toBe('LOCAL-NEW')
+    })
+
+    it('notifyMutation() records the local mutation clock immediately, even before its debounced push fires', () => {
+      const before = localStorage.getItem(LAST_MUTATED_AT_STORAGE_KEY)
+      expect(before).toBeNull()
+
+      engine.notifyMutation()
+
+      expect(localStorage.getItem(LAST_MUTATED_AT_STORAGE_KEY)).not.toBeNull()
+    })
+  })
+
+  describe('ordinary pull + merge (F26: against the real createDefaultProfile() shape)', () => {
+    it('merges a fresh local profile against a real remote fixture with no throw', async () => {
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') {
+            return Promise.resolve({
+              revision: 4,
+              schemaVersion: longLived.schema_version,
+              payload: longLived,
+              updatedAt: Date.now(),
+            })
+          }
+          return Promise.reject(new Error('unexpected method in this test'))
+        },
+      )
+
+      const outcome = await engine.pull()
+
+      expect(outcome).toEqual({ kind: 'merged' })
+      const saved = await loadProfile()
+      // A genuinely fresh local profile contributes nothing to rating/streak
+      // recompute, exercised for real against T6's own merge() -- but the
+      // recomputed rating is NOT expected to equal the fixture's own stored
+      // rating byte-for-byte: merge.ts's own doc comment documents a real,
+      // deliberate approximation for Trace/scrubber attempts (raw ratio
+      // instead of the floor-adjusted score the live engine originally
+      // used), and this fixture contains one. T6's own merge.test.ts never
+      // asserts fixture-exact equality here either -- only that merging
+      // succeeds. What actually matters (no throw, a real finite number,
+      // attempts genuinely recomputed) is what this test asserts.
+      expect(Number.isFinite(saved.rating)).toBe(true)
+      expect(saved.ratedAttemptCount).toBeGreaterThan(0)
+      expect(readSyncMeta()).toEqual({ userId: null, baseRevision: 4 })
+    })
+  })
+
+  describe('I11 — idempotence', () => {
+    it('applying the same pulled revision twice is a no-op the second time', async () => {
+      apiFetchMock.mockImplementation((): Promise<unknown> =>
+        Promise.resolve({
+          revision: 4,
+          schemaVersion: longLived.schema_version,
+          payload: longLived,
+          updatedAt: Date.now(),
+        }),
+      )
+
+      const first = await engine.pull()
+      expect(first).toEqual({ kind: 'merged' })
+      const afterFirst = await loadProfile()
+
+      const second = await engine.pull()
+      expect(second).toEqual({ kind: 'noop' })
+      const afterSecond = await loadProfile()
+
+      // Not just "equal by coincidence" -- the fixture's rating differs from
+      // INITIAL_RATING (1200), so a non-idempotent implementation
+      // (re-recomputing or re-unioning attempts a second time against
+      // whatever the first pass already wrote) would visibly diverge here.
+      expect(afterSecond).toEqual(afterFirst)
+      expect(afterFirst.rating).not.toBe(1200)
+    })
+  })
+
+  describe('I12 — pull/push mutual exclusion', () => {
+    it('a pull and a push triggered in the same tick serialize; push never runs until the pull fully lands', async () => {
+      await engine.handleSignedIn('user_a') // settles the initial 404-then-push cycle
+      apiFetchMock.mockClear()
+
+      let resolveGet!: (value: unknown) => void
+      const getPromise = new Promise((resolve) => {
+        resolveGet = resolve
+      })
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') return getPromise
+          if (methodOf(opts) === 'PUT') return Promise.resolve({ ok: true, revision: 99 })
+          return Promise.reject(new Error('unexpected method'))
+        },
+      )
+
+      const pullPromise = engine.pull()
+      const pushPromise = engine.push()
+
+      // Review finding S1: a handful of microtask ticks isn't long enough
+      // to distinguish "the mutex is serializing these" from "doPushOnce's
+      // own real IndexedDB work (exportData()) just hasn't resolved yet" --
+      // both look identical at that timescale, so the original version of
+      // this test passed even with withLock's body replaced by `return
+      // fn()` (no locking at all). A generous *real* delay closes that
+      // gap: without the mutex, push's own token/exportData()/apiFetch(PUT)
+      // chain has unbounded real time here to complete on its own, so if
+      // the PUT still hasn't fired, serialization -- not IndexedDB
+      // latency -- is the only thing that explains it.
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      expect(apiFetchMock).toHaveBeenCalledTimes(1)
+      expect(methodOf(apiFetchMock.mock.calls[0]?.[1])).toBe('GET')
+
+      resolveGet({
+        revision: 5,
+        schemaVersion: longLived.schema_version,
+        payload: longLived,
+        updatedAt: Date.now(),
+      })
+      await Promise.all([pullPromise, pushPromise])
+
+      expect(apiFetchMock).toHaveBeenCalledTimes(2)
+      expect(methodOf(apiFetchMock.mock.calls[1]?.[1])).toBe('PUT')
+    })
+  })
+
+  describe('409 conflict handling', () => {
+    it('merges the server state and re-pushes with the new baseRevision on a single conflict', async () => {
+      await engine.handleSignedIn('user_a')
+      apiFetchMock.mockReset()
+
+      let putCalls = 0
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') {
+            return Promise.resolve({
+              revision: 7,
+              schemaVersion: longLived.schema_version,
+              payload: longLived,
+              updatedAt: Date.now(),
+            })
+          }
+          if (methodOf(opts) === 'PUT') {
+            putCalls += 1
+            if (putCalls === 1) return Promise.reject(conflictError())
+            return Promise.resolve({ ok: true, revision: 8 })
+          }
+          return Promise.reject(new Error('unexpected method'))
+        },
+      )
+
+      await engine.push()
+
+      const getCalls = apiFetchMock.mock.calls.filter(([, opts]) => methodOf(opts) === 'GET').length
+      expect(getCalls).toBe(1)
+      expect(putCalls).toBe(2)
+      expect(trackSyncConflict).toHaveBeenCalledTimes(1)
+      expect(trackSyncPush).toHaveBeenCalledWith({ outcome: 'conflict-resolved' })
+      expect(readSyncMeta()).toEqual({ userId: 'user_a', baseRevision: 8 })
+      expect(readQueueEntry()).toBeNull()
+    })
+
+    it('caps retries at 3 total push attempts and requeues instead of looping forever', async () => {
+      await engine.handleSignedIn('user_a')
+      apiFetchMock.mockReset()
+
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') {
+            return Promise.resolve({
+              revision: 7,
+              schemaVersion: longLived.schema_version,
+              payload: longLived,
+              updatedAt: Date.now(),
+            })
+          }
+          if (methodOf(opts) === 'PUT') return Promise.reject(conflictError())
+          return Promise.reject(new Error('unexpected method'))
+        },
+      )
+
+      await engine.push()
+
+      const putCalls = apiFetchMock.mock.calls.filter(([, opts]) => methodOf(opts) === 'PUT').length
+      const getCalls = apiFetchMock.mock.calls.filter(([, opts]) => methodOf(opts) === 'GET').length
+      expect(putCalls).toBe(3) // the cap: never a 4th attempt
+      expect(getCalls).toBe(2) // one retry-pull after attempt 1 and after attempt 2, none after the 3rd
+      expect(trackSyncConflict).toHaveBeenCalledTimes(3)
+      expect(trackSyncPush).toHaveBeenCalledWith({ outcome: 'conflict-exhausted' })
+      expect(readQueueEntry()).not.toBeNull() // requeued, not dropped
+    })
+  })
+
+  describe('413 — terminal, not retryable', () => {
+    it('drops the push without queuing a retry and records a distinct telemetry outcome', async () => {
+      await engine.handleSignedIn('user_a')
+      apiFetchMock.mockReset()
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'PUT') return Promise.reject(tooLargeError())
+          return Promise.reject(new Error('unexpected method'))
+        },
+      )
+
+      const localBefore = await loadProfile()
+      await engine.push()
+      const localAfter = await loadProfile()
+
+      expect(readQueueEntry()).toBeNull()
+      expect(trackSyncPush).toHaveBeenCalledWith({ outcome: 'too-large' })
+      expect(localAfter).toEqual(localBefore) // local state untouched
+    })
+
+    // Review finding S4: a 413 must also clear a queue entry that was
+    // ALREADY there from an earlier, unrelated network failure -- without
+    // this, a device that reconnects (handleOnline drains unconditionally)
+    // would repeat the same guaranteed-413 round trip forever.
+    it('clears a pre-existing queued retry from an earlier failure, not just skips adding a new one', async () => {
+      await engine.handleSignedIn('user_a')
+      recordQueueFailure('user_a', CURRENT_SCHEMA_VERSION, Date.now()) // simulate an earlier, unrelated failure already queued
+      expect(readQueueEntry()).not.toBeNull()
+
+      apiFetchMock.mockReset()
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'PUT') return Promise.reject(tooLargeError())
+          return Promise.reject(new Error('unexpected method'))
+        },
+      )
+
+      await engine.push()
+
+      expect(readQueueEntry()).toBeNull()
+    })
+  })
+
+  describe('offline behavior (I2) — play continues unaffected', () => {
+    it('a rejecting fetch during push never throws out of the engine, and queues a retry', async () => {
+      await engine.handleSignedIn('user_a')
+      apiFetchMock.mockReset()
+      apiFetchMock.mockRejectedValue(networkError())
+
+      await expect(engine.push()).resolves.toBeUndefined()
+
+      expect(readQueueEntry()).not.toBeNull()
+      expect(trackSyncPush).toHaveBeenCalledWith({ outcome: 'network-error' })
+    })
+
+    it('a rejecting fetch during pull never throws, and degrades to a silent error outcome', async () => {
+      apiFetchMock.mockRejectedValue(networkError())
+      await expect(engine.pull()).resolves.toEqual({ kind: 'error' })
+      expect(trackSyncPull).toHaveBeenCalledWith({ outcome: 'error' })
+    })
+  })
+
+  describe('reload-with-pending-queue', () => {
+    it('a queue entry written before a simulated reload is drained by a fresh engine instance on the online event', async () => {
+      recordQueueFailure('user_a', CURRENT_SCHEMA_VERSION, Date.now())
+
+      // "Reload": a brand-new engine instance, same localStorage/IndexedDB.
+      const reloaded = createSyncEngine({ getToken })
+      apiFetchMock.mockReset()
+      apiFetchMock.mockImplementation((_path: string, opts?: ApiRequestOptions): Promise<unknown> =>
+        Promise.reject(
+          new Error(`unexpected method in pre-signin mock: ${methodOf(opts) ?? 'none'}`),
+        ),
+      )
+
+      await reloaded.handleSignedIn('user_a') // its own pull fails generically; doesn't touch the pre-seeded queue
+      apiFetchMock.mockClear()
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'PUT') return Promise.resolve({ ok: true, revision: 2 })
+          return Promise.reject(new Error('unexpected method'))
+        },
+      )
+
+      await reloaded.handleOnline()
+
+      const putCalls = apiFetchMock.mock.calls.filter(([, opts]) => methodOf(opts) === 'PUT').length
+      expect(putCalls).toBe(1)
+      expect(readQueueEntry()).toBeNull()
+    })
+  })
+
+  describe('F28 — a schema-stale queue entry is dropped, not replayed', () => {
+    it('handleOnline drops a queue entry built against an older schema version without ever pushing it', async () => {
+      await engine.handleSignedIn('user_a') // clean setup first (would otherwise clearQueue() on its own success)
+      recordQueueFailure('user_a', CURRENT_SCHEMA_VERSION - 1, Date.now())
+      apiFetchMock.mockClear()
+
+      await engine.handleOnline()
+
+      expect(apiFetchMock).not.toHaveBeenCalled()
+      expect(readQueueEntry()).toBeNull()
+      expect(trackSyncPush).toHaveBeenCalledWith({ outcome: 'stale-schema-dropped' })
+    })
+  })
+
+  describe('F31 — account switching on one device', () => {
+    it('same user returning: existing sync metadata and queue are left alone', async () => {
+      localStorage.setItem(
+        SYNC_META_STORAGE_KEY,
+        JSON.stringify({ userId: 'user_a', baseRevision: 7 }),
+      )
+      recordQueueFailure('user_a', CURRENT_SCHEMA_VERSION, Date.now())
+      apiFetchMock.mockRejectedValue(networkError()) // pull fails; must not itself clear anything
+
+      await engine.handleSignedIn('user_a')
+
+      expect(readSyncMeta()).toEqual({ userId: 'user_a', baseRevision: 7 })
+      const entry = readQueueEntry()
+      if (!entry) throw new Error('expected the pre-seeded queue entry to survive')
+      expect(entry.userId).toBe('user_a')
+      expect(entry.attempts).toBe(1)
+    })
+
+    it('a different user arriving discards the stale metadata and queue before any pull/push runs', async () => {
+      localStorage.setItem(
+        SYNC_META_STORAGE_KEY,
+        JSON.stringify({ userId: 'user_a', baseRevision: 7 }),
+      )
+      recordQueueFailure('user_a', CURRENT_SCHEMA_VERSION, Date.now())
+      apiFetchMock.mockRejectedValue(networkError()) // pull fails; discard must already have happened by then
+
+      await engine.handleSignedIn('user_b')
+
+      expect(readSyncMeta()?.userId !== 'user_a').toBe(true)
+      expect(readQueueEntry()?.userId !== 'user_a').toBe(true)
+    })
+
+    // Review finding S2: the test above proves the *ordering* guarantee
+    // (metadata/queue discarded before any pull/push runs), but its own
+    // pull fails, so it never reaches the one path where F31's real, named
+    // limitation actually bites: a genuinely fresh account B (server 404).
+    // handleSignedIn's own "not-found -> push" rule (the ordinary
+    // first-sign-in flow) still fires here -- pushing whatever this
+    // device's local IndexedDB profile currently holds (account A's, if it
+    // was never cleared on sign-out) as account B's revision 1. This is
+    // exactly the accepted, out-of-this-session's-file-scope gap the T8a
+    // amendment names ("does NOT clear the local IndexedDB profile...") --
+    // demonstrated here as a real test, not left only as prose.
+    it("a different user arriving to a genuinely fresh account (404) still pushes this device's local profile as revision 1 -- the named, accepted F31 limitation, not a bypass of it", async () => {
+      localStorage.setItem(
+        SYNC_META_STORAGE_KEY,
+        JSON.stringify({ userId: 'user_a', baseRevision: 7 }),
+      )
+      const localProfile = { ...createDefaultProfile(), challengerName: 'ACCOUNT-A-LOCAL-DATA' }
+      await saveProfile(localProfile)
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') return Promise.reject(notFoundError())
+          if (methodOf(opts) === 'PUT') return Promise.resolve({ ok: true, revision: 1 })
+          return Promise.reject(new Error('unexpected method'))
+        },
+      )
+
+      await engine.handleSignedIn('user_b')
+
+      const putCall = apiFetchMock.mock.calls.find(([, opts]) => methodOf(opts) === 'PUT')
+      if (!putCall) throw new Error('expected handleSignedIn to push after the 404')
+      const body = putCall[1]?.body as ProfilePutRequest
+      // The pushed payload is account A's local data -- proving the gap is
+      // real, not hidden by this test.
+      expect((body.payload as ExportedData).profile.challengerName).toBe('ACCOUNT-A-LOCAL-DATA')
+      expect(readSyncMeta()).toEqual({ userId: 'user_b', baseRevision: 1 })
+    })
+  })
+
+  describe('schema skew (remote ahead)', () => {
+    it('exposes a read-only flag instead of merging or pushing', async () => {
+      const aheadRemote: ExportedData = { ...longLived, schema_version: CURRENT_SCHEMA_VERSION + 1 }
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') {
+            return Promise.resolve({
+              revision: 3,
+              schemaVersion: aheadRemote.schema_version,
+              payload: aheadRemote,
+              updatedAt: Date.now(),
+            })
+          }
+          return Promise.reject(new Error('push must never be attempted on schema skew'))
+        },
+      )
+      const before = await loadProfile()
+
+      const outcome = await engine.pull()
+
+      expect(outcome).toEqual({
+        kind: 'schema-skew',
+        remoteSchemaVersion: CURRENT_SCHEMA_VERSION + 1,
+      })
+      expect(engine.getSchemaSkew()).toEqual({ remoteSchemaVersion: CURRENT_SCHEMA_VERSION + 1 })
+      expect(await loadProfile()).toEqual(before) // untouched
+    })
+  })
+
+  describe('notifyMutation debounce + flush', () => {
+    // Real timers throughout, with a short configured debounce -- vi's fake
+    // timers interact badly with fake-indexeddb's own internal scheduling
+    // (a hang, not a failure), and a short real delay tests the exact same
+    // debounce-then-push behavior without that conflict.
+    const DEBOUNCE_MS = 20
+
+    it('does not push immediately -- notifyMutation() debounces', async () => {
+      const debounced = createSyncEngine({ getToken }, { debounceMs: DEBOUNCE_MS })
+      await debounced.handleSignedIn('user_a')
+      apiFetchMock.mockClear()
+
+      debounced.notifyMutation()
+      expect(apiFetchMock).not.toHaveBeenCalled()
+
+      await new Promise((resolve) => setTimeout(resolve, DEBOUNCE_MS + 30))
+      expect(apiFetchMock).toHaveBeenCalled()
+    })
+
+    it('flush() pushes immediately, without waiting for the debounce timer', async () => {
+      const debounced = createSyncEngine({ getToken }, { debounceMs: 60_000 }) // long enough that only flush() could have triggered it
+      await debounced.handleSignedIn('user_a')
+      apiFetchMock.mockClear()
+
+      debounced.notifyMutation()
+      await debounced.flush()
+
+      expect(apiFetchMock).toHaveBeenCalled()
+    })
+  })
+
+  describe('handleSignedOut', () => {
+    it('a subsequent notifyMutation() does nothing once signed out', async () => {
+      const debounced = createSyncEngine({ getToken }, { debounceMs: 20 })
+      await debounced.handleSignedIn('user_a')
+      debounced.handleSignedOut()
+      apiFetchMock.mockClear()
+
+      debounced.notifyMutation()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+
+      expect(apiFetchMock).not.toHaveBeenCalled()
+    })
+  })
+})

@@ -1,11 +1,11 @@
 import 'fake-indexeddb/auto'
 import { deleteDB } from 'idb'
 import type { IDBPDatabase } from 'idb'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DB_NAME, PROFILE_KEY, PROFILE_STORE, getDb } from './db'
 import { CURRENT_SCHEMA_VERSION, DEFAULT_PREFERENCES, createDefaultProfile } from './schema'
 import type { UserProfile } from './schema'
-import { loadProfile, saveProfile } from './profile'
+import { loadProfile, onProfileSaved, saveProfile } from './profile'
 
 afterEach(async () => {
   await deleteDB(DB_NAME)
@@ -80,6 +80,84 @@ describe('saveProfile', () => {
 
     const stored = await withDb<unknown>((db) => db.get(PROFILE_STORE, PROFILE_KEY))
     expect(stored).toBeUndefined()
+  })
+})
+
+// T8a (v5 Phase 5.2): the "wrap saveProfile" design decision (option 1) --
+// a module-level subscriber list, fired only at the end of a successful
+// saveProfile() call, never from loadProfile()'s internal migration/
+// corrupt-recovery writes (those go through the private putProfile()
+// helper, not saveProfile() itself -- see this file's own doc comment).
+describe('onProfileSaved', () => {
+  it('notifies a registered listener with the saved profile after a successful save', async () => {
+    const listener = vi.fn()
+    onProfileSaved(listener)
+    const profile = createDefaultProfile()
+
+    await saveProfile(profile)
+
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(listener).toHaveBeenCalledWith(profile)
+  })
+
+  it('notifies every registered listener, in registration order', async () => {
+    const calls: string[] = []
+    onProfileSaved(() => calls.push('first'))
+    onProfileSaved(() => calls.push('second'))
+
+    await saveProfile(createDefaultProfile())
+
+    expect(calls).toEqual(['first', 'second'])
+  })
+
+  it('returns an unsubscribe function; after calling it, the listener is not notified', async () => {
+    const listener = vi.fn()
+    const unsubscribe = onProfileSaved(listener)
+    unsubscribe()
+
+    await saveProfile(createDefaultProfile())
+
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  it('does not notify when saveProfile rejects (invalid profile never persisted, never announced)', async () => {
+    const listener = vi.fn()
+    onProfileSaved(listener)
+    const bad = { ...createDefaultProfile(), rating: 'not a number' } as unknown as UserProfile
+
+    await expect(saveProfile(bad)).rejects.toThrow()
+
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  it("does not notify on loadProfile()'s own internal migration write-back", async () => {
+    const listener = vi.fn()
+    onProfileSaved(listener)
+    const v1Profile = { schema_version: 1, rating: 1200, ratedAttemptCount: 0 }
+    await withDb((db) => db.put(PROFILE_STORE, v1Profile, PROFILE_KEY))
+
+    await loadProfile()
+
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  // Review finding N1 (T8a): a listener that throws must not turn a
+  // *successful* persist into a rejected saveProfile() call for every one
+  // of the 20+ feature call sites that call it directly -- and must not
+  // stop other, better-behaved listeners from still being notified.
+  it('does not reject saveProfile() when a listener throws, and still notifies the other listeners', async () => {
+    const throwingListener = vi.fn(() => {
+      throw new Error('a listener misbehaving')
+    })
+    const goodListener = vi.fn()
+    onProfileSaved(throwingListener)
+    onProfileSaved(goodListener)
+    const profile = createDefaultProfile()
+
+    await expect(saveProfile(profile)).resolves.toBeUndefined()
+
+    expect(throwingListener).toHaveBeenCalledWith(profile)
+    expect(goodListener).toHaveBeenCalledWith(profile)
   })
 })
 

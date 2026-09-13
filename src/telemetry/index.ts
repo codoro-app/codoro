@@ -35,6 +35,9 @@ export {
   trackFirstRunStepComplete,
   trackFirstRunCompleted,
   trackError,
+  trackSyncPush,
+  trackSyncPull,
+  trackSyncConflict,
 } from './events'
 export type {
   MissionStartPayload,
@@ -62,4 +65,8 @@ export type {
   FeedbackLinkClickedPayload,
   FirstRunStepCompletePayload,
   FirstRunCompletedPayload,
+  SyncPushOutcome,
+  SyncPushPayload,
+  SyncPullOutcome,
+  SyncPullPayload,
 } from './events'

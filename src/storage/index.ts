@@ -22,7 +22,7 @@ export type {
   Preferences,
 } from './schema'
 
-export { loadProfile, saveProfile } from './profile'
+export { loadProfile, onProfileSaved, saveProfile } from './profile'
 export { appendAttempt, listAttempts } from './attempts'
 export { requestPersistentStorage } from './persist'
 export { exportData, importData, resolveImportCandidate, commitImport } from './exportImport'

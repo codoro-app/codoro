@@ -70,9 +70,22 @@ export function clerkAuth(): MiddlewareHandler<{ Bindings: Env; Variables: AuthV
     // library behavior is exactly what Piece 0 exploited deliberately to
     // isolate signature/JWKS correctness from the azp check — production
     // must never hit it by accident.
-    const authorizedParties = c.env.APP_ORIGINS.split(',')
-      .map((s) => s.trim())
-      .filter(Boolean)
+    //
+    // T8a Piece 0 #1: `c.env.APP_ORIGINS` is typed as a required `string`,
+    // but a real deployment can still hand this an absent/non-string value
+    // (a missing wrangler.jsonc binding, a blank secret) -- `.split` on
+    // `undefined` is a TypeError, and an uncaught one here is Hono's plain
+    // 500, not this middleware's promised 401. Guard the type before
+    // calling `.split` so that failure mode takes the exact same fail-closed
+    // path as an empty/whitespace list, not a different, worse one.
+    const rawAppOrigins = c.env.APP_ORIGINS
+    const authorizedParties =
+      typeof rawAppOrigins === 'string'
+        ? rawAppOrigins
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : []
     if (authorizedParties.length === 0) {
       return c.json({ error: 'Unauthorized' }, 401)
     }
