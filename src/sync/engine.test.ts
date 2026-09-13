@@ -551,22 +551,23 @@ describe('sync engine', () => {
       expect(readQueueEntry()?.userId !== 'user_a').toBe(true)
     })
 
-    // Review finding S2: the test above proves the *ordering* guarantee
-    // (metadata/queue discarded before any pull/push runs), but its own
-    // pull fails, so it never reaches the one path where F31's real, named
-    // limitation actually bites: a genuinely fresh account B (server 404).
-    // handleSignedIn's own "not-found -> push" rule (the ordinary
-    // first-sign-in flow) still fires here -- pushing whatever this
-    // device's local IndexedDB profile currently holds (account A's, if it
-    // was never cleared on sign-out) as account B's revision 1. This is
-    // exactly the accepted, out-of-this-session's-file-scope gap the T8a
-    // amendment names ("does NOT clear the local IndexedDB profile...") --
-    // demonstrated here as a real test, not left only as prose.
-    it("a different user arriving to a genuinely fresh account (404) still pushes this device's local profile as revision 1 -- the named, accepted F31 limitation, not a bypass of it", async () => {
+    // T8b, Finding 1 (F31's second half): the test above proves the
+    // *ordering* guarantee (metadata/queue discarded before any pull/push
+    // runs), but its own pull fails, so it never reaches the one path
+    // where F31's data-half bug actually bit: a genuinely fresh account B
+    // (server 404). Before the fix, handleSignedIn's ordinary
+    // "not-found -> push" rule pushed whatever this device's local
+    // IndexedDB profile currently held (account A's, never cleared on
+    // sign-out) as account B's revision 1. Fixed by resetting local
+    // storage to a blank profile *before* the 404 is even reached (see
+    // handleSignedIn's own comment) -- this test would fail if that reset
+    // were skipped or ran after the push instead of before it.
+    it("a different user arriving to a genuinely fresh account (404) pushes this device's own freshly-reset (blank) state, never account A's local data", async () => {
       localStorage.setItem(
         SYNC_META_STORAGE_KEY,
         JSON.stringify({ userId: 'user_a', baseRevision: 7 }),
       )
+      localStorage.setItem(LAST_MUTATED_AT_STORAGE_KEY, '2000-01-01T00:00:00.000Z')
       const localProfile = { ...createDefaultProfile(), challengerName: 'ACCOUNT-A-LOCAL-DATA' }
       await saveProfile(localProfile)
       apiFetchMock.mockImplementation(
@@ -582,10 +583,105 @@ describe('sync engine', () => {
       const putCall = apiFetchMock.mock.calls.find(([, opts]) => methodOf(opts) === 'PUT')
       if (!putCall) throw new Error('expected handleSignedIn to push after the 404')
       const body = putCall[1]?.body as ProfilePutRequest
-      // The pushed payload is account A's local data -- proving the gap is
-      // real, not hidden by this test.
-      expect((body.payload as ExportedData).profile.challengerName).toBe('ACCOUNT-A-LOCAL-DATA')
+      const pushedProfile = (body.payload as ExportedData).profile
+      // Account A's data must be gone -- pushed payload is a blank profile,
+      // not a bypass of the reset.
+      expect(pushedProfile.challengerName).toBe(createDefaultProfile().challengerName)
+      expect(pushedProfile.challengerName).not.toBe('ACCOUNT-A-LOCAL-DATA')
+      expect((body.payload as ExportedData).attempts).toEqual([])
       expect(readSyncMeta()).toEqual({ userId: 'user_b', baseRevision: 1 })
+      // Also verifies locally, not just via the pushed wire body.
+      expect((await loadProfile()).challengerName).not.toBe('ACCOUNT-A-LOCAL-DATA')
+      expect(localStorage.getItem(LAST_MUTATED_AT_STORAGE_KEY)).not.toBe('2000-01-01T00:00:00.000Z')
+    })
+
+    it("a different user arriving to an EXISTING account (200) adopts remote wholesale -- never a merge with the prior account's local data", async () => {
+      localStorage.setItem(
+        SYNC_META_STORAGE_KEY,
+        JSON.stringify({ userId: 'user_a', baseRevision: 7 }),
+      )
+      const localProfile = { ...createDefaultProfile(), challengerName: 'ACCOUNT-A-LOCAL-DATA' }
+      await saveProfile(localProfile)
+
+      const remoteForB: ExportedData = {
+        ...longLived,
+        exportedAt: '2000-01-01T00:00:00.000Z', // deliberately OLDER than "now" -- a real merge's latest-wins rules would let local win here
+        profile: { ...longLived.profile, challengerName: 'ACCOUNT-B-REMOTE-DATA' },
+      }
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') {
+            return Promise.resolve({
+              revision: 9,
+              schemaVersion: remoteForB.schema_version,
+              payload: remoteForB,
+              updatedAt: Date.now(),
+            })
+          }
+          return Promise.reject(
+            new Error(
+              'push must not be attempted -- remote already matches local after adopting it',
+            ),
+          )
+        },
+      )
+
+      await engine.handleSignedIn('user_b')
+
+      const saved = await loadProfile()
+      // Wholesale adoption: B's real challengerName wins outright (a merge
+      // would ALSO have picked it here, since it's more recent than the
+      // reset-blank local's fallback -- see the guest-migration test below
+      // for the case that actually distinguishes merge from reset).
+      expect(saved.challengerName).toBe('ACCOUNT-B-REMOTE-DATA')
+      // The real distinguishing assertion: attempts are exactly remote's,
+      // never a union with account A's local attempts (a merge would union
+      // by id and keep both).
+      const { listAttempts } = await import('../storage')
+      const savedAttempts = await listAttempts()
+      expect(savedAttempts.map((a) => a.id).sort()).toEqual(
+        [...remoteForB.attempts].map((a) => a.id).sort(),
+      )
+      expect(readSyncMeta()).toEqual({ userId: 'user_b', baseRevision: 9 })
+    })
+  })
+
+  describe('F31, second half — guest-to-account migration still merges (syncMeta === null is not a switch)', () => {
+    it('a real merge runs -- local guest data is not discarded, and would be lost if the reset branch ran by mistake', async () => {
+      // No pre-existing sync meta at all: this is the anonymous-to-account
+      // migration case, not a switch -- MERGE, per F31's own distinction.
+      expect(readSyncMeta()).toBeNull()
+      localStorage.setItem(LAST_MUTATED_AT_STORAGE_KEY, new Date().toISOString()) // genuinely newer than remote below
+      const localProfile = { ...createDefaultProfile(), challengerName: 'GUEST-LOCAL-NEWER' }
+      await saveProfile(localProfile)
+
+      const remote: ExportedData = {
+        ...longLived,
+        exportedAt: '2000-01-01T00:00:00.000Z',
+        profile: { ...longLived.profile, challengerName: 'REMOTE-OLDER' },
+      }
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') {
+            return Promise.resolve({
+              revision: 3,
+              schemaVersion: remote.schema_version,
+              payload: remote,
+              updatedAt: Date.now(),
+            })
+          }
+          return Promise.reject(new Error('push must not be attempted in this test'))
+        },
+      )
+
+      await engine.handleSignedIn('user_new')
+
+      // If the reset/adopt-wholesale branch ran here by mistake, local's
+      // genuinely-newer challengerName would be silently discarded in
+      // favor of remote's -- this is exactly the failure this test exists
+      // to catch.
+      expect((await loadProfile()).challengerName).toBe('GUEST-LOCAL-NEWER')
+      expect(readSyncMeta()).toEqual({ userId: 'user_new', baseRevision: 3 })
     })
   })
 
@@ -615,6 +711,95 @@ describe('sync engine', () => {
       })
       expect(engine.getSchemaSkew()).toEqual({ remoteSchemaVersion: CURRENT_SCHEMA_VERSION + 1 })
       expect(await loadProfile()).toEqual(before) // untouched
+    })
+
+    // T8b, Finding 2: schemaSkew was recorded by pull() but never gated
+    // push() -- a device stuck on an old client version, once schema-skewed,
+    // would keep 409ing on the same stale baseRevision forever (every
+    // notifyMutation, every online event). These three tests are that gap,
+    // closed.
+    it('push() never attempts a PUT while schema-skewed -- zero PUTs, before or after the guarding pull', async () => {
+      const aheadRemote: ExportedData = { ...longLived, schema_version: CURRENT_SCHEMA_VERSION + 1 }
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') {
+            return Promise.resolve({
+              revision: 3,
+              schemaVersion: aheadRemote.schema_version,
+              payload: aheadRemote,
+              updatedAt: Date.now(),
+            })
+          }
+          return Promise.reject(new Error('push must never attempt a PUT while schema-skewed'))
+        },
+      )
+
+      await engine.pull() // sets schemaSkew
+      await engine.push() // must no-op entirely
+
+      const putCalls = apiFetchMock.mock.calls.filter(([, opts]) => methodOf(opts) === 'PUT').length
+      expect(putCalls).toBe(0)
+    })
+
+    it('notifyMutation() never schedules a push while schema-skewed, even though it still records the mutation clock', async () => {
+      const aheadRemote: ExportedData = { ...longLived, schema_version: CURRENT_SCHEMA_VERSION + 1 }
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') {
+            return Promise.resolve({
+              revision: 3,
+              schemaVersion: aheadRemote.schema_version,
+              payload: aheadRemote,
+              updatedAt: Date.now(),
+            })
+          }
+          return Promise.reject(new Error('no push must ever fire while schema-skewed'))
+        },
+      )
+      const debounced = createSyncEngine({ getToken }, { debounceMs: 20 })
+      await debounced.handleSignedIn('user_a') // reaches schema-skew via the initial pull
+      expect(debounced.getSchemaSkew()).not.toBeNull()
+      apiFetchMock.mockClear()
+
+      debounced.notifyMutation()
+      await new Promise((resolve) => setTimeout(resolve, 60)) // longer than the 20ms debounce
+
+      expect(apiFetchMock).not.toHaveBeenCalled()
+      expect(localStorage.getItem(LAST_MUTATED_AT_STORAGE_KEY)).not.toBeNull()
+    })
+
+    it("a conflict-retry's own re-pull discovering schema-skew stops the loop -- no further PUTs, no requeue", async () => {
+      await engine.handleSignedIn('user_a') // clean setup: 404 then a successful push
+      apiFetchMock.mockReset()
+
+      const aheadRemote: ExportedData = { ...longLived, schema_version: CURRENT_SCHEMA_VERSION + 1 }
+      let putCalls = 0
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'PUT') {
+            putCalls += 1
+            return Promise.reject(conflictError())
+          }
+          if (methodOf(opts) === 'GET') {
+            return Promise.resolve({
+              revision: 5,
+              schemaVersion: aheadRemote.schema_version,
+              payload: aheadRemote,
+              updatedAt: Date.now(),
+            })
+          }
+          return Promise.reject(new Error('unexpected method'))
+        },
+      )
+
+      await engine.push()
+
+      // Exactly one PUT (the initial conflict), then the retry-pull itself
+      // discovers schema-skew and the loop stops -- never a 2nd/3rd PUT.
+      expect(putCalls).toBe(1)
+      expect(trackSyncPush).toHaveBeenCalledWith({ outcome: 'schema-skew' })
+      expect(readQueueEntry()).toBeNull() // no point requeuing a push that can never succeed
+      expect(engine.getSchemaSkew()).toEqual({ remoteSchemaVersion: CURRENT_SCHEMA_VERSION + 1 })
     })
   })
 

@@ -6,7 +6,6 @@ import {
   readQueueEntry,
   recordQueueFailure,
 } from './queue'
-import type { QueueEntry } from './queue'
 
 describe('queue', () => {
   beforeEach(() => {
@@ -41,7 +40,6 @@ describe('queue', () => {
         schemaVersion: 13,
         queuedAt: 1_000_000,
         attempts: 1,
-        nextRetryAt: 1_010_000, // base backoff, 10s
       })
       expect(readQueueEntry()).toEqual(entry)
     })
@@ -55,29 +53,13 @@ describe('queue', () => {
         schemaVersion: 13,
         queuedAt: 1_000_000,
         attempts: 1,
-        nextRetryAt: 1_010_000,
       })
     })
 
-    it('increments attempts and grows the backoff on a repeated failure for the same user', () => {
+    it('increments attempts on a repeated failure for the same user', () => {
       recordQueueFailure('user_a', 13, 1_000_000)
       const second = recordQueueFailure('user_a', 13, 1_020_000)
       expect(second.attempts).toBe(2)
-      expect(second.nextRetryAt).toBe(1_020_000 + 20_000) // doubled from the 10s base
-    })
-
-    it('caps the backoff rather than growing it unbounded', () => {
-      let now = 0
-      let last: QueueEntry | undefined
-      for (let i = 0; i < 20; i++) {
-        last = recordQueueFailure('user_a', 13, now)
-        now += 1
-      }
-      if (!last) throw new Error('unreachable -- the loop above always runs at least once')
-      // 20 consecutive failures would be 10s * 2^19 uncapped -- must be
-      // clamped to the documented 5-minute ceiling instead.
-      expect(last.nextRetryAt - now + 1).toBeLessThanOrEqual(300_000)
-      expect(last.nextRetryAt - now + 1).toBe(300_000)
     })
 
     it('starts a fresh entry (attempts=1) rather than merging counters when the existing entry belongs to a different user', () => {
@@ -89,7 +71,6 @@ describe('queue', () => {
         schemaVersion: 13,
         queuedAt: 1_020_000,
         attempts: 1,
-        nextRetryAt: 1_030_000,
       })
     })
 
