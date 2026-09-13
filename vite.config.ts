@@ -164,6 +164,31 @@ function puzzleMetaPlugin(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    proxy: {
+      // T7b/F29: only reachable via `pnpm dev` (this is `server.*` config —
+      // Vite applies it to `vite dev` only, never to `vite build`; a
+      // production build has no dev server to proxy through, and
+      // src/auth/api.ts's apiFetch() still only ever calls same-origin
+      // relative `/api/*`, unconditionally, on every build). Exists so a
+      // real browser at http://localhost:5173 can authenticate against the
+      // deployed dev Worker at all — no route hosted at getcodoro.com talks
+      // to the *development* Clerk instance, and dev has no frontend origin
+      // of its own (wrangler.jsonc's 2026-09-11 amendment). Proxying keeps
+      // the browser's own origin at localhost:5173 (what Clerk mints `azp`
+      // from) while forwarding the request server-side to the real Worker.
+      '/api': {
+        target: process.env.DEV_API_TARGET ?? 'http://127.0.0.1:8787', // local `wrangler dev --env dev` by default
+        // Rewrites only the outgoing request's Host header so Cloudflare's
+        // edge routes it to the right *.workers.dev script -- it does NOT
+        // touch the browser's Origin header, which is what `azp` is minted
+        // from. Do not "fix" this away: without it, a DEV_API_TARGET
+        // pointed at the deployed Worker gets routed by Host, and Clerk's
+        // azp check is unaffected either way.
+        changeOrigin: true,
+      },
+    },
+  },
   build: {
     // v2 Phase 7b: explicit floor, not Vite's own default. Vite 8's
     // unset-target default is "baseline-widely-available", a frozen

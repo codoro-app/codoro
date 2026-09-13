@@ -42,6 +42,16 @@ type AuthedContext = Context<{ Bindings: Env; Variables: AuthVariables }>
  * client's `getToken()`-per-request pattern (T5's `src/auth/api.ts`), not
  * widening this tolerance. Widening it just extends how long a leaked
  * token stays usable.
+ *
+ * T7b/F29: `authorizedParties` is `c.env.APP_ORIGINS` (comma-separated),
+ * not a single origin. F29 found that no real browser flow could
+ * authenticate against the deployed dev Worker at all — its `azp` check
+ * only ever accepted `https://getcodoro.com`, which no Clerk *development*
+ * instance token can carry. Piece 0 (T7b) confirmed the diagnosis directly:
+ * a real dev-instance token verified fine against the dev CLERK_JWT_KEY
+ * with `authorizedParties: []` (signature + JWKS good), and failed only the
+ * azp assertion (`token has no azp; authorizedParties required one`) — so
+ * this was a config gap, not a broken JWKS key or a `clerkAuth()` bug.
  */
 export function clerkAuth(): MiddlewareHandler<{ Bindings: Env; Variables: AuthVariables }> {
   return async (c, next: Next) => {
@@ -51,10 +61,26 @@ export function clerkAuth(): MiddlewareHandler<{ Bindings: Env; Variables: AuthV
       return c.json({ error: 'Unauthorized' }, 401)
     }
 
+    // T7b/F29: parsed once per request, not cached across requests — this
+    // env binding is small and per-Worker-instance, not worth memoizing.
+    // Fail closed: an empty (unset, or all-whitespace/empty-entry) list
+    // must 401, never fall through to `authorizedParties: []`, which
+    // disables Clerk's azp check entirely (see auth.test.ts's static-guard
+    // test and this same file's Piece-0-derived doc comment above). That
+    // library behavior is exactly what Piece 0 exploited deliberately to
+    // isolate signature/JWKS correctness from the azp check — production
+    // must never hit it by accident.
+    const authorizedParties = c.env.APP_ORIGINS.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    if (authorizedParties.length === 0) {
+      return c.json({ error: 'Unauthorized' }, 401)
+    }
+
     try {
       const claims = await verifyToken(token, {
         jwtKey: c.env.CLERK_JWT_KEY,
-        authorizedParties: [c.env.APP_ORIGIN],
+        authorizedParties,
       })
       c.set('userId', claims.sub)
     } catch {

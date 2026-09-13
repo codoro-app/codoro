@@ -30,7 +30,27 @@ interface WorkerEnv {
    */
   RATE_LIMITER_REPORT_IP: RateLimit
   ENVIRONMENT: 'dev' | 'production'
-  APP_ORIGIN: string
+  /**
+   * T7b/F29: comma-separated allow-list of origins whose `azp` claim
+   * clerkAuth() accepts (Clerk's `authorizedParties`), NOT a single origin —
+   * renamed from `APP_ORIGIN` because dev genuinely needs more than one
+   * entry. Production is served from exactly one real frontend origin
+   * (`https://getcodoro.com`) so its list has one entry and behaves like the
+   * old singular var. Dev has no real frontend origin of its own (no
+   * `dev.getcodoro.com` exists, by design, per wrangler.jsonc's own
+   * 2026-09-11 amendment) — the only way to authenticate a real browser
+   * session against the deployed dev Worker is a Vite dev-server proxy
+   * (vite.config.ts) that keeps the browser's own origin at
+   * `http://localhost:5173` while forwarding `/api/*` to this Worker, plus
+   * (for a two-real-devices pass) a second, LAN-IP origin passed at deploy
+   * time (`wrangler deploy --env dev --var
+   * APP_ORIGINS:"http://localhost:5173,http://<lan-ip>:5173"`) —
+   * deliberately not committed to wrangler.jsonc, since a LAN IP is
+   * machine-specific and would rot. auth.ts parses this once per request
+   * into an array; an empty/whitespace-only value fails closed (401), it
+   * never falls through to an unrestricted check.
+   */
+  APP_ORIGINS: string
   /** F1's one-curl diagnostic — see wrangler.jsonc's CLERK_INSTANCE comment. */
   CLERK_INSTANCE: 'development' | 'production'
   /**
