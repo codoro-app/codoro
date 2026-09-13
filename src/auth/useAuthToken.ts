@@ -20,6 +20,12 @@ export interface AuthState {
   isSignedIn: boolean
   /** Primary email, or null while loading / signed out. Display only. */
   email: string | null
+  /**
+   * Clerk's own user id, or null while loading / signed out. T8b: the sync
+   * engine's `handleSignedIn(userId)` lifecycle hook needs this -- nothing
+   * before T8b did, so this field didn't exist until now.
+   */
+  userId: string | null
   getToken: () => Promise<string | null>
 }
 
@@ -31,6 +37,7 @@ export function useAuthToken(): AuthState {
     isLoaded,
     isSignedIn: isLoaded ? isSignedIn : false,
     email: user?.primaryEmailAddress?.emailAddress ?? null,
+    userId: user?.id ?? null,
     getToken: () => getToken(),
   }
 }

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useLayoutEffect, useState } from 'react'
 import { Route, Switch, useLocation, Link } from 'wouter'
+import { AuthProvider, hasClerkKey } from '../auth/AuthProvider'
 import { ErrorBoundary } from './ErrorBoundary'
 import { PwaPrompts } from './pwa/PwaPrompts'
 import { AppShell } from './AppShell'
@@ -99,6 +100,19 @@ const ScrubberDebugPage = import.meta.env.DEV
       default: (await import('./devTools/ScrubberDebugPage')).ScrubberDebugPage,
     }))
   : () => null
+
+// T8b (v5 Phase 5.2): the sync engine's app-level lifecycle wiring -- see
+// SyncEngineHost.tsx's own doc comment. Lazy, gated behind `hasClerkKey`
+// below (not just AuthProvider's own internal check) for the same reason
+// AccountSection.tsx already gates its own AuthProvider render: merely
+// rendering a lazy() component starts its import immediately, and
+// SyncEngineHost statically imports useAuthToken.ts, which statically
+// imports @clerk/react -- an unconditional render here would fetch that
+// chunk (and crash calling useAuth() with no ClerkProvider ancestor) even
+// in a build with no Clerk key configured (every fresh clone, CI, I1).
+const SyncEngineHostLazy = lazy(async () => ({
+  default: (await import('../sync/SyncEngineHost')).SyncEngineHost,
+}))
 
 /**
  * '/' always renders Home — first-ever visit and every visit after that
@@ -247,6 +261,21 @@ export function App() {
         </Suspense>
       </AppShell>
       <PwaPrompts />
+      {/* T8b: renders nothing (SyncEngineHost returns null) -- a pure
+          side-effect host for the sync engine's lifecycle, mounted once for
+          the app's whole session. Gated on hasClerkKey, not just
+          AuthProvider's own internal check -- see SyncEngineHostLazy's own
+          comment above for why. Suspense fallback null: this must never
+          block first paint (I2), and AuthProvider's own internal Suspense
+          already covers ClerkBoundary's chunk load, so this outer one only
+          needs to cover SyncEngineHost's own separate lazy chunk. */}
+      {hasClerkKey && (
+        <Suspense fallback={null}>
+          <AuthProvider>
+            <SyncEngineHostLazy />
+          </AuthProvider>
+        </Suspense>
+      )}
     </ErrorBoundary>
   )
 }
