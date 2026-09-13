@@ -513,3 +513,47 @@ export function trackError(error: unknown, context?: string): void {
     context,
   })
 }
+
+/**
+ * T8a (v5 Phase 5.2): the sync engine's telemetry (`src/sync/engine.ts`).
+ * Counts by outcome only — never payload contents, never a user/account id
+ * (I4's own grep-able rule: no `posthog.identify` call with an email
+ * argument anywhere, and by the same spirit, no sync event carries
+ * anything from the synced `ExportedData` blob itself, not even its size).
+ * `outcome` is a closed enum per function, not a free-text string, so a
+ * future accidental "just log the error message" addition would be a type
+ * error here, not a silent PII leak.
+ */
+export type SyncPushOutcome =
+  | 'success'
+  | 'conflict-resolved'
+  | 'conflict-exhausted'
+  | 'too-large'
+  | 'network-error'
+  | 'no-token'
+  | 'stale-schema-dropped'
+
+export interface SyncPushPayload {
+  outcome: SyncPushOutcome
+}
+
+/** Fired once per push attempt cycle (`engine.ts`'s `push()`) — never mid-retry. */
+export function trackSyncPush(payload: SyncPushPayload): void {
+  safeCapture('sync_push', payload)
+}
+
+export type SyncPullOutcome = 'merged' | 'noop' | 'not-found' | 'schema-skew' | 'error' | 'no-token'
+
+export interface SyncPullPayload {
+  outcome: SyncPullOutcome
+}
+
+/** Fired once per pull attempt (`engine.ts`'s `pull()`/`doPull()`). */
+export function trackSyncPull(payload: SyncPullPayload): void {
+  safeCapture('sync_pull', payload)
+}
+
+/** Fired once per 409 encountered during a push's conflict-retry loop — no properties, just a count. */
+export function trackSyncConflict(): void {
+  safeCapture('sync_conflict')
+}

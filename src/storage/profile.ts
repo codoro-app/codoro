@@ -6,6 +6,25 @@
  * default, so the caller always gets a clean, working profile. saveProfile,
  * by contrast, throws loudly on invalid input — that's a programmer error, not
  * corrupted storage, and must never be silently persisted.
+ *
+ * `onProfileSaved` (v5 Phase 5.2, T8a): the sync engine's one hook into this
+ * module. Design decision (recorded in full in
+ * docs/superpowers/plans/2026-09-12-v5-phase-5.2-sync-implementation-plan.md's
+ * T8 section) — "option 1, wrap saveProfile()" over "option 2, every call
+ * site opts in": 20+ call sites across practice/rush/daily/boss/trace/
+ * missions/firstRun/challenge/settings/SignInSheet already call
+ * saveProfile() directly with no pub/sub layer in src/storage/ at all; a
+ * per-call-site convention is an easy-to-miss footgun (F25) with no test
+ * that catches a *missing* call the way one catches a wrong one. Wrapping
+ * this one function closes that off structurally instead.
+ *
+ * Fires only at the end of a *successful* saveProfile() — never from this
+ * module's own internal putProfile() writes inside loadProfile() (the
+ * migration write-back, the corrupt-recovery reset): those are this
+ * device's own local-storage self-healing, not a mutation boundary a
+ * remote device needs to hear about, and firing on them would mean every
+ * boot of an old client pushes a sync event before anything the *player*
+ * actually did.
  */
 import type { IDBPDatabase } from 'idb'
 import { PROFILE_KEY, PROFILE_STORE, getDb } from './db'
@@ -22,6 +41,38 @@ async function putProfile(db: IDBPDatabase, profile: UserProfile): Promise<void>
   await db.put(PROFILE_STORE, validated, PROFILE_KEY)
 }
 
+type ProfileSavedListener = (profile: UserProfile) => void
+
+let profileSavedListeners: ProfileSavedListener[] = []
+
+/**
+ * Registers a listener fired every time `saveProfile()` succeeds. Returns
+ * an unsubscribe function. No conditional branching here on purpose
+ * (`filter` always runs, unconditionally) — this file sits under
+ * vite.config.ts's 100%-statement/96%-branch threshold for src/storage/**,
+ * and a plain filter-based unsubscribe has no branch to leave uncovered.
+ */
+export function onProfileSaved(listener: ProfileSavedListener): () => void {
+  profileSavedListeners = [...profileSavedListeners, listener]
+  return () => {
+    profileSavedListeners = profileSavedListeners.filter((l) => l !== listener)
+  }
+}
+
+function notifyProfileSaved(profile: UserProfile): void {
+  for (const listener of profileSavedListeners) {
+    try {
+      listener(profile)
+    } catch {
+      // A misbehaving listener must never turn a *successful* persist into
+      // a rejected saveProfile() call for its caller -- every one of the
+      // 20+ feature call sites (BossPage.tsx and siblings) expects this
+      // promise to resolve once the write itself succeeded, regardless of
+      // what a sync-adjacent observer does with the news.
+    }
+  }
+}
+
 export async function saveProfile(profile: UserProfile): Promise<void> {
   const db = await getDb()
   try {
@@ -32,6 +83,10 @@ export async function saveProfile(profile: UserProfile): Promise<void> {
     // test-reset seam) and needlessly hold a handle in production.
     db.close()
   }
+  // Unreached if putProfile() above threw (invalid profile) -- an exception
+  // propagates straight out of the try/finally, past this line entirely, so
+  // a rejected save is never announced. See this file's own top doc comment.
+  notifyProfileSaved(profile)
 }
 
 export async function loadProfile(): Promise<UserProfile> {

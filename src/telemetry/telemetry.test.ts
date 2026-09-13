@@ -890,3 +890,61 @@ describe('trackError', () => {
     await flushPromises()
   })
 })
+
+// T8a (v5 Phase 5.2): sync_push/sync_pull/sync_conflict -- counts by outcome
+// only, no payload contents, no user/account ids (I4). See src/sync/engine.ts.
+describe('trackSyncPush', () => {
+  it('captures sync_push with exactly an outcome property', async () => {
+    const { trackSyncPush } = await loadTelemetry('phc_test_key')
+    trackSyncPush({ outcome: 'success' })
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('sync_push', { outcome: 'success' })
+  })
+
+  it('carries no payload contents for a non-success outcome either', async () => {
+    const { trackSyncPush } = await loadTelemetry('phc_test_key')
+    trackSyncPush({ outcome: 'too-large' })
+    await flushPromises()
+    const [, properties] = posthogMock.capture.mock.calls[0] as [string, Record<string, unknown>]
+    expect(Object.keys(properties)).toEqual(['outcome'])
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackSyncPush } = await loadTelemetry(undefined)
+    trackSyncPush({ outcome: 'success' })
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
+describe('trackSyncPull', () => {
+  it('captures sync_pull with exactly an outcome property', async () => {
+    const { trackSyncPull } = await loadTelemetry('phc_test_key')
+    trackSyncPull({ outcome: 'merged' })
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('sync_pull', { outcome: 'merged' })
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackSyncPull } = await loadTelemetry(undefined)
+    trackSyncPull({ outcome: 'not-found' })
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})
+
+describe('trackSyncConflict', () => {
+  it('captures sync_conflict with no properties at all', async () => {
+    const { trackSyncConflict } = await loadTelemetry('phc_test_key')
+    trackSyncConflict()
+    await flushPromises()
+    expect(posthogMock.capture).toHaveBeenCalledWith('sync_conflict', undefined)
+  })
+
+  it('no-ops without calling posthog.capture when the key is unset', async () => {
+    const { trackSyncConflict } = await loadTelemetry(undefined)
+    trackSyncConflict()
+    await flushPromises()
+    expect(posthogMock.capture).not.toHaveBeenCalled()
+  })
+})

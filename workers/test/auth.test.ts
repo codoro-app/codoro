@@ -182,6 +182,26 @@ describe('clerkAuth', () => {
       expect(res.status).toBe(401)
     }
   })
+
+  // Piece 0 (T8a carry-over #1): a real Worker with the var entirely unset
+  // (rather than set to an empty string) hands clerkAuth() `undefined`, not
+  // `''` -- `.split(',')` on that throws a TypeError, which Hono turns into
+  // an unhandled 500, not the 401 this middleware's whole contract promises.
+  // Simulated here by deleting the key rather than setting it to '', which
+  // TypeScript's `Env['APP_ORIGINS']: string` would otherwise make
+  // impossible to express -- this is exactly the "var ever unset" shape a
+  // missing wrangler.jsonc binding or a misconfigured secret would produce.
+  it('rejects with 401, not a 500, when APP_ORIGINS is entirely absent from env (not just empty)', async () => {
+    const token = await signTestToken({ privateKey: keypair.privateKey, azp: TEST_ORIGIN })
+    const brokenEnv = testEnv() as Partial<Env>
+    delete brokenEnv.APP_ORIGINS
+    const res = await testApp.request(
+      '/protected',
+      { headers: { Authorization: `Bearer ${token}` } },
+      brokenEnv,
+    )
+    expect(res.status).toBe(401)
+  })
 })
 
 // I5's fixture: the pattern T7/T9/T10 reuse once they have a real resource
