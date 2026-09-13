@@ -30,9 +30,14 @@ const engine = {
   push: vi.fn(() => Promise.resolve()),
   getSchemaSkew: vi.fn(() => null),
 }
+// No test in this file inspects createSyncEngine's own call arguments (only
+// call *count*, for the "constructs exactly one instance" test below) --
+// the wrapper ignores whatever it's called with rather than forwarding via
+// a spread, which only tsc -b's build-mode typecheck (not plain
+// tsc --noEmit) rejects for a zero-arg mock target.
 const createSyncEngineMock = vi.fn(() => engine)
 vi.mock('./engine', () => ({
-  createSyncEngine: (...args: unknown[]) => createSyncEngineMock(...args),
+  createSyncEngine: () => createSyncEngineMock(),
 }))
 
 let profileSavedListener: (() => void) | null = null
