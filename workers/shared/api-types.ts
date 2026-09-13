@@ -23,6 +23,16 @@ export interface HealthResponse {
    * needing to decode a JWT first.
    */
   clerkInstance: 'development' | 'production'
+  /**
+   * F30's detector: the first 8 hex chars of SHA-256(`CLERK_JWT_KEY` PEM,
+   * UTF-8 bytes). `CLERK_JWT_KEY` is a *public* JWKS key (F1/T3's own doc
+   * comment) — hashing it discloses nothing an attacker couldn't already
+   * derive from a valid token, and it turns "does the deployed secret match
+   * `.dev.vars`" from the three-way local/wrangler-dev/deployed bisect T7b
+   * needed into a one-curl comparison against a locally-computed hash of
+   * the same PEM. Not a security boundary — a drift alarm.
+   */
+  clerkJwtKeyFingerprint: string
 }
 
 /** Every error response in the API, whatever the status code. */

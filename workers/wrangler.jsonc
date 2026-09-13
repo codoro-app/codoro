@@ -31,9 +31,17 @@
       "name": "codoro-api-dev",
       "vars": {
         "ENVIRONMENT": "dev",
-        // Same-origin decision (T0/R2/I10): the API is served from the
-        // Pages zone's own domain, never a separate api. subdomain.
-        "APP_ORIGIN": "https://getcodoro.com",
+        // T7b/F29: comma-separated allow-list (see env.d.ts's APP_ORIGINS
+        // doc comment for the full story). Dev has no real frontend origin
+        // of its own — `http://localhost:5173` is what the Vite dev-server
+        // proxy (vite.config.ts) keeps the browser's origin at while
+        // forwarding /api/* to this deployed Worker, which is what makes a
+        // real Clerk-dev-instance token's `azp` claim satisfiable at all.
+        // A second, LAN-IP origin for a two-real-devices pass is passed at
+        // deploy time instead of committed here (machine-specific, would
+        // rot): `wrangler deploy --env dev --var
+        // APP_ORIGINS:"http://localhost:5173,http://<lan-ip>:5173"`.
+        "APP_ORIGINS": "http://localhost:5173",
         // F1's one-curl diagnostic: which Clerk instance this deployment is
         // paired with. Label-only until T3 wires CLERK_JWT_KEY-based
         // verification — a mismatch is impossible to have today (no
@@ -90,7 +98,13 @@
       "name": "codoro-api",
       "vars": {
         "ENVIRONMENT": "production",
-        "APP_ORIGIN": "https://getcodoro.com",
+        // T7b/F29: same comma-separated shape as dev's APP_ORIGINS (see
+        // env.d.ts's doc comment) — unchanged in substance here, exactly
+        // one entry, the one real production frontend origin. A dev origin
+        // leaking into this value is the failure mode the dev widening
+        // exists to make impossible; test/static's APP_ORIGINS guard
+        // asserts this parses to exactly `["https://getcodoro.com"]`.
+        "APP_ORIGINS": "https://getcodoro.com",
         "CLERK_INSTANCE": "production"
       },
       "d1_databases": [

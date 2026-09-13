@@ -8,6 +8,10 @@ import { generateTestKeypair, signTestToken } from './support/jwt'
 import type { TestKeypair } from './support/jwt'
 
 const TEST_ORIGIN = 'https://getcodoro.test'
+// T7b/F29: a second allow-listed origin, distinct from TEST_ORIGIN, so the
+// "matches the second entry of a multi-entry list" test can't pass by
+// accident against a single-entry list.
+const SECOND_ORIGIN = 'https://second.getcodoro.test'
 
 // A throwaway app, local to this test file — no real route in src/index.ts
 // mounts clerkAuth() yet (the first real authenticated endpoint is T7),
@@ -28,10 +32,11 @@ describe('clerkAuth', () => {
   // env passed as app.request()'s third arg overrides the real Worker
   // bindings (same pattern health.test.ts already uses) -- CLERK_JWT_KEY
   // here is the test keypair's own public key, not a real Clerk secret.
-  const testEnv = (): Env => ({
+  const testEnv = (overrides: Partial<Env> = {}): Env => ({
     ...env,
     CLERK_JWT_KEY: keypair.publicKeyPem,
-    APP_ORIGIN: TEST_ORIGIN,
+    APP_ORIGINS: TEST_ORIGIN,
+    ...overrides,
   })
 
   beforeAll(async () => {
@@ -125,6 +130,58 @@ describe('clerkAuth', () => {
     )
     expect(res.status).toBe(401)
   })
+
+  // T7b/F29 — the five APP_ORIGINS allow-list tests.
+
+  it('accepts a token whose azp matches the second entry of a two-entry APP_ORIGINS list', async () => {
+    const token = await signTestToken({ privateKey: keypair.privateKey, azp: SECOND_ORIGIN })
+    const res = await testApp.request(
+      '/protected',
+      { headers: { Authorization: `Bearer ${token}` } },
+      testEnv({ APP_ORIGINS: `${TEST_ORIGIN},${SECOND_ORIGIN}` }),
+    )
+    expect(res.status).toBe(200)
+  })
+
+  it('rejects a token with no azp claim at all (F29 regression)', async () => {
+    // signTestToken omits the azp claim entirely when azp is undefined —
+    // this is exactly the shape of a real backend-minted Clerk token
+    // (sessions.createSession/getToken), which is how F29 was found:
+    // Piece 0 confirmed such a token's signature verifies fine, and fails
+    // only this assertion.
+    const token = await signTestToken({ privateKey: keypair.privateKey })
+    const res = await testApp.request(
+      '/protected',
+      { headers: { Authorization: `Bearer ${token}` } },
+      testEnv(),
+    )
+    expect(res.status).toBe(401)
+  })
+
+  it('rejects a token whose azp matches no entry in a multi-entry APP_ORIGINS list', async () => {
+    const token = await signTestToken({
+      privateKey: keypair.privateKey,
+      azp: 'https://evil.example',
+    })
+    const res = await testApp.request(
+      '/protected',
+      { headers: { Authorization: `Bearer ${token}` } },
+      testEnv({ APP_ORIGINS: `${TEST_ORIGIN},${SECOND_ORIGIN}` }),
+    )
+    expect(res.status).toBe(401)
+  })
+
+  it('rejects rather than allows when APP_ORIGINS is empty or whitespace-only (fail closed)', async () => {
+    const token = await signTestToken({ privateKey: keypair.privateKey, azp: TEST_ORIGIN })
+    for (const emptyValue of ['', '   ', ' , , ']) {
+      const res = await testApp.request(
+        '/protected',
+        { headers: { Authorization: `Bearer ${token}` } },
+        testEnv({ APP_ORIGINS: emptyValue }),
+      )
+      expect(res.status).toBe(401)
+    }
+  })
 })
 
 // I5's fixture: the pattern T7/T9/T10 reuse once they have a real resource
@@ -136,7 +193,7 @@ describe('requireOwnership (I5)', () => {
   const testEnv = (): Env => ({
     ...env,
     CLERK_JWT_KEY: keypair.publicKeyPem,
-    APP_ORIGIN: TEST_ORIGIN,
+    APP_ORIGINS: TEST_ORIGIN,
   })
 
   beforeAll(async () => {

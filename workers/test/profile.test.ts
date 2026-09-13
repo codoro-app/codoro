@@ -22,7 +22,7 @@ describe('PUT/GET /api/profile (T7)', () => {
     ...env,
     CLERK_JWT_KEY: keypair.publicKeyPem,
     CLERK_SECRET_KEY: 'test-secret-not-real',
-    APP_ORIGIN: TEST_ORIGIN,
+    APP_ORIGINS: TEST_ORIGIN,
   })
 
   beforeAll(async () => {

@@ -20,6 +20,39 @@ describe('GET /api/health', () => {
     const body: HealthResponse = await res.json()
     expect(body.version).toBe('dev')
   })
+
+  // F30: the deployed codoro-api-dev Worker's CLERK_JWT_KEY secret was
+  // found to be stale (didn't match workers/.dev.vars) only by a real
+  // end-to-end token failing -- wrangler secret list proves a name exists,
+  // never a value. This is the detector: a fingerprint of whatever
+  // CLERK_JWT_KEY this environment actually has, independently
+  // recomputed here (not hardcoded, since the real .dev.vars value is
+  // machine-specific and CI has none per F5/F7) so the test holds
+  // regardless of what the binding's real value is.
+  it("reports a fingerprint that matches an independent hash of this environment's CLERK_JWT_KEY", async () => {
+    const res = await app.request('/api/health', {}, env)
+    const body: HealthResponse = await res.json()
+    expect(body.clerkJwtKeyFingerprint).toMatch(/^[0-9a-f]{8}$/)
+
+    const digest = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(env.CLERK_JWT_KEY),
+    )
+    const expected = Array.from(new Uint8Array(digest).slice(0, 4))
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('')
+    expect(body.clerkJwtKeyFingerprint).toBe(expected)
+  })
+
+  it('changes when CLERK_JWT_KEY changes (the property the detector actually relies on)', async () => {
+    const res1 = await app.request('/api/health', {}, env)
+    const body1: HealthResponse = await res1.json()
+
+    const res2 = await app.request('/api/health', {}, { ...env, CLERK_JWT_KEY: 'a-different-key' })
+    const body2: HealthResponse = await res2.json()
+
+    expect(body2.clerkJwtKeyFingerprint).not.toBe(body1.clerkJwtKeyFingerprint)
+  })
 })
 
 // F5/F7: the whole reason this project chose D1 over Postgres is that

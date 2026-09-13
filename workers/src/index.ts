@@ -23,17 +23,29 @@ import type {
 
 const app = new Hono<{ Bindings: Env; Variables: Partial<AuthVariables> }>()
 
+// F30: SHA-256(CLERK_JWT_KEY) truncated to 8 hex chars -- see
+// HealthResponse.clerkJwtKeyFingerprint's doc comment (api-types.ts) for
+// why hashing a public JWKS key is safe to expose. crypto.subtle is the
+// Web Crypto API, available in workerd without any dependency.
+async function keyFingerprint(pem: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pem))
+  return Array.from(new Uint8Array(digest).slice(0, 4))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+}
+
 // The only route in T1 (build plan Phase 5.0 item 1). Unauthenticated by
 // nature — a health check that required a token couldn't tell you the
 // token verification path itself is broken. `clerkInstance` is F1's
 // one-curl diagnostic: it makes a `pk_test_` client pointed at a Worker
 // wired for `production` (or vice versa) visible from this one field,
 // instead of reading as a mysterious 401 an hour later.
-app.get('/api/health', (c) => {
+app.get('/api/health', async (c) => {
   const body: HealthResponse = {
     ok: true,
     version: c.env.VERSION ?? 'dev',
     clerkInstance: c.env.CLERK_INSTANCE,
+    clerkJwtKeyFingerprint: await keyFingerprint(c.env.CLERK_JWT_KEY),
   }
   return c.json(body)
 })
