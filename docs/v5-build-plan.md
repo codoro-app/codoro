@@ -92,10 +92,10 @@ v5 gives players an identity and — the part that actually serves retention —
 
 **DoD:**
 
-- [ ] Two-device test: play on A, sign in on B, B shows A's rating/history; play both offline, reconnect, merged state provably loses nothing (fixture-based test + real staging pass)
-- [ ] Anonymous → account migration keeps rating + history, verified against a real pre-v5 export
-- [ ] Airplane-mode pass: signed-in offline behavior identical to v3's
-- [ ] Schema-version skew handled: older client vs newer blob and vice versa both defined and tested, not accidental
+- [x] ~~Two-device test: play on A, sign in on B, B shows A's rating/history; play both offline, reconnect, merged state provably loses nothing (fixture-based test + real staging pass)~~ **verified against real `codoro-dev`, 2026-09-14** — T6's fixture-based property tests plus the T8b verification matrix's scenarios 1 (two clients, same account — sequential single-tab approximation, Thomas's own explicit choice once a second isolated browser profile turned out blocked; every round trip still a real network call) and 2 (a real provoked `409` conflict resolving to a genuine union, not last-write-wins). See the Phase 5.2 closing amendment.
+- [x] Anonymous → account migration keeps rating + history, verified against a real pre-v5 export — T8b verification matrix scenario 0/4, confirmed; the "pre-v5 export" requirement itself collapsed (`CURRENT_SCHEMA_VERSION` hasn't moved since v5's first commit, so a current export already is a pre-v5 export) — see the T7b closeout addendum and the Phase 5.2 closing amendment.
+- [x] Airplane-mode pass: signed-in offline behavior identical to v3's — T8b verification matrix scenario 3, confirmed: full puzzle played against a patched-offline `fetch`, no spinner/error/blocked interaction, push queued and drained cleanly on reconnect.
+- [x] Schema-version skew handled: older client vs newer blob and vice versa both defined and tested, not accidental — T6's skew policy plus T8b verification matrix scenario 5, both directions forced live via raw authenticated requests, not just unit-tested.
 
 ## Phase 5.3 — Public identity + named leaderboards (2 sessions)
 
