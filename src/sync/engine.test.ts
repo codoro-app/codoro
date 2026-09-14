@@ -43,8 +43,13 @@ vi.mock('../telemetry', () => ({
 
 const { apiFetch } = await import('../auth/api')
 const apiFetchMock = vi.mocked(apiFetch)
-const { createSyncEngine, SYNC_META_STORAGE_KEY, LAST_MUTATED_AT_STORAGE_KEY, readSyncMeta } =
-  await import('./engine')
+const {
+  createSyncEngine,
+  SYNC_META_STORAGE_KEY,
+  LAST_MUTATED_AT_STORAGE_KEY,
+  readSyncMeta,
+  readPendingAdopt,
+} = await import('./engine')
 type SyncEngine = ReturnType<typeof createSyncEngine>
 
 const FIXTURES_DIR = join(dirname(fileURLToPath(import.meta.url)), 'fixtures')
@@ -589,6 +594,13 @@ describe('sync engine', () => {
     // storage to a blank profile *before* the 404 is even reached (see
     // handleSignedIn's own comment) -- this test would fail if that reset
     // were skipped or ran after the push instead of before it.
+    //
+    // Review finding, round 2: the switch is now a two-boot handshake --
+    // boot 1 detects the switch and resets local *without touching the
+    // network at all*; boot 2 (a reload, simulated here the same way the
+    // "reload-with-pending-queue" test elsewhere in this file does -- a
+    // fresh engine instance, same localStorage/IndexedDB) resumes and
+    // actually attempts the adopt/push. Both calls are exercised.
     it("a different user arriving to a genuinely fresh account (404) pushes this device's own freshly-reset (blank) state, never account A's local data", async () => {
       localStorage.setItem(
         SYNC_META_STORAGE_KEY,
@@ -609,10 +621,22 @@ describe('sync engine', () => {
         },
       )
 
-      await engine.handleSignedIn('user_b')
+      const bootOne = await engine.handleSignedIn('user_b')
+      expect(bootOne).toEqual({ accountSwitchDetected: true })
+      // Boot 1 never touches the network -- the reload happens before any
+      // round-trip, closing the window a stale saveProfile() could land in.
+      expect(apiFetchMock).not.toHaveBeenCalled()
+      // Local is already reset by the time boot 1 resolves.
+      expect((await loadProfile()).challengerName).not.toBe('ACCOUNT-A-LOCAL-DATA')
+      expect(localStorage.getItem(LAST_MUTATED_AT_STORAGE_KEY)).toBeNull()
+
+      // Simulate the reload: a fresh engine instance, same localStorage/IndexedDB.
+      const resumed = createSyncEngine({ getToken })
+      const bootTwo = await resumed.handleSignedIn('user_b')
+      expect(bootTwo).toEqual({ accountSwitchDetected: false }) // no second reload needed -- nothing stale left to protect against
 
       const putCall = apiFetchMock.mock.calls.find(([, opts]) => methodOf(opts) === 'PUT')
-      if (!putCall) throw new Error('expected handleSignedIn to push after the 404')
+      if (!putCall) throw new Error('expected the resumed boot to push after the 404')
       const body = putCall[1]?.body as ProfilePutRequest
       const pushedProfile = (body.payload as ExportedData).profile
       // Account A's data must be gone -- pushed payload is a blank profile,
@@ -621,14 +645,7 @@ describe('sync engine', () => {
       expect(pushedProfile.challengerName).not.toBe('ACCOUNT-A-LOCAL-DATA')
       expect((body.payload as ExportedData).attempts).toEqual([]) // account A's seeded attempt must be gone, not carried into B's push
       expect(readSyncMeta()).toEqual({ userId: 'user_b', baseRevision: 1 })
-      // Also verifies locally, not just via the pushed wire body.
-      expect((await loadProfile()).challengerName).not.toBe('ACCOUNT-A-LOCAL-DATA')
-      // Precise, not just "changed": resetLocalToBlank() clears this key
-      // outright, and neither the reset nor the subsequent 404-triggered
-      // push ever re-stamps it (only a real pull/merge or notifyMutation
-      // does) -- it must read back exactly null, not merely "some other
-      // value."
-      expect(localStorage.getItem(LAST_MUTATED_AT_STORAGE_KEY)).toBeNull()
+      expect(readPendingAdopt()).toBeNull() // resolved -- the marker clears
     })
 
     it("a different user arriving to an EXISTING account (200) adopts remote wholesale -- never a merge with the prior account's local data", async () => {
@@ -667,7 +684,17 @@ describe('sync engine', () => {
         },
       )
 
-      await engine.handleSignedIn('user_b')
+      // Two-boot handshake (review finding, round 2): boot 1 detects and
+      // resets, without touching the network; boot 2 (simulated reload --
+      // a fresh engine instance, same localStorage/IndexedDB) resumes and
+      // actually adopts.
+      const bootOne = await engine.handleSignedIn('user_b')
+      expect(bootOne).toEqual({ accountSwitchDetected: true })
+      expect(apiFetchMock).not.toHaveBeenCalled()
+
+      const resumed = createSyncEngine({ getToken })
+      const bootTwo = await resumed.handleSignedIn('user_b')
+      expect(bootTwo).toEqual({ accountSwitchDetected: false })
 
       const saved = await loadProfile()
       // Wholesale adoption: B's real challengerName wins outright. This IS
@@ -691,6 +718,7 @@ describe('sync engine', () => {
       )
       expect(savedAttempts.map((a) => a.id)).not.toContain(accountAAttempt().id)
       expect(readSyncMeta()).toEqual({ userId: 'user_b', baseRevision: 9 })
+      expect(readPendingAdopt()).toBeNull()
     })
   })
 
@@ -760,7 +788,15 @@ describe('sync engine', () => {
         },
       )
 
+      // Two-boot handshake (review finding, round 2): boot 1's own reset
+      // already preserves this device's anonId (it's what this assertion
+      // would pass on even if adoptRemoteWholesale's own anonId logic were
+      // deleted) -- boot 2 (resumed) is what actually exercises
+      // adoptRemoteWholesale's wholesale-import path this test is named
+      // for.
       await engine.handleSignedIn('user_b')
+      const resumed = createSyncEngine({ getToken })
+      await resumed.handleSignedIn('user_b')
 
       // Adopting remote's data wholesale must not mean adopting remote's
       // anonId too -- that would silently merge this device's PostHog
@@ -783,7 +819,11 @@ describe('sync engine', () => {
         },
       )
 
+      // Two-boot handshake (review finding, round 2) -- see the earlier
+      // 404 test's own comment for why.
       await engine.handleSignedIn('user_b')
+      const resumed = createSyncEngine({ getToken })
+      await resumed.handleSignedIn('user_b')
 
       // Phase 7 Item 6's "stable, generate once" contract: a device's
       // anonId must survive an account switch even when the switch lands
@@ -791,14 +831,23 @@ describe('sync engine', () => {
       // createDefaultProfile()'s own fresh crypto.randomUUID().
       expect((await loadProfile()).anonId).toBe('device-own-anon-id-2')
       const putCall = apiFetchMock.mock.calls.find(([, opts]) => methodOf(opts) === 'PUT')
-      if (!putCall) throw new Error('expected handleSignedIn to push after the 404')
+      if (!putCall) throw new Error('expected the resumed boot to push after the 404')
       const body = putCall[1]?.body as ProfilePutRequest
       expect(body.anonId).toBe('device-own-anon-id-2')
     })
   })
 
   describe('F31 concurrency (review finding) — React StrictMode double-invoke does not race the switch', () => {
-    it('a second concurrent handleSignedIn call is serialized behind the first -- its own GET never dispatches until the first fully completes', async () => {
+    // Round 2 note: under the two-boot design, boot 1 (detection + reset)
+    // never touches the network at all -- so "call2's GET never dispatches
+    // until call1 completes" (the round-1 version of this test) no longer
+    // has a call-1 GET to compare against. What actually matters now: the
+    // pending-adopt check + switch-detection + reset all run inside ONE
+    // lock acquisition, so a second concurrent call can't read a stale
+    // pre-lock snapshot of either -- it re-checks everything fresh once it
+    // finally acquires the lock, and correctly finds call1's just-written
+    // pending-adopt marker rather than redoing (or racing) the detection.
+    it('a second concurrent handleSignedIn call is fully serialized behind the first -- it re-checks fresh state instead of racing the switch, and only it touches the network', async () => {
       localStorage.setItem(
         SYNC_META_STORAGE_KEY,
         JSON.stringify({ userId: 'user_a', baseRevision: 7 }),
@@ -815,22 +864,20 @@ describe('sync engine', () => {
         payload: remoteForB,
         updatedAt: Date.now(),
       }
-      // First GET deliberately hangs (manually resolved below) so there's a
-      // real window in which call1 is in flight, waiting on its own GET,
-      // to observe whether call2 has *also* reached its own GET dispatch
-      // yet -- same manually-controlled-promise technique the I12 test
-      // above uses, and for the same reason (fake-indexeddb's own real
-      // async work can't be reliably sequenced by counting microtasks).
-      let resolveFirstGet!: (value: unknown) => void
-      const firstGetPromise = new Promise((resolve) => {
-        resolveFirstGet = resolve
+      // The GET deliberately hangs (manually resolved below) -- not to
+      // delay call1 (which never reaches it), but so that once call2
+      // *does* reach it, resolving it is under this test's control rather
+      // than a race against real time.
+      let resolveGet!: (value: unknown) => void
+      const getPromise = new Promise((resolve) => {
+        resolveGet = resolve
       })
       let getCallCount = 0
       apiFetchMock.mockImplementation(
         (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
           if (methodOf(opts) === 'GET') {
             getCallCount += 1
-            return getCallCount === 1 ? firstGetPromise : Promise.resolve(remoteResponse)
+            return getPromise
           }
           return Promise.reject(new Error('push must not be attempted in this test'))
         },
@@ -838,34 +885,25 @@ describe('sync engine', () => {
 
       // Simulates React StrictMode's deliberate double-effect-invocation in
       // dev: SyncEngineHost's own handleSignedIn call fires twice for the
-      // same sign-in. Deliberately not awaited individually.
+      // same sign-in, back to back, neither awaited individually.
       const call1 = engine.handleSignedIn('user_b')
       const call2 = engine.handleSignedIn('user_b')
 
-      // Real delay, giving call1's own async chain (readSyncMeta ->
-      // clearSyncMeta/clearQueue/clearLastMutatedAt -> resetLocalToBlank's
-      // real IndexedDB work -> resolveToken -> apiFetch) plenty of real
-      // time to reach its GET and hang there. Before the fix, call2's own
-      // readSyncMeta()/resetLocalToBlank()/adoptRemoteWholesale() ran with
-      // no lock at all until its own GET, so call2's GET would already
-      // have fired within this window too; the fix serializes call2
-      // entirely behind call1's lock, so it can't even start running its
-      // own body -- let alone dispatch a GET -- until call1's GET resolves.
-      await new Promise((resolve) => setTimeout(resolve, 200))
-      expect(getCallCount).toBe(1)
+      // call1 never touches the network (the two-boot design's whole
+      // point), so it resolves entirely on its own -- independent of
+      // call2, whose own GET is left deliberately hanging here. If call1's
+      // work were somehow entangled with call2's (a race), it could not
+      // resolve while call2's GET is still pending.
+      await expect(call1).resolves.toEqual({ accountSwitchDetected: true })
 
-      resolveFirstGet(remoteResponse)
-      await Promise.all([call1, call2])
+      resolveGet(remoteResponse)
+      await expect(call2).resolves.toEqual({ accountSwitchDetected: false })
+      expect(getCallCount).toBe(1) // exactly one GET, total, across both calls -- call2 didn't redo the reset, it resumed the adopt
 
-      // call2, running only after call1 finished, now sees meta already
-      // matching 'user_b' -- not a switch -- and takes the ordinary
-      // "same user returning" pull path (I11's own idempotence then makes
-      // it a noop against the same revision, but it still issues its own
-      // real GET first).
-      expect(getCallCount).toBe(2)
       const saved = await loadProfile()
       expect(saved.challengerName).toBe('ACCOUNT-B-REMOTE-DATA')
       expect(readSyncMeta()).toEqual({ userId: 'user_b', baseRevision: 9 })
+      expect(readPendingAdopt()).toBeNull()
     })
   })
 

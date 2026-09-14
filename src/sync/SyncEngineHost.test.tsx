@@ -119,6 +119,66 @@ describe('SyncEngineHost', () => {
     expect(createSyncEngineMock).toHaveBeenCalledTimes(1)
   })
 
+  // Review finding (blocker, round 2): the real app can mount this
+  // component from up to three places at once (App.tsx's root host,
+  // AccountSection.tsx's, SignupPromptSheet.tsx's), gated on a mutable
+  // localStorage flag that doesn't guarantee exclusivity by itself -- see
+  // SyncEngineHost.tsx's own top comment. These tests exercise the
+  // singleton guard that closes it, independent of any gating logic
+  // (which lives in the call sites, not here): two instances mounted at
+  // once must never both wire up real lifecycle behavior.
+  describe('singleton guard (review finding, round 2) — only one mounted instance is ever active', () => {
+    it('a second simultaneously-mounted instance never calls a lifecycle hook, even when both are signed in', async () => {
+      setAuthState({ isLoaded: true, isSignedIn: true, userId: 'user_a' })
+
+      render(<SyncEngineHost />) // e.g. the root host
+      render(<SyncEngineHost />) // e.g. a local host mounted alongside it
+
+      await vi.waitFor(() => {
+        expect(engine.handleSignedIn).toHaveBeenCalled()
+      })
+      // Exactly once -- not once per mounted instance. Two independent
+      // engines both wiring up here is precisely the double-instance race
+      // this guard exists to prevent (each with its own mutex, each
+      // subscribed to onProfileSaved, potentially both running an
+      // account-switch reset concurrently).
+      expect(engine.handleSignedIn).toHaveBeenCalledTimes(1)
+      expect(onProfileSavedMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('a second simultaneously-mounted instance never reacts to online/visibilitychange either', () => {
+      setAuthState({ isLoaded: true, isSignedIn: true, userId: 'user_a' })
+
+      render(<SyncEngineHost />)
+      render(<SyncEngineHost />)
+
+      window.dispatchEvent(new Event('online'))
+      expect(engine.handleOnline).toHaveBeenCalledTimes(1)
+
+      const visibilitySpy = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+      document.dispatchEvent(new Event('visibilitychange'))
+      expect(engine.flush).toHaveBeenCalledTimes(1)
+      visibilitySpy.mockRestore()
+    })
+
+    it('releases the slot on unmount, so a later instance can claim it', async () => {
+      setAuthState({ isLoaded: true, isSignedIn: true, userId: 'user_a' })
+
+      const first = render(<SyncEngineHost />)
+      await vi.waitFor(() => {
+        expect(engine.handleSignedIn).toHaveBeenCalledTimes(1)
+      })
+      first.unmount()
+
+      engine.handleSignedIn.mockClear()
+      render(<SyncEngineHost />) // e.g. Settings visited after the root host's session ended
+
+      await vi.waitFor(() => {
+        expect(engine.handleSignedIn).toHaveBeenCalledTimes(1)
+      })
+    })
+  })
+
   it('calls neither lifecycle hook while Clerk has not finished loading', () => {
     render(<SyncEngineHost />)
 
