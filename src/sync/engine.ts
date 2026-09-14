@@ -739,6 +739,26 @@ export function createSyncEngine(
         // holding the lock (same reason push()'s conflict-retry calls
         // doPull directly rather than the public, locked pull()).
         const result = await adoptRemoteWholesale(userId)
+        if (result.kind === 'not-found') {
+          // Review finding (round 3): boot 1 already reset local to blank,
+          // but the window between that reset and the actual page unload
+          // is real -- an already-mounted session hook's own saveProfile()
+          // could still land a stale (prior-account) profile in that gap.
+          // Re-resetting here makes B's fresh-account push blank by
+          // construction, not by timing. Best-effort anonId read (same
+          // degrade-gracefully posture as adoptRemoteWholesale's own) --
+          // if this device's current anonId can't be read, the push below
+          // still lands, just without a corrected reset.
+          let deviceAnonId: string | null = null
+          try {
+            deviceAnonId = (await loadProfile()).anonId
+          } catch {
+            // Falls through to whatever local storage already holds.
+          }
+          if (deviceAnonId !== null) {
+            await resetLocalToBlank(deviceAnonId)
+          }
+        }
         return { pullOutcome: result, isAccountSwitch: false, isResuming: true }
       }
 
@@ -750,9 +770,20 @@ export function createSyncEngine(
       // already-synced account -- that data must never merge into the
       // incoming one (see adoptRemoteWholesale's own doc comment for
       // exactly why merging, even against reset local state, is still
-      // wrong).
+      // wrong). A pending-adopt marker for a DIFFERENT user than the one
+      // signing in now is the same signal by another name (review finding,
+      // round 3): it's definitive proof local is mid-switch, not an
+      // unattributed guest -- treating a mismatch as a switch too closes
+      // off a genuinely-reachable sequence (a switch's own adopt never
+      // resolves -- offline, say -- and a *third* identity signs in before
+      // it does) that would otherwise merge a mid-switch blank state's
+      // "now" clock into the third account, and separately leave the
+      // orphaned marker to incorrectly resume-adopt (no reload requested)
+      // if the second identity is ever signed back into later.
       const existingMeta = readSyncMeta()
-      const accountSwitch = existingMeta !== null && existingMeta.userId !== userId
+      const accountSwitch =
+        (existingMeta !== null && existingMeta.userId !== userId) ||
+        (pendingAdopt !== null && pendingAdopt !== userId)
 
       if (accountSwitch) {
         let deviceAnonId: string
@@ -805,11 +836,21 @@ export function createSyncEngine(
       // same push (doPushOnce always sends it).
       await push()
     }
-    if (isResuming && pullOutcome.kind !== 'error') {
-      // Resolved (success or schema-skew) -- the switch is no longer
-      // "pending." A genuine 'error' leaves the marker in place, retried
-      // on the next handleSignedIn call rather than ever silently
-      // abandoned or falling through to an ordinary merge.
+    if (isResuming && (pullOutcome.kind === 'reset' || pullOutcome.kind === 'not-found')) {
+      // Review finding (round 3): 'schema-skew' is NOT resolved -- it means
+      // adoptRemoteWholesale returned before ever calling importData() or
+      // writeSyncMeta(), so local is still blank and meta is still null.
+      // Clearing the marker here would let a later handleSignedIn call
+      // (once this client updates past the skew, or simply on any
+      // subsequent boot) fall through to the ordinary merge path with
+      // nothing to say local doesn't represent a real guest -- exactly the
+      // bug this marker exists to prevent. Only 'reset' (the 200 adopt)
+      // and 'not-found' (the 404 push, now re-reset above first) actually
+      // leave local correctly reflecting the account being switched to --
+      // those are the only two outcomes that resolve the pending switch.
+      // A genuine 'error' or an unresolved 'schema-skew' both leave the
+      // marker in place, retried on the next handleSignedIn call rather
+      // than ever silently abandoned.
       clearPendingAdopt()
     }
 

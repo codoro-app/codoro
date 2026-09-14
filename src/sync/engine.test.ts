@@ -907,6 +907,89 @@ describe('sync engine', () => {
     })
   })
 
+  describe('pending-adopt marker lifecycle (round-3 review findings)', () => {
+    it('a mismatched pending-adopt marker is treated as a switch, not honored or silently ignored', async () => {
+      // Simulates a genuinely reachable sequence: a switch to user_b was
+      // detected (marker written, meta cleared) but never resolved (e.g.
+      // the device went offline before the reload's resume boot ever
+      // ran) -- and now a THIRD identity signs in. Without this fix, the
+      // stale marker is neither honored (it doesn't match user_c) nor
+      // cleared, so existingMeta === null reads as an unattributed guest
+      // and an ordinary merge runs against the still-blank, mid-switch
+      // local state.
+      localStorage.setItem('codoro:sync-pending-adopt', 'user_b')
+      // No SYNC_META_STORAGE_KEY -- boot 1's own switch-to-B already
+      // cleared it; local is the blank state that switch's reset wrote.
+      await saveProfile(createDefaultProfile())
+
+      const remoteForC: ExportedData = {
+        ...longLived,
+        profile: { ...longLived.profile, challengerName: 'ACCOUNT-C-REMOTE-DATA' },
+      }
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') {
+            return Promise.resolve({
+              revision: 5,
+              schemaVersion: remoteForC.schema_version,
+              payload: remoteForC,
+              updatedAt: Date.now(),
+            })
+          }
+          return Promise.reject(new Error('push must not be attempted in this test'))
+        },
+      )
+
+      const bootOne = await engine.handleSignedIn('user_c')
+      // Treated as a switch: boot 1 resets and defers to the reload,
+      // exactly like a switch detected via syncMeta would.
+      expect(bootOne).toEqual({ accountSwitchDetected: true })
+      expect(apiFetchMock).not.toHaveBeenCalled()
+      // The stale user_b marker is overwritten with user_c's, not left
+      // orphaned (which would otherwise incorrectly resume-adopt B, with
+      // no reload requested, if the player later signs back into B).
+      expect(readPendingAdopt()).toBe('user_c')
+
+      const resumed = createSyncEngine({ getToken })
+      const bootTwo = await resumed.handleSignedIn('user_c')
+      expect(bootTwo).toEqual({ accountSwitchDetected: false })
+      expect((await loadProfile()).challengerName).toBe('ACCOUNT-C-REMOTE-DATA')
+      expect(readSyncMeta()).toEqual({ userId: 'user_c', baseRevision: 5 })
+      expect(readPendingAdopt()).toBeNull()
+    })
+
+    it('a schema-skewed resume leaves the marker in place -- never treated as resolved', async () => {
+      localStorage.setItem('codoro:sync-pending-adopt', 'user_b')
+      await saveProfile(createDefaultProfile())
+
+      const aheadRemote: ExportedData = { ...longLived, schema_version: CURRENT_SCHEMA_VERSION + 1 }
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') {
+            return Promise.resolve({
+              revision: 3,
+              schemaVersion: aheadRemote.schema_version,
+              payload: aheadRemote,
+              updatedAt: Date.now(),
+            })
+          }
+          return Promise.reject(new Error('push must not be attempted in this test'))
+        },
+      )
+
+      const result = await engine.handleSignedIn('user_b')
+
+      expect(result).toEqual({ accountSwitchDetected: false }) // resuming -- no reload requested
+      expect(engine.getSchemaSkew()).toEqual({ remoteSchemaVersion: CURRENT_SCHEMA_VERSION + 1 })
+      // The marker survives: a schema-skewed adopt never actually
+      // resolved (no importData, no writeSyncMeta) -- clearing it here
+      // would let a later boot fall through to an ordinary merge against
+      // still-blank, still-unattributed local state.
+      expect(readPendingAdopt()).toBe('user_b')
+      expect(readSyncMeta()).toBeNull()
+    })
+  })
+
   describe('schema skew (remote ahead)', () => {
     it('exposes a read-only flag instead of merging or pushing', async () => {
       const aheadRemote: ExportedData = { ...longLived, schema_version: CURRENT_SCHEMA_VERSION + 1 }
