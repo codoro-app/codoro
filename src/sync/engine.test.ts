@@ -7,8 +7,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError } from '../auth/api'
 import type { ApiRequestOptions } from '../auth/api'
 import type { ProfilePutRequest } from '../../workers/shared/api-types'
-import type { ExportedData } from '../storage'
-import { CURRENT_SCHEMA_VERSION, createDefaultProfile, loadProfile, saveProfile } from '../storage'
+import type { Attempt, ExportedData } from '../storage'
+import {
+  CURRENT_SCHEMA_VERSION,
+  appendAttempt,
+  createDefaultProfile,
+  loadProfile,
+  saveProfile,
+} from '../storage'
 import { readQueueEntry, recordQueueFailure } from './queue'
 
 // apiFetch is the ONLY thing engine.ts is allowed to reach the network
@@ -46,6 +52,27 @@ function loadFixture(name: string): ExportedData {
   return JSON.parse(readFileSync(join(FIXTURES_DIR, `${name}.json`), 'utf-8')) as ExportedData
 }
 const longLived = loadFixture('long-lived')
+
+// Review finding: the F31 switch tests below must seed a REAL local
+// attempt before triggering a switch, or "attempts are exactly remote's"
+// is vacuous (a local attempts array that was already empty unions
+// identically to remote's regardless of whether reset or merge ran).
+function accountAAttempt(): Attempt {
+  return {
+    id: 'account-a-attempt-1',
+    puzzleId: 'con-001',
+    puzzleRating: 1200,
+    mode: 'practice',
+    correct: true,
+    time_ms: 1000,
+    choice_index: 0,
+    checkpoint_results: null,
+    userRatingBefore: 1200,
+    userRatingAfter: 1210,
+    localDateString: '2024-01-01',
+    createdAt: '2024-01-01T00:00:00.000Z',
+  }
+}
 
 function conflictError(): ApiError {
   return new ApiError('client', 'Conflict', 409)
@@ -570,6 +597,10 @@ describe('sync engine', () => {
       localStorage.setItem(LAST_MUTATED_AT_STORAGE_KEY, '2000-01-01T00:00:00.000Z')
       const localProfile = { ...createDefaultProfile(), challengerName: 'ACCOUNT-A-LOCAL-DATA' }
       await saveProfile(localProfile)
+      // Review finding: a real local attempt, not just a bare profile --
+      // without one, "pushed attempts is []" is true whether or not the
+      // reset actually ran (an empty attempts array was already the state).
+      await appendAttempt(accountAAttempt())
       apiFetchMock.mockImplementation(
         (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
           if (methodOf(opts) === 'GET') return Promise.reject(notFoundError())
@@ -588,11 +619,16 @@ describe('sync engine', () => {
       // not a bypass of the reset.
       expect(pushedProfile.challengerName).toBe(createDefaultProfile().challengerName)
       expect(pushedProfile.challengerName).not.toBe('ACCOUNT-A-LOCAL-DATA')
-      expect((body.payload as ExportedData).attempts).toEqual([])
+      expect((body.payload as ExportedData).attempts).toEqual([]) // account A's seeded attempt must be gone, not carried into B's push
       expect(readSyncMeta()).toEqual({ userId: 'user_b', baseRevision: 1 })
       // Also verifies locally, not just via the pushed wire body.
       expect((await loadProfile()).challengerName).not.toBe('ACCOUNT-A-LOCAL-DATA')
-      expect(localStorage.getItem(LAST_MUTATED_AT_STORAGE_KEY)).not.toBe('2000-01-01T00:00:00.000Z')
+      // Precise, not just "changed": resetLocalToBlank() clears this key
+      // outright, and neither the reset nor the subsequent 404-triggered
+      // push ever re-stamps it (only a real pull/merge or notifyMutation
+      // does) -- it must read back exactly null, not merely "some other
+      // value."
+      expect(localStorage.getItem(LAST_MUTATED_AT_STORAGE_KEY)).toBeNull()
     })
 
     it("a different user arriving to an EXISTING account (200) adopts remote wholesale -- never a merge with the prior account's local data", async () => {
@@ -602,10 +638,15 @@ describe('sync engine', () => {
       )
       const localProfile = { ...createDefaultProfile(), challengerName: 'ACCOUNT-A-LOCAL-DATA' }
       await saveProfile(localProfile)
+      // Review finding: a real local attempt, not just a bare profile --
+      // without one, "attempts are exactly remote's" is true whether or
+      // not the reset actually ran (a local attempts array that was
+      // already empty unions identically to remote's either way).
+      await appendAttempt(accountAAttempt())
 
       const remoteForB: ExportedData = {
         ...longLived,
-        exportedAt: '2000-01-01T00:00:00.000Z', // deliberately OLDER than "now" -- a real merge's latest-wins rules would let local win here
+        exportedAt: '2000-01-01T00:00:00.000Z', // deliberately OLDER than the post-reset local's "now" fallback -- see the comment below
         profile: { ...longLived.profile, challengerName: 'ACCOUNT-B-REMOTE-DATA' },
       }
       apiFetchMock.mockImplementation(
@@ -629,19 +670,26 @@ describe('sync engine', () => {
       await engine.handleSignedIn('user_b')
 
       const saved = await loadProfile()
-      // Wholesale adoption: B's real challengerName wins outright (a merge
-      // would ALSO have picked it here, since it's more recent than the
-      // reset-blank local's fallback -- see the guest-migration test below
-      // for the case that actually distinguishes merge from reset).
+      // Wholesale adoption: B's real challengerName wins outright. This IS
+      // the distinguishing assertion, not a coincidental match with what a
+      // merge would also produce: resetLocalToBlank() clears the recorded
+      // mutation clock, so a post-reset local's exportedAt falls back to
+      // exportData()'s own "now" (see buildLocalExportedData's doc
+      // comment) -- which is *later* than remote's deliberately-old
+      // 2000-01-01 stamp. If a real merge ran here instead of a wholesale
+      // adopt, its "latest wins" rule would let the newer (post-reset,
+      // blank) LOCAL side win, producing the profile's *default*
+      // challengerName (null), never remote's 'ACCOUNT-B-REMOTE-DATA'.
       expect(saved.challengerName).toBe('ACCOUNT-B-REMOTE-DATA')
-      // The real distinguishing assertion: attempts are exactly remote's,
-      // never a union with account A's local attempts (a merge would union
-      // by id and keep both).
+      // Second distinguishing assertion: attempts are exactly remote's --
+      // account A's real seeded attempt must be gone, not unioned in (a
+      // merge unions by id and keeps both sides).
       const { listAttempts } = await import('../storage')
       const savedAttempts = await listAttempts()
       expect(savedAttempts.map((a) => a.id).sort()).toEqual(
         [...remoteForB.attempts].map((a) => a.id).sort(),
       )
+      expect(savedAttempts.map((a) => a.id)).not.toContain(accountAAttempt().id)
       expect(readSyncMeta()).toEqual({ userId: 'user_b', baseRevision: 9 })
     })
   })
@@ -682,6 +730,142 @@ describe('sync engine', () => {
       // to catch.
       expect((await loadProfile()).challengerName).toBe('GUEST-LOCAL-NEWER')
       expect(readSyncMeta()).toEqual({ userId: 'user_new', baseRevision: 3 })
+    })
+  })
+
+  describe('F31, second half (review findings) — this device keeps its own anonId across a switch', () => {
+    it("the 200 (existing account) path preserves this device's anonId, never remote's", async () => {
+      localStorage.setItem(
+        SYNC_META_STORAGE_KEY,
+        JSON.stringify({ userId: 'user_a', baseRevision: 7 }),
+      )
+      const localProfile = { ...createDefaultProfile(), anonId: 'device-own-anon-id' }
+      await saveProfile(localProfile)
+
+      const remoteForB: ExportedData = {
+        ...longLived,
+        profile: { ...longLived.profile, anonId: 'account-b-other-device-anon-id' },
+      }
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') {
+            return Promise.resolve({
+              revision: 9,
+              schemaVersion: remoteForB.schema_version,
+              payload: remoteForB,
+              updatedAt: Date.now(),
+            })
+          }
+          return Promise.reject(new Error('push must not be attempted in this test'))
+        },
+      )
+
+      await engine.handleSignedIn('user_b')
+
+      // Adopting remote's data wholesale must not mean adopting remote's
+      // anonId too -- that would silently merge this device's PostHog
+      // identity with whichever OTHER device last pushed account B's data.
+      expect((await loadProfile()).anonId).toBe('device-own-anon-id')
+    })
+
+    it("the 404 (fresh account) path preserves this device's anonId, never mints a fresh one", async () => {
+      localStorage.setItem(
+        SYNC_META_STORAGE_KEY,
+        JSON.stringify({ userId: 'user_a', baseRevision: 7 }),
+      )
+      const localProfile = { ...createDefaultProfile(), anonId: 'device-own-anon-id-2' }
+      await saveProfile(localProfile)
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') return Promise.reject(notFoundError())
+          if (methodOf(opts) === 'PUT') return Promise.resolve({ ok: true, revision: 1 })
+          return Promise.reject(new Error('unexpected method'))
+        },
+      )
+
+      await engine.handleSignedIn('user_b')
+
+      // Phase 7 Item 6's "stable, generate once" contract: a device's
+      // anonId must survive an account switch even when the switch lands
+      // on a genuinely fresh account, not get silently regenerated by
+      // createDefaultProfile()'s own fresh crypto.randomUUID().
+      expect((await loadProfile()).anonId).toBe('device-own-anon-id-2')
+      const putCall = apiFetchMock.mock.calls.find(([, opts]) => methodOf(opts) === 'PUT')
+      if (!putCall) throw new Error('expected handleSignedIn to push after the 404')
+      const body = putCall[1]?.body as ProfilePutRequest
+      expect(body.anonId).toBe('device-own-anon-id-2')
+    })
+  })
+
+  describe('F31 concurrency (review finding) — React StrictMode double-invoke does not race the switch', () => {
+    it('a second concurrent handleSignedIn call is serialized behind the first -- its own GET never dispatches until the first fully completes', async () => {
+      localStorage.setItem(
+        SYNC_META_STORAGE_KEY,
+        JSON.stringify({ userId: 'user_a', baseRevision: 7 }),
+      )
+      await saveProfile({ ...createDefaultProfile(), challengerName: 'ACCOUNT-A-LOCAL-DATA' })
+
+      const remoteForB: ExportedData = {
+        ...longLived,
+        profile: { ...longLived.profile, challengerName: 'ACCOUNT-B-REMOTE-DATA' },
+      }
+      const remoteResponse = {
+        revision: 9,
+        schemaVersion: remoteForB.schema_version,
+        payload: remoteForB,
+        updatedAt: Date.now(),
+      }
+      // First GET deliberately hangs (manually resolved below) so there's a
+      // real window in which call1 is in flight, waiting on its own GET,
+      // to observe whether call2 has *also* reached its own GET dispatch
+      // yet -- same manually-controlled-promise technique the I12 test
+      // above uses, and for the same reason (fake-indexeddb's own real
+      // async work can't be reliably sequenced by counting microtasks).
+      let resolveFirstGet!: (value: unknown) => void
+      const firstGetPromise = new Promise((resolve) => {
+        resolveFirstGet = resolve
+      })
+      let getCallCount = 0
+      apiFetchMock.mockImplementation(
+        (_path: string, opts?: ApiRequestOptions): Promise<unknown> => {
+          if (methodOf(opts) === 'GET') {
+            getCallCount += 1
+            return getCallCount === 1 ? firstGetPromise : Promise.resolve(remoteResponse)
+          }
+          return Promise.reject(new Error('push must not be attempted in this test'))
+        },
+      )
+
+      // Simulates React StrictMode's deliberate double-effect-invocation in
+      // dev: SyncEngineHost's own handleSignedIn call fires twice for the
+      // same sign-in. Deliberately not awaited individually.
+      const call1 = engine.handleSignedIn('user_b')
+      const call2 = engine.handleSignedIn('user_b')
+
+      // Real delay, giving call1's own async chain (readSyncMeta ->
+      // clearSyncMeta/clearQueue/clearLastMutatedAt -> resetLocalToBlank's
+      // real IndexedDB work -> resolveToken -> apiFetch) plenty of real
+      // time to reach its GET and hang there. Before the fix, call2's own
+      // readSyncMeta()/resetLocalToBlank()/adoptRemoteWholesale() ran with
+      // no lock at all until its own GET, so call2's GET would already
+      // have fired within this window too; the fix serializes call2
+      // entirely behind call1's lock, so it can't even start running its
+      // own body -- let alone dispatch a GET -- until call1's GET resolves.
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      expect(getCallCount).toBe(1)
+
+      resolveFirstGet(remoteResponse)
+      await Promise.all([call1, call2])
+
+      // call2, running only after call1 finished, now sees meta already
+      // matching 'user_b' -- not a switch -- and takes the ordinary
+      // "same user returning" pull path (I11's own idempotence then makes
+      // it a noop against the same revision, but it still issues its own
+      // real GET first).
+      expect(getCallCount).toBe(2)
+      const saved = await loadProfile()
+      expect(saved.challengerName).toBe('ACCOUNT-B-REMOTE-DATA')
+      expect(readSyncMeta()).toEqual({ userId: 'user_b', baseRevision: 9 })
     })
   })
 
@@ -761,11 +945,29 @@ describe('sync engine', () => {
       expect(debounced.getSchemaSkew()).not.toBeNull()
       apiFetchMock.mockClear()
 
+      // Review finding: asserting only "zero PUTs happened" doesn't
+      // distinguish "notifyMutation() never armed a debounce timer at all"
+      // from "it armed one, the timer fired, and push()'s OWN schema-skew
+      // guard caught it there instead" -- deleting notifyMutation's guard
+      // (engine.ts) would still pass a PUT-count-only assertion. Spying on
+      // the real setTimeout (never mocked -- the spy still calls through)
+      // and checking specifically for the engine's own debounceMs delay
+      // proves the *debounce* timer itself was never scheduled -- jsdom's
+      // own localStorage implementation schedules its cross-tab storage
+      // *event* dispatch via an unrelated 0ms setTimeout on every write
+      // (writeLastMutatedAt's unconditional stamp, just above, triggers
+      // one), which a plain "not called at all" assertion would wrongly
+      // trip on.
+      const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout')
       debounced.notifyMutation()
+      const debounceTimerCalls = setTimeoutSpy.mock.calls.filter(([, delay]) => delay === 20)
+      expect(debounceTimerCalls).toHaveLength(0)
+
       await new Promise((resolve) => setTimeout(resolve, 60)) // longer than the 20ms debounce
 
       expect(apiFetchMock).not.toHaveBeenCalled()
       expect(localStorage.getItem(LAST_MUTATED_AT_STORAGE_KEY)).not.toBeNull()
+      setTimeoutSpy.mockRestore()
     })
 
     it("a conflict-retry's own re-pull discovering schema-skew stops the loop -- no further PUTs, no requeue", async () => {

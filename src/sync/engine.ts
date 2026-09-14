@@ -37,6 +37,7 @@ import {
   createDefaultProfile,
   exportData,
   importData,
+  loadProfile,
   saveProfile,
 } from '../storage'
 import type { ExportedData, UserProfile } from '../storage'
@@ -77,8 +78,15 @@ export type PullOutcome =
   | { kind: 'reset' }
 
 export interface SyncEngine {
-  /** Sign-in lifecycle hook (F31): compares stored sync identity to `userId`, pulls, and (on a fresh account) pushes as the seed revision. */
-  handleSignedIn: (userId: string) => Promise<void>
+  /**
+   * Sign-in lifecycle hook (F31): compares stored sync identity to
+   * `userId`, pulls, and (on a fresh account) pushes as the seed revision.
+   * Resolves `{ accountSwitchDetected: true }` when this device's local
+   * data belonged to a different account -- the caller (SyncEngineHost) is
+   * expected to force a full reload in that case; see this function's own
+   * comment for why a reload, not more app-side invalidation, is the fix.
+   */
+  handleSignedIn: (userId: string) => Promise<{ accountSwitchDetected: boolean }>
   /** Sign-out lifecycle hook: stops the debounce timer and clears in-memory (not persisted) state. Does NOT wipe sync metadata/queue -- the same user returning later should not look like a switch. */
   handleSignedOut: () => void
   /** Call from the `onProfileSaved` subscriber (see `src/storage/profile.ts`). Debounces a push ~5s. No-ops while signed out. */
@@ -386,10 +394,19 @@ export function createSyncEngine(
    * verify and reuse.
    */
   async function resetLocalToBlank(): Promise<void> {
+    // Review finding: preserve this device's own anonId across the reset --
+    // never let it be silently regenerated. createDefaultProfile() alone
+    // mints a fresh crypto.randomUUID() every time, which would violate
+    // Phase 7 Item 6's "stable, generate once" contract for this physical
+    // device the moment an account switch (successful or not) happens to
+    // land on the 404/fresh-account branch below. loadProfile() is safe to
+    // call here even on a genuinely first-ever boot (seeds and returns a
+    // fresh default in that case).
+    const deviceAnonId = (await loadProfile()).anonId
     const blank: ExportedData = {
       schema_version: CURRENT_SCHEMA_VERSION,
       exportedAt: new Date().toISOString(),
-      profile: createDefaultProfile(),
+      profile: { ...createDefaultProfile(), anonId: deviceAnonId },
       attempts: [],
     }
     await importData(JSON.stringify(blank))
@@ -459,10 +476,20 @@ export function createSyncEngine(
       return { kind: 'error' }
     }
 
+    // Review finding: adopting remote wholesale must not mean adopting
+    // remote's anonId too -- that would silently merge this device's
+    // PostHog identity with whichever OTHER device last pushed account B's
+    // data (exactly the collision exportImport.ts's own commitImport()
+    // avoids for a friend's imported file, and merge()'s "keep local" rule
+    // avoids for an ordinary merge). resetLocalToBlank() already seeded
+    // this device's real anonId into local storage before this function
+    // ever ran -- read it back and thread it through the wholesale import
+    // instead of remote's.
+    const deviceAnonId = (await loadProfile()).anonId
     const toImport: ExportedData = {
       schema_version: CURRENT_SCHEMA_VERSION,
       exportedAt: remote.exportedAt,
-      profile,
+      profile: { ...profile, anonId: deviceAnonId },
       attempts: remote.attempts,
     }
 
@@ -589,38 +616,58 @@ export function createSyncEngine(
     })
   }
 
-  async function handleSignedIn(userId: string): Promise<void> {
-    // F31: `existingMeta === null` means this device's local data is
-    // unattributed (a guest who just signed up) -- MERGE, same as always;
-    // this is the anonymous-to-account migration and stays on the ordinary
-    // pull() path below. `existingMeta.userId !== userId` means this
-    // device's local data belongs to a DIFFERENT, already-synced account --
-    // that data must never merge into the incoming one (see
-    // adoptRemoteWholesale's own doc comment for exactly why merging, even
-    // against reset local state, is still wrong).
-    const existingMeta = readSyncMeta()
-    const isAccountSwitch = existingMeta !== null && existingMeta.userId !== userId
+  async function handleSignedIn(userId: string): Promise<{ accountSwitchDetected: boolean }> {
+    // Review finding: the switch-detection, the reset, and the adopt-or-
+    // pull must all run inside ONE lock acquisition, not (as before) a
+    // sequence of separate locked/unlocked steps. Two reasons: (1)
+    // resetLocalToBlank() previously ran *before* any lock was taken at
+    // all, so a concurrent flush()/push() already holding the lock could
+    // interleave a real PUT between the reset and the adopt, pushing a
+    // half-reset state; (2) React StrictMode deliberately double-invokes
+    // effects in dev, so SyncEngineHost's own handleSignedIn call fires
+    // twice for the same sign-in -- reading `readSyncMeta()` before
+    // acquiring the lock let both overlapping calls observe the same
+    // stale "different account" state and both run the reset/adopt
+    // sequence concurrently. Reading it fresh *inside* the lock means the
+    // second call sees whatever the first one already wrote and correctly
+    // falls back to the ordinary "same user returning" path instead.
+    const { pullOutcome, isAccountSwitch } = await withLock(async () => {
+      // F31: `existingMeta === null` means this device's local data is
+      // unattributed (a guest who just signed up) -- MERGE, same as
+      // always; this is the anonymous-to-account migration and stays on
+      // the ordinary pull path below. `existingMeta.userId !== userId`
+      // means this device's local data belongs to a DIFFERENT,
+      // already-synced account -- that data must never merge into the
+      // incoming one (see adoptRemoteWholesale's own doc comment for
+      // exactly why merging, even against reset local state, is still
+      // wrong).
+      const existingMeta = readSyncMeta()
+      const accountSwitch = existingMeta !== null && existingMeta.userId !== userId
 
-    if (isAccountSwitch) {
-      clearSyncMeta()
-      clearQueue()
-      clearLastMutatedAt() // F31, second half: don't carry A's mutation clock into B's first comparisons
-      // F31, second half: wipe local IndexedDB itself, not just sync
-      // metadata -- otherwise a genuinely fresh account B (404 below)
-      // would still push whatever this device's local profile/attempts
-      // currently hold (account A's), and an existing account B (200,
-      // via adoptRemoteWholesale) must adopt remote *wholesale*, which
-      // only makes sense once local is no longer A's real data.
-      await resetLocalToBlank()
-    }
+      if (accountSwitch) {
+        clearSyncMeta()
+        clearQueue()
+        clearLastMutatedAt() // F31, second half: don't carry A's mutation clock into B's first comparisons
+        // F31, second half: wipe local IndexedDB itself, not just sync
+        // metadata -- otherwise a genuinely fresh account B (404 below)
+        // would still push whatever this device's local profile/attempts
+        // currently hold (account A's), and an existing account B (200,
+        // via adoptRemoteWholesale) must adopt remote *wholesale*, which
+        // only makes sense once local is no longer A's real data.
+        await resetLocalToBlank()
+      }
 
-    currentUserId = userId
-    schemaSkew = null
+      currentUserId = userId
+      schemaSkew = null
 
-    const outcome = isAccountSwitch
-      ? await withLock(() => adoptRemoteWholesale(userId))
-      : await pull()
-    if (outcome.kind === 'not-found') {
+      // doPull/adoptRemoteWholesale, not the public pull() -- we're
+      // already holding the lock (same reason push()'s conflict-retry
+      // calls doPull directly rather than the public, locked pull()).
+      const result = accountSwitch ? await adoptRemoteWholesale(userId) : await doPull(userId)
+      return { pullOutcome: result, isAccountSwitch: accountSwitch }
+    })
+
+    if (pullOutcome.kind === 'not-found') {
       // First-sign-in migration: local profile + server 404 -> push as
       // revision 1, anonId linked on that same push (doPushOnce always
       // sends it). On the account-switch path, local is the blank profile
@@ -628,6 +675,19 @@ export function createSyncEngine(
       // never A's.
       await push()
     }
+
+    // Review finding (blocker): local IndexedDB is correct the moment this
+    // resolves, but every already-mounted session hook (usePracticeSession
+    // and its siblings) still holds the PRIOR account's UserProfile object
+    // in its own React state -- the next ordinary saveProfile() call from
+    // any of them (finishing a puzzle, toggling a preference) would
+    // silently overwrite the just-adopted account with the old one's data,
+    // then push that overwrite to the new account's server row. Reporting
+    // whether a switch happened lets the caller (SyncEngineHost) force a
+    // full reload, the one thing guaranteed to drop every stale in-memory
+    // profile reference -- rather than this module trying to reach into
+    // every current and future session hook's state to invalidate it.
+    return { accountSwitchDetected: isAccountSwitch }
   }
 
   function handleSignedOut(): void {
@@ -655,11 +715,22 @@ export function createSyncEngine(
   }
 
   async function flush(): Promise<void> {
+    // Review finding: a push is only actually owed if a debounce was armed
+    // (a real local mutation happened since the last successful push) or a
+    // retry is already queued from an earlier failure -- otherwise every
+    // visibilitychange->hidden (an ordinary tab-switch, alt-tab, or app
+    // background with nothing new to sync) would PUT the full profile
+    // unconditionally, bumping the server revision for no reason and
+    // turning every other device's next pull from an I11 noop into a real
+    // (if harmless) merge.
+    const hadArmedDebounce = debounceTimer !== null
     if (debounceTimer) {
       clearTimeout(debounceTimer)
       debounceTimer = null
     }
     if (currentUserId === null) return
+    const queued = readQueueEntry()?.userId === currentUserId
+    if (!hadArmedDebounce && !queued) return
     await push()
   }
 

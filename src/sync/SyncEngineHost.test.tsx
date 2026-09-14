@@ -21,7 +21,7 @@ vi.mock('../auth/useAuthToken', () => ({
 }))
 
 const engine = {
-  handleSignedIn: vi.fn(() => Promise.resolve()),
+  handleSignedIn: vi.fn(() => Promise.resolve({ accountSwitchDetected: false })),
   handleSignedOut: vi.fn(),
   notifyMutation: vi.fn(),
   flush: vi.fn(() => Promise.resolve()),
@@ -51,6 +51,17 @@ vi.mock('../storage', () => ({
   onProfileSaved: (listener: () => void) => onProfileSavedMock(listener),
 }))
 
+const writeHasAccountHintMock = vi.fn<() => void>()
+const clearHasAccountHintMock = vi.fn<() => void>()
+vi.mock('../auth/accountHint', () => ({
+  writeHasAccountHint: (): void => {
+    writeHasAccountHintMock()
+  },
+  clearHasAccountHint: (): void => {
+    clearHasAccountHintMock()
+  },
+}))
+
 const { SyncEngineHost } = await import('./SyncEngineHost')
 
 function setAuthState(next: Partial<AuthState>): void {
@@ -58,16 +69,35 @@ function setAuthState(next: Partial<AuthState>): void {
 }
 
 describe('SyncEngineHost', () => {
+  const reloadMock = vi.fn()
+
   beforeEach(() => {
     setAuthState({ isLoaded: false, isSignedIn: false, userId: null })
     createSyncEngineMock.mockClear()
     engine.handleSignedIn.mockClear()
+    engine.handleSignedIn.mockImplementation(() =>
+      Promise.resolve({ accountSwitchDetected: false }),
+    )
     engine.handleSignedOut.mockClear()
     engine.notifyMutation.mockClear()
     engine.flush.mockClear()
     engine.handleOnline.mockClear()
     onProfileSavedMock.mockClear()
     profileSavedListener = null
+    writeHasAccountHintMock.mockClear()
+    clearHasAccountHintMock.mockClear()
+    reloadMock.mockClear()
+    // jsdom's window.location.reload is non-configurable (vi.spyOn throws
+    // "Cannot redefine property") and throws "Not implemented" if actually
+    // invoked -- replacing the whole `location` object (a standard jsdom
+    // workaround) is what makes it stubbable at all. A minimal stub, not a
+    // spread of the real Location instance (which would lose its
+    // prototype methods) -- nothing in this file needs any other
+    // `location` property.
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { reload: reloadMock },
+    })
   })
 
   afterEach(() => {
@@ -109,6 +139,38 @@ describe('SyncEngineHost', () => {
     render(<SyncEngineHost />)
 
     expect(engine.handleSignedOut).toHaveBeenCalledTimes(1)
+  })
+
+  it('stamps the has-account hint on sign-in and clears it on sign-out (I3/F8)', () => {
+    setAuthState({ isLoaded: true, isSignedIn: true, userId: 'user_a' })
+    const { rerender } = render(<SyncEngineHost />)
+    expect(writeHasAccountHintMock).toHaveBeenCalledTimes(1)
+    expect(clearHasAccountHintMock).not.toHaveBeenCalled()
+
+    setAuthState({ isLoaded: true, isSignedIn: false, userId: null })
+    rerender(<SyncEngineHost />)
+    expect(clearHasAccountHintMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('reloads the page when handleSignedIn reports an account switch (review finding: stale in-memory session state)', async () => {
+    engine.handleSignedIn.mockImplementation(() => Promise.resolve({ accountSwitchDetected: true }))
+    setAuthState({ isLoaded: true, isSignedIn: true, userId: 'user_b' })
+
+    render(<SyncEngineHost />)
+    await vi.waitFor(() => {
+      expect(reloadMock).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it('does not reload when handleSignedIn reports no account switch', async () => {
+    setAuthState({ isLoaded: true, isSignedIn: true, userId: 'user_a' })
+
+    render(<SyncEngineHost />)
+    await vi.waitFor(() => {
+      expect(engine.handleSignedIn).toHaveBeenCalled()
+    })
+
+    expect(reloadMock).not.toHaveBeenCalled()
   })
 
   it('re-fires the lifecycle hook when sign-in state actually changes, not on every unrelated re-render', () => {

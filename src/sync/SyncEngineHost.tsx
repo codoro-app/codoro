@@ -23,10 +23,26 @@
  * - `isLoaded && isSignedIn && userId` -> `engine.handleSignedIn(userId)`,
  *   covering both a real sign-in event and "already signed in at boot"
  *   (Clerk resolves `isSignedIn` the same way in both cases -- no separate
- *   boot-specific branch needed).
- * - `isLoaded && !isSignedIn` -> `engine.handleSignedOut()`.
+ *   boot-specific branch needed). Also stamps `codoro:has-account`
+ *   (accountHint.ts) -- see App.tsx's own comment for what that gates.
+ * - `isLoaded && !isSignedIn` -> `engine.handleSignedOut()` and clears the
+ *   has-account hint -- an ordinary sign-out returns this device to
+ *   zero-Clerk-cost boots, matching guest-first (I1/I2). Account deletion
+ *   (`DeleteAccountDialog`) calls `signOut()` on success, so it clears the
+ *   hint via this same path -- no separate call needed.
  * - `window`'s `online` event -> `engine.handleOnline()`.
  * - `document`'s `visibilitychange` -> hidden -> `engine.flush()`.
+ *
+ * Review finding (blocker): `handleSignedIn` resolving
+ * `{ accountSwitchDetected: true }` means this device's local IndexedDB
+ * belonged to a different account a moment ago -- correct now, but every
+ * already-mounted session hook (usePracticeSession and its siblings) still
+ * holds the PRIOR account's `UserProfile` object in its own React state,
+ * and the next ordinary `saveProfile()` call from any of them would
+ * silently overwrite the just-adopted account with stale data. A full
+ * reload is the one thing guaranteed to drop every such stale in-memory
+ * reference at once, rather than this component trying to reach into every
+ * current and future session hook's state to invalidate it individually.
  *
  * Guest-first (I2): none of this ever blocks rendering (this component
  * itself renders `null`, and every engine call it makes is fire-and-forget,
@@ -35,6 +51,7 @@
  * for a signed-in-but-offline player to notice.
  */
 import { useEffect, useState } from 'react'
+import { clearHasAccountHint, writeHasAccountHint } from '../auth/accountHint'
 import { useAuthToken } from '../auth/useAuthToken'
 import { onProfileSaved } from '../storage'
 import { createSyncEngine } from './engine'
@@ -56,8 +73,12 @@ export function SyncEngineHost(): null {
   useEffect(() => {
     if (!isLoaded) return
     if (isSignedIn && userId) {
-      void engine.handleSignedIn(userId)
+      writeHasAccountHint()
+      void engine.handleSignedIn(userId).then(({ accountSwitchDetected }) => {
+        if (accountSwitchDetected) window.location.reload()
+      })
     } else {
+      clearHasAccountHint()
       engine.handleSignedOut()
     }
   }, [engine, isLoaded, isSignedIn, userId])

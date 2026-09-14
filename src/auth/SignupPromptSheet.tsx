@@ -13,6 +13,7 @@
  * most once per trigger, globally rate-limited to one per 7 days).
  */
 import { lazy, Suspense, useEffect, useState } from 'react'
+import { readHasAccountHint } from './accountHint'
 import { AuthProvider } from './AuthProvider'
 
 // Lazy for the same reason AccountSection.tsx's identical import is lazy --
@@ -20,6 +21,14 @@ import { AuthProvider } from './AuthProvider'
 // avoids (a shared module statically imported from two separate lazy
 // chunks produced a dead CSS-preload reference that crashed the page).
 const SignInSheet = lazy(async () => ({ default: (await import('./SignInSheet')).SignInSheet }))
+
+// T8b review fix: same reasoning as AccountSection.tsx's own
+// SyncEngineHostLazy -- a device's very first sign-up can happen from this
+// sheet instead of Settings, and App.tsx's root SyncEngineHost (gated on
+// the has-account hint, I3/F8) won't be mounted yet in that case.
+const SyncEngineHostLazy = lazy(async () => ({
+  default: (await import('../sync/SyncEngineHost')).SyncEngineHost,
+}))
 
 export interface SignupPromptCopy {
   icon: string
@@ -43,6 +52,11 @@ const BACKDROP_CLASS = 'fixed inset-0 z-30 bg-surface-0/60'
 
 export function SignupPromptSheet({ copy, onShown, onDismiss, onOptOut }: SignupPromptSheetProps) {
   const [showSignIn, setShowSignIn] = useState(false)
+  // See AccountSection.tsx's own identical flag for the full reasoning:
+  // only mount our own sync-engine host when the root one (App.tsx) isn't
+  // already covering this session, so a first-ever sign-up from this sheet
+  // still gets live engine wiring without ever running two instances.
+  const [needsOwnSyncHost] = useState(() => !readHasAccountHint())
 
   useEffect(() => {
     onShown()
@@ -58,6 +72,7 @@ export function SignupPromptSheet({ copy, onShown, onDismiss, onOptOut }: Signup
         <div className={BACKDROP_CLASS} onClick={onDismiss} />
         <div className={SHEET_CLASS} role="dialog" aria-modal="true" aria-label="Create account">
           <AuthProvider>
+            {needsOwnSyncHost && <SyncEngineHostLazy />}
             <Suspense fallback={null}>
               <SignInSheet onComplete={onDismiss} />
             </Suspense>

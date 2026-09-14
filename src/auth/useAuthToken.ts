@@ -30,14 +30,23 @@ export interface AuthState {
 }
 
 export function useAuthToken(): AuthState {
-  const { isLoaded, isSignedIn, getToken } = useAuth()
+  // T8b review fix: userId comes from useAuth() itself, not useUser() --
+  // both hooks resolve from the same underlying Clerk state, but reading
+  // isSignedIn from one hook and userId from another left a narrow window
+  // where isSignedIn was already true while `user` (useUser()'s own state)
+  // hadn't updated yet, so a consumer keyed on `isSignedIn && userId`
+  // (SyncEngineHost) could momentarily read userId as null on an otherwise
+  // real, signed-in tick. useAuth()'s own userId is undefined while
+  // loading, null while signed out, and a string exactly when isSignedIn
+  // is true -- the same discriminant, one hook, no window.
+  const { isLoaded, isSignedIn, userId, getToken } = useAuth()
   const { user } = useUser()
 
   return {
     isLoaded,
     isSignedIn: isLoaded ? isSignedIn : false,
     email: user?.primaryEmailAddress?.emailAddress ?? null,
-    userId: user?.id ?? null,
+    userId: userId ?? null,
     getToken: () => getToken(),
   }
 }
