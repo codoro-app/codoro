@@ -317,8 +317,14 @@ function recomputeRatingAndStreak(sortedAttempts: readonly Attempt[]): Recompute
  * — a blob that fails to migrate cleanly is a real error, not something to
  * merge around) — this throws on a genuinely malformed migration result;
  * T8 catches it like any other pull failure per I2.
+ *
+ * Exported (T8b, F31's second half): `engine.ts`'s account-switch path needs
+ * this exact forward-migration step without running the rest of `merge()`
+ * below — an account switch adopts `remote` wholesale rather than merging it
+ * against local, so this is the one piece of `merge()` that path legitimately
+ * reuses rather than duplicates.
  */
-function migrateRemoteProfileIfBehind(remote: ExportedData): UserProfile {
+export function migrateRemoteProfileIfBehind(remote: ExportedData): UserProfile {
   if (remote.schema_version === CURRENT_SCHEMA_VERSION) return remote.profile
   const migrated = runMigrations(
     remote.profile as unknown as Record<string, unknown>,

@@ -1,5 +1,7 @@
 import { lazy, Suspense, useLayoutEffect, useState } from 'react'
 import { Route, Switch, useLocation, Link } from 'wouter'
+import { readHasAccountHint } from '../auth/accountHint'
+import { AuthProvider, hasClerkKey } from '../auth/AuthProvider'
 import { ErrorBoundary } from './ErrorBoundary'
 import { PwaPrompts } from './pwa/PwaPrompts'
 import { AppShell } from './AppShell'
@@ -100,6 +102,29 @@ const ScrubberDebugPage = import.meta.env.DEV
     }))
   : () => null
 
+// T8b (v5 Phase 5.2): the sync engine's app-level lifecycle wiring -- see
+// SyncEngineHost.tsx's own doc comment. Lazy, gated behind `hasClerkKey`
+// below (not just AuthProvider's own internal check) for the same reason
+// AccountSection.tsx already gates its own AuthProvider render: merely
+// rendering a lazy() component starts its import immediately, and
+// SyncEngineHost statically imports useAuthToken.ts, which statically
+// imports @clerk/react -- an unconditional render here would fetch that
+// chunk (and crash calling useAuth() with no ClerkProvider ancestor) even
+// in a build with no Clerk key configured (every fresh clone, CI, I1).
+//
+// Review fix (I3/F8): `hasClerkKey` alone is NOT enough to gate this --
+// it's a build config, true for every visitor once Clerk is configured in
+// production, signed in or not. Mounting `<AuthProvider>` unconditionally
+// here would fetch clerk-js on every guest's cold boot on every play
+// route, exactly the regression F8 exists to prevent. `hasAccountHint`
+// (read once at mount, accountHint.ts) restricts this to devices that have
+// actually had a real account before -- see that module's own doc comment
+// for the write/clear lifecycle and the named limitation (a device's very
+// first sign-in session doesn't retroactively mount this root host).
+const SyncEngineHostLazy = lazy(async () => ({
+  default: (await import('../sync/SyncEngineHost')).SyncEngineHost,
+}))
+
 /**
  * '/' always renders Home — first-ever visit and every visit after that
  * alike (2026-08-26: previously a brand-new device's very first launch
@@ -115,6 +140,11 @@ const ScrubberDebugPage = import.meta.env.DEV
 export function App() {
   const [, navigate] = useLocation()
   useRouteMeta()
+
+  // Review fix (I3/F8): read once, on mount, same as intendedPath below --
+  // see SyncEngineHostLazy's own comment above for why hasClerkKey alone
+  // isn't a safe gate for this root-level mount.
+  const [hasAccountHint] = useState(readHasAccountHint)
 
   // ?redirect= recovery (see resolveIntendedPath's own comment) takes
   // priority over the normal '/' render — computed once, on mount (App
@@ -247,6 +277,22 @@ export function App() {
         </Suspense>
       </AppShell>
       <PwaPrompts />
+      {/* T8b: renders nothing (SyncEngineHost returns null) -- a pure
+          side-effect host for the sync engine's lifecycle, mounted once for
+          the app's whole session. Gated on hasClerkKey AND hasAccountHint
+          (I3/F8) -- see SyncEngineHostLazy's own comment above for why
+          hasClerkKey alone regresses guest boot cost. Suspense fallback
+          null: this must never block first paint (I2), and AuthProvider's
+          own internal Suspense already covers ClerkBoundary's chunk load,
+          so this outer one only needs to cover SyncEngineHost's own
+          separate lazy chunk. */}
+      {hasClerkKey && hasAccountHint && (
+        <Suspense fallback={null}>
+          <AuthProvider>
+            <SyncEngineHostLazy />
+          </AuthProvider>
+        </Suspense>
+      )}
     </ErrorBoundary>
   )
 }

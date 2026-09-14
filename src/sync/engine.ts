@@ -31,11 +31,19 @@ import type {
   ProfilePutRequest,
   ProfilePutResponse,
 } from '../../workers/shared/api-types'
-import { CURRENT_SCHEMA_VERSION, appendAttempt, exportData, saveProfile } from '../storage'
-import type { ExportedData } from '../storage'
+import {
+  CURRENT_SCHEMA_VERSION,
+  appendAttempt,
+  createDefaultProfile,
+  exportData,
+  importData,
+  loadProfile,
+  saveProfile,
+} from '../storage'
+import type { ExportedData, UserProfile } from '../storage'
 import { trackSyncConflict, trackSyncPull, trackSyncPush } from '../telemetry'
 import { clearQueue, isQueueEntryStale, readQueueEntry, recordQueueFailure } from './queue'
-import { merge } from './merge'
+import { merge, migrateRemoteProfileIfBehind } from './merge'
 import type { MergeOutcome } from './merge'
 
 const DEFAULT_DEBOUNCE_MS = 5_000
@@ -61,10 +69,24 @@ export type PullOutcome =
   | { kind: 'not-found' }
   | { kind: 'schema-skew'; remoteSchemaVersion: number }
   | { kind: 'error' }
+  /**
+   * F31's second half (T8b): remote was adopted wholesale on a detected
+   * account switch -- never a `merge()` result. Distinguished from
+   * `'merged'` so a test (or a future caller) can tell the two apart rather
+   * than trusting that the right internal path ran.
+   */
+  | { kind: 'reset' }
 
 export interface SyncEngine {
-  /** Sign-in lifecycle hook (F31): compares stored sync identity to `userId`, pulls, and (on a fresh account) pushes as the seed revision. */
-  handleSignedIn: (userId: string) => Promise<void>
+  /**
+   * Sign-in lifecycle hook (F31): compares stored sync identity to
+   * `userId`, pulls, and (on a fresh account) pushes as the seed revision.
+   * Resolves `{ accountSwitchDetected: true }` when this device's local
+   * data belonged to a different account -- the caller (SyncEngineHost) is
+   * expected to force a full reload in that case; see this function's own
+   * comment for why a reload, not more app-side invalidation, is the fix.
+   */
+  handleSignedIn: (userId: string) => Promise<{ accountSwitchDetected: boolean }>
   /** Sign-out lifecycle hook: stops the debounce timer and clears in-memory (not persisted) state. Does NOT wipe sync metadata/queue -- the same user returning later should not look like a switch. */
   handleSignedOut: () => void
   /** Call from the `onProfileSaved` subscriber (see `src/storage/profile.ts`). Debounces a push ~5s. No-ops while signed out. */
@@ -143,6 +165,21 @@ function writeLastMutatedAt(iso: string): void {
   }
 }
 
+/**
+ * F31, second half (T8b): cleared on a detected account switch, alongside
+ * sync-meta and the queue -- left in place, this key would carry account
+ * A's mutation clock into account B's first latest-wins comparisons (see
+ * `writeLastMutatedAt`'s own doc comment for what that clock decides).
+ */
+function clearLastMutatedAt(): void {
+  try {
+    localStorage.removeItem(LAST_MUTATED_AT_STORAGE_KEY)
+  } catch {
+    // Same degrade-silently posture as this module's other localStorage
+    // writes -- worst case the next pull/push falls back to "now."
+  }
+}
+
 export interface SyncMeta {
   /** `null` before any account has ever synced from this engine instance's own perspective (not yet observed via handleSignedIn). */
   userId: string | null
@@ -182,6 +219,51 @@ function clearSyncMeta(): void {
     localStorage.removeItem(SYNC_META_STORAGE_KEY)
   } catch {
     // See writeSyncMeta's comment above.
+  }
+}
+
+/**
+ * Review finding (blocker, round 2): the account-switch handshake is a
+ * *two-boot* operation, and this is the marker that carries intent across
+ * the reload in between. See `handleSignedIn`'s own top comment for the
+ * full design; in short -- boot 1 detects the switch, resets local
+ * IndexedDB, writes `userId` here, and reloads immediately, *before* any
+ * network call; boot 2 (the reload) sees this marker, skips switch-
+ * detection entirely, and (re-)attempts the adopt against already-reset
+ * local state, clearing the marker only once the adopt reaches a resolved
+ * (non-`'error'`) outcome. While this marker names a userId, no ordinary
+ * merge-based pull is ever allowed to run for that identity -- only the
+ * adopt-or-retry path -- which is what closes off a failed adopt quietly
+ * decaying into "looks like an unattributed guest" on some later boot.
+ */
+export const PENDING_ADOPT_STORAGE_KEY = 'codoro:sync-pending-adopt'
+
+/** Never throws: a missing key or a storage failure both read as "no switch in flight." */
+export function readPendingAdopt(): string | null {
+  try {
+    return localStorage.getItem(PENDING_ADOPT_STORAGE_KEY)
+  } catch {
+    return null
+  }
+}
+
+function writePendingAdopt(userId: string): void {
+  try {
+    localStorage.setItem(PENDING_ADOPT_STORAGE_KEY, userId)
+  } catch {
+    // Degrade silently, same posture as this module's other localStorage
+    // writes -- worst case a failed adopt can't be distinguished from a
+    // fresh switch on the next boot and re-detects as one, which re-runs
+    // the (idempotent) reset and tries the adopt again. Never worse than
+    // "retries," never a fall-through to an ordinary merge.
+  }
+}
+
+function clearPendingAdopt(): void {
+  try {
+    localStorage.removeItem(PENDING_ADOPT_STORAGE_KEY)
+  } catch {
+    // See writePendingAdopt's comment above.
   }
 }
 
@@ -347,6 +429,138 @@ export function createSyncEngine(
     return { kind: 'merged' }
   }
 
+  /**
+   * F31, second half (T8b): resets local IndexedDB (profile + attempts) to a
+   * genuinely blank slate. Called by `handleSignedIn` the moment an account
+   * switch is detected -- see that function's own comment for why. Reuses
+   * `importData()` (a validated, atomic, wholesale replace of both stores)
+   * rather than inventing a new storage primitive: exactly the primitive
+   * the task brief named as the one to verify and reuse.
+   *
+   * `deviceAnonId` is threaded in by the caller, read *before* this
+   * function (or any other destructive write) runs -- review finding,
+   * round 2: fetching it here instead would mean a failure could leave
+   * sync metadata already cleared against local data that was never
+   * actually reset, which the next handleSignedIn call can't distinguish
+   * from a genuine unattributed guest. Preserving it at all (rather than
+   * letting `createDefaultProfile()` mint a fresh one) keeps this
+   * physical device's PostHog identity stable across a switch, per Phase 7
+   * Item 6's "stable, generate once" contract.
+   */
+  async function resetLocalToBlank(deviceAnonId: string): Promise<void> {
+    const blank: ExportedData = {
+      schema_version: CURRENT_SCHEMA_VERSION,
+      exportedAt: new Date().toISOString(),
+      profile: { ...createDefaultProfile(), anonId: deviceAnonId },
+      attempts: [],
+    }
+    await importData(JSON.stringify(blank))
+  }
+
+  /**
+   * F31, second half (T8b): the account-switch counterpart to `doPull()`.
+   * Called instead of the ordinary merge-based `doPull()` when
+   * `handleSignedIn()` detects the incoming `userId` differs from whatever
+   * this device's stored sync identity was. Local IndexedDB has already
+   * been reset to a blank profile by the caller (`resetLocalToBlank()`,
+   * above) -- this function's only job is to fetch remote and adopt it
+   * *wholesale*, never merge it.
+   *
+   * Merging here -- even against an already-reset local -- would still be
+   * wrong: `merge()`'s "keep local" `anonId` rule would keep the
+   * just-reset device's brand-new `anonId` instead of the incoming
+   * account's real one, and every "latest wins" field would compare the
+   * freshly-reset local's "now" `exportedAt` against remote's necessarily
+   * older one and pick local (i.e. the blank defaults) every time --
+   * silently clobbering the incoming account's real
+   * challengerName/preferences/etc. with nothing. Unlocked, like `doPull` --
+   * only ever called from within `handleSignedIn`'s own `withLock`.
+   */
+  async function adoptRemoteWholesale(userId: string): Promise<PullOutcome> {
+    const token = await resolveToken()
+    if (!token) {
+      trackSyncPull({ outcome: 'no-token' })
+      return { kind: 'error' }
+    }
+
+    let response: ProfileGetResponse
+    try {
+      response = await apiFetch<ProfileGetResponse>('/api/profile', { method: 'GET', token })
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        // A genuinely fresh account B: local is already the blank profile
+        // `resetLocalToBlank()` just wrote, so handleSignedIn's ordinary
+        // "not-found -> push" rule pushes *that* -- this device's own blank
+        // state, not the prior account's -- as B's revision 1.
+        trackSyncPull({ outcome: 'not-found' })
+        return { kind: 'not-found' }
+      }
+      trackSyncPull({ outcome: 'error' })
+      return { kind: 'error' }
+    }
+
+    const remote = coerceExportedData(response.payload)
+    if (!remote) {
+      trackSyncPull({ outcome: 'error' })
+      return { kind: 'error' }
+    }
+
+    if (remote.schema_version > CURRENT_SCHEMA_VERSION) {
+      schemaSkew = { remoteSchemaVersion: remote.schema_version }
+      trackSyncPull({ outcome: 'schema-skew' })
+      return { kind: 'schema-skew', remoteSchemaVersion: remote.schema_version }
+    }
+
+    let profile: UserProfile
+    try {
+      // Same forward-migration step merge() itself runs for a behind-schema
+      // remote -- reused, not duplicated (merge.ts's own export doc comment).
+      profile = migrateRemoteProfileIfBehind(remote)
+    } catch {
+      trackSyncPull({ outcome: 'error' })
+      return { kind: 'error' }
+    }
+
+    // Review finding: adopting remote wholesale must not mean adopting
+    // remote's anonId too -- that would silently merge this device's
+    // PostHog identity with whichever OTHER device last pushed account B's
+    // data (exactly the collision exportImport.ts's own commitImport()
+    // avoids for a friend's imported file, and merge()'s "keep local" rule
+    // avoids for an ordinary merge). resetLocalToBlank() already seeded
+    // this device's real anonId into local storage before this function
+    // ever ran -- read it back and thread it through the wholesale import
+    // instead of remote's. Wrapped (review finding, round 2): unlike the
+    // pre-write read in handleSignedIn, a failure here has nothing left to
+    // protect by aborting -- local is already blank/mid-switch -- so this
+    // degrades to remote's own anonId rather than rejecting the whole
+    // adopt over a step that's a nice-to-have, not the adopt's actual job.
+    let deviceAnonId: string | null = null
+    try {
+      deviceAnonId = (await loadProfile()).anonId
+    } catch {
+      // Falls through to remote's own anonId below.
+    }
+    const toImport: ExportedData = {
+      schema_version: CURRENT_SCHEMA_VERSION,
+      exportedAt: remote.exportedAt,
+      profile: deviceAnonId === null ? profile : { ...profile, anonId: deviceAnonId },
+      attempts: remote.attempts,
+    }
+
+    try {
+      await importData(JSON.stringify(toImport))
+    } catch {
+      trackSyncPull({ outcome: 'error' })
+      return { kind: 'error' }
+    }
+
+    writeSyncMeta({ userId, baseRevision: response.revision })
+    writeLastMutatedAt(toImport.exportedAt)
+    schemaSkew = null
+    trackSyncPull({ outcome: 'reset' })
+    return { kind: 'reset' }
+  }
+
   /** Unlocked -- one PUT attempt, no retry logic of its own. `push()` owns the retry/conflict loop. */
   async function doPushOnce(userId: string | null): Promise<PushAttemptResult> {
     const token = await resolveToken()
@@ -394,6 +608,15 @@ export function createSyncEngine(
 
   async function push(): Promise<void> {
     return withLock(async () => {
+      if (schemaSkew !== null) {
+        // Finding 2: remote-ahead means read-only sync -- no merge, no
+        // push, ever, until this client is itself updated past the skew.
+        // Silently no-op (I2) rather than attempting a PUT that can only
+        // ever 409 against a baseRevision this client can never legally
+        // advance.
+        return
+      }
+
       const userId = currentUserId
       for (let attempt = 1; attempt <= MAX_PUSH_ATTEMPTS; attempt++) {
         const result = await doPushOnce(userId)
@@ -421,7 +644,18 @@ export function createSyncEngine(
         if (result.kind === 'conflict') {
           trackSyncConflict()
           if (attempt === MAX_PUSH_ATTEMPTS) break // the cap: no more retries
-          await doPull(userId) // Decision 3: re-pull + merge instead of reading the 409 body
+          const retryPull = await doPull(userId) // Decision 3: re-pull + merge instead of reading the 409 body
+          if (retryPull.kind === 'schema-skew') {
+            // Finding 2: the retry-pull itself discovered remote is now
+            // schema-ahead -- stop the conflict loop entirely rather than
+            // retrying with a now-stale baseRevision, which would just 409
+            // again on every future attempt (including every future
+            // `online` event, forever, once this requeues). No requeue: a
+            // push can never succeed here until this client upgrades past
+            // the skew.
+            trackSyncPush({ outcome: 'schema-skew' })
+            return
+          }
           continue
         }
 
@@ -436,26 +670,191 @@ export function createSyncEngine(
     })
   }
 
-  async function handleSignedIn(userId: string): Promise<void> {
-    // F31: a stored identity that doesn't match the incoming one means this
-    // device's sync state belongs to a different account -- discard it and
-    // pull before any push is allowed to run for the new identity.
-    const existingMeta = readSyncMeta()
-    if (existingMeta !== null && existingMeta.userId !== userId) {
-      clearSyncMeta()
-      clearQueue()
-    }
+  /**
+   * F31, second half (T8b) -- an account switch is a **two-boot**
+   * handshake, not one call. Review finding (round 2), the reason why:
+   * the original one-boot design resolved `{ accountSwitchDetected: true }`
+   * only *after* the adopt's own network round-trip (a GET, and on the
+   * 404 branch a PUT too) had already completed. The page stayed fully
+   * interactive for that whole window -- an already-mounted session hook
+   * (usePracticeSession and siblings) could still call `saveProfile()`
+   * with its stale, pre-switch profile object *before* the caller
+   * (SyncEngineHost) ever got the signal to reload, silently overwriting
+   * the just-adopted account. A second, independent gap: every failure
+   * branch inside `adoptRemoteWholesale` ran *after* `resetLocalToBlank()`
+   * had already cleared sync metadata and blanked local storage -- a
+   * transient failure (a dropped GET) left local blank with no meta and
+   * no record that a switch was ever in progress, so the *next*
+   * `handleSignedIn` call for that same user saw `existingMeta === null`
+   * (indistinguishable from a genuine unattributed guest) and ran an
+   * ordinary **merge**, letting the blank-but-not-really-guest local
+   * state's "now" mutation clock silently win latest-wins fields against
+   * the real remote data it was supposed to adopt.
+   *
+   * Both close with the same fix: split the switch into two calls,
+   * carrying intent across the reload via `PENDING_ADOPT_STORAGE_KEY`
+   * rather than trying to do the whole thing -- reset, network round-trip,
+   * *and* stay ahead of every other mounted component -- inside one call.
+   *
+   * **Boot 1 (detection):** an account switch is detected, this device's
+   * own `anonId` is read (before any destructive write -- a failure here
+   * aborts the whole attempt, leaving pre-switch state untouched, rather
+   * than partially clearing metadata against data that was never actually
+   * reset), local IndexedDB is reset to blank, the pending-adopt marker is
+   * written, and this function returns `{ accountSwitchDetected: true }`
+   * **without ever touching the network**. The caller reloads immediately.
+   *
+   * **Boot 2 (resume, the reload):** `handleSignedIn` runs again for the
+   * same `userId`. `readPendingAdopt()` matches, so switch-detection is
+   * skipped entirely -- local is already blank, so this boot's only job is
+   * to (re-)attempt `adoptRemoteWholesale`. The marker clears only on a
+   * resolved (non-`'error'`) outcome; a transient failure leaves it in
+   * place, so the *next* `handleSignedIn` call (another boot, or a future
+   * reconnect) retries the adopt again rather than ever falling through to
+   * an ordinary merge for an identity whose switch never actually
+   * resolved. No second reload: this is a genuinely fresh page load, so
+   * there's no stale in-memory profile reference left for a reload to
+   * protect against.
+   */
+  async function handleSignedIn(userId: string): Promise<{ accountSwitchDetected: boolean }> {
+    // Everything -- the pending-adopt check, the ordinary switch-detection,
+    // the reset, and the adopt-or-pull -- runs inside ONE lock acquisition.
+    // A pending-adopt check made *before* acquiring the lock (an earlier
+    // version of this fix did exactly that) has its own race: a second
+    // concurrent call (StrictMode's double-invoke is the real-world case)
+    // could read the marker as absent, queue on the lock, and then --
+    // after the first call has already cleared syncMeta and written the
+    // marker -- run its own switch-detection against a *stale* read of
+    // `existingMeta` taken before it ever waited, seeing `null` and
+    // silently falling through to an ordinary merge. Reading everything
+    // fresh, inside the lock, is what makes a queued second call correctly
+    // observe whatever the first one already did.
+    const { pullOutcome, isAccountSwitch, isResuming } = await withLock(async () => {
+      const pendingAdopt = readPendingAdopt()
 
-    currentUserId = userId
-    schemaSkew = null
+      if (pendingAdopt === userId) {
+        currentUserId = userId
+        schemaSkew = null
+        // Unlocked adoptRemoteWholesale, not the public pull() -- already
+        // holding the lock (same reason push()'s conflict-retry calls
+        // doPull directly rather than the public, locked pull()).
+        const result = await adoptRemoteWholesale(userId)
+        if (result.kind === 'not-found') {
+          // Review finding (round 3): boot 1 already reset local to blank,
+          // but the window between that reset and the actual page unload
+          // is real -- an already-mounted session hook's own saveProfile()
+          // could still land a stale (prior-account) profile in that gap.
+          // Re-resetting here makes B's fresh-account push blank by
+          // construction, not by timing. Best-effort anonId read (same
+          // degrade-gracefully posture as adoptRemoteWholesale's own) --
+          // if this device's current anonId can't be read, the push below
+          // still lands, just without a corrected reset.
+          let deviceAnonId: string | null = null
+          try {
+            deviceAnonId = (await loadProfile()).anonId
+          } catch {
+            // Falls through to whatever local storage already holds.
+          }
+          if (deviceAnonId !== null) {
+            await resetLocalToBlank(deviceAnonId)
+          }
+        }
+        return { pullOutcome: result, isAccountSwitch: false, isResuming: true }
+      }
 
-    const outcome = await pull()
-    if (outcome.kind === 'not-found') {
-      // First-sign-in migration: local profile + server 404 -> push as
-      // revision 1, anonId linked on that same push (doPushOnce always
-      // sends it).
+      // F31: `existingMeta === null` means this device's local data is
+      // unattributed (a guest who just signed up) -- MERGE, same as
+      // always; this is the anonymous-to-account migration and stays on
+      // the ordinary pull path below. `existingMeta.userId !== userId`
+      // means this device's local data belongs to a DIFFERENT,
+      // already-synced account -- that data must never merge into the
+      // incoming one (see adoptRemoteWholesale's own doc comment for
+      // exactly why merging, even against reset local state, is still
+      // wrong). A pending-adopt marker for a DIFFERENT user than the one
+      // signing in now is the same signal by another name (review finding,
+      // round 3): it's definitive proof local is mid-switch, not an
+      // unattributed guest -- treating a mismatch as a switch too closes
+      // off a genuinely-reachable sequence (a switch's own adopt never
+      // resolves -- offline, say -- and a *third* identity signs in before
+      // it does) that would otherwise merge a mid-switch blank state's
+      // "now" clock into the third account, and separately leave the
+      // orphaned marker to incorrectly resume-adopt (no reload requested)
+      // if the second identity is ever signed back into later.
+      const existingMeta = readSyncMeta()
+      const accountSwitch =
+        (existingMeta !== null && existingMeta.userId !== userId) ||
+        (pendingAdopt !== null && pendingAdopt !== userId)
+
+      if (accountSwitch) {
+        let deviceAnonId: string
+        try {
+          deviceAnonId = (await loadProfile()).anonId
+        } catch {
+          // Can't safely proceed with a destructive reset without knowing
+          // this device's own anonId first -- abort the whole switch
+          // attempt, leaving pre-switch sync metadata and local state
+          // exactly as they were. Retried on the next handleSignedIn call.
+          return {
+            pullOutcome: { kind: 'error' } as const,
+            isAccountSwitch: false,
+            isResuming: false,
+          }
+        }
+
+        clearSyncMeta()
+        clearQueue()
+        clearLastMutatedAt() // F31, second half: don't carry A's mutation clock into B's first comparisons
+        // F31, second half: wipe local IndexedDB itself, not just sync
+        // metadata -- otherwise a genuinely fresh account B (404, on the
+        // resume boot) would still push whatever this device's local
+        // profile/attempts currently hold (account A's), and an existing
+        // account B (200, via adoptRemoteWholesale) must adopt remote
+        // *wholesale*, which only makes sense once local is no longer A's
+        // real data.
+        await resetLocalToBlank(deviceAnonId)
+        writePendingAdopt(userId)
+        currentUserId = userId
+        schemaSkew = null
+
+        return { pullOutcome: { kind: 'reset' } as const, isAccountSwitch: true, isResuming: false }
+      }
+
+      currentUserId = userId
+      schemaSkew = null
+
+      // doPull, not the public pull() -- already holding the lock (same
+      // reason push()'s conflict-retry calls doPull directly rather than
+      // the public, locked pull()).
+      const result = await doPull(userId)
+      return { pullOutcome: result, isAccountSwitch: false, isResuming: false }
+    })
+
+    if (pullOutcome.kind === 'not-found') {
+      // First-sign-in migration (ordinary path) or a resumed switch's own
+      // fresh-account branch (the "boot 2" 404 case) -- either way, local
+      // profile + server 404 -> push as revision 1, anonId linked on that
+      // same push (doPushOnce always sends it).
       await push()
     }
+    if (isResuming && (pullOutcome.kind === 'reset' || pullOutcome.kind === 'not-found')) {
+      // Review finding (round 3): 'schema-skew' is NOT resolved -- it means
+      // adoptRemoteWholesale returned before ever calling importData() or
+      // writeSyncMeta(), so local is still blank and meta is still null.
+      // Clearing the marker here would let a later handleSignedIn call
+      // (once this client updates past the skew, or simply on any
+      // subsequent boot) fall through to the ordinary merge path with
+      // nothing to say local doesn't represent a real guest -- exactly the
+      // bug this marker exists to prevent. Only 'reset' (the 200 adopt)
+      // and 'not-found' (the 404 push, now re-reset above first) actually
+      // leave local correctly reflecting the account being switched to --
+      // those are the only two outcomes that resolve the pending switch.
+      // A genuine 'error' or an unresolved 'schema-skew' both leave the
+      // marker in place, retried on the next handleSignedIn call rather
+      // than ever silently abandoned.
+      clearPendingAdopt()
+    }
+
+    return { accountSwitchDetected: isAccountSwitch }
   }
 
   function handleSignedOut(): void {
@@ -474,6 +873,7 @@ export function createSyncEngine(
     // server holds, not "whenever they happened to sign in."
     writeLastMutatedAt(new Date().toISOString())
     if (currentUserId === null) return
+    if (schemaSkew !== null) return // Finding 2: remote-ahead is read-only; never schedule a push while skewed.
     if (debounceTimer) clearTimeout(debounceTimer)
     debounceTimer = setTimeout(() => {
       debounceTimer = null
@@ -482,11 +882,22 @@ export function createSyncEngine(
   }
 
   async function flush(): Promise<void> {
+    // Review finding: a push is only actually owed if a debounce was armed
+    // (a real local mutation happened since the last successful push) or a
+    // retry is already queued from an earlier failure -- otherwise every
+    // visibilitychange->hidden (an ordinary tab-switch, alt-tab, or app
+    // background with nothing new to sync) would PUT the full profile
+    // unconditionally, bumping the server revision for no reason and
+    // turning every other device's next pull from an I11 noop into a real
+    // (if harmless) merge.
+    const hadArmedDebounce = debounceTimer !== null
     if (debounceTimer) {
       clearTimeout(debounceTimer)
       debounceTimer = null
     }
     if (currentUserId === null) return
+    const queued = readQueueEntry()?.userId === currentUserId
+    if (!hadArmedDebounce && !queued) return
     await push()
   }
 

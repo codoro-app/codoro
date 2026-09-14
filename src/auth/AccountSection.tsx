@@ -13,9 +13,22 @@
  */
 import { lazy, Suspense, useState } from 'react'
 import { useClerk } from '@clerk/react'
+import { readHasAccountHint } from './accountHint'
 import { AuthProvider, hasClerkKey } from './AuthProvider'
 import { DeleteAccountDialog } from './DeleteAccountDialog'
 import { useAuthToken } from './useAuthToken'
+
+// T8b review fix: App.tsx's own root SyncEngineHost is gated on the
+// has-account hint (I3/F8) precisely so it never mounts for a device that
+// has never had an account -- which means a device's very first sign-in
+// (necessarily happening right here, in Settings, before that hint exists)
+// needs its own engine wiring for the anonymous-to-account migration push
+// to run live, in this same session, rather than waiting for a reload.
+// Lazy, matching SignInSheet's own lazy import immediately below -- see
+// SyncEngineHost.tsx's own doc comment for the engine itself.
+const SyncEngineHostLazy = lazy(async () => ({
+  default: (await import('../sync/SyncEngineHost')).SyncEngineHost,
+}))
 
 // Lazy, not a static import: SignInSheet.tsx is also statically imported by
 // SignupPromptSheet.tsx (a second, unrelated lazy route). Two separate lazy
@@ -153,11 +166,23 @@ function AccountSectionBody() {
 }
 
 export function AccountSection() {
+  // Only mount our own sync-engine host when the root one (App.tsx, gated
+  // on the has-account hint) isn't already covering this session -- see
+  // SyncEngineHostLazy's own comment above. Read once per mount, not
+  // re-checked on every render: a hint that flips true partway through
+  // this Settings visit doesn't retroactively need a second instance,
+  // since this one is already doing the job for the rest of the visit (see
+  // accountHint.ts's own named limitation). Avoids ever running two
+  // independent SyncEngine instances (and two ClerkProvider consumers) at
+  // once.
+  const [needsOwnSyncHost] = useState(() => !readHasAccountHint())
+
   if (!hasClerkKey) {
     return <SignedOutCard />
   }
   return (
     <AuthProvider fallback={<div className={CARD_CLASS} aria-hidden="true" />}>
+      {needsOwnSyncHost && <SyncEngineHostLazy />}
       <AccountSectionBody />
     </AuthProvider>
   )

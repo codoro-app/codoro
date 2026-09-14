@@ -532,6 +532,14 @@ export type SyncPushOutcome =
   | 'network-error'
   | 'no-token'
   | 'stale-schema-dropped'
+  /**
+   * T8b, Finding 2: a conflict-retry's own re-pull discovered remote is
+   * schema-ahead -- the push loop stops rather than retrying with a now-
+   * stale baseRevision (which would just 409 forever). Distinct from
+   * `'conflict-exhausted'` so this permanent, non-retrying stop is
+   * distinguishable from the ordinary retry-cap case.
+   */
+  | 'schema-skew'
 
 export interface SyncPushPayload {
   outcome: SyncPushOutcome
@@ -542,7 +550,15 @@ export function trackSyncPush(payload: SyncPushPayload): void {
   safeCapture('sync_push', payload)
 }
 
-export type SyncPullOutcome = 'merged' | 'noop' | 'not-found' | 'schema-skew' | 'error' | 'no-token'
+export type SyncPullOutcome =
+  | 'merged'
+  | 'noop'
+  | 'not-found'
+  | 'schema-skew'
+  | 'error'
+  | 'no-token'
+  /** T8b, F31's second half: remote was adopted wholesale on a detected account switch — never a merge() result. */
+  | 'reset'
 
 export interface SyncPullPayload {
   outcome: SyncPullOutcome

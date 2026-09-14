@@ -57,6 +57,22 @@ vi.mock('virtual:pwa-register/react', () => ({
   }),
 }))
 
+// T8b (I1/I2 guard, same convention AuthProvider.test.tsx already uses for
+// ClerkBoundary): this suite's env has no VITE_CLERK_PUBLISHABLE_KEY set
+// (every fresh clone/CI, by design) -- App.tsx's `hasClerkKey && (...)` gate
+// must keep SyncEngineHost's own module (which statically imports
+// useAuthToken.ts, which statically imports @clerk/react) from ever being
+// requested in that case. Mocked here (not just left unmocked) so a
+// regression shows up as "this mock's factory ran" rather than a possibly-
+// silent pass if the real module happened not to throw.
+const syncEngineHostRender = vi.fn()
+vi.mock('../sync/SyncEngineHost', () => ({
+  SyncEngineHost: () => {
+    syncEngineHostRender()
+    return null
+  },
+}))
+
 const { App } = await import('./App')
 
 describe('App', () => {
@@ -358,5 +374,15 @@ describe('App', () => {
     await popstatePromise
     expect(window.location.pathname).not.toBe('/browse')
     expect(window.location.pathname).toBe('/practice')
+  })
+
+  it("T8b (I1/I2): never mounts SyncEngineHost when no Clerk key is configured (this suite's default env)", async () => {
+    render(<App />)
+
+    await waitFor(() => {
+      expect(screen.getByText('1200')).toBeInTheDocument()
+    })
+
+    expect(syncEngineHostRender).not.toHaveBeenCalled()
   })
 })
