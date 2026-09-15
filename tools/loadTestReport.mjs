@@ -2,8 +2,10 @@
 //
 // T14, right-sized: bursts POST /api/report against the deployed dev
 // Worker to prove the shared rateLimit() mechanism holds under load for
-// real (429 + Retry-After), and records p95 latency. Targets a
-// relaunch-sized bump (low hundreds-low thousands of visitors), not a
+// real (429 + Retry-After), and records p95 latency. Fires exactly 2x the
+// configured 5-req/60s limit as a fixed burst of 10 requests (not a sustained
+// rate), proving the fixed-window counter holds under 2x its own limit.
+// Targets a relaunch-sized bump (low hundreds-low thousands of visitors), not a
 // 1x/10x/100x DAU model -- see docs/prompts/claude_code_prompt_v5_phase5.4_5.6.md.
 //
 // PUT /api/profile's own rate-limit behavior needs a real Clerk session
@@ -18,10 +20,8 @@ import autocannon from 'autocannon'
 const TARGET = process.env.LOAD_TEST_TARGET ?? 'https://codoro-api-dev.codoroapp.workers.dev'
 const DURATION_SECONDS = Number(process.env.LOAD_TEST_DURATION ?? 15)
 // REPORT_LIMIT_PER_MINUTE below must track workers/wrangler.jsonc's
-// RATE_LIMITER_REPORT_IP simple.limit (5/60s) -- 2x that rate per the
-// DoD ("rate limiter holds under 2x its own configured limit").
+// RATE_LIMITER_REPORT_IP simple.limit (5/60s).
 const REPORT_LIMIT_PER_MINUTE = 5
-const TARGET_RPS = Math.ceil((REPORT_LIMIT_PER_MINUTE / 60) * 2)
 
 async function burstReport() {
   const result = await autocannon({
@@ -29,8 +29,8 @@ async function burstReport() {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ puzzleId: 'con-001', reason: 'wrong-answer', appVersion: 'load-test' }),
-    connections: TARGET_RPS,
-    duration: DURATION_SECONDS,
+    connections: 1,
+    amount: REPORT_LIMIT_PER_MINUTE * 2,
     pipelining: 1,
   })
   return result
