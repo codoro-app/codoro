@@ -1,10 +1,10 @@
 /**
  * Terms + privacy notice. Reachable only via the app-shell footer link —
  * not one of the four main modes, so it has no ModeSwitcher/NavRail tab.
- * Good-faith developer-written notice, not lawyer-reviewed — that's an
- * accurate, appropriate framing for a pre-launch, no-accounts, no-PII app;
- * real legal review is a v3.0 launch-readiness item (docs/roadmap.md), not
- * something to upgrade to here. Refreshed for v2 Phase 7 (Items 1, 5, 6):
+ * Good-faith developer-written notice, not lawyer-reviewed — an honest
+ * starting point for an app that now has real accounts (Clerk) and email
+ * collection (PII), not a substitute for real legal review, which hasn't
+ * happened yet. Refreshed for v2 Phase 7 (Items 1, 5, 6):
  * points at the new in-app /settings export, and names challenge links and
  * the anonymous ID honestly. Edited once for this phase, per the Phase 7
  * build prompt's own sequencing note (Item 6's outcome had to be settled
