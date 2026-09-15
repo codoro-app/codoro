@@ -24,8 +24,15 @@
 # Report-Only.
 # worker-src 'self': the Workbox-generated service worker (vite.config.ts's
 # VitePWA plugin).
+# 2026-09-15 (T13): added Clerk's two real frontend-API hosts to
+# script-src/connect-src (confirmed live via network inspection of
+# getcodoro.com/settings — production is clerk.getcodoro.com, a custom
+# domain visible in the decoded pk_live_ key; dev is
+# eager-cub-2880.clerk.accounts.dev, confirmed via a real token's `iss`
+# claim, see the Phase 5.2 plan doc). frame-src added defensively for
+# Clerk's own hosted components — no wildcard host anywhere in this line.
 /*
-  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://us.i.posthog.com https://static.cloudflareinsights.com; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com https://clerk.getcodoro.com https://eager-cub-2880.clerk.accounts.dev; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://us.i.posthog.com https://static.cloudflareinsights.com https://clerk.getcodoro.com https://eager-cub-2880.clerk.accounts.dev; manifest-src 'self'; worker-src 'self'; frame-src https://clerk.getcodoro.com https://eager-cub-2880.clerk.accounts.dev; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
 
 /sw.js
   Cache-Control: no-cache
