@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "vite",
     "dev:pages": "wrangler pages dev dist --compatibility-date=2026-09-08",
-    "generate:puzzle-og-meta": "tsx functions/generatePuzzleOgMeta.ts",
+    "generate:puzzle-og-meta": "tsx src/app/og/generatePuzzleOgMeta.ts",
     "typecheck": "pnpm run generate:puzzle-og-meta && tsc -b",
     "lint": "pnpm run generate:puzzle-og-meta && eslint . --ignore-pattern workers",
     "lint:fix": "pnpm run generate:puzzle-og-meta && eslint . --fix --ignore-pattern workers",
