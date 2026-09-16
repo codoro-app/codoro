@@ -43,6 +43,7 @@
 import { Link } from 'wouter'
 import { useEffect, useState } from 'react'
 import { useChallengeSession } from './useChallengeSession'
+import type { ChallengeSession } from './useChallengeSession'
 import { ChallengeComparison } from './ChallengeComparison'
 import { GhostBar } from './GhostBar'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
@@ -76,6 +77,21 @@ export interface ChallengePageForHashProps {
 
 export function ChallengePageForHash({ hash }: ChallengePageForHashProps) {
   const session = useChallengeSession(hash)
+  return <ChallengePageForSession session={session} />
+}
+
+/**
+ * Pure, session-driven presentation — extracted from `ChallengePageForHash`
+ * (Compete, 2026-09) so Play Computer's synthetic race can render the exact
+ * same intro/ghost-race/comparison UI from a `useChallengeSessionForPayload`
+ * session, with no hash/URL involved. Nothing about this JSX changed in the
+ * extraction — only its source of `session` moved to a prop.
+ */
+export interface ChallengePageForSessionProps {
+  session: ChallengeSession
+}
+
+export function ChallengePageForSession({ session }: ChallengePageForSessionProps) {
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   // v4 Phase 4.5 ("the right rail") — same ref-callback-in-state portal
   // target as PracticePage.tsx's identical `sidebarSlotEl`.

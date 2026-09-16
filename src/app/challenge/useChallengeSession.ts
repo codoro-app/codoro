@@ -127,9 +127,33 @@ export interface ChallengeSession {
   handleAccept: () => void
 }
 
+/**
+ * Thin wrapper over `useChallengeSessionForPayload` for a real
+ * `/challenge#<fragment>` link — decodes the hash, then hands the result to
+ * the shared core below. Every real challenge link is played against a
+ * human challenger, so `opponent` is always `'human'` here.
+ */
 export function useChallengeSession(hash: string): ChallengeSession {
   const payload = useMemo(() => decodeChallengePayload(hash), [hash])
+  return useChallengeSessionForPayload(payload, 'human')
+}
 
+/**
+ * Core session state machine, extracted from `useChallengeSession` (Compete,
+ * 2026-09) so a caller that already has a decoded — or synthetically
+ * generated — payload can drive the exact same intro -> playing -> done
+ * flow without a URL round-trip. Play Computer's `buildComputerChallengePayload`
+ * (src/challenge/computerOpponent.ts) is the only caller that ever passes
+ * `opponent: 'computer'`; every other caller either omits it (defaulting to
+ * `'human'`) or passes `'human'` explicitly. Nothing about this function's
+ * own state machine changed in this extraction — only the payload's source
+ * (a parameter instead of a hash-derived `useMemo`) and the two telemetry
+ * calls below, which now carry `opponent`.
+ */
+export function useChallengeSessionForPayload(
+  payload: ChallengePayload | null,
+  opponent: 'human' | 'computer' = 'human',
+): ChallengeSession {
   const [fetchResolution, setFetchResolution] = useState<Resolution>(() =>
     payload === null ? { status: 'broken' } : { status: 'loading' },
   )
@@ -233,8 +257,8 @@ export function useChallengeSession(hash: string): ChallengeSession {
     if (resolution.status === 'loading') return
     if (viewTrackedRef.current) return
     viewTrackedRef.current = true
-    trackChallengeLinkView({ found: resolution.status === 'resolved' })
-  }, [resolution])
+    trackChallengeLinkView({ found: resolution.status === 'resolved', opponent })
+  }, [resolution, opponent])
 
   // puzzleIndex is the current puzzle's position in `puzzles`; it only
   // advances on Continue (never on answer — the shells need to show their
@@ -389,6 +413,7 @@ export function useChallengeSession(hash: string): ChallengeSession {
             },
             { correct: payload.results.filter((r) => r.correct).length, totalMs: payload.totalMs },
           ) === 'won',
+        opponent,
       })
       setPuzzleIndex(nextIndex)
       return
@@ -401,7 +426,7 @@ export function useChallengeSession(hash: string): ChallengeSession {
     const now = Date.now()
     servedAtRef.current = now
     setServedAt(now)
-  }, [resolution, isComplete, puzzleIndex, payload, results])
+  }, [resolution, isComplete, puzzleIndex, payload, results, opponent])
 
   const status: ChallengeSessionStatus =
     resolution.status === 'loading'
