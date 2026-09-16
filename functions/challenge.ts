@@ -33,6 +33,7 @@
  * URLs tested. `onRequestGet` below is kept intentionally thin: it only
  * wires the pure functions' output onto HTMLRewriter's element handlers.
  */
+import { MetaContentHandler, TitleHandler } from './ogHandlers'
 import { decodeChallengeOgParam } from '../src/challenge'
 import type { ChallengeOgParam } from '../src/challenge'
 
@@ -113,40 +114,6 @@ export function resolveChallengeOgHead(requestUrl: string): ResolvedChallengeOg 
   canonical.search = ''
   canonical.hash = ''
   return { copy: buildChallengeOgCopy(decoded), canonicalUrl: canonical.toString() }
-}
-
-/**
- * Sets a meta tag's `content` attribute — used for every og:*, twitter:* tag
- * below. Plain (non-private, non-parameter-property) fields: `erasableSyntaxOnly`
- * forbids TS parameter-property shorthand, and a `private` field would make
- * this class structurally incompatible with HTMLRewriter's plain
- * `HTMLRewriterElementContentHandlers` interface.
- */
-class MetaContentHandler {
-  content: string
-  constructor(content: string) {
-    this.content = content
-  }
-  element(element: Element) {
-    element.setAttribute('content', this.content)
-  }
-}
-
-/**
- * Replaces `<title>`'s inner text — same plain-field shape as
- * MetaContentHandler above. Field named `newText`, not `text`: HTMLRewriter's
- * own `HTMLRewriterElementContentHandlers` interface already has a `text`
- * member (its text-node handler callback), and a same-named field of a
- * different type breaks structural assignability against it.
- */
-class TitleHandler {
-  newText: string
-  constructor(newText: string) {
-    this.newText = newText
-  }
-  element(element: Element) {
-    element.setInnerContent(this.newText)
-  }
 }
 
 interface Env {

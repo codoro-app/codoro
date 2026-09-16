@@ -38,6 +38,11 @@ dist-ssr
 # never committed, same reasoning as .dev.vars above.
 workers/src/puzzleIds.generated.ts
 
+# T11: generated from src/content/puzzles/**/*.json at typecheck/lint/test/
+# build time (functions/generatePuzzleOgMeta.ts) -- same reasoning as
+# workers/src/puzzleIds.generated.ts above.
+functions/puzzleOgMeta.generated.ts
+
 # Build info / coverage
 *.tsbuildinfo
 coverage

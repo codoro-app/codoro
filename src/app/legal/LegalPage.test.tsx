@@ -25,21 +25,24 @@ describe('LegalPage', () => {
     expect(screen.getByText(/challenge a friend/i)).toBeInTheDocument()
   })
 
-  // Launch instrumentation Item 4: the feedback form's optional email field
-  // made the old unqualified "collects no personal information" sentence
-  // false — this is a correction to existing copy, not just an addition.
-  it('scopes the "no personal information" claim to the app itself, and no longer states it unqualified', () => {
+  // Phase 5.6 update: the Privacy section now explicitly describes account creation
+  // (optional, Clerk-backed), data sync (D1 for signed-in players), and data deletion.
+  it('describes account creation, data sync, and deletion accurately after Phase 5.1 shipped real accounts + sync', () => {
     render(<LegalPage />)
-    expect(screen.getByText(/the app itself collects no personal information/i)).toBeInTheDocument()
+    expect(screen.getByText(/signing in is optional/i)).toBeInTheDocument()
+    expect(screen.getByText(/our authentication provider/i)).toBeInTheDocument()
+    expect(screen.getByText(/collects an email address/i)).toBeInTheDocument()
+    expect(screen.getByText(/sync to a server.*cloudflare d1/i)).toBeInTheDocument()
     expect(
       screen.queryByText(/^codoro has no accounts and collects no personal information\./i),
     ).not.toBeInTheDocument()
   })
 
-  it('names the feedback form as the one exception, hosted by Tally, with an optional email used only for product updates', () => {
+  it('names the feedback form, hosted by Tally, with an optional email used only for product updates', () => {
     render(<LegalPage />)
-    expect(screen.getByText(/the one exception is the optional feedback form/i)).toBeInTheDocument()
-    expect(screen.getByText(/hosted by tally/i)).toBeInTheDocument()
+    expect(
+      screen.getByText(/feedback form\. the feedback link opens a form hosted by tally/i),
+    ).toBeInTheDocument()
     expect(screen.getByText(/never sold, never added to a mailing list/i)).toBeInTheDocument()
   })
 })
