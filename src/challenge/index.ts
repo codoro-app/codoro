@@ -15,3 +15,11 @@ export {
   decodeChallengePayload,
   truncateToChallengeLimit,
 } from './codec'
+export {
+  buildComputerChallengePayload,
+  sampleDistinctIds,
+  synthesizeTimeMs,
+  TIER_TARGET_RATING,
+  COMPUTER_CHALLENGER_NAME,
+} from './computerOpponent'
+export type { EloTier } from './computerOpponent'

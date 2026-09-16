@@ -138,7 +138,7 @@ function pickFromWindow(
  * case we return whatever is eligible, i.e. all of them). `pool` is guaranteed
  * non-empty here (checked in `selectNext`).
  */
-function widenedEligible(pool: readonly Puzzle[], rating: number): readonly Puzzle[] {
+export function widenedEligible(pool: readonly Puzzle[], rating: number): readonly Puzzle[] {
   const maxDistance = Math.max(...pool.map((puzzle) => Math.abs(puzzle.rating - rating)))
 
   let half = BASE_HALF_WINDOW
