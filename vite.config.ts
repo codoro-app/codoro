@@ -323,7 +323,7 @@ export default defineConfig({
         // v3 Phase 2b.7 adds /stats, another plain static route (same
         // treatment as /missions) — the rating-history/pattern-accuracy page.
         navigateFallbackDenylist: [
-          /^\/(?!(?:practice|daily|rush|boss|browse|legal|trace|missions|stats|challenge|settings|puzzle\/[^/?]+)?(?:\?|$))/,
+          /^\/(?!(?:practice|daily|rush|boss|browse|legal|trace|missions|stats|challenge|compete|settings|puzzle\/[^/?]+)?(?:\?|$))/,
           // v5 Phase 5.0 (T1): explicit, on top of the allowlist regex above
           // (which already denies /api/* as an unrecognized path) rather
           // than relying on that as the only defense. A cached 401 or a
