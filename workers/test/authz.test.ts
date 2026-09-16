@@ -14,6 +14,7 @@ import type { Env } from '../src/env'
 import { applyAllMigrations } from './support/migrations'
 import { generateTestKeypair, signTestToken } from './support/jwt'
 import type { TestKeypair } from './support/jwt'
+import type { ProfileGetResponse } from '../shared/api-types'
 
 const deleteClerkUserMock = vi.fn<
   (secretKey: string, userId: string) => Promise<{ deleted: boolean }>
@@ -122,7 +123,7 @@ describe('authz matrix: every authenticated route (T13)', () => {
         })
         expect(res.status).toBe(201)
         const ownerGet = await request('GET', '/api/profile', await tf(owner), ip)
-        const ownerBody = await ownerGet.json()
+        const ownerBody: ProfileGetResponse = await ownerGet.json()
         expect(ownerBody.payload).toEqual({ owner: 'owner-data' })
       },
     },
