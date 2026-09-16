@@ -144,6 +144,34 @@ export function MissionIcon({ size = 20 }: IconProps) {
   )
 }
 
+// Authored fresh for Compete: crossed swords, echoing ChallengeButton's own
+// "⚔ Challenge a friend" glyph — this is the same "duel" register, just as
+// a stroke icon matching the rest of this file's Lucide-derived house style.
+export function CompeteIcon({ size = 20 }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" />
+      <line x1="13" y1="19" x2="19" y2="13" />
+      <line x1="16" y1="16" x2="20" y2="20" />
+      <line x1="19" y1="21" x2="21" y2="19" />
+      <polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5" />
+      <line x1="5" y1="14" x2="9" y2="18" />
+      <line x1="7" y1="17" x2="4" y2="20" />
+      <line x1="3" y1="19" x2="5" y2="21" />
+    </svg>
+  )
+}
+
 // Points left by default; consumers rotate 180deg via CSS (transform) for
 // the expand direction rather than shipping two mirrored icon components.
 export function CollapseIcon({ size = 20 }: IconProps) {
