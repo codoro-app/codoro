@@ -9,6 +9,7 @@ export const ROUTES = {
   daily: { path: '/daily', label: 'Daily' },
   rush: { path: '/rush', label: 'Rush' },
   boss: { path: '/boss', label: 'Boss' },
+  compete: { path: '/compete', label: 'Compete' },
   trace: { path: '/trace', label: 'Trace' },
   missions: { path: '/missions', label: 'Missions' },
   stats: { path: '/stats', label: 'Stats' },
@@ -141,6 +142,10 @@ export const ROUTE_META: Record<string, RouteMetaEntry> = {
   '/boss': {
     title: 'Boss — Codoro',
     description: 'Ten hand-picked puzzles, escalating difficulty — three strikes and the run ends.',
+  },
+  '/compete': {
+    title: 'Compete — Codoro',
+    description: 'Race a synthetic opponent, or challenge a friend to a fresh set of puzzles.',
   },
   '/trace': {
     title: 'Trace — Codoro',

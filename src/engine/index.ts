@@ -23,7 +23,7 @@ export {
 } from './rating'
 export type { AttemptMode } from './rating'
 
-export { selectNext } from './selection'
+export { selectNext, widenedEligible } from './selection'
 export type { Puzzle, Rng, SelectionSource, SelectionResult, SelectionInput } from './selection'
 
 export { emptyRequeueState, recordMiss, advance, resurface } from './requeue'

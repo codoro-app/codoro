@@ -182,7 +182,7 @@ describe('ChallengePageForHash — broken link states', () => {
     render(<ChallengePageForHash hash="!not-valid-base64url!" />)
     expect(screen.getByText(/challenge link is broken/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /go to practice/i })).toBeInTheDocument()
-    expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: false })
+    expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: false, opponent: 'human' })
   })
 
   // An id that fails to resolve is only known after the real async
@@ -202,7 +202,7 @@ describe('ChallengePageForHash — broken link states', () => {
     // full-suite load (observed flaking as "Number of calls: 0"). Same shape
     // as the found: true case below, which already waits.
     await waitFor(() => {
-      expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: false })
+      expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: false, opponent: 'human' })
     })
   })
 })
@@ -213,7 +213,7 @@ describe('ChallengePageForHash — telemetry', () => {
     await waitFor(() => {
       expect(trackChallengeLinkView).toHaveBeenCalledTimes(1)
     })
-    expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: true })
+    expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: true, opponent: 'human' })
   })
 
   it('fires challenge_link_complete with beat_challenger: false when the challenger cannot be beaten', async () => {
@@ -230,7 +230,10 @@ describe('ChallengePageForHash — telemetry', () => {
     await solveTwoPuzzleRun(user)
 
     expect(trackChallengeLinkComplete).toHaveBeenCalledTimes(1)
-    expect(trackChallengeLinkComplete).toHaveBeenCalledWith({ beat_challenger: false })
+    expect(trackChallengeLinkComplete).toHaveBeenCalledWith({
+      beat_challenger: false,
+      opponent: 'human',
+    })
   })
 
   it('fires challenge_link_complete with beat_challenger: true when the recipient wins', async () => {
@@ -248,7 +251,10 @@ describe('ChallengePageForHash — telemetry', () => {
     await solveTwoPuzzleRun(user)
 
     expect(trackChallengeLinkComplete).toHaveBeenCalledTimes(1)
-    expect(trackChallengeLinkComplete).toHaveBeenCalledWith({ beat_challenger: true })
+    expect(trackChallengeLinkComplete).toHaveBeenCalledWith({
+      beat_challenger: true,
+      opponent: 'human',
+    })
   })
 })
 
@@ -387,7 +393,7 @@ describe('ChallengePage — the wrapper reads the real URL fragment', () => {
     expect(screen.queryByText(/challenge link is broken/i)).not.toBeInTheDocument()
     // Own waitFor, same passive-effect race as the broken-state test above.
     await waitFor(() => {
-      expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: true })
+      expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: true, opponent: 'human' })
     })
   })
 

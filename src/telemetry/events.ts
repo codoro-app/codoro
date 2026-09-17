@@ -285,7 +285,8 @@ export function trackAutoAdvance(payload: AutoAdvancePayload): void {
  * additional literal.
  */
 export interface ChallengeCreatePayload {
-  surface: 'daily' | 'rush' | 'practice' | 'challenge' | 'first_run' | 'boss'
+  surface:
+    'daily' | 'rush' | 'practice' | 'challenge' | 'first_run' | 'boss' | 'computer' | 'compete'
   puzzle_count: number
 }
 
@@ -304,6 +305,8 @@ export function trackChallengeCreate(payload: ChallengeCreatePayload): void {
  */
 export interface ChallengeLinkViewPayload {
   found: boolean
+  /** Compete (2026-09): distinguishes a real challenge link from a synthesized Play Computer race — a real link always reports 'human'. */
+  opponent: 'human' | 'computer'
 }
 
 export function trackChallengeLinkView(payload: ChallengeLinkViewPayload): void {
@@ -320,6 +323,8 @@ export function trackChallengeLinkView(payload: ChallengeLinkViewPayload): void 
  */
 export interface ChallengeLinkCompletePayload {
   beat_challenger: boolean
+  /** Compete (2026-09): same distinction as ChallengeLinkViewPayload's own `opponent` field. */
+  opponent: 'human' | 'computer'
 }
 
 export function trackChallengeLinkComplete(payload: ChallengeLinkCompletePayload): void {

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { buildChallengePayload, buildChallengeUrl } from '../../challenge'
 import type { ChallengeAttemptInput } from '../../challenge'
-import { useChallengeSession } from './useChallengeSession'
+import { useChallengeSession, useChallengeSessionForPayload } from './useChallengeSession'
 
 vi.mock('../../telemetry', () => ({
   trackChallengeLinkView: vi.fn(),
@@ -210,6 +210,28 @@ describe('useChallengeSession — review-fix regression coverage (async payload-
       expect(result.current.status).toBe('broken')
     })
     expect(trackError).toHaveBeenCalledWith(failure, 'useChallengeSession: getPuzzleBody failed')
-    expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: false })
+    expect(trackChallengeLinkView).toHaveBeenCalledWith({ found: false, opponent: 'human' })
+  })
+})
+
+describe('useChallengeSessionForPayload', () => {
+  it('drives the same status progression as useChallengeSession, given an already-decoded payload', async () => {
+    const payload = buildChallengePayload(
+      [
+        { puzzleId: 'con-005', correct: true, time_ms: 4000 },
+        { puzzleId: 'tc-009', correct: false, time_ms: 6000 },
+      ],
+      'Fixture Friend',
+    )
+    const { result } = renderHook(() => useChallengeSessionForPayload(payload))
+    await waitFor(() => {
+      expect(result.current.status).toBe('intro')
+    })
+    expect(result.current.payload).toEqual(payload)
+  })
+
+  it('returns the broken state for a null payload, same as a decode failure', () => {
+    const { result } = renderHook(() => useChallengeSessionForPayload(null))
+    expect(result.current.status).toBe('broken')
   })
 })

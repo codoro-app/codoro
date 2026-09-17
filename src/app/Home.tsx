@@ -61,6 +61,7 @@ import type { UserProfile, Attempt } from '../storage'
 import { getDailyNumber } from '../engine'
 import {
   BossIcon,
+  CompeteIcon,
   DailyIcon,
   MissionIcon,
   PracticeIcon,
@@ -464,6 +465,16 @@ export function Home() {
                 <span className={BADGE_MASTERED}>Best depth {profile.bossStats.bestDepth}</span>
               </>
             )}
+          </Link>
+
+          <Link href={ROUTES.compete.path} className={CARD_SECONDARY}>
+            <span className={ICON_SECONDARY}>
+              <CompeteIcon size={20} />
+            </span>
+            <span className={TITLE_SECONDARY}>Compete</span>{' '}
+            <span className="text-sm text-inherit opacity-85">
+              Race a computer, or challenge a friend
+            </span>{' '}
           </Link>
 
           <Link href={ROUTES.missions.path} className={CARD_SECONDARY}>

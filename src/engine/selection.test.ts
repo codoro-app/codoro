@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Puzzle, Rng, SelectionSource } from './selection'
-import { selectNext } from './selection'
+import { selectNext, widenedEligible } from './selection'
 import type { RequeueState } from './requeue'
 import { advance, emptyRequeueState, recordMiss } from './requeue'
 
@@ -319,5 +319,27 @@ describe('selectNext — defensive sampling guard', () => {
         lastSource: null,
       }),
     ).toThrow(/out of range/)
+  })
+})
+
+describe('widenedEligible (exported for Compete synthetic-opponent draw)', () => {
+  it('returns puzzles within the base ±200 window when enough exist', () => {
+    const p = pool(850, 900, 950, 1000, 1050, 1100, 1150, 950, 1000, 1050, 900, 1100)
+    const eligible = widenedEligible(p, 1000)
+    expect(eligible.length).toBe(p.length)
+    for (const puzzle of eligible) {
+      expect(Math.abs(puzzle.rating - 1000)).toBeLessThanOrEqual(200)
+    }
+  })
+
+  it('widens beyond ±200 when fewer than 10 puzzles are within it', () => {
+    const near = pool(1000, 1050, 950, 1100, 900, 1150)
+    const far = [1250, 1260, 1270, 1280, 1290, 1300].map((rating, i) => ({
+      id: `far${String(i)}`,
+      rating,
+    }))
+    const p = [...near, ...far]
+    const eligible = widenedEligible(p, 1000)
+    expect(eligible.length).toBe(p.length)
   })
 })

@@ -43,6 +43,7 @@ import { Link, useLocation } from 'wouter'
 import {
   BossIcon,
   CollapseIcon,
+  CompeteIcon,
   DailyIcon,
   MissionIcon,
   PracticeIcon,
@@ -173,6 +174,18 @@ export function NavRail() {
         <BossIcon size={20} />
         {!collapsed && (
           <span className="overflow-hidden text-ellipsis whitespace-nowrap">Boss</span>
+        )}
+      </Link>
+      <Link
+        href={ROUTES.compete.path}
+        className={itemClass(collapsed, location === ROUTES.compete.path)}
+        aria-current={location === ROUTES.compete.path ? 'page' : undefined}
+        aria-label="Compete"
+        title="Compete"
+      >
+        <CompeteIcon size={20} />
+        {!collapsed && (
+          <span className="overflow-hidden text-ellipsis whitespace-nowrap">Compete</span>
         )}
       </Link>
       <Link

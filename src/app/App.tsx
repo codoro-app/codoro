@@ -63,6 +63,7 @@ const practiceImporter = () => import('./practice/PracticePage')
 const dailyImporter = () => import('./daily/DailyPage')
 const rushImporter = () => import('./rush/RushPage')
 const bossImporter = () => import('./boss/BossPage')
+const competeImporter = () => import('./compete/CompetePage')
 const traceImporter = () => import('./trace/TracePage')
 const missionsImporter = () => import('./missions/MissionsPage')
 const statsImporter = () => import('./stats/StatsPage')
@@ -76,6 +77,7 @@ const PracticePage = lazy(async () => ({ default: (await practiceImporter()).Pra
 const DailyPage = lazy(async () => ({ default: (await dailyImporter()).DailyPage }))
 const RushPage = lazy(async () => ({ default: (await rushImporter()).RushPage }))
 const BossPage = lazy(async () => ({ default: (await bossImporter()).BossPage }))
+const CompetePage = lazy(async () => ({ default: (await competeImporter()).CompetePage }))
 const TracePage = lazy(async () => ({ default: (await traceImporter()).TracePage }))
 const MissionsPage = lazy(async () => ({ default: (await missionsImporter()).MissionsPage }))
 const StatsPage = lazy(async () => ({ default: (await statsImporter()).StatsPage }))
@@ -221,6 +223,9 @@ export function App() {
             </Route>
             <Route path="/boss">
               <BossPage />
+            </Route>
+            <Route path="/compete">
+              <CompetePage />
             </Route>
             <Route path="/trace">
               <TracePage />
