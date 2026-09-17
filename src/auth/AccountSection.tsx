@@ -97,39 +97,50 @@ function AccountSectionBody() {
     )
   }
 
+  const renderSignedOut = () => (
+    <>
+      <SignedOutCard
+        onSignIn={() => {
+          setShowSignIn(true)
+        }}
+      />
+      {showSignIn && (
+        <div className={SHEET_OVERLAY_CLASS}>
+          <div
+            className={SHEET_BACKDROP_CLASS}
+            onClick={() => {
+              setShowSignIn(false)
+            }}
+          />
+          <div className={SHEET_CLASS} role="dialog" aria-modal="true" aria-label="Sign in">
+            <Suspense fallback={null}>
+              <SignInSheet
+                onComplete={() => {
+                  setShowSignIn(false)
+                }}
+              />
+            </Suspense>
+          </div>
+        </div>
+      )}
+    </>
+  )
+
   if (!isLoaded) {
+    // Review fix (2026-09 QA #3): a device with no known account (never
+    // signed in, or just cleared by this same tab's own delete-account
+    // success path -- see DeleteAccountDialog.tsx) doesn't need to wait for
+    // Clerk at all. Without this, a `<ClerkProvider>` remount whose isLoaded
+    // is slow to resolve (or never does, in the one tab that just hard-
+    // deleted its own Clerk user) left this card on the empty aria-hidden
+    // placeholder below indefinitely -- not the guest CTA, not a visible
+    // loading state, just blank.
+    if (!readHasAccountHint()) return renderSignedOut()
     return <div className={CARD_CLASS} aria-hidden="true" />
   }
 
   if (!isSignedIn) {
-    return (
-      <>
-        <SignedOutCard
-          onSignIn={() => {
-            setShowSignIn(true)
-          }}
-        />
-        {showSignIn && (
-          <div className={SHEET_OVERLAY_CLASS}>
-            <div
-              className={SHEET_BACKDROP_CLASS}
-              onClick={() => {
-                setShowSignIn(false)
-              }}
-            />
-            <div className={SHEET_CLASS} role="dialog" aria-modal="true" aria-label="Sign in">
-              <Suspense fallback={null}>
-                <SignInSheet
-                  onComplete={() => {
-                    setShowSignIn(false)
-                  }}
-                />
-              </Suspense>
-            </div>
-          </div>
-        )}
-      </>
-    )
+    return renderSignedOut()
   }
 
   return (

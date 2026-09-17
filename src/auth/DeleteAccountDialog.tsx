@@ -18,6 +18,7 @@
 import { useId, useState } from 'react'
 import { useClerk } from '@clerk/react'
 import { ApiError, apiFetch } from './api'
+import { clearHasAccountHint } from './accountHint'
 
 const OVERLAY_CLASS = 'fixed inset-0 z-30 flex items-center justify-center p-4 bg-surface-0/70'
 const DIALOG_CLASS =
@@ -54,6 +55,13 @@ export function DeleteAccountDialog({
       // Only reached on a real 2xx (apiFetch throws otherwise) -- sign out
       // the now-nonexistent session locally and report success.
       await signOut()
+      // Review fix (2026-09 QA #3): called directly here, not left solely to
+      // SyncEngineHost's isLoaded-gated effect (accountHint.ts's own doc
+      // comment previously assumed that path was sufficient) -- this tab's
+      // own Clerk user was just hard-deleted, and a `<ClerkProvider>`
+      // remount's `isLoaded` resolving after that is a real SDK edge case,
+      // not guaranteed. Clearing here makes it deterministic regardless.
+      clearHasAccountHint()
       onDeleted()
     } catch (error) {
       setErrorMessage(

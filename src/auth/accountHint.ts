@@ -19,11 +19,21 @@
  * (from wherever it's mounted -- the root host, or a Settings/signup-prompt
  * surface's own local host for a device's very first sign-in, before the
  * hint exists to gate the root mount at all). Cleared on an ordinary
- * sign-out (`DeleteAccountDialog` also calls `signOut()` on success, so
- * account deletion clears it via that same path, no separate call needed)
- * — once truly signed out, a device goes back to paying zero Clerk cost on
- * its next boot, matching guest-first's "signed-out behavior unchanged"
- * (I1/I2) rather than assuming "ever had an account" should cost forever.
+ * sign-out, once `SyncEngineHost`'s effect observes `isLoaded &&
+ * !isSignedIn` -- once truly signed out, a device goes back to paying zero
+ * Clerk cost on its next boot, matching guest-first's "signed-out behavior
+ * unchanged" (I1/I2) rather than assuming "ever had an account" should cost
+ * forever.
+ *
+ * 2026-09 QA #3 amendment: account deletion no longer relies solely on that
+ * isLoaded-gated path. `DeleteAccountDialog` calls this directly right after
+ * `signOut()` succeeds -- a `<ClerkProvider>` remount's `isLoaded` resolving
+ * post-delete in the SAME tab that just hard-deleted its own Clerk user
+ * turned out not to be guaranteed (a live QA report found Settings'
+ * Account card stuck on its loading placeholder indefinitely after exactly
+ * this sequence), so this device's own "no known account" bookkeeping is
+ * now settled deterministically at the moment the delete itself succeeds,
+ * not dependent on Clerk's state resolving afterward.
  *
  * Named limitation: this hint is read once per app boot (`App.tsx`'s own
  * `useState` initializer), not reactively. A device's very first sign-in
