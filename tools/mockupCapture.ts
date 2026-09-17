@@ -24,8 +24,17 @@
  * (compete-qa-fixes branch). That pass found the original click-chain
  * selectors had already drifted from the live components — see the
  * per-entry comments on CLICK_EXTRAS below for what changed and why.
+ *
+ * Every viewport gets a brand-new browser context (see VIEWPORTS' use
+ * below), which means a brand-new, empty IndexedDB profile too — exactly
+ * the state Home.tsx's first-run gate (`attempts.length === 0 &&
+ * !profile.firstRunCompleted`) is built to catch. Uncorrected, that makes
+ * '/' capture the curated 3-puzzle first-run sequence instead of the real
+ * dashboard every single run. `skipFirstRun` below patches that flag
+ * before the route loop starts so 'home--*.png' is the actual returning-
+ * player screen.
  */
-import { chromium } from 'playwright'
+import { chromium, type Page } from 'playwright'
 import { mkdir } from 'node:fs/promises'
 
 const BASE_URL = process.env.BASE_URL ?? 'https://getcodoro.com'
@@ -138,6 +147,59 @@ const CLICK_EXTRAS: readonly ClickExtra[] = [
   },
 ]
 
+// Runs inside the page, not this script — passed to page.evaluate() as a
+// plain string rather than a typed closure so it isn't checked against
+// tools/'s tsconfig (tsconfig.node.json has no "dom" lib, so `indexedDB`
+// isn't a declared global here; it very much is one in the browser this
+// actually executes in). Mirrors src/storage/db.ts's own constants
+// (DB_NAME, PROFILE_STORE, PROFILE_KEY) and profile.ts's out-of-line-key
+// read/write shape exactly, rather than importing that module — this
+// script isn't part of the Vite app bundle, so there's no bundler here to
+// resolve `idb`'s import for it. Retries for a few seconds because the
+// record this patches is itself written asynchronously, by whichever page
+// mounts first and calls loadProfile() (src/storage/profile.ts) — this
+// function's own page.goto() below races that write.
+const SKIP_FIRST_RUN_SCRIPT = `
+(async () => {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const patched = await new Promise((resolve, reject) => {
+      const req = indexedDB.open('codoro')
+      req.onerror = () => { reject(req.error) }
+      req.onsuccess = () => {
+        const db = req.result
+        if (!db.objectStoreNames.contains('profile')) {
+          db.close()
+          resolve(false)
+          return
+        }
+        const tx = db.transaction('profile', 'readwrite')
+        const store = tx.objectStore('profile')
+        const getReq = store.get('current')
+        getReq.onsuccess = () => {
+          const profile = getReq.result
+          if (!profile) {
+            resolve(false)
+            return
+          }
+          profile.firstRunCompleted = true
+          store.put(profile, 'current')
+        }
+        tx.oncomplete = () => { db.close(); resolve(true) }
+        tx.onerror = () => { db.close(); reject(tx.error) }
+      }
+    })
+    if (patched) return
+    await new Promise((resolve) => setTimeout(resolve, 150))
+  }
+})()
+`
+
+/** See this file's header doc comment for why this exists. One throwaway navigation + patch per viewport's fresh browser context, before that context's first real screenshot. */
+async function skipFirstRun(page: Page, baseUrl: string): Promise<void> {
+  await page.goto(baseUrl, { waitUntil: 'networkidle', timeout: 20000 })
+  await page.evaluate(SKIP_FIRST_RUN_SCRIPT)
+}
+
 async function run() {
   await mkdir(OUT_DIR, { recursive: true })
   const browser = await chromium.launch()
@@ -146,6 +208,7 @@ async function run() {
     const page = await browser.newPage({
       viewport: { width: viewport.width, height: viewport.height },
     })
+    await skipFirstRun(page, BASE_URL)
 
     for (const route of ROUTES) {
       const url = `${BASE_URL}${route.path}`
