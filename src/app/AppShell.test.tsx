@@ -1,24 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { AppShell } from './AppShell'
-import { FEEDBACK_URL } from './FeedbackLink'
 import { nth } from '../test/nth'
 
 const trackRouteView = vi.fn()
-const trackFeedbackLinkClicked = vi.fn()
 
 vi.mock('../telemetry', () => ({
   trackRouteView: (...args: unknown[]) => {
     trackRouteView(...args)
   },
   trackPageview: vi.fn(),
-  trackFeedbackLinkClicked: (...args: unknown[]) => {
-    trackFeedbackLinkClicked(...args)
-  },
+  trackFeedbackLinkClicked: vi.fn(),
 }))
 
 describe('AppShell', () => {
@@ -121,48 +117,6 @@ describe('AppShell', () => {
     })
   })
 
-  it('the footer link goes to /legal', () => {
-    render(
-      <AppShell>
-        <p>page content</p>
-      </AppShell>,
-    )
-    expect(screen.getByRole('link', { name: 'Legal' })).toHaveAttribute('href', '/legal')
-  })
-
-  // Launch instrumentation Item 2: a third footer link, after Settings and
-  // Legal, to the external Tally feedback form — a plain anchor (not a
-  // wouter Link), opened in a new tab, never an embed.
-  it('the footer has a Feedback link, after Settings and Legal, to the external Tally form', () => {
-    render(
-      <AppShell>
-        <p>page content</p>
-      </AppShell>,
-    )
-    const feedbackLink = screen.getByRole('link', { name: 'Feedback' })
-    expect(feedbackLink).toHaveAttribute('href', FEEDBACK_URL)
-    expect(feedbackLink).toHaveAttribute('target', '_blank')
-    expect(feedbackLink).toHaveAttribute('rel', 'noopener noreferrer')
-
-    // Scoped to the <footer> (role "contentinfo") specifically — Settings
-    // also has icon-only links in the mobile top bar and NavRail (see this
-    // suite's own "3 settings links" test above), which would otherwise
-    // pollute an unscoped query matching on accessible name alone.
-    const footerLinks = within(screen.getByRole('contentinfo')).getAllByRole('link')
-    expect(footerLinks.map((link) => link.textContent)).toEqual(['Settings', 'Legal', 'Feedback'])
-  })
-
-  it('clicking the footer Feedback link fires feedback_link_clicked with surface: "footer"', async () => {
-    const user = userEvent.setup()
-    render(
-      <AppShell>
-        <p>page content</p>
-      </AppShell>,
-    )
-    await user.click(screen.getByRole('link', { name: 'Feedback' }))
-    expect(trackFeedbackLinkClicked).toHaveBeenCalledWith({ surface: 'footer' })
-  })
-
   // Launch instrumentation Item 1: AppShell is the one component mounted
   // across every navigation, so it's the single place route_view fires from
   // — see useRouteTelemetry.test.tsx for the fire-once/pattern-mapping
@@ -182,16 +136,17 @@ describe('AppShell', () => {
 
   // v4 Phase 4.1 (Settings, for real): the mobile top-bar gear — this bar
   // used to be logo-only. Both navs are always mounted (see this suite's
-  // first test), so this counts 3: NavRail's rail-footer gear, the mobile
-  // top-bar gear, and the original footer link.
-  it('the mobile top bar has a Settings gear link, in addition to NavRail and the footer link', () => {
+  // first test), so this counts 2: NavRail's rail-footer gear and the mobile
+  // top-bar gear. (A third, AppShell's own footer link, existed before the
+  // redesign folded Settings/Legal/Feedback behind the gear instead.)
+  it('the mobile top bar has a Settings gear link, in addition to NavRail', () => {
     render(
       <AppShell>
         <p>page content</p>
       </AppShell>,
     )
     const settingsLinks = screen.getAllByRole('link', { name: 'Settings', hidden: true })
-    expect(settingsLinks.length).toBe(3)
+    expect(settingsLinks.length).toBe(2)
     settingsLinks.forEach((link) => expect(link).toHaveAttribute('href', '/settings'))
   })
 

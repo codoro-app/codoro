@@ -8,8 +8,11 @@
  *
  * v4 Phase 4.1 ("Settings, for real"): gave this page real nav presence — a
  * gear icon in NavRail's rail footer (desktop) and AppShell's mobile top
- * bar — on top of the original footer link (still there, next to Legal).
- * Not one of the six main modes, so it still has no ModeSwitcher/BottomNav
+ * bar. (AppShell's own separate Settings/Legal/Feedback footer link row,
+ * mentioned in an earlier version of this comment, is gone — the redesign
+ * folded all three behind the gear instead; this page's own "Legal" section
+ * below is now the one in-app path to /legal.) Not one of the six main
+ * modes, so it still has no ModeSwitcher/BottomNav
  * tab of its own (BottomNav's 4 items are deliberately capped — see its own
  * doc comment); see AppShell.tsx/NavRail.tsx for where the gear lives at
  * each breakpoint. Also gained a real "Preferences" section this phase —
@@ -50,6 +53,7 @@
  * SettingsPage.test.tsx against real IndexedDB state).
  */
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'wouter'
 import {
   CURRENT_SCHEMA_VERSION,
   DEFAULT_PREFERENCES,
@@ -63,6 +67,7 @@ import type { ExportedData, Preferences, UserProfile } from '../../storage'
 import { AccountSection } from '../../auth/AccountSection'
 import { FeedbackLink } from '../FeedbackLink'
 import { applyPreferences } from '../preferences/applyPreferences'
+import { ROUTES } from '../routes'
 
 // 2b.0: was `.settings-page` (settingsPage.css). Not test-asserted
 // (grep-verified).
@@ -579,6 +584,16 @@ export function SettingsPage() {
           Found a bug or have an idea for Codoro?{' '}
           <FeedbackLink surface="settings" className={LINK_CLASS} /> opens a short external form in
           a new tab.
+        </p>
+      </section>
+
+      <section>
+        <h2 className={SECTION_HEADING_CLASS}>Legal</h2>
+        <p className={SECTION_COPY_CLASS}>
+          Terms of service and privacy policy:{' '}
+          <Link href={ROUTES.legal.path} className={LINK_CLASS}>
+            Legal
+          </Link>
         </p>
       </section>
 

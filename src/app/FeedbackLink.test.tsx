@@ -24,7 +24,7 @@ async function loadFeedbackLink() {
 describe('FeedbackLink', () => {
   it('renders an external link (not an embed) pointing at the Tally URL constant', async () => {
     const { FeedbackLink, FEEDBACK_URL } = await loadFeedbackLink()
-    render(<FeedbackLink surface="footer" />)
+    render(<FeedbackLink surface="settings" />)
     const link = screen.getByRole('link', { name: 'Feedback' })
     expect(link.tagName).toBe('A')
     expect(link).toHaveAttribute('href', FEEDBACK_URL)
@@ -32,7 +32,7 @@ describe('FeedbackLink', () => {
 
   it('opens in a new tab with rel="noopener noreferrer" (no window.opener access, no embed)', async () => {
     const { FeedbackLink } = await loadFeedbackLink()
-    render(<FeedbackLink surface="footer" />)
+    render(<FeedbackLink surface="settings" />)
     const link = screen.getByRole('link', { name: 'Feedback' })
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
@@ -40,16 +40,8 @@ describe('FeedbackLink', () => {
 
   it('applies the className passed by the caller', async () => {
     const { FeedbackLink } = await loadFeedbackLink()
-    render(<FeedbackLink surface="footer" className="test-class" />)
+    render(<FeedbackLink surface="settings" className="test-class" />)
     expect(screen.getByRole('link', { name: 'Feedback' })).toHaveClass('test-class')
-  })
-
-  it('fires feedback_link_clicked with surface: "footer" when rendered in the footer', async () => {
-    const user = userEvent.setup()
-    const { FeedbackLink } = await loadFeedbackLink()
-    render(<FeedbackLink surface="footer" />)
-    await user.click(screen.getByRole('link', { name: 'Feedback' }))
-    expect(trackFeedbackLinkClicked).toHaveBeenCalledWith({ surface: 'footer' })
   })
 
   it('fires feedback_link_clicked with surface: "settings" when rendered in Settings', async () => {

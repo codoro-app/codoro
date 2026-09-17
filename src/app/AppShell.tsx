@@ -17,9 +17,9 @@
  * components with real side effects (data fetches), not for positioning.
  *
  * No mode/onModeChange props (v2 Phase 1a): NavRail/BottomNav read the
- * active route themselves via wouter's useLocation, and the brand button /
- * footer legal link below are real `<Link>`s rather than callbacks into a
- * parent-owned mode state.
+ * active route themselves via wouter's useLocation, and the brand button
+ * below is a real `<Link>` rather than a callback into a parent-owned mode
+ * state.
  *
  * Route-change focus/scroll management (v2 Phase 1a) lives here rather than
  * in App.tsx: AppShell is the one thing that stays mounted across every
@@ -50,11 +50,9 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { Link, useLocation } from 'wouter'
 import { loadProfile } from '../storage'
-import { BottomNav } from './BottomNav'
-import { FeedbackLink } from './FeedbackLink'
 import { SettingsIcon } from './Icons'
 import { DuckMark } from './Mascot'
-import { NavRail } from './NavRail'
+import { SecondaryNav } from './SecondaryNav'
 import { DevPuzzleToggle } from './devTools/DevPuzzleToggle'
 import { applyPreferences } from './preferences/applyPreferences'
 import { ROUTES, labelForPath } from './routes'
@@ -167,15 +165,13 @@ export function AppShell({ children }: AppShellProps) {
           </span>
         </Link>
       </div>
-      {/* 2b.0: was `.app-shell__rail` (app.css) — display toggle now inline.
-       * `app-shell__nav` (app.css) gives this wrapper an explicit grid area
-       * spanning both outer rows (main content + footer), not just row 1 —
-       * see that rule's own comment for why NavRail's sticky positioning
-       * needs the full page height as its containing block. */}
-      <div className="hidden lg:block app-shell__nav">
-        <NavRail />
-      </div>
-      <BottomNav />
+      {/* SecondaryNav (see its own doc comment) mounts NavRail (desktop,
+       * inside `app-shell__nav` — app.css gives that wrapper an explicit
+       * grid area spanning both outer rows, not just row 1, which is what
+       * lets NavRail's sticky positioning use the full page height as its
+       * containing block) and BottomNav (mobile) — the one nav mount point
+       * for this shell, no separate footer link row underneath it anymore. */}
+      <SecondaryNav />
       <main
         id="main-content"
         className="app-shell__content focus:outline-none"
@@ -186,30 +182,6 @@ export function AppShell({ children }: AppShellProps) {
         {!PAGES_WITH_OWN_H1.has(location) && <h1 className="sr-only">{labelForPath(location)}</h1>}
         {children}
       </main>
-      {/* 2b.8: bottom padding clears the fixed BottomNav (mobile only) —
-       * without it, the footer's Settings/Legal links (and whatever
-       * content sits just above them) end up hidden behind the bar once
-       * scrolled to the end of the page. --bottom-nav-height is BottomNav's
-       * own height; env(safe-area-inset-bottom) matches the same safe-area
-       * padding BottomNav itself adds beneath that. */}
-      <footer className="app-shell__footer flex justify-center p-4 pb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom)+var(--space-4))] lg:pb-4 border-t border-border">
-        <Link
-          href={ROUTES.settings.path}
-          className="min-h-11 px-3 py-2 bg-transparent text-text-1 text-sm no-underline cursor-pointer inline-flex items-center"
-        >
-          Settings
-        </Link>
-        <Link
-          href={ROUTES.legal.path}
-          className="min-h-11 px-3 py-2 bg-transparent text-text-1 text-sm no-underline cursor-pointer inline-flex items-center"
-        >
-          Legal
-        </Link>
-        <FeedbackLink
-          surface="footer"
-          className="min-h-11 px-3 py-2 bg-transparent text-text-1 text-sm no-underline cursor-pointer inline-flex items-center"
-        />
-      </footer>
       <DevPuzzleToggle />
     </div>
   )

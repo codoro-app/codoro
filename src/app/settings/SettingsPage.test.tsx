@@ -403,4 +403,14 @@ describe('SettingsPage', () => {
       expect(trackFeedbackLinkClicked).toHaveBeenCalledWith({ surface: 'settings' })
     })
   })
+
+  // Redesign (2026-09-17): AppShell's own footer link row (Settings/Legal/
+  // Feedback) was removed — Legal now has to be reachable from here instead,
+  // via the gear icon -> Settings -> Legal chain.
+  describe('Legal section', () => {
+    it('links to /legal, now that AppShell no longer has a footer link', () => {
+      render(<SettingsPage />)
+      expect(screen.getByRole('link', { name: 'Legal' })).toHaveAttribute('href', '/legal')
+    })
+  })
 })

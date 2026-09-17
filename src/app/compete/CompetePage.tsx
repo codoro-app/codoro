@@ -32,15 +32,54 @@ import { ChallengeButton } from '../ChallengeButton'
 import { useChallengerName } from '../useChallengerName'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { TraceRunnerPuzzle } from '../trace/TraceRunner'
-import { CloseIcon } from '../Icons'
+import { CloseIcon, CompeteIcon, MonitorIcon, PeopleIcon } from '../Icons'
 import { LevelPicker } from './LevelPicker'
 import { useCompeteSession } from './useCompeteSession'
 
+// Layout-shell fix (redesign, 2026-09-17): vertically centers this page's
+// content instead of anchoring it to the top, fixing the dead-space problem
+// below the door cards — Compete-only, does not touch app.css's shared
+// `.app-shell`/`.app-shell__content` rules.
+//
+// Desktop: `.app-shell__content`'s grid row already sizes to the available
+// height, so `lg:self-stretch` fills it instead of the grid's default
+// `align-items: start` (confirmed in-browser: the grid track's resolved size
+// propagates to a stretched item regardless of `.app-shell`'s own height
+// coming from `min-height` rather than `height`).
+//
+// Mobile: naively tried `min-h-full` first, resolving against `<main class=
+// "app-shell__content">`'s flex-grown height — this does NOT work (confirmed
+// in-browser): CSS's percentage-height resolution requires the containing
+// block's height to be "definite", and a block whose own height comes only
+// from `min-height` (`.app-shell`'s `min-height: 100dvh`, no `height`) never
+// counts as definite for that purpose, however concrete its rendered pixel
+// height actually is. `MOBILE_CHROME_OFFSET` sizes against the viewport
+// directly instead (`100dvh`, always definite) minus the two chrome bars
+// that actually eat into it: AppShell's mobile top bar (`min-h-11` = 2.75rem
+// content height + its own `pt-[var(--space-2)]` + the notch inset it
+// clears) and BottomNav (`--bottom-nav-height` + its own bottom safe-area
+// inset) — every term here is an existing token or the same `2.75rem`
+// tap-target constant already used site-wide (`min-h-11`), not an invented
+// value.
+//
+// This has to be one static string literal, not built via template-literal
+// interpolation — Tailwind's build-time class scanner only generates CSS for
+// arbitrary-value utilities it can find as a single contiguous token in the
+// source text; splitting `min-h-[calc(...)]` across an interpolated
+// constant silently produces no CSS at all (confirmed in-browser: the class
+// was present in the DOM but no matching rule existed in any stylesheet).
 const PAGE_SHELL_CLASS =
-  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[var(--space-4)] px-4 pb-4'
+  'app-shell__main flex flex-col justify-center gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto min-h-[calc(100dvh_-_env(safe-area-inset-top)_-_2.75rem_-_var(--space-2)_-_var(--bottom-nav-height)_-_env(safe-area-inset-bottom))] lg:min-h-0 lg:self-stretch pt-[var(--space-4)] px-4 pb-4'
 
+// border-border, not border-accent: the redesign mockups (docs/redesign/
+// mockups/Compete*.png) show a plain neutral border on both door cards, not
+// a lime accent border. lg:flex-1 (paired with the menu's own lg:flex-row
+// wrapper below) is what lays the two cards side-by-side on desktop.
 const DOOR_CARD_CLASS =
-  'flex flex-col items-start gap-2 min-h-11 w-full p-5 rounded-md border border-accent bg-surface-1 text-left text-text-0 cursor-pointer lg:transition-[transform,border-color] lg:duration-150 lg:hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+  'flex flex-col items-start gap-2 min-h-11 w-full lg:flex-1 p-5 rounded-md border border-border bg-surface-1 text-left text-text-0 cursor-pointer lg:transition-[transform,border-color] lg:duration-150 lg:hover:-translate-y-0.5 lg:hover:border-border-strong active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+
+const ICON_BADGE_CLASS =
+  'flex items-center justify-center flex-none w-10 h-10 rounded-md bg-accent-dim text-accent'
 
 // Same {id, rating} adapter usePracticeSession.ts's own toEnginePuzzle uses.
 const ENGINE_POOL = puzzleMeta.map((meta) => ({ id: meta.id, rating: meta.difficulty_rating }))
@@ -165,36 +204,49 @@ export function CompetePage() {
     setDoor({ kind: 'human-play', ids })
   }
 
-  const showHeading =
-    door.kind === 'menu' || door.kind === 'computer-level' || door.kind === 'human-level'
+  const showHeading = door.kind === 'computer-level' || door.kind === 'human-level'
 
   return (
     <div className={PAGE_SHELL_CLASS}>
       {showHeading && <p className="m-0 text-xl font-bold text-text-0">Compete</p>}
       {door.kind === 'menu' && (
-        <div className="flex flex-col gap-3">
-          <button
-            type="button"
-            className={DOOR_CARD_CLASS}
-            onClick={() => {
-              setDoor({ kind: 'computer-level' })
-            }}
-          >
-            <span className="text-lg font-bold">Play Computer</span>
-            <span className="text-sm text-text-2">Race a synthetic opponent right now</span>
-          </button>
-          <button
-            type="button"
-            className={DOOR_CARD_CLASS}
-            onClick={() => {
-              setDoor({ kind: 'human-level' })
-            }}
-          >
-            <span className="text-lg font-bold">Play Human</span>
-            <span className="text-sm text-text-2">
-              Solve 5 puzzles, then send the link to a friend
+        <div className="flex flex-col items-center gap-6 w-full">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <span className="text-accent">
+              <CompeteIcon size={32} />
             </span>
-          </button>
+            <p className="m-0 text-2xl font-bold text-text-0">Compete</p>
+          </div>
+          <div className="flex flex-col gap-3 w-full lg:flex-row lg:gap-4">
+            <button
+              type="button"
+              className={DOOR_CARD_CLASS}
+              onClick={() => {
+                setDoor({ kind: 'computer-level' })
+              }}
+            >
+              <span className={ICON_BADGE_CLASS}>
+                <MonitorIcon size={20} />
+              </span>
+              <span className="text-lg font-bold">Play Computer</span>
+              <span className="text-sm text-text-2">Race a synthetic opponent right now</span>
+            </button>
+            <button
+              type="button"
+              className={DOOR_CARD_CLASS}
+              onClick={() => {
+                setDoor({ kind: 'human-level' })
+              }}
+            >
+              <span className={ICON_BADGE_CLASS}>
+                <PeopleIcon size={20} />
+              </span>
+              <span className="text-lg font-bold">Play Human</span>
+              <span className="text-sm text-text-2">
+                Solve 5 puzzles, then send the link to a friend
+              </span>
+            </button>
+          </div>
         </div>
       )}
       {door.kind === 'computer-level' && (
