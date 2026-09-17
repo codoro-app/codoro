@@ -475,103 +475,115 @@ export function PracticePage() {
           />
         )}
 
-        {/* Browse-patterns stays reachable at every width — NavRail doesn't
-            carry a duplicate entry for it (see NavRail.tsx's doc comment),
-            so this remains the one entry point on both mobile and desktop.
-            A real <Link> to /browse (v2 Phase 1a) rather than a setView
-            call, so cmd/middle-click opens it in a new tab. Mastery stays
-            mobile-only since desktop already shows it persistently in the
-            sidebar (below). */}
-        <div className="flex gap-2">
-          <Link
-            href="/browse"
-            className="flex flex-1 items-center justify-between gap-2 min-h-11 py-[13px] px-[14px] border border-border-strong rounded-sm bg-transparent text-text-0 font-sans text-base font-bold no-underline cursor-pointer"
-          >
-            <span>Browse patterns</span>
-            <svg
-              aria-hidden="true"
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="var(--accent)"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="5" y1="12" x2="19" y2="12" />
-              <polyline points="12 5 19 12 12 19" />
-            </svg>
-          </Link>
-          {!isDesktop && (
-            <button
-              type="button"
-              className={MASTERY_INLINE_CLASS}
-              onClick={() => {
-                setView('mastery')
-              }}
-            >
-              Mastery
-            </button>
-          )}
-        </div>
-
-        {/* Interaction-type filter chips (Phase 5 Item 4) — combines (AND)
-            with the pattern filter below, not mutually exclusive. Clicking
-            an already-active chip clears just that filter; the banner below
-            clears both at once.
-
-            2b.9 (space bug, 2026-08-21): one row, `overflow-x-auto` instead
-            of `flex-wrap` — four chips at this padding/font-size don't
-            reliably fit one row on a phone-width viewport, so wrapping put
-            "Drag to reorder" alone on its own second line, spending a full
-            row of height on one label. Each chip gets `flex-none` (never
-            shrinks/wraps its own text) + `whitespace-nowrap`; the outer
-            `-wrap` div + `.interaction-filter-scroll(-wrap)` (practicePage.css)
-            hide the scrollbar and fade the trailing edge as the
-            "there's more" affordance instead of a visible scrollbar. */}
-        <div className="interaction-filter-scroll-wrap">
-          <div
-            className="interaction-filter-scroll flex flex-nowrap gap-2 overflow-x-auto"
-            role="group"
-            aria-label="Filter by interaction type"
-          >
-            {QUIZ_INTERACTIONS.map((interaction) => {
-              const active = session.interactionFilter === interaction
-              const chipClass = active
-                ? 'flex-none min-h-11 py-1.5 px-3 border border-accent rounded-full bg-accent-dim text-text-0 text-sm font-semibold whitespace-nowrap cursor-pointer'
-                : 'flex-none min-h-11 py-1.5 px-3 border border-border rounded-full bg-surface-1 text-text-1 text-sm font-semibold whitespace-nowrap cursor-pointer'
-              return (
+        {/* Answered mobile layout: this whole block (Browse/Mastery,
+            interaction filter chips, active-filter banner) hides once the
+            current puzzle has been answered — `answer` (see its own doc
+            comment above) is the same "just answered" signal PuzzleCardShell
+            itself uses, so this clears the instant a fresh puzzle loads,
+            same as everything else gated on it. Desktop keeps its
+            unconditional rendering: it has the width for the sidebar and
+            this row both, so there's no crowding to relieve there. */}
+        {!isDesktop && answer !== null ? null : (
+          <>
+            {/* Browse-patterns stays reachable at every width — NavRail doesn't
+                carry a duplicate entry for it (see NavRail.tsx's doc comment),
+                so this remains the one entry point on both mobile and desktop.
+                A real <Link> to /browse (v2 Phase 1a) rather than a setView
+                call, so cmd/middle-click opens it in a new tab. Mastery stays
+                mobile-only since desktop already shows it persistently in the
+                sidebar (below). */}
+            <div className="flex gap-2">
+              <Link
+                href="/browse"
+                className="flex flex-1 items-center justify-between gap-2 min-h-11 py-[13px] px-[14px] border border-border-strong rounded-sm bg-transparent text-text-0 font-sans text-base font-bold no-underline cursor-pointer"
+              >
+                <span>Browse patterns</span>
+                <svg
+                  aria-hidden="true"
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--accent)"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </Link>
+              {!isDesktop && (
                 <button
-                  key={interaction}
                   type="button"
-                  className={chipClass}
-                  aria-pressed={active}
+                  className={MASTERY_INLINE_CLASS}
                   onClick={() => {
-                    session.setInteractionFilter(active ? null : interaction)
+                    setView('mastery')
                   }}
                 >
-                  {QUIZ_INTERACTION_LABELS[interaction]}
+                  Mastery
                 </button>
-              )
-            })}
-          </div>
-        </div>
+              )}
+            </div>
 
-        {activeFilterLabels.length > 0 && (
-          <div className="inline-flex items-center gap-2 min-h-11 py-1.5 pl-3 pr-2 rounded-full bg-accent-dim border border-accent text-text-0 text-sm">
-            <span>Filtering: {activeFilterLabels.join(' + ')}</span>
-            <button
-              type="button"
-              className="flex items-center gap-1 min-h-8 py-1 px-2.5 border-0 rounded-full bg-surface-0 text-text-0 text-xs font-bold cursor-pointer"
-              onClick={() => {
-                session.setFilters(null, null)
-              }}
-            >
-              <CloseIcon size={12} />
-              Clear filters
-            </button>
-          </div>
+            {/* Interaction-type filter chips (Phase 5 Item 4) — combines (AND)
+                with the pattern filter below, not mutually exclusive. Clicking
+                an already-active chip clears just that filter; the banner below
+                clears both at once.
+
+                2b.9 (space bug, 2026-08-21): one row, `overflow-x-auto` instead
+                of `flex-wrap` — four chips at this padding/font-size don't
+                reliably fit one row on a phone-width viewport, so wrapping put
+                "Drag to reorder" alone on its own second line, spending a full
+                row of height on one label. Each chip gets `flex-none` (never
+                shrinks/wraps its own text) + `whitespace-nowrap`; the outer
+                `-wrap` div + `.interaction-filter-scroll(-wrap)` (practicePage.css)
+                hide the scrollbar and fade the trailing edge as the
+                "there's more" affordance instead of a visible scrollbar. */}
+            <div className="interaction-filter-scroll-wrap">
+              <div
+                className="interaction-filter-scroll flex flex-nowrap gap-2 overflow-x-auto"
+                role="group"
+                aria-label="Filter by interaction type"
+              >
+                {QUIZ_INTERACTIONS.map((interaction) => {
+                  const active = session.interactionFilter === interaction
+                  const chipClass = active
+                    ? 'flex-none min-h-11 py-1.5 px-3 border border-accent rounded-full bg-accent-dim text-text-0 text-sm font-semibold whitespace-nowrap cursor-pointer'
+                    : 'flex-none min-h-11 py-1.5 px-3 border border-border rounded-full bg-surface-1 text-text-1 text-sm font-semibold whitespace-nowrap cursor-pointer'
+                  return (
+                    <button
+                      key={interaction}
+                      type="button"
+                      className={chipClass}
+                      aria-pressed={active}
+                      onClick={() => {
+                        session.setInteractionFilter(active ? null : interaction)
+                      }}
+                    >
+                      {QUIZ_INTERACTION_LABELS[interaction]}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {activeFilterLabels.length > 0 && (
+              <div className="inline-flex items-center gap-2 min-h-11 py-1.5 pl-3 pr-2 rounded-full bg-accent-dim border border-accent text-text-0 text-sm">
+                <span>Filtering: {activeFilterLabels.join(' + ')}</span>
+                <button
+                  type="button"
+                  className="flex items-center gap-1 min-h-8 py-1 px-2.5 border-0 rounded-full bg-surface-0 text-text-0 text-xs font-bold cursor-pointer"
+                  onClick={() => {
+                    session.setFilters(null, null)
+                  }}
+                >
+                  <CloseIcon size={12} />
+                  Clear filters
+                </button>
+              </div>
+            )}
+          </>
         )}
 
         {session.status === 'empty' || session.puzzle === null ? (

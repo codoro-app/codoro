@@ -32,7 +32,7 @@ const REASON_LABELS: Record<ReportReason, string> = {
 // import.meta.env.DEV reads.
 const APP_VERSION: string = (import.meta.env.VITE_APP_VERSION as string | undefined) ?? 'dev'
 
-type Status = 'collapsed' | 'expanded' | 'sending' | 'sent' | 'error'
+export type ReportStatus = 'collapsed' | 'expanded' | 'sending' | 'sent' | 'error'
 
 // Same icon-trigger treatment as ShareMenu's `trigger="icon"` mode (matched
 // class-for-class) -- this control now lives in the same right-rail sidebar
@@ -41,22 +41,35 @@ type Status = 'collapsed' | 'expanded' | 'sending' | 'sent' | 'error'
 const ICON_TRIGGER_CLASS =
   'flex items-center justify-center shrink-0 min-w-11 min-h-11 rounded-sm border border-border bg-surface-1 text-text-1 cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
-export function ReportPuzzleControl({ puzzleId }: { puzzleId: string }) {
-  const [status, setStatus] = useState<Status>('collapsed')
+// Status is controlled by the caller (PuzzleCardShell) — mobile's answered
+// layout needs to render this control's collapsed icon-trigger inline in a
+// row with ShareMenu/ContinueCta, then its expanded reason-picker card as a
+// separate block below that row, which means the caller has to know (and
+// decide where to render based on) the current status itself instead of it
+// being this component's own private useState.
+export function ReportPuzzleControl({
+  puzzleId,
+  status,
+  onStatusChange,
+}: {
+  puzzleId: string
+  status: ReportStatus
+  onStatusChange: (status: ReportStatus) => void
+}) {
   const [reason, setReason] = useState<ReportReason>(REPORT_REASONS[0])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   async function send() {
-    setStatus('sending')
+    onStatusChange('sending')
     setErrorMessage(null)
     try {
       await apiFetch<ReportResponse>('/api/report', {
         method: 'POST',
         body: { puzzleId, reason, appVersion: APP_VERSION },
       })
-      setStatus('sent')
+      onStatusChange('sent')
     } catch (error) {
-      setStatus('error')
+      onStatusChange('error')
       setErrorMessage(
         error instanceof ApiError ? error.message : 'Could not send the report — try again.',
       )
@@ -82,7 +95,7 @@ export function ReportPuzzleControl({ puzzleId }: { puzzleId: string }) {
             aria-expanded={false}
             aria-label="Report this puzzle"
             onClick={() => {
-              setStatus('expanded')
+              onStatusChange('expanded')
             }}
           >
             <FlagIcon size={18} />
@@ -130,7 +143,7 @@ export function ReportPuzzleControl({ puzzleId }: { puzzleId: string }) {
           type="button"
           className="flex-1 min-h-9 rounded-md border border-border-strong bg-transparent text-text-0 text-sm font-semibold cursor-pointer disabled:opacity-60"
           onClick={() => {
-            setStatus('collapsed')
+            onStatusChange('collapsed')
           }}
           disabled={status === 'sending'}
         >
