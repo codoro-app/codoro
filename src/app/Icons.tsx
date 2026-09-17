@@ -172,6 +172,51 @@ export function CompeteIcon({ size = 20 }: IconProps) {
   )
 }
 
+// Authored for Compete's "Play Computer" door card badge (Lucide `monitor`)
+// — a synthetic-opponent glyph distinct from CompeteIcon's crossed-swords
+// "duel" mark used for the mode itself.
+export function MonitorIcon({ size = 20 }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+      <line x1="8" y1="21" x2="16" y2="21" />
+      <line x1="12" y1="17" x2="12" y2="21" />
+    </svg>
+  )
+}
+
+// Authored for Compete's "Play Human" door card badge (Lucide `users`).
+export function PeopleIcon({ size = 20 }: IconProps) {
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  )
+}
+
 // Points left by default; consumers rotate 180deg via CSS (transform) for
 // the expand direction rather than shipping two mirrored icon components.
 export function CollapseIcon({ size = 20 }: IconProps) {

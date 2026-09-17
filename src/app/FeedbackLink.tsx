@@ -9,14 +9,17 @@
  * hardening (no `window.opener` access back into this app; no more
  * referrer leaked to Tally than any ordinary outbound link already sends).
  *
- * Rendered from four places — AppShell.tsx's footer, SettingsPage.tsx's own
- * section, and (feedback-nudge follow-up) FeedbackNudge.tsx's two trigger
- * surfaces — each passing its own `className` (styling isn't shared, since
- * the surfaces use different layout conventions) and a `surface` used only
- * for the `feedback_link_clicked` telemetry event, so it's possible to tell
- * which placement actually gets used. `onClick` is optional and additive to
+ * Rendered from three places — SettingsPage.tsx's own section, and
+ * (feedback-nudge follow-up) FeedbackNudge.tsx's two trigger surfaces — each
+ * passing its own `className` (styling isn't shared, since the surfaces use
+ * different layout conventions) and a `surface` used only for the
+ * `feedback_link_clicked` telemetry event, so it's possible to tell which
+ * placement actually gets used. `onClick` is optional and additive to
  * tracking, never a replacement for it — FeedbackNudge uses it to also
  * permanently dismiss itself on click-through (useFeedbackNudge's dismiss).
+ * (A fourth surface, 'footer', existed for AppShell.tsx's own footer link —
+ * removed once Settings/Legal/Feedback folded behind the gear icon and that
+ * footer row went away; see AppShell.tsx/SecondaryNav.tsx.)
  *
  * FEEDBACK_URL is the real, live Tally form for this launch.
  */
@@ -25,7 +28,7 @@ import { trackFeedbackLinkClicked } from '../telemetry'
 export const FEEDBACK_URL = 'https://tally.so/r/Xxb0v4'
 
 export interface FeedbackLinkProps {
-  surface: 'footer' | 'settings' | 'daily_nudge' | 'home_nudge'
+  surface: 'settings' | 'daily_nudge' | 'home_nudge'
   className?: string
   onClick?: () => void
 }

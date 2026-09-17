@@ -793,14 +793,6 @@ describe('trackRouteView', () => {
 })
 
 describe('trackFeedbackLinkClicked', () => {
-  it('captures feedback_link_clicked with surface: "footer"', async () => {
-    const { trackFeedbackLinkClicked } = await loadTelemetry('phc_test_key')
-    const payload = { surface: 'footer' as const }
-    trackFeedbackLinkClicked(payload)
-    await flushPromises()
-    expect(posthogMock.capture).toHaveBeenCalledWith('feedback_link_clicked', payload)
-  })
-
   it('captures feedback_link_clicked with surface: "settings"', async () => {
     const { trackFeedbackLinkClicked } = await loadTelemetry('phc_test_key')
     const payload = { surface: 'settings' as const }
@@ -811,7 +803,7 @@ describe('trackFeedbackLinkClicked', () => {
 
   it('no-ops without calling posthog.capture when the key is unset', async () => {
     const { trackFeedbackLinkClicked } = await loadTelemetry(undefined)
-    trackFeedbackLinkClicked({ surface: 'footer' })
+    trackFeedbackLinkClicked({ surface: 'settings' })
     await flushPromises()
     expect(posthogMock.capture).not.toHaveBeenCalled()
   })

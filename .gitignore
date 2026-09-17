@@ -47,6 +47,10 @@ functions/puzzleOgMeta.generated.ts
 *.tsbuildinfo
 coverage
 
+# tools/mockupCapture.ts output — a working artifact for AI mockup input,
+# never committed (same reasoning as coverage/ above)
+codoro-mockup-shots/
+
 # wrangler's local dev state (pnpm dev:pages) — machine-local, not source
 .wrangler/
 

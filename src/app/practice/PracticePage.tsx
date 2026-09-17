@@ -632,6 +632,22 @@ export function PracticePage() {
             />
           ) : (
             <>
+              {/* Redesign fix (2026-09-17, live report): rating/streak/
+                  solved/sound pinned first, before any of the dynamic
+                  post-answer content below — they used to render after the
+                  feedback/challenge/share block, so answering a puzzle
+                  visibly shoved this row down the sidebar every time. */}
+              <StatusBar
+                rating={session.profile.rating}
+                streak={session.profile.streak.currentStreak}
+                combo={session.combo}
+                solvedThisSession={session.solvedThisSession}
+                shields={session.shields}
+                soundEnabled={session.profile.preferences.sound}
+                onToggleSound={() => {
+                  session.setSoundPreference(!session.profile?.preferences.sound)
+                }}
+              />
               {/* v4 Phase 4.5 ("the right rail"): PuzzleCardShell portals its
                   post-commit Continue+feedback block in here (via
                   `sidebarSlotEl` above) instead of rendering it inline below
@@ -652,17 +668,6 @@ export function PracticePage() {
               {missedChallengeBanner}
               {answer && challengeButton}
               <ShareMenu actions={shareActions} />
-              <StatusBar
-                rating={session.profile.rating}
-                streak={session.profile.streak.currentStreak}
-                combo={session.combo}
-                solvedThisSession={session.solvedThisSession}
-                shields={session.shields}
-                soundEnabled={session.profile.preferences.sound}
-                onToggleSound={() => {
-                  session.setSoundPreference(!session.profile?.preferences.sound)
-                }}
-              />
               <MasteryTeaser refreshKey={session.attemptVersion} />
             </>
           )}

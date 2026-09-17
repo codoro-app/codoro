@@ -449,13 +449,15 @@ export function trackPageview(): void {
 /**
  * Fired whenever the external Tally feedback link is clicked (launch
  * instrumentation, Item 2) — FeedbackLink.tsx, rendered from
- * AppShell.tsx's footer, SettingsPage.tsx, and (launch instrumentation
- * follow-up: feedback nudges) FeedbackNudge.tsx's two trigger surfaces.
- * `surface` names which of the four placements was used, so it's possible
- * to tell which one actually gets clicked.
+ * SettingsPage.tsx and (launch instrumentation follow-up: feedback nudges)
+ * FeedbackNudge.tsx's two trigger surfaces. `surface` names which of the
+ * three placements was used, so it's possible to tell which one actually
+ * gets clicked. (A fourth surface, 'footer', existed for AppShell.tsx's own
+ * footer link — removed once Settings/Legal/Feedback folded behind the gear
+ * icon.)
  */
 export interface FeedbackLinkClickedPayload {
-  surface: 'footer' | 'settings' | 'daily_nudge' | 'home_nudge'
+  surface: 'settings' | 'daily_nudge' | 'home_nudge'
 }
 
 export function trackFeedbackLinkClicked(payload: FeedbackLinkClickedPayload): void {
