@@ -152,7 +152,14 @@ export function StatusBar({
           </svg>
         }
       >
-        {solvedThisSession} solved this session
+        {solvedThisSession} solved
+        {/* lg+ (desktop sidebar) keeps the fuller label; below that (mobile,
+            where this same StatusBar renders 4 badges in one row) it stays
+            "X solved" so all 4 fit on one line at ~390px. This span is a
+            separate element (not concatenated into the badge's own direct
+            text) so the "X solved" text above remains the sole match for
+            queries like getByText(/42/) — see StatusBar.test.tsx. */}
+        <span className="hidden lg:inline"> this session</span>
       </StatBadge>
       {combo >= 2 && (
         <div

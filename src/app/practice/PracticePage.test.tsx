@@ -555,7 +555,10 @@ describe('PracticePage', () => {
     await waitFor(() => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })
-    expect(screen.getByText(/1 solved this session/i)).toBeInTheDocument()
+    // Mobile's StatusBar shortens this to "1 solved" (jsdom's stubbed
+    // matchMedia always reports isDesktop: false, so this suite always
+    // renders the mobile label) — see StatusBar.tsx's responsive span.
+    expect(screen.getByText(/1 solved/i)).toBeInTheDocument()
 
     await user.click(screen.getByRole('link', { name: /browse patterns/i }))
     await user.click(screen.getByText(PATTERN_LABELS['null-undefined']))
@@ -568,8 +571,10 @@ describe('PracticePage', () => {
     await user.click(screen.getByRole('button', { name: 'Clear filters' }))
 
     expect(screen.queryByText(/filtering: /i)).not.toBeInTheDocument()
-    // Session stat survived the clear — this was a pure filter swap, not a reset.
-    expect(screen.getByText(/1 solved this session/i)).toBeInTheDocument()
+    // Session stat survived the clear — this was a pure filter swap, not a
+    // reset. Mobile's StatusBar shortens this to "1 solved" — see the
+    // first assertion above for why.
+    expect(screen.getByText(/1 solved/i)).toBeInTheDocument()
     // Still on the practice view (a puzzle card is showing), not the picker.
     expect(screen.getByText(/prompt \d/)).toBeInTheDocument()
   })

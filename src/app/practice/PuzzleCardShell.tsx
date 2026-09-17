@@ -28,6 +28,7 @@ import { TapLine } from './interactions/TapLine'
 import { DragOrder } from './interactions/DragOrder'
 import { useMediaQuery } from '../useMediaQuery'
 import { ReportPuzzleControl } from '../ReportPuzzleControl'
+import type { ReportStatus } from '../ReportPuzzleControl'
 import { ShareMenu } from '../ShareMenu'
 import type { ShareAction } from '../ShareMenu'
 import '../tokens.css'
@@ -420,6 +421,15 @@ export function PuzzleCardShell({
   impact = null,
 }: PuzzleCardShellProps) {
   const [commit, setCommit] = useState<CommitState | null>(null)
+  // Lifted out of ReportPuzzleControl (2026-09-17 answered-layout redesign)
+  // so its collapsed icon-trigger can render inline beside ShareMenu/
+  // ContinueCta while its expanded reason-picker card renders as its own
+  // block below that row — a single component instance can't occupy two
+  // DOM positions at once, so the caller (here) has to know the status to
+  // choose which position to render it in. Resets naturally on every new
+  // puzzle since this component itself remounts (callers key it by
+  // puzzle.id — see this component's own doc comment above).
+  const [reportStatus, setReportStatus] = useState<ReportStatus>('collapsed')
   // Purely a Continue-button placement switch (bug report, 2026-08-12) — see
   // CONTINUE_BAR_CLASS's doc comment above for why this needs an actual
   // structural move (a different parent, sticky vs. not) rather than a pure
@@ -653,7 +663,11 @@ export function PuzzleCardShell({
               interaction body avoids perturbing every mode's existing
               pre-commit button-count assertions (getAllByRole('button')
               across Practice/Daily/Rush/Boss/Missions/Challenge tests). */}
-          <ReportPuzzleControl puzzleId={puzzle.id} />
+          <ReportPuzzleControl
+            puzzleId={puzzle.id}
+            status={reportStatus}
+            onStatusChange={setReportStatus}
+          />
         </div>
       </>
     ) : null
@@ -768,9 +782,15 @@ export function PuzzleCardShell({
                   ShareMenu used to, which is what let it get buried below
                   this very drawer once it went sticky. `flex-none` on the
                   row keeps it from being squeezed by the scrolling
-                  explanation above it, same as the row it replaces. */}
+                  explanation above it, same as the row it replaces.
+                  Answered-layout redesign (2026-09-17): Report's collapsed
+                  icon-trigger joins this row too — ContinueCta first
+                  (flex-1, taking the remaining width), then the fixed-width
+                  Share/Report icons, matching the mockup's order. Only the
+                  *collapsed* trigger renders here; once tapped, the
+                  reason-picker card renders as its own block below instead
+                  of in-place (see reportStatus's doc comment above). */}
               <div className="flex items-stretch gap-2 flex-none">
-                {shareActions.length > 0 && <ShareMenu actions={shareActions} trigger="icon" />}
                 <ContinueCta
                   className={`${FEEDBACK_CONTINUE_CLASS} flex-1`}
                   destination={continueDestination}
@@ -778,11 +798,26 @@ export function PuzzleCardShell({
                   buttonRef={continueButtonRef}
                   autoAdvanceMs={activeAutoAdvanceMs}
                 />
+                {shareActions.length > 0 && <ShareMenu actions={shareActions} trigger="icon" />}
+                {reportStatus === 'collapsed' && (
+                  <ReportPuzzleControl
+                    puzzleId={puzzle.id}
+                    status={reportStatus}
+                    onStatusChange={setReportStatus}
+                  />
+                )}
               </div>
-              {/* T5 (v2 todo item 18) — see desktopResult's identical
-                  placement above for why it lives in the reveal, not the
-                  interaction body. */}
-              <ReportPuzzleControl puzzleId={puzzle.id} />
+              {/* T5 (v2 todo item 18) — the expanded reason-picker card (and
+                  the sending/sent/error states it flows into) renders as its
+                  own block underneath the row above, not in place of the
+                  icon that opened it. */}
+              {reportStatus !== 'collapsed' && (
+                <ReportPuzzleControl
+                  puzzleId={puzzle.id}
+                  status={reportStatus}
+                  onStatusChange={setReportStatus}
+                />
+              )}
             </div>
           </div>
         </div>
