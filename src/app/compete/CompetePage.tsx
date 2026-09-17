@@ -3,22 +3,37 @@
  * into the exact same `/challenge` run the app already has on the
  * recipient's side. "Play Computer" synthesizes both the puzzle set and the
  * opponent's results from a target rating and races them immediately, via
- * `buildComputerChallengePayload` (src/challenge/computerOpponent.ts) fed
- * straight into `useChallengeSessionForPayload` — no URL round-trip, since
- * nothing about a synthetic run needs to be shareable (see
- * useChallengeSession.ts's own doc comment for why). "Play Human" (a later
- * task) draws the same way but has the initiator generate the results by
- * actually solving the 5 puzzles, then hands the result to the existing,
- * unmodified `ChallengeButton`.
+ * `buildComputerChallengePayload` fed straight into
+ * `useChallengeSessionForPayload` — no URL round-trip. "Play Human" draws
+ * the same 5-puzzle set the same way but has the initiator generate the
+ * results by actually solving them (`useCompeteSession`), then hands the
+ * result to the existing, unmodified `ChallengeButton` (`surface:
+ * 'compete'`) for a real 1-on-1 share link. Same draw step
+ * (`widenedEligible` + `sampleDistinctIds`), same downstream consumer
+ * (`/challenge`'s intro/ghost-race/comparison UI on the recipient's side),
+ * different only in how `results` gets filled in.
  */
-import { useState } from 'react'
-import { buildComputerChallengePayload } from '../../challenge'
-import type { ChallengePayload, EloTier } from '../../challenge'
+import { useEffect, useState } from 'react'
+import {
+  buildComputerChallengePayload,
+  sampleDistinctIds,
+  MAX_CHALLENGE_PUZZLES,
+  TIER_TARGET_RATING,
+} from '../../challenge'
+import type { ChallengeAttemptInput, ChallengePayload, EloTier } from '../../challenge'
+import { widenedEligible } from '../../engine'
 import { puzzleMeta } from '../../content'
-import { trackChallengeCreate } from '../../telemetry'
+import { trackChallengeCreate, trackError } from '../../telemetry'
+import { loadProfile, saveProfile } from '../../storage'
+import type { UserProfile } from '../../storage'
 import { useChallengeSessionForPayload } from '../challenge/useChallengeSession'
 import { ChallengePageForSession } from '../challenge/ChallengePage'
+import { ChallengeButton } from '../ChallengeButton'
+import { useChallengerName } from '../useChallengerName'
+import { PuzzleCardShell } from '../practice/PuzzleCardShell'
+import { TraceRunnerPuzzle } from '../trace/TraceRunner'
 import { LevelPicker } from './LevelPicker'
+import { useCompeteSession } from './useCompeteSession'
 
 const PAGE_SHELL_CLASS =
   'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[var(--space-4)] px-4 pb-4'
@@ -34,10 +49,98 @@ type Door =
   | { kind: 'computer-level' }
   | { kind: 'computer-race'; payload: ChallengePayload }
   | { kind: 'human-level' }
+  | { kind: 'human-play'; ids: readonly string[] }
 
 function ComputerRaceView({ payload }: { payload: ChallengePayload }) {
   const session = useChallengeSessionForPayload(payload, 'computer')
   return <ChallengePageForSession session={session} />
+}
+
+/** End-of-run screen for Play Human's initiator — the only new place this pass reads/writes a profile, and only for `challengerName` (same scope ChallengeComparison.tsx's own counter-challenge CTA already has). */
+function CompeteHumanDone({ attempts }: { attempts: readonly ChallengeAttemptInput[] }) {
+  const [profile, setProfileState] = useState<UserProfile | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    loadProfile()
+      .then((loaded) => {
+        if (!cancelled) setProfileState(loaded)
+      })
+      .catch((error: unknown) => {
+        trackError(error, 'CompeteHumanDone: loadProfile failed')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  const challenger = useChallengerName(profile, async (updated) => {
+    setProfileState(updated)
+    await saveProfile(updated)
+  })
+
+  const correct = attempts.filter((a) => a.correct).length
+  const totalMs = attempts.reduce((sum, a) => sum + a.time_ms, 0)
+
+  return (
+    <div className="flex flex-col gap-3 text-center py-4">
+      <p className="text-text-1 font-bold text-[1.125rem] m-0">Your 5 puzzles are ready to share</p>
+      <p className="text-text-2 m-0">
+        You got {correct}/{attempts.length} in {Math.round(totalMs / 1000)}s
+      </p>
+      <div className="flex flex-wrap gap-3 justify-center mt-2">
+        <ChallengeButton
+          attempts={attempts}
+          surface="compete"
+          introLabel="beat my puzzle set"
+          challengerName={challenger.name}
+          onNameNeeded={challenger.setName}
+        />
+      </div>
+    </div>
+  )
+}
+
+function HumanPlayView({ ids }: { ids: readonly string[] }) {
+  const session = useCompeteSession(ids)
+
+  if (session.status === 'loading') {
+    return <p className="text-center text-text-1 py-8">Loading puzzles…</p>
+  }
+  if (session.status === 'done') {
+    return <CompeteHumanDone attempts={session.results} />
+  }
+  const puzzle = session.puzzle
+  if (!puzzle) return null
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="m-0 text-sm font-bold text-text-1">
+        Puzzle {session.puzzleIndex + 1} of {session.totalPuzzles}
+      </p>
+      {puzzle.interaction === 'scrubber' ? (
+        <TraceRunnerPuzzle
+          key={session.puzzleIndex}
+          puzzle={puzzle}
+          checkpointResults={session.checkpointResults}
+          isComplete={session.isComplete}
+          solved={session.solved}
+          ratingDelta={null}
+          onCheckpointAnswered={session.handleCheckpointAnswered}
+          onContinue={session.handleContinue}
+          timed={false}
+          sidebarSlot={null}
+        />
+      ) : (
+        <PuzzleCardShell
+          key={session.puzzleIndex}
+          puzzle={puzzle}
+          ratingDelta={null}
+          onAnswered={session.handleAnswered}
+          onContinue={session.handleContinue}
+          sidebarSlot={null}
+        />
+      )}
+    </div>
+  )
 }
 
 export function CompetePage() {
@@ -49,11 +152,18 @@ export function CompetePage() {
     setDoor({ kind: 'computer-race', payload })
   }
 
+  function handleSelectHumanTier(tier: EloTier) {
+    const eligible = widenedEligible(ENGINE_POOL, TIER_TARGET_RATING[tier])
+    const ids = sampleDistinctIds(eligible, MAX_CHALLENGE_PUZZLES, Math.random).map((p) => p.id)
+    setDoor({ kind: 'human-play', ids })
+  }
+
+  const showHeading =
+    door.kind === 'menu' || door.kind === 'computer-level' || door.kind === 'human-level'
+
   return (
     <div className={PAGE_SHELL_CLASS}>
-      {door.kind !== 'computer-race' && (
-        <p className="m-0 text-xl font-bold text-text-0">Compete</p>
-      )}
+      {showHeading && <p className="m-0 text-xl font-bold text-text-0">Compete</p>}
       {door.kind === 'menu' && (
         <div className="flex flex-col gap-3">
           <button
@@ -90,20 +200,14 @@ export function CompetePage() {
       )}
       {door.kind === 'computer-race' && <ComputerRaceView payload={door.payload} />}
       {door.kind === 'human-level' && (
-        <p className="text-text-1">
-          Play Human lands in a later task —{' '}
-          <button
-            type="button"
-            className="text-accent bg-transparent border-0 cursor-pointer p-0 font-bold"
-            onClick={() => {
-              setDoor({ kind: 'menu' })
-            }}
-          >
-            back
-          </button>
-          .
-        </p>
+        <LevelPicker
+          onSelect={handleSelectHumanTier}
+          onBack={() => {
+            setDoor({ kind: 'menu' })
+          }}
+        />
       )}
+      {door.kind === 'human-play' && <HumanPlayView ids={door.ids} />}
     </div>
   )
 }
