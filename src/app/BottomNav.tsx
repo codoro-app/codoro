@@ -6,12 +6,14 @@
  * that has to stay put across every route) so it's always thumb-reachable,
  * the standard mobile pattern.
  *
- * Four items — Home, Practice, Daily, Stats — not all six mode routes:
- * bottom bars should stay at or under ~5 items (overload doesn't read as
- * "here are your options", it reads as noise), and Home's own card grid
- * already gives one-tap access to Rush/Boss/Trace/Missions from the tab
+ * Five items — Home, Practice, Daily, Compete, Stats — not all seven mode
+ * routes: bottom bars should stay at or under ~5 items (overload doesn't
+ * read as "here are your options", it reads as noise), and Home's own card
+ * grid already gives one-tap access to Rush/Boss/Trace/Missions from the tab
  * this bar's Home item leads to. See this phase's design record for the
- * full reasoning — this is a deliberate scope decision, not an oversight.
+ * full reasoning behind the original four; Compete (2026-09) was added as
+ * an explicit one-off exception at the cap, not a reopening of the cap
+ * itself — the next mode past this one belongs on the Home grid, not here.
  *
  * aria-label="Primary" (not "Mode", which NavRail already uses) — this bar
  * includes Home and Stats, so "Mode" would undersell what's in it. Visible
@@ -31,7 +33,7 @@
  * `aria-pressed`, for the same "navigation, not a toggle" reason.
  */
 import { Link, useLocation } from 'wouter'
-import { DailyIcon, HomeIcon, PracticeIcon, StatsIcon } from './Icons'
+import { CompeteIcon, DailyIcon, HomeIcon, PracticeIcon, StatsIcon } from './Icons'
 import { ROUTES } from './routes'
 
 // 2026-08-26 fix: ITEM_BASE used to carry `text-text-1` unconditionally,
@@ -87,6 +89,14 @@ export function BottomNav() {
       >
         <DailyIcon size={20} />
         Daily
+      </Link>
+      <Link
+        href={ROUTES.compete.path}
+        className={itemClass(location === ROUTES.compete.path)}
+        aria-current={location === ROUTES.compete.path ? 'page' : undefined}
+      >
+        <CompeteIcon size={20} />
+        Compete
       </Link>
       <Link
         href={ROUTES.stats.path}

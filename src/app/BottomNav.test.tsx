@@ -24,6 +24,14 @@ describe('BottomNav', () => {
     expect(window.location.pathname).toBe('/stats')
   })
 
+  it('navigates to /compete when the Compete tab is clicked', async () => {
+    const user = userEvent.setup()
+    render(<BottomNav />)
+
+    await user.click(screen.getByRole('link', { name: 'Compete' }))
+    expect(window.location.pathname).toBe('/compete')
+  })
+
   it('the Home tab links to /', () => {
     render(<BottomNav />)
     expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
