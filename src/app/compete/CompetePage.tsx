@@ -27,11 +27,12 @@ import { trackChallengeCreate, trackError } from '../../telemetry'
 import { loadProfile, saveProfile } from '../../storage'
 import type { UserProfile } from '../../storage'
 import { useChallengeSessionForPayload } from '../challenge/useChallengeSession'
-import { ChallengePageForSession } from '../challenge/ChallengePage'
+import { ChallengePageForSession, QUIT_BUTTON_CLASS } from '../challenge/ChallengePage'
 import { ChallengeButton } from '../ChallengeButton'
 import { useChallengerName } from '../useChallengerName'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { TraceRunnerPuzzle } from '../trace/TraceRunner'
+import { CloseIcon } from '../Icons'
 import { LevelPicker } from './LevelPicker'
 import { useCompeteSession } from './useCompeteSession'
 
@@ -51,9 +52,9 @@ type Door =
   | { kind: 'human-level' }
   | { kind: 'human-play'; ids: readonly string[] }
 
-function ComputerRaceView({ payload }: { payload: ChallengePayload }) {
+function ComputerRaceView({ payload, onQuit }: { payload: ChallengePayload; onQuit: () => void }) {
   const session = useChallengeSessionForPayload(payload, 'computer')
-  return <ChallengePageForSession session={session} />
+  return <ChallengePageForSession session={session} onQuit={onQuit} />
 }
 
 /** End-of-run screen for Play Human's initiator — the only new place this pass reads/writes a profile, and only for `challengerName` (same scope ChallengeComparison.tsx's own counter-challenge CTA already has). */
@@ -99,7 +100,7 @@ function CompeteHumanDone({ attempts }: { attempts: readonly ChallengeAttemptInp
   )
 }
 
-function HumanPlayView({ ids }: { ids: readonly string[] }) {
+function HumanPlayView({ ids, onQuit }: { ids: readonly string[]; onQuit: () => void }) {
   const session = useCompeteSession(ids)
 
   if (session.status === 'loading') {
@@ -113,9 +114,15 @@ function HumanPlayView({ ids }: { ids: readonly string[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="m-0 text-sm font-bold text-text-1">
-        Puzzle {session.puzzleIndex + 1} of {session.totalPuzzles}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="m-0 text-sm font-bold text-text-1">
+          Puzzle {session.puzzleIndex + 1} of {session.totalPuzzles}
+        </p>
+        <button type="button" className={QUIT_BUTTON_CLASS} onClick={onQuit}>
+          <CloseIcon size={12} />
+          Quit
+        </button>
+      </div>
       {puzzle.interaction === 'scrubber' ? (
         <TraceRunnerPuzzle
           key={session.puzzleIndex}
@@ -198,7 +205,14 @@ export function CompetePage() {
           }}
         />
       )}
-      {door.kind === 'computer-race' && <ComputerRaceView payload={door.payload} />}
+      {door.kind === 'computer-race' && (
+        <ComputerRaceView
+          payload={door.payload}
+          onQuit={() => {
+            setDoor({ kind: 'menu' })
+          }}
+        />
+      )}
       {door.kind === 'human-level' && (
         <LevelPicker
           onSelect={handleSelectHumanTier}
@@ -207,7 +221,14 @@ export function CompetePage() {
           }}
         />
       )}
-      {door.kind === 'human-play' && <HumanPlayView ids={door.ids} />}
+      {door.kind === 'human-play' && (
+        <HumanPlayView
+          ids={door.ids}
+          onQuit={() => {
+            setDoor({ kind: 'menu' })
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -50,6 +50,7 @@ import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { TraceRunnerPuzzle } from '../trace/TraceRunner'
 import { useMediaQuery } from '../useMediaQuery'
 import { PATTERN_LABELS } from '../../content'
+import { CloseIcon } from '../Icons'
 import '../tokens.css'
 
 // 2b.0: was `.challenge-page` (challengePage.css, max-width breakpoint
@@ -68,6 +69,11 @@ const CHIP_CLASS =
   'inline-flex items-center min-h-8 py-1 px-3 rounded-full bg-surface-0 border border-border text-text-1 text-sm font-semibold'
 const ACCEPT_BUTTON_CLASS =
   'min-h-11 py-2 px-5 border-0 rounded-sm bg-accent text-accent-ink font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+// Same pill-chip idiom as PracticePage.tsx's "Clear filters" chip — a
+// self-quit control needs no confirmation here (Compete races are
+// unrated/client-only, nothing server-side to lose), just legible placement.
+export const QUIT_BUTTON_CLASS =
+  'flex items-center gap-1 self-start min-h-8 py-1 px-2.5 border-0 rounded-full bg-surface-0 text-text-1 text-xs font-bold cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
 /** Pure, props-driven inner component — exported so tests can drive it directly against a raw fragment without a Router wrapper. */
 export interface ChallengePageForHashProps {
@@ -89,9 +95,11 @@ export function ChallengePageForHash({ hash }: ChallengePageForHashProps) {
  */
 export interface ChallengePageForSessionProps {
   session: ChallengeSession
+  /** Compete's own exit control (2026-09 QA fixes) — omitted (undefined) for `/challenge`'s shared-link route, which has no in-run quit affordance and isn't changing here. When present, rendered at the top of the puzzle content, next to where GhostBar's opponent chip renders. */
+  onQuit?: () => void
 }
 
-export function ChallengePageForSession({ session }: ChallengePageForSessionProps) {
+export function ChallengePageForSession({ session, onQuit }: ChallengePageForSessionProps) {
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   // v4 Phase 4.5 ("the right rail") — same ref-callback-in-state portal
   // target as PracticePage.tsx's identical `sidebarSlotEl`.
@@ -174,6 +182,12 @@ export function ChallengePageForSession({ session }: ChallengePageForSessionProp
   return (
     <>
       <div className={PAGE_SHELL_CLASS}>
+        {onQuit && (
+          <button type="button" className={QUIT_BUTTON_CLASS} onClick={onQuit}>
+            <CloseIcon size={12} />
+            Quit
+          </button>
+        )}
         {/* Ghost race (async-challenge feel pass): races the challenger's
             own recorded time for THIS puzzle position — self-hides when the
             payload has no result there (defensive; ids/results are
