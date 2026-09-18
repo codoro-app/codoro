@@ -1155,6 +1155,56 @@ describe('sync engine', () => {
 
       expect(apiFetchMock).toHaveBeenCalled()
     })
+
+    // Live-diagnosed 2026-09-18: flush() is what runs from visibilitychange
+    // -> hidden, racing the tab's own teardown -- a plain (non-keepalive)
+    // fetch there was silently losing a burst-played session's progress
+    // (see doPushOnce's own doc comment). These three tests pin the fix:
+    // flush's PUT asks for keepalive, an oversized payload falls back
+    // rather than throwing, and an ordinary (non-flush) push is unaffected.
+    it("flush()'s PUT requests keepalive, so it can survive the tab actually closing", async () => {
+      const debounced = createSyncEngine({ getToken }, { debounceMs: 60_000 })
+      await debounced.handleSignedIn('user_a')
+      apiFetchMock.mockClear()
+
+      debounced.notifyMutation()
+      await debounced.flush()
+
+      const putCall = apiFetchMock.mock.calls.find(([, opts]) => methodOf(opts) === 'PUT')
+      expect(putCall?.[1]?.keepalive).toBe(true)
+    })
+
+    it("flush() skips keepalive once the payload exceeds the platform's 64KB keepalive body cap", async () => {
+      // Bulk up local attempts well past 60,000 bytes of JSON -- keepalive
+      // fetches throw synchronously over the platform's hard 64KB cap, so
+      // doPushOnce must detect this and fall back to an ordinary PUT rather
+      // than trading "sometimes cut off" for "always throws."
+      for (let i = 0; i < 400; i++) {
+        await appendAttempt({ ...accountAAttempt(), id: `bulk-${String(i)}` })
+      }
+      const debounced = createSyncEngine({ getToken }, { debounceMs: 60_000 })
+      await debounced.handleSignedIn('user_a')
+      apiFetchMock.mockClear()
+
+      debounced.notifyMutation()
+      await debounced.flush()
+
+      const putCall = apiFetchMock.mock.calls.find(([, opts]) => methodOf(opts) === 'PUT')
+      expect(putCall).toBeDefined()
+      expect(putCall?.[1]?.keepalive).toBeFalsy()
+    })
+
+    it('an ordinary push() (not flush) never requests keepalive', async () => {
+      const debounced = createSyncEngine({ getToken })
+      await debounced.handleSignedIn('user_a')
+      apiFetchMock.mockClear()
+
+      await debounced.push()
+
+      const putCall = apiFetchMock.mock.calls.find(([, opts]) => methodOf(opts) === 'PUT')
+      expect(putCall).toBeDefined()
+      expect(putCall?.[1]?.keepalive).toBeFalsy()
+    })
   })
 
   describe('handleSignedOut', () => {
