@@ -65,6 +65,7 @@ export function BottomNav() {
       // the fix plan's Tier 2 (contained-scroll app shell) is the next step.
       className="lg:hidden fixed inset-x-0 bottom-0 z-20 flex bg-surface-1 border-t border-border pb-[env(safe-area-inset-bottom)] [transform:translateZ(0)]"
       aria-label="Primary"
+      data-testid="bottom-nav"
     >
       <Link
         href="/"

@@ -358,7 +358,11 @@ export default defineConfig({
     // workers/ has its own vitest config (@cloudflare/vitest-pool-workers,
     // runs inside workerd) — this jsdom suite must never try to collect
     // its test files, which would fail outside a Worker runtime.
-    exclude: [...configDefaults.exclude, '**/.claude/**', 'workers/**'],
+    // e2e/ is Playwright's own suite (@playwright/test's `test()`, not
+    // Vitest's) — without this, Vitest's default *.spec.ts glob would try
+    // to collect and run it too, and fail: the two runners' `test()` APIs
+    // aren't compatible.
+    exclude: [...configDefaults.exclude, '**/.claude/**', 'workers/**', 'e2e/**'],
     coverage: {
       provider: 'v8',
       include: ['src/engine/**/*.ts', 'src/storage/**/*.ts'],
