@@ -62,6 +62,17 @@ vi.mock('../auth/accountHint', () => ({
   },
 }))
 
+const identifyUserMock = vi.fn<(userId: string) => void>()
+const resetIdentityMock = vi.fn<() => void>()
+vi.mock('../telemetry', () => ({
+  identifyUser: (userId: string): void => {
+    identifyUserMock(userId)
+  },
+  resetIdentity: (): void => {
+    resetIdentityMock()
+  },
+}))
+
 const { SyncEngineHost } = await import('./SyncEngineHost')
 
 function setAuthState(next: Partial<AuthState>): void {
@@ -86,6 +97,8 @@ describe('SyncEngineHost', () => {
     profileSavedListener = null
     writeHasAccountHintMock.mockClear()
     clearHasAccountHintMock.mockClear()
+    identifyUserMock.mockClear()
+    resetIdentityMock.mockClear()
     reloadMock.mockClear()
     // jsdom's window.location.reload is non-configurable (vi.spyOn throws
     // "Cannot redefine property") and throws "Not implemented" if actually
@@ -144,6 +157,10 @@ describe('SyncEngineHost', () => {
       // account-switch reset concurrently).
       expect(engine.handleSignedIn).toHaveBeenCalledTimes(1)
       expect(onProfileSavedMock).toHaveBeenCalledTimes(1)
+      // Same guard extended to the new identify wiring -- the losing
+      // instance's effect body never runs, so it must never identify
+      // either.
+      expect(identifyUserMock).toHaveBeenCalledTimes(1)
     })
 
     it('a second simultaneously-mounted instance never reacts to online/visibilitychange either', () => {
@@ -192,6 +209,7 @@ describe('SyncEngineHost', () => {
 
     expect(engine.handleSignedIn).toHaveBeenCalledWith('user_a')
     expect(engine.handleSignedOut).not.toHaveBeenCalled()
+    expect(identifyUserMock).toHaveBeenCalledWith('user_a')
   })
 
   it('calls handleSignedOut once loaded and signed out', () => {
@@ -199,6 +217,7 @@ describe('SyncEngineHost', () => {
     render(<SyncEngineHost />)
 
     expect(engine.handleSignedOut).toHaveBeenCalledTimes(1)
+    expect(resetIdentityMock).toHaveBeenCalledTimes(1)
   })
 
   it('stamps the has-account hint on sign-in and clears it on sign-out (I3/F8)', () => {

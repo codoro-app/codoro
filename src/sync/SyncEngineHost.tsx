@@ -24,12 +24,18 @@
  *   covering both a real sign-in event and "already signed in at boot"
  *   (Clerk resolves `isSignedIn` the same way in both cases -- no separate
  *   boot-specific branch needed). Also stamps `codoro:has-account`
- *   (accountHint.ts) -- see App.tsx's own comment for what that gates.
+ *   (accountHint.ts) -- see App.tsx's own comment for what that gates --
+ *   and calls `identifyUser(userId)` (`src/telemetry`), identifying this
+ *   session to PostHog by Clerk's userId only (never email -- I4). See
+ *   `client.ts`'s doc comment for why identifying signed-in accounts is
+ *   safe when identifying by `anonId` never was.
  * - `isLoaded && !isSignedIn` -> `engine.handleSignedOut()` and clears the
  *   has-account hint -- an ordinary sign-out returns this device to
- *   zero-Clerk-cost boots, matching guest-first (I1/I2). Account deletion
- *   (`DeleteAccountDialog`) calls `signOut()` on success, so it clears the
- *   hint via this same path -- no separate call needed.
+ *   zero-Clerk-cost boots, matching guest-first (I1/I2) -- and calls
+ *   `resetIdentity()` (`src/telemetry`), dropping back to a fresh anonymous
+ *   PostHog `distinct_id`. Account deletion (`DeleteAccountDialog`) calls
+ *   `signOut()` on success, so it clears the hint and resets identity via
+ *   this same path -- no separate call needed.
  * - `window`'s `online` event -> `engine.handleOnline()`.
  * - `document`'s `visibilitychange` -> hidden -> `engine.flush()`.
  *
@@ -81,6 +87,7 @@ import { useEffect, useRef, useState } from 'react'
 import { clearHasAccountHint, writeHasAccountHint } from '../auth/accountHint'
 import { useAuthToken } from '../auth/useAuthToken'
 import { onProfileSaved } from '../storage'
+import { identifyUser, resetIdentity } from '../telemetry'
 import { createSyncEngine } from './engine'
 import type { SyncEngine } from './engine'
 
@@ -136,6 +143,7 @@ export function SyncEngineHost(): null {
     if (!isLoaded) return
     if (isSignedIn && userId) {
       writeHasAccountHint()
+      identifyUser(userId)
       void engine
         .handleSignedIn(userId)
         .then(({ accountSwitchDetected }) => {
@@ -151,6 +159,7 @@ export function SyncEngineHost(): null {
         })
     } else {
       clearHasAccountHint()
+      resetIdentity()
       engine.handleSignedOut()
     }
   }, [engine, isLoaded, isSignedIn, userId])

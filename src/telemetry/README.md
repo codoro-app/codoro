@@ -33,6 +33,17 @@ convention as `src/engine/` and `src/storage/`.
   from `src/main.tsx`, after the profile loads (not blocking
   `initTelemetry()`/`trackSessionStart()` — see main.tsx's own comment).
   This is **not** `posthog.identify()` — see the identity section below.
+- `identifyUser(userId: string)` / `resetIdentity()` — identify/reset the
+  signed-in-accounts case (added after accounts shipped — Phase 5.2 T8a/T8b).
+  `identifyUser` calls `posthog.identify(userId)` with Clerk's stable
+  account id as `distinct_id`, never an email or any other property (I4).
+  `resetIdentity` calls `posthog.reset()`. Both are called only from
+  `src/sync/SyncEngineHost.tsx`'s singleton-guarded sign-in/sign-out effect
+  — `identifyUser` right after a sign-in is detected, `resetIdentity` right
+  after a sign-out (which also covers account deletion, since
+  `DeleteAccountDialog` routes through `signOut()`). See the identity
+  section below for why this is safe for `userId` specifically when it
+  wasn't for `anonId`.
 - `trackAttempt(payload: AttemptEventPayload)` — fires the `attempt` event.
   Property names are a locked schema shared with Daily/Rush in later phases —
   do not rename or restructure them.
@@ -130,9 +141,22 @@ PostHog script from loading), every exported function silently no-ops. The
 same holds if posthog-js itself throws inside `init()`/`capture()` — a
 blocked or misbehaving analytics provider must never break the app.
 
-We never call `posthog.identify()`. Every user stays on PostHog's default
-anonymous `distinct_id`, and `person_profiles: 'identified_only'` means no
-PostHog person profile is ever created for anyone.
+Guest, non-account traffic never calls `posthog.identify()`. Every guest
+event stays on PostHog's default anonymous `distinct_id`, and
+`person_profiles: 'identified_only'` means no PostHog person profile is
+ever created for it.
+
+**Signed-in identity (post-accounts).** `identifyUser`/`resetIdentity`
+above **do** call `posthog.identify()`/`posthog.reset()` — the two reasons
+this module originally avoided `identify()` entirely (below, in the
+retention-identity section) were both specific to `anonId`, and neither
+applies to Clerk's `userId`: it never travels through the export/import
+file, so it can't cause the "import collision" `anonId` has, and cost is
+already bounded by `person_profiles: 'identified_only'` plus the fact that
+only `SyncEngineHost` (account-bearing devices only) ever calls these. See
+`src/telemetry/client.ts`'s `identifyUser`/`resetIdentity` doc comments for
+the full reasoning, and I4 above — `userId` only, never an email or any
+other property.
 
 **Retention identity (Phase 7 Item 6).** That wiring alone left day-2 return
 — the metric `docs/roadmap.md`'s v3.0 gate names as "the honest signal" for

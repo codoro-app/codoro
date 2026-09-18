@@ -12,6 +12,13 @@ const envSchema = z.object({
   // optional/undefined rather than required, so the entire auth module
   // renders the signed-out experience and mounts nothing Clerk-related.
   VITE_CLERK_PUBLISHABLE_KEY: z.string().optional(),
+  // Dev-only PostHog identity fallback (see main.tsx) -- read only when
+  // `import.meta.env.DEV` is true, so this is expected to be unset in
+  // every fresh clone, in CI, and in every deployed build, same "unset by
+  // design" posture as VITE_CLERK_PUBLISHABLE_KEY above. Never set outside
+  // a local .env; must never reach .env.production or a deployed build's
+  // environment config.
+  VITE_DEV_IDENTITY_USER_ID: z.string().optional(),
 })
 
 export const env = envSchema.parse(import.meta.env)

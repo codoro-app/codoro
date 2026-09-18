@@ -12,35 +12,60 @@
  * ad-blocker, a throwing `init()`/`capture()`) must never throw out of this
  * module and never break the app or an attempt flow.
  *
- * We never call `posthog.identify()` anywhere in this module — every user
- * stays on PostHog's own default anonymous `distinct_id`. `person_profiles:
- * 'identified_only'` tells PostHog not to create a person profile for
- * anonymous events either, since we'll never identify anyone to attach one
- * to. That decision is unchanged by `registerAnonId` below (Phase 7 Item
- * 6): it calls `posthog.register()`, not `identify()` — a *super property*
- * (an app-generated, PII-free ID from the profile store) automatically
- * attached to every event captured after registration, not a change of
- * `distinct_id` and not a merge of any two identities. Chosen deliberately
- * over `identify()` for two reasons, in order: (1) `identify()` creates a
- * PostHog person profile, which this app's `person_profiles:
- * 'identified_only'` setting and pricing model treat differently from an
- * anonymous event — registering a super property creates no person profile
- * at all, so this stays free of that cost question entirely rather than
- * requiring one to be answered; (2) `identify()`'s first call on a given
- * `distinct_id` *merges* that browser's whole prior anonymous history into
- * whatever person it's identified as — exactly the wrong shape for Item
- * 6's import collision (a player importing a friend's export file must
- * never cause PostHog to treat the two of them as one person). A
- * registered super property has no merge semantics: re-registering it
- * after an import just changes what value future events carry, with zero
- * retroactive effect. See `src/storage/exportImport.ts`'s `commitImport`
- * for the other half of that decision (the imported file's own `anonId` is
- * never applied to this device). Retention analysis must key off this
- * property directly (e.g. a custom insight grouping by
- * `properties.codoro_anon_id`) rather than PostHog's stock person-based
- * Retention insight, since no person is ever created — unverified against
- * the live PostHog project in this environment; see
- * docs/v2-build-plan.md's Phase 7 amendment.
+ * Anonymous, guest-only traffic never calls `posthog.identify()` — every
+ * guest event stays on PostHog's own default anonymous `distinct_id`, and
+ * `person_profiles: 'identified_only'` means no PostHog person profile is
+ * ever created for it. That's unchanged by `registerAnonId` below (Phase 7
+ * Item 6): it calls `posthog.register()`, not `identify()` — a *super
+ * property* (an app-generated, PII-free ID from the profile store)
+ * automatically attached to every event captured after registration, not a
+ * change of `distinct_id` and not a merge of any two identities. Chosen
+ * deliberately over `identify()` for two reasons, in order: (1)
+ * `identify()` creates a PostHog person profile, which this app's
+ * `person_profiles: 'identified_only'` setting and pricing model treat
+ * differently from an anonymous event — registering a super property
+ * creates no person profile at all, so this stays free of that cost
+ * question entirely rather than requiring one to be answered; (2)
+ * `identify()`'s first call on a given `distinct_id` *merges* that
+ * browser's whole prior anonymous history into whatever person it's
+ * identified as — exactly the wrong shape for Item 6's import collision (a
+ * player importing a friend's export file must never cause PostHog to
+ * treat the two of them as one person). A registered super property has no
+ * merge semantics: re-registering it after an import just changes what
+ * value future events carry, with zero retroactive effect. See
+ * `src/storage/exportImport.ts`'s `commitImport` for the other half of that
+ * decision (the imported file's own `anonId` is never applied to this
+ * device). Retention analysis for guest traffic must key off this property
+ * directly (e.g. a custom insight grouping by `properties.codoro_anon_id`)
+ * rather than PostHog's stock person-based Retention insight, since no
+ * person is created for it — unverified against the live PostHog project
+ * in this environment; see docs/v2-build-plan.md's Phase 7 amendment.
+ *
+ * Signed-in accounts are a different case, and `identifyUser`/
+ * `resetIdentity` below **do** call `posthog.identify()`/`posthog.reset()`
+ * (added after accounts shipped — Phase 5.2 T8a/T8b, `SyncEngineHost.tsx`).
+ * The two reasons above for avoiding `identify()` were both scoped to
+ * `anonId`, and neither applies to Clerk's `userId`: (1) is a cost
+ * question, already answered by construction — `person_profiles:
+ * 'identified_only'` means only identified users create a billable person
+ * profile at all, and `identifyUser`/`resetIdentity` are only ever called
+ * from `SyncEngineHost`, which only mounts for a device that has or is
+ * creating an account (gated by `src/auth/accountHint.ts`'s
+ * `codoro:has-account` hint), so identify cost scales with real signups,
+ * not total guest traffic. (2) is the import collision, which is specific
+ * to `anonId` traveling through the export/import file
+ * (`src/storage/exportImport.ts`) — Clerk's `userId` never travels through
+ * that path, so two different people can't merge into one PostHog person
+ * via a shared export file the way two `anonId`s could. `identify()`'s
+ * merge behavior is in fact the *point* here, not a hazard to avoid: the
+ * first `identify(userId)` call folds that browser's pre-signup anonymous
+ * history into the newly identified person, which is what makes
+ * pre-signup engagement analyzable against post-signup retention.
+ * `identifyUser`/`resetIdentity` are scoped to `userId` only — never an
+ * email or any other PII property (I4, `events.ts`). See `main.tsx` for a
+ * dev-only, `import.meta.env.DEV`-gated fallback that calls `identifyUser`
+ * with a fixed local id even without a Clerk sign-in, dead-code-eliminated
+ * from every production build.
  *
  * posthog-js's *default* init also turns on autocapture, session recording,
  * surveys, dead-click detection, and web-vitals capture — none of which are
@@ -261,6 +286,55 @@ export function registerAnonId(anonId: string): void {
   posthog
     .then((ph) => {
       ph.register({ codoro_anon_id: anonId })
+    })
+    .catch(() => {
+      // A blocked/misconfigured analytics provider must never break the app.
+    })
+}
+
+/**
+ * Identifies the current PostHog `distinct_id` as `userId` — Clerk's stable,
+ * non-PII account id, and *only* that: never an email or any other
+ * property (I4, `events.ts`). See this file's own top doc comment for why
+ * this reverses the "we never identify" decision `registerAnonId` was
+ * built under — in short, `userId` doesn't have `anonId`'s import-collision
+ * problem, so `identify()`'s merge behavior (folding this browser's
+ * pre-signup anonymous history into the newly identified person) is safe
+ * and in fact the point. Cost stays bounded because the only caller,
+ * `SyncEngineHost`, only mounts for a device that has or is creating an
+ * account (`src/auth/accountHint.ts`), not every guest — so this scales
+ * with real signups, matching `person_profiles: 'identified_only'`'s
+ * billable-profile gate. Never throws; a blocked/misconfigured PostHog is
+ * the same non-fatal no-op every other function in this file already is.
+ */
+export function identifyUser(userId: string): void {
+  const posthog = loadPosthog()
+  if (!posthog) {
+    return
+  }
+  posthog
+    .then((ph) => {
+      ph.identify(userId)
+    })
+    .catch(() => {
+      // A blocked/misconfigured analytics provider must never break the app.
+    })
+}
+
+/**
+ * Reverses `identifyUser` — drops back to a fresh anonymous `distinct_id`.
+ * Called on sign-out (`SyncEngineHost`), which also covers account
+ * deletion, since `DeleteAccountDialog` routes through `signOut()`. Never
+ * throws, same as every other function in this file.
+ */
+export function resetIdentity(): void {
+  const posthog = loadPosthog()
+  if (!posthog) {
+    return
+  }
+  posthog
+    .then((ph) => {
+      ph.reset()
     })
     .catch(() => {
       // A blocked/misconfigured analytics provider must never break the app.
