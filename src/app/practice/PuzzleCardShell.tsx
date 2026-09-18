@@ -771,33 +771,23 @@ export function PuzzleCardShell({
               >
                 {renderInlineMarkdown(puzzle.explanation)}
               </p>
-              {/* challenge redesign: its own full-width row, above the
-                  share-icon/Continue row — a prominent, always-visible CTA,
-                  not one more item squeezed into that compact row (see
-                  `challengeButton`'s own doc comment above). */}
-              {challengeButton && <div className="flex-none">{challengeButton}</div>}
-              {/* 2b.11: footer row, not just the button — the share trigger
-                  (when there are any shareActions) sits beside Continue
-                  instead of after this shell's rendered output the way
-                  ShareMenu used to, which is what let it get buried below
-                  this very drawer once it went sticky. `flex-none` on the
-                  row keeps it from being squeezed by the scrolling
-                  explanation above it, same as the row it replaces.
-                  Answered-layout redesign (2026-09-17): Report's collapsed
-                  icon-trigger joins this row too — ContinueCta first
-                  (flex-1, taking the remaining width), then the fixed-width
-                  Share/Report icons, matching the mockup's order. Only the
-                  *collapsed* trigger renders here; once tapped, the
-                  reason-picker card renders as its own block below instead
-                  of in-place (see reportStatus's doc comment above). */}
+              {/* Answered-layout declutter (live feedback, 2026-09-18): all
+                  three secondary actions — Challenge, Share, Report — now
+                  share one compact row, leaving Continue as the sole,
+                  full-width row below it (previously Continue shared its
+                  row with Share/Report, and Challenge sat alone above it,
+                  not even stretched to the drawer's width — see
+                  ChallengeButton.tsx's own BUTTON_ROW_CLASS comment for
+                  that half of the bug). `challengeButton` grows to fill
+                  this row (flex-1 on its own root, set in
+                  ChallengeButton.tsx) since it's the one variable-width
+                  item; Share/Report are fixed-width icon buttons beside it.
+                  Only the *collapsed* Report trigger renders here; once
+                  tapped, the reason-picker card renders as its own block
+                  below instead of in-place (see reportStatus's doc comment
+                  above). */}
               <div className="flex items-stretch gap-2 flex-none">
-                <ContinueCta
-                  className={`${FEEDBACK_CONTINUE_CLASS} flex-1`}
-                  destination={continueDestination}
-                  onContinue={handleContinueClick}
-                  buttonRef={continueButtonRef}
-                  autoAdvanceMs={activeAutoAdvanceMs}
-                />
+                {challengeButton}
                 {shareActions.length > 0 && <ShareMenu actions={shareActions} trigger="icon" />}
                 {reportStatus === 'collapsed' && (
                   <ReportPuzzleControl
@@ -807,6 +797,13 @@ export function PuzzleCardShell({
                   />
                 )}
               </div>
+              <ContinueCta
+                className={`${FEEDBACK_CONTINUE_CLASS} w-full flex-none`}
+                destination={continueDestination}
+                onContinue={handleContinueClick}
+                buttonRef={continueButtonRef}
+                autoAdvanceMs={activeAutoAdvanceMs}
+              />
               {/* T5 (v2 todo item 18) — the expanded reason-picker card (and
                   the sending/sent/error states it flows into) renders as its
                   own block underneath the row above, not in place of the

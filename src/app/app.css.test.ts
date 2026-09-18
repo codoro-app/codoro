@@ -63,6 +63,31 @@ describe('app.css .app-shell__content (wide-viewport dead-space fix)', () => {
   })
 })
 
+describe('app.css .app-shell__content (mobile bottom-nav clearance regression fix)', () => {
+  // Live-reported (2026-09-17, screenshot): content flowing to the bottom of
+  // a mobile route (e.g. PracticePage's missedChallengeBanner) rendered
+  // underneath BottomNav's fixed bar instead of above it — nothing in
+  // .app-shell__content accounted for BottomNav's height at all. Fixed once
+  // here (one source of truth) rather than per-component bottom offsets.
+  it('reserves space for BottomNav + its safe-area inset below the 1024px breakpoint', () => {
+    const baseRuleMatch = /\.app-shell__content\s*\{([^}]*)\}/.exec(css)
+    expect(baseRuleMatch).not.toBeNull()
+    const baseRule = baseRuleMatch?.[1] ?? ''
+    expect(baseRule).toMatch(
+      /padding-bottom:\s*calc\(var\(--bottom-nav-height\)\s*\+\s*env\(safe-area-inset-bottom\)\);/,
+    )
+  })
+
+  it('resets the bottom-nav clearance to 0 at the desktop breakpoint, where NavRail replaces BottomNav', () => {
+    const desktopBlockMatch = /@media \(min-width: 1024px\) \{([\s\S]*)\}\s*$/.exec(css)
+    expect(desktopBlockMatch).not.toBeNull()
+    const desktopBlock = desktopBlockMatch?.[1] ?? ''
+    const contentRuleMatch = /\.app-shell__content\s*\{([^}]*)\}/.exec(desktopBlock)
+    expect(contentRuleMatch).not.toBeNull()
+    expect(contentRuleMatch?.[1] ?? '').toMatch(/padding-bottom:\s*0;/)
+  })
+})
+
 describe('app.css .app-shell__sidebar', () => {
   // v4 Phase 4.0 (todo 26): the right rail scrolled away with the middle
   // column because `self-start` alone (a per-consumer Tailwind utility)

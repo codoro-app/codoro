@@ -51,6 +51,10 @@ coverage
 # never committed (same reasoning as coverage/ above)
 codoro-mockup-shots/
 
+# Playwright's own run output (e2e/) — regenerated every run, never committed
+test-results/
+playwright-report/
+
 # wrangler's local dev state (pnpm dev:pages) — machine-local, not source
 .wrangler/
 

@@ -64,10 +64,19 @@ export interface ChallengeButtonProps {
   onNameNeeded: (name: string) => Promise<void>
 }
 
-const BUTTON_ROW_CLASS = 'inline-flex items-stretch gap-2'
+// Mobile answered-layout declutter (live feedback, 2026-09-18): this row
+// used to be `inline-flex` (content-hugging) inside a plain block wrapper,
+// so it never stretched to the drawer's width the way ContinueCta's row
+// does below it — the main button just sat there with dead space to its
+// right. `flex-1` (mobile) makes this row's OWN wrapper grow to fill the
+// combined action row it now shares with Share/Report in
+// PuzzleCardShell.tsx; `lg:inline-flex lg:flex-none` reverts to the
+// original content-hugging behavior at the desktop breakpoint, where this
+// renders standalone in PracticePage's sidebar, not inside that row.
+const BUTTON_ROW_CLASS = 'flex flex-1 items-stretch gap-2 lg:inline-flex lg:flex-none'
 
 const BUTTON_CLASS =
-  'inline-flex items-center justify-center gap-1.5 min-h-11 py-2 px-4 rounded-sm border-0 bg-accent text-accent-ink font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+  'inline-flex flex-1 items-center justify-center gap-1.5 min-h-11 py-2 px-4 rounded-sm border-0 bg-accent text-accent-ink font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
 const COPY_BUTTON_CLASS =
   'flex items-center justify-center shrink-0 min-w-11 min-h-11 rounded-sm border border-border bg-surface-1 text-accent cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
@@ -136,18 +145,27 @@ export function ChallengeButton({
         >
           {confirm === 'copied' ? 'Link copied!' : '⚔ Challenge a friend'}
         </button>
-        <Tooltip label="Copy challenge link" className="shrink-0">
-          <button
-            type="button"
-            aria-label="Copy challenge link"
-            className={COPY_BUTTON_CLASS}
-            onClick={() => {
-              handleClick('copy')
-            }}
-          >
-            <CopyIcon size={16} />
-          </button>
-        </Tooltip>
+        {/* Hidden below the desktop breakpoint (live feedback, 2026-09-18):
+            this exists for a desktop-only gap (see this file's module doc
+            comment — navigator.share can be Windows' Nearby Share flyout,
+            which has no paste-elsewhere path), and mobile's main button
+            already goes through the OS share sheet, which offers its own
+            copy option. Keeping it desktop-only also declutters the mobile
+            action row down to one visible control here instead of two. */}
+        <span className="hidden lg:inline-flex">
+          <Tooltip label="Copy challenge link" className="shrink-0">
+            <button
+              type="button"
+              aria-label="Copy challenge link"
+              className={COPY_BUTTON_CLASS}
+              onClick={() => {
+                handleClick('copy')
+              }}
+            >
+              <CopyIcon size={16} />
+            </button>
+          </Tooltip>
+        </span>
       </div>
       {pendingAction && (
         <ChallengerNameSheet

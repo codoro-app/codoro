@@ -44,6 +44,17 @@
    * main/sidebar split) — two unrelated grids reusing the word "content"/
    * "main" at different levels, not a naming collision. */
   grid-area: content;
+  /* Mobile bottom-nav clearance (regression fix): BottomNav is `position:
+   * fixed` at the viewport bottom below 1024px (its own `lg:hidden`
+   * breakpoint — matched here), and this element is the one thing every
+   * route's content renders into, so this is the single place to guarantee
+   * nothing in normal flow ends up underneath it — one source of truth
+   * instead of each page/component re-deriving its own bottom offset.
+   * `--bottom-nav-height` (index.css) is BottomNav's own height only, not
+   * inclusive of its safe-area padding (see BottomNav.tsx's own comment),
+   * so that's added on top here too. Reset to 0 at >=1024px below, where
+   * NavRail (not BottomNav) is in play. */
+  padding-bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom));
 }
 
 .app-shell__main {
@@ -123,6 +134,8 @@
     column-gap: var(--space-8);
     align-items: start;
     grid-template-areas: 'main sidebar';
+    /* BottomNav is hidden here (NavRail takes over) — nothing to clear. */
+    padding-bottom: 0;
   }
 
   /* v4 Phase 4.0 (todo 26): confirmed defect — `self-start` alone (the
