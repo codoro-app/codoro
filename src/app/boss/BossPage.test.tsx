@@ -83,53 +83,55 @@ describe('BossPage', () => {
     expect(screen.getByRole('button', { name: 'a' })).toBeInTheDocument()
   })
 
-  it('click-meaningfulness: shows a segmented pip progress indicator alongside the puzzle counter', async () => {
+  it('click-meaningfulness: shows a puzzle-position progress indicator alongside the puzzle counter', async () => {
     render(<BossPage />)
     await waitFor(() => screen.getByRole('button', { name: 'a' }))
-    const pips = document.querySelectorAll('.boss-progress__pip')
-    expect(pips).toHaveLength(10)
-    expect(document.querySelectorAll('.boss-progress__pip--current')).toHaveLength(1)
-    expect(document.querySelectorAll('.boss-progress__pip--done')).toHaveLength(0)
+    const dots = document.querySelectorAll('[data-testid="progress-dot"]')
+    expect(dots).toHaveLength(10)
+    expect(
+      document.querySelectorAll('[data-testid="progress-dot"][data-state="current"]'),
+    ).toHaveLength(1)
+    expect(
+      document.querySelectorAll('[data-testid="progress-dot"][data-state="done"]'),
+    ).toHaveLength(0)
   })
 
-  it('click-meaningfulness: shows the boss character', async () => {
+  it('click-meaningfulness: shows the duck mascot reacting to play (debugging before an answer)', async () => {
     render(<BossPage />)
     await waitFor(() => screen.getByRole('button', { name: 'a' }))
-    expect(document.querySelector('.boss-character')).not.toBeNull()
+    expect(document.querySelector('svg[data-pose="debugging"]')).not.toBeNull()
   })
 
-  it('click-meaningfulness: reacts with a "hit landed" beat on a correct answer', async () => {
+  it('click-meaningfulness: shows a happy duck on a correct answer', async () => {
     const user = userEvent.setup()
     render(<BossPage />)
     await waitFor(() => screen.getByRole('button', { name: 'a' }))
 
-    expect(document.querySelector('.boss-character__icon--hit')).toBeNull()
     await user.click(screen.getByRole('button', { name: 'a' }))
     await waitFor(() => {
-      expect(document.querySelector('.boss-character__icon--hit')).not.toBeNull()
+      expect(document.querySelector('svg[data-pose="happy"]')).not.toBeNull()
     })
   })
 
-  it('click-meaningfulness: reacts with a "struck" beat on a wrong answer', async () => {
+  it('click-meaningfulness: shows a sad duck on a wrong answer', async () => {
     const user = userEvent.setup()
     render(<BossPage />)
     await waitFor(() => screen.getByRole('button', { name: 'a' }))
 
     await user.click(screen.getByRole('button', { name: 'b' }))
     await waitFor(() => {
-      expect(document.querySelector('.boss-character__icon--struck')).not.toBeNull()
+      expect(document.querySelector('svg[data-pose="sad"]')).not.toBeNull()
     })
   })
 
-  it('renders the health bar full at 0 strikes, with no hit-reaction class', async () => {
+  it('renders the health meter full at 0 strikes', async () => {
     render(<BossPage />)
     const bar = await screen.findByRole('status', { name: /0 of 3 strikes/i })
-    const fill = bar.querySelector('.boss-strikes__fill')
+    const fill = bar.querySelector('[data-testid="progress-fill"]')
     expect(fill).toHaveStyle({ width: '100%' })
-    expect(fill).not.toHaveClass('boss-strikes__fill--hit')
   })
 
-  it('depletes the health bar as strikes land, and applies the hit-reaction class', async () => {
+  it('depletes the health meter as strikes land', async () => {
     const user = userEvent.setup()
     render(<BossPage />)
     await waitFor(() => screen.getByRole('button', { name: 'a' }))
@@ -137,9 +139,8 @@ describe('BossPage', () => {
     await answerAndContinue(user, false)
 
     const bar = await screen.findByRole('status', { name: /1 of 3 strikes/i })
-    const fill = bar.querySelector('.boss-strikes__fill')
+    const fill = bar.querySelector('[data-testid="progress-fill"]')
     expect(fill).toHaveStyle({ width: `${String((2 / 3) * 100)}%` })
-    expect(fill).toHaveClass('boss-strikes__fill--hit')
   })
 
   it('advances to puzzle 2 of 10 on a correct answer', async () => {

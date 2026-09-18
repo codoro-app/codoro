@@ -37,11 +37,13 @@ import { useEffect, useState } from 'react'
 import { DEFAULT_PREFERENCES, loadProfile } from '../../storage'
 import { TraceRunner } from './TraceRunner'
 import { useMediaQuery } from '../useMediaQuery'
+import { CENTERED_PAGE_SHELL_CLASS } from '../PageShell'
 
-// 2b.0: was `.trace-page` (tracePage.css, max-width breakpoint matches
-// Tailwind's `lg` exactly). Not test-asserted (grep-verified).
-const PAGE_SHELL_CLASS =
-  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[var(--space-4)] px-4 pb-4'
+// Layout-shell fix (redesign, 2026-09-18): centers content instead of
+// anchoring to the top, fixing the dead space on Trace's start screen —
+// same mechanism proven on CompetePage.tsx, see PageShell.tsx's
+// CENTERED_PAGE_SHELL_CLASS doc comment for the full reasoning.
+const PAGE_SHELL_CLASS = CENTERED_PAGE_SHELL_CLASS
 
 export function TracePage() {
   const [timerOnTrace, setTimerOnTrace] = useState(DEFAULT_PREFERENCES.timerOnTrace)

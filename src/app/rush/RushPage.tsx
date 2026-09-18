@@ -41,6 +41,14 @@ import { RouteSkeleton } from '../RouteSkeleton'
 import { trackShareClick } from '../../telemetry'
 import { saveProfile } from '../../storage'
 import { useMediaQuery } from '../useMediaQuery'
+// Layout-shell centering (redesign, 2026-09-18) was tried here and reverted
+// the same day: CENTERED_PAGE_SHELL_CLASS's `lg:self-stretch` fills the
+// entire viewport-height column on desktop, and `justify-center` then
+// centers Rush's active-play puzzle dead-center within it — fine for
+// Compete's short, static menu, but wrong for Rush's fast-paced,
+// height-varies-per-puzzle gameplay: confirmed live (in-browser) that this
+// reads as the puzzle "sitting a lot lower" than before, not fixed dead
+// space. Rush stays top-anchored, matching Practice/Daily's own plain shell.
 // 2b.0: was `.rush-page` in rushPage.css (max-width breakpoint matches
 // Tailwind's `lg` exactly). Not test-asserted (grep-verified).
 const PAGE_SHELL_CLASS =

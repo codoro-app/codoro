@@ -14,7 +14,12 @@
  * defaults to `session.handleContinue`, BossPage's own original behavior.
  */
 import { createPortal } from 'react-dom'
+import { useState } from 'react'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
+import type { CommitPayload } from '../practice/interactionTypes'
+import { DuckMascot } from '../Mascot'
+import type { DuckPose } from '../Mascot'
+import { ProgressIndicator } from '../ProgressIndicator'
 import { BOSS_STRIKE_LIMIT } from '../../engine'
 import type { BossSession } from './useBossSession'
 
@@ -32,96 +37,72 @@ export interface BossActivePlayProps {
 }
 
 /**
- * Boss's fixed identity (2b.2 game-feel pass, direct user decision: one
- * character reused across every run/set — not one per BOSS_SETS entry).
- * No commissioned art: a simple reactive SVG icon, styled like the rest of
- * `../Icons.tsx`'s icon set but kept local since it's single-use here.
+ * Redesign (2026-09-18): Boss's bespoke "Glitch" character (BOSS_NAME +
+ * BossCharacterIcon, a local one-off SVG) is retired now that DuckMascot is
+ * the single app-wide mascot — see docs/redesign/phase8-content-status.md's
+ * "Glitch vs. the duck" open decision, resolved. `answered` tracks whether
+ * the CURRENT puzzle instance has been answered yet, reset whenever the
+ * puzzle identity changes (a fresh puzzle always starts unanswered) — this
+ * is the local signal `session` itself doesn't expose (`lastAnswerCorrect`
+ * persists as the last answer's outcome across puzzles, it doesn't reset to
+ * "unanswered" on its own), needed to tell "actively solving" (debugging)
+ * apart from "just answered, showing feedback" (happy/sad).
  */
-const BOSS_NAME = 'Glitch'
+function useCharacterPose(session: BossSession): {
+  pose: DuckPose
+  wrapAnswered: (payload: CommitPayload) => void
+} {
+  const [answered, setAnswered] = useState(false)
+  const [trackedPuzzleId, setTrackedPuzzleId] = useState(session.puzzle?.id)
+  if (session.puzzle?.id !== trackedPuzzleId) {
+    setTrackedPuzzleId(session.puzzle?.id)
+    if (answered) setAnswered(false)
+  }
 
-function BossCharacterIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      width="28"
-      height="28"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="4" y="6" width="16" height="14" rx="3" />
-      <path d="M9 2l1.5 4M15 2l-1.5 4" />
-      <circle cx="9" cy="12" r="1.2" fill="currentColor" stroke="none" />
-      <circle cx="15" cy="12" r="1.2" fill="currentColor" stroke="none" />
-      <path d="M9 16.5c1-1 5-1 6 0" />
-    </svg>
-  )
-}
+  const pose: DuckPose = !session.puzzle
+    ? 'idle'
+    : !answered
+      ? 'debugging'
+      : session.lastAnswerCorrect
+        ? 'happy'
+        : 'sad'
 
-/** `--hit` on a correct answer (landed a hit), `--struck` on a wrong one — mirrors the health bar's own `key`-remount trick (see the fill's own comment below) so each answer replays its reaction from scratch. */
-function characterReactionClass(lastAnswerCorrect: boolean | null): string {
-  const base =
-    'boss-character__icon flex items-center justify-center w-11 h-11 rounded-full bg-accent-dim text-accent'
-  if (lastAnswerCorrect === true) return `${base} boss-character__icon--hit`
-  if (lastAnswerCorrect === false) return `${base} boss-character__icon--struck`
-  return base
+  function wrapAnswered(payload: CommitPayload) {
+    setAnswered(true)
+    session.handleAnswered(payload)
+  }
+
+  return { pose, wrapAnswered }
 }
 
 export function BossActivePlay({ session, onContinue, sidebarSlot = null }: BossActivePlayProps) {
-  // Health-bar fill: 100% at 0 strikes, draining to 0% once BOSS_STRIKE_LIMIT
-  // lands — same math as BossPage.tsx's own original inline computation.
-  const healthPercent = ((BOSS_STRIKE_LIMIT - session.strikes) / BOSS_STRIKE_LIMIT) * 100
+  const { pose, wrapAnswered } = useCharacterPose(session)
+  // Health meter: 100% at 0 strikes, draining to 0% once BOSS_STRIKE_LIMIT
+  // lands — same math as the original inline computation this replaces.
+  const livesRemaining = BOSS_STRIKE_LIMIT - session.strikes
 
   const statusContent = (
     <>
-      <div className="boss-character flex items-center gap-2" aria-hidden="true">
-        <span
-          key={session.answerNonce}
-          className={characterReactionClass(session.lastAnswerCorrect)}
-        >
-          <BossCharacterIcon />
-        </span>
-        <span className="text-sm font-bold text-text-0">{BOSS_NAME}</span>
+      <div className="flex items-center gap-2" aria-hidden="true">
+        <DuckMascot pose={pose} size={44} />
       </div>
 
       <div className="flex items-center justify-between gap-4">
-        <div
-          className="flex-1 h-1.5 rounded-full bg-surface-2 overflow-hidden"
-          role="status"
-          aria-label={`${String(session.strikes)} of ${String(BOSS_STRIKE_LIMIT)} strikes`}
-        >
-          {/* key={session.strikes}: forces a remount on every strike so
-              the CSS hit-reaction animation (bossPage.css) restarts each
-              time, without any new component state — see that file's
-              own doc comment. boss-strikes__fill/--hit stay literal —
-              BossPage.test.tsx asserts on them directly, and --hit still
-              needs its @keyframes from bossPage.css. */}
-          <div
-            key={session.strikes}
-            className={`boss-strikes__fill h-full rounded-full bg-danger transition-[width] duration-[0.25s] ease-out${session.strikes > 0 ? ' boss-strikes__fill--hit' : ''}`}
-            style={{ width: `${String(healthPercent)}%` }}
-            aria-hidden="true"
-          />
-        </div>
+        <ProgressIndicator
+          value={livesRemaining}
+          max={BOSS_STRIKE_LIMIT}
+          variant="bar"
+          tone="danger"
+          label={`${String(session.strikes)} of ${String(BOSS_STRIKE_LIMIT)} strikes`}
+        />
         <span className="text-sm text-text-1">
           Puzzle {session.position} of {session.totalPuzzles}
         </span>
       </div>
 
-      {/* Segmented pip-style progress (2b.2): the plain "Puzzle X of Y"
-          text above stays (kept as the accessible/exact readout — several
-          tests assert on its exact wording), but the pips are the primary
-          at-a-glance visual now. */}
-      <div className="flex gap-1" aria-hidden="true">
-        {Array.from({ length: session.totalPuzzles }, (_, i) => {
-          const state =
-            i < session.position - 1 ? 'done' : i === session.position - 1 ? 'current' : 'upcoming'
-          return <span key={i} className={`boss-progress__pip boss-progress__pip--${state}`} />
-        })}
-      </div>
+      {/* Decorative — the "Puzzle X of Y" text above stays as the
+          accessible/exact readout several tests assert on. */}
+      <ProgressIndicator value={session.position} max={session.totalPuzzles} variant="dots" />
     </>
   )
 
@@ -135,7 +116,7 @@ export function BossActivePlay({ session, onContinue, sidebarSlot = null }: Boss
           key={session.puzzle.id}
           puzzle={session.puzzle}
           ratingDelta={null}
-          onAnswered={session.handleAnswered}
+          onAnswered={wrapAnswered}
           onContinue={onContinue ?? session.handleContinue}
           continueDestination={session.willEndOnContinue ? 'results' : 'next-puzzle'}
           sidebarSlot={sidebarSlot}

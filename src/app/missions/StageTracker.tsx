@@ -33,6 +33,7 @@
  */
 import { useState } from 'react'
 import { MISSION_STAGE_META } from './missionStageMeta'
+import { ProgressIndicator } from '../ProgressIndicator'
 import type { MissionStageId, MissionStageSummary } from '../../storage'
 import { MISSION_STAGE_ORDER } from '../../storage'
 
@@ -58,12 +59,6 @@ function stageStatus(
   if (completedStages.some((summary) => summary.stats.stageId === stageId)) return 'completed'
   if (stageId === currentStage) return 'current'
   return 'upcoming'
-}
-
-const DOT_CLASS: Record<StageStatus, string> = {
-  completed: 'bg-accent',
-  current: 'bg-accent-dim border-2 border-accent',
-  upcoming: 'bg-surface-2 border border-border',
 }
 
 export function StageTracker({ currentStage, completedStages, variant }: StageTrackerProps) {
@@ -114,13 +109,11 @@ export function StageTracker({ currentStage, completedStages, variant }: StageTr
           setExpanded((current) => !current)
         }}
       >
-        {MISSION_STAGE_ORDER.map((stageId) => (
-          <span
-            key={stageId}
-            aria-hidden="true"
-            className={`w-2.5 h-2.5 rounded-full ${DOT_CLASS[stageStatus(stageId, currentStage, completedStages)]}`}
-          />
-        ))}
+        <ProgressIndicator
+          value={currentIndex + 1}
+          max={MISSION_STAGE_ORDER.length}
+          variant="dots"
+        />
       </button>
 
       {expanded && (

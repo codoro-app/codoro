@@ -58,7 +58,10 @@ export function DuckMascot({ pose = 'idle', size = 96 }: DuckMascotProps) {
   const beakOpen = pose === 'celebrating'
 
   return (
-    <svg aria-hidden="true" width={size} height={size} viewBox="0 0 200 200">
+    // data-pose: a plain test hook (no visual effect) — lets callers that
+    // react to state (Boss's in-round hit/miss reactions) be asserted on
+    // without depending on which SVG paths a given pose happens to draw.
+    <svg aria-hidden="true" data-pose={pose} width={size} height={size} viewBox="0 0 200 200">
       <ellipse cx="100" cy="190" rx="46" ry="6" fill="#000000" opacity="0.22" />
       <path d="M76,176 Q73,190 80,192 Q87,190 84,176 Z" fill="var(--warn)" />
       <path d="M124,176 Q127,190 120,192 Q113,190 116,176 Z" fill="var(--warn)" />
