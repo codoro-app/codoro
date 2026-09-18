@@ -189,7 +189,17 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
           await setActive({ session: attempt.createdSessionId })
           onComplete()
         } else {
-          setError("Couldn't sign you in with that email and password.")
+          // Temporary diagnostic: `signIn.create()` resolving without
+          // throwing but landing on a non-'complete' status (e.g.
+          // 'needs_second_factor', 'needs_new_password') means Clerk
+          // accepted the identifier/password but wants something this form
+          // doesn't collect yet -- surfacing the real status here (instead
+          // of a generic message indistinguishable from an actual wrong
+          // password) is how we find out which one is actually happening
+          // in production before building the real handling for it.
+          setError(
+            `Couldn't sign you in (status: ${attempt.status ?? 'unknown'}). Contact support.`,
+          )
         }
       } else {
         if (!signUp) throw new Error('not-ready')
