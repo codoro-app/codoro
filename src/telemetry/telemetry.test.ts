@@ -31,6 +31,7 @@ const posthogMock = {
   // a tautology about this mock object's own shape, unable to fail no
   // matter what the implementation did.
   identify: vi.fn(),
+  reset: vi.fn(),
 }
 
 vi.mock('posthog-js', () => ({ default: posthogMock }))
@@ -41,6 +42,7 @@ beforeEach(() => {
   posthogMock.capture.mockReset()
   posthogMock.register.mockReset()
   posthogMock.identify.mockReset()
+  posthogMock.reset.mockReset()
 })
 
 async function flushPromises(): Promise<void> {
@@ -343,6 +345,60 @@ describe('registerAnonId', () => {
     const { registerAnonId } = await loadTelemetry('phc_test_key')
     expect(() => {
       registerAnonId('anon-abc-123')
+    }).not.toThrow()
+    await flushPromises()
+  })
+})
+
+describe('identifyUser', () => {
+  it('calls posthog.identify with the given userId when a key is set', async () => {
+    const { identifyUser } = await loadTelemetry('phc_test_key')
+    identifyUser('user_abc123')
+    await flushPromises()
+    expect(posthogMock.identify).toHaveBeenCalledWith('user_abc123')
+  })
+
+  it('no-ops without calling posthog.identify when the key is unset', async () => {
+    const { identifyUser } = await loadTelemetry(undefined)
+    identifyUser('user_abc123')
+    await flushPromises()
+    expect(posthogMock.identify).not.toHaveBeenCalled()
+  })
+
+  it('does not throw when posthog.identify itself throws', async () => {
+    posthogMock.identify.mockImplementation(() => {
+      throw new Error('blocked by ad-blocker')
+    })
+    const { identifyUser } = await loadTelemetry('phc_test_key')
+    expect(() => {
+      identifyUser('user_abc123')
+    }).not.toThrow()
+    await flushPromises()
+  })
+})
+
+describe('resetIdentity', () => {
+  it('calls posthog.reset when a key is set', async () => {
+    const { resetIdentity } = await loadTelemetry('phc_test_key')
+    resetIdentity()
+    await flushPromises()
+    expect(posthogMock.reset).toHaveBeenCalled()
+  })
+
+  it('no-ops without calling posthog.reset when the key is unset', async () => {
+    const { resetIdentity } = await loadTelemetry(undefined)
+    resetIdentity()
+    await flushPromises()
+    expect(posthogMock.reset).not.toHaveBeenCalled()
+  })
+
+  it('does not throw when posthog.reset itself throws', async () => {
+    posthogMock.reset.mockImplementation(() => {
+      throw new Error('blocked by ad-blocker')
+    })
+    const { resetIdentity } = await loadTelemetry('phc_test_key')
+    expect(() => {
+      resetIdentity()
     }).not.toThrow()
     await flushPromises()
   })

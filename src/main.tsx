@@ -2,7 +2,14 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import { App } from './app/App'
-import { initTelemetry, registerAnonId, trackError, trackSessionStart } from './telemetry'
+import { env } from './env'
+import {
+  identifyUser,
+  initTelemetry,
+  registerAnonId,
+  trackError,
+  trackSessionStart,
+} from './telemetry'
 import { routePatternForPath } from './app/routes'
 
 const rootElement = document.getElementById('root')
@@ -17,6 +24,20 @@ if (!rootElement) {
 // telemetry/client.ts's own doc comment.
 initTelemetry(routePatternForPath)
 trackSessionStart()
+// Dev-only identity fallback: Thomas is the only person who ever runs
+// `pnpm dev` locally, so a set VITE_DEV_IDENTITY_USER_ID identifies this
+// local server's own traffic as one known person even before any Clerk
+// sign-in, instead of leaving it anonymous. The literal `import.meta.env.DEV`
+// check must stay inline here (not a wrapper re-exported from telemetry/) --
+// Vite's static analysis needs to see this exact condition at the call site
+// to dead-code-eliminate the whole branch from a production build; see
+// src/env.ts's own comment on VITE_DEV_IDENTITY_USER_ID. A real Clerk
+// sign-in during a dev session still takes precedence -- this only covers
+// the guest state, and SyncEngineHost's identifyUser/resetIdentity wiring
+// (src/sync/SyncEngineHost.tsx) is unaffected either way.
+if (import.meta.env.DEV && env.VITE_DEV_IDENTITY_USER_ID) {
+  identifyUser(env.VITE_DEV_IDENTITY_USER_ID)
+}
 // Fire-and-forget, deliberately not awaited before the two calls above:
 // blocking app boot on an IndexedDB read just to attach one telemetry
 // property would cost real first-paint time for zero user-facing benefit.
