@@ -168,10 +168,23 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
     setError(null)
     if (!isLoaded || submitting) return
     setSubmitting(true)
+    // Mobile keyboards (autocorrect, swipe-to-complete, some Android
+    // keyboards auto-capitalizing the first letter of a text-like field)
+    // can silently inject a leading/trailing space or stray capitalization
+    // into email or password -- invisible in the input, but enough for
+    // Clerk to reject a credential that's correct on desktop where none of
+    // that happens. Trimmed only here, right before it leaves this
+    // component, never on every keystroke (would fight a user still typing).
+    const trimmedEmail = email.trim()
+    const trimmedPassword = password.trim()
+    const trimmedUsername = username.trim()
     try {
       if (mode === 'sign-in') {
         if (!signIn) throw new Error('not-ready')
-        const attempt = await signIn.create({ identifier: email, password })
+        const attempt = await signIn.create({
+          identifier: trimmedEmail,
+          password: trimmedPassword,
+        })
         if (attempt.status === 'complete') {
           await setActive({ session: attempt.createdSessionId })
           onComplete()
@@ -180,11 +193,15 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
         }
       } else {
         if (!signUp) throw new Error('not-ready')
-        const attempt = await signUp.create({ emailAddress: email, password, username })
+        const attempt = await signUp.create({
+          emailAddress: trimmedEmail,
+          password: trimmedPassword,
+          username: trimmedUsername,
+        })
         if (attempt.status === 'complete') {
           await setActive({ session: attempt.createdSessionId })
           onComplete()
-          void fillChallengerNameFromUsername(username)
+          void fillChallengerNameFromUsername(trimmedUsername)
         } else {
           // Ask Clerk to actually send the code -- create() alone never
           // triggers it (see file header). A failure here still moves to
@@ -227,7 +244,7 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
       if (attempt.status === 'complete') {
         await setActive({ session: attempt.createdSessionId })
         onComplete()
-        void fillChallengerNameFromUsername(username)
+        void fillChallengerNameFromUsername(username.trim())
       } else {
         // The code itself was accepted but something else Clerk requires
         // is still missing (e.g. a field toggled on in the Clerk dashboard
@@ -358,6 +375,9 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
             id="auth-username"
             type="text"
             autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             required
             minLength={4}
             maxLength={64}
@@ -379,6 +399,9 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
         id="auth-email"
         type="email"
         autoComplete="email"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
         required
         value={email}
         onChange={(event) => {
