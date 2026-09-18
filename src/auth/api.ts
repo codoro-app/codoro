@@ -69,6 +69,18 @@ export interface ApiRequestOptions {
   token?: string | null
   body?: unknown
   timeoutMs?: number
+  /**
+   * Live-diagnosed 2026-09-18: a request issued from a `visibilitychange`
+   * ("hidden") handler races the tab's own teardown -- an ordinary `fetch()`
+   * has no guarantee of completing once the page is actually closed, which
+   * is exactly the request the sync engine's `flush()` fires. Passing
+   * `keepalive: true` lets the browser carry it past unload, at the cost of
+   * a hard 64KB request-body cap the platform enforces synchronously
+   * (`fetch()` throws before ever reaching the network for a bigger body) --
+   * callers that want it are responsible for only asking for it when the
+   * body actually fits (see engine.ts's `doPushOnce`).
+   */
+  keepalive?: boolean
 }
 
 /**
@@ -84,7 +96,7 @@ export interface ApiRequestOptions {
  * caller that needs a `204 No Content` response passes `T = void`.
  */
 export async function apiFetch<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
-  const { method = 'GET', token, body, timeoutMs = DEFAULT_TIMEOUT_MS } = options
+  const { method = 'GET', token, body, timeoutMs = DEFAULT_TIMEOUT_MS, keepalive } = options
 
   const controller = new AbortController()
   const timeout = setTimeout(() => {
@@ -100,6 +112,7 @@ export async function apiFetch<T>(path: string, options: ApiRequestOptions = {})
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(keepalive ? { keepalive: true } : {}),
       signal: controller.signal,
     })
   } catch (error) {
