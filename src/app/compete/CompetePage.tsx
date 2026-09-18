@@ -33,9 +33,20 @@ import { useChallengerName } from '../useChallengerName'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { TraceRunnerPuzzle } from '../trace/TraceRunner'
 import { CloseIcon, CompeteIcon, MonitorIcon, PeopleIcon } from '../Icons'
-import { CENTERED_PAGE_SHELL_CLASS } from '../PageShell'
 import { LevelPicker } from './LevelPicker'
 import { useCompeteSession } from './useCompeteSession'
+
+// Layout-shell centering (redesign, 2026-09-17) was tried here and reverted
+// 2026-09-18: CENTERED_PAGE_SHELL_CLASS's `lg:self-stretch` fills the
+// entire viewport-height column on desktop, and `justify-center` then
+// dead-centers this page's content within it — live-confirmed (in-browser,
+// same symptom reported on Rush and Trace) that this reads as the content
+// "sitting lower" on screen, not as the fixed dead-space problem it was
+// meant to solve: total empty space is unchanged, just redistributed above
+// the content instead of below it. Back to the plain top-anchored shell,
+// matching every other page.
+const PAGE_SHELL_CLASS =
+  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[var(--space-4)] px-4 pb-4'
 
 // border-border, not border-accent: the redesign mockups (docs/redesign/
 // mockups/Compete*.png) show a plain neutral border on both door cards, not
@@ -173,7 +184,7 @@ export function CompetePage() {
   const showHeading = door.kind === 'computer-level' || door.kind === 'human-level'
 
   return (
-    <div className={CENTERED_PAGE_SHELL_CLASS}>
+    <div className={PAGE_SHELL_CLASS}>
       {showHeading && <p className="m-0 text-xl font-bold text-text-0">Compete</p>}
       {door.kind === 'menu' && (
         <div className="flex flex-col items-center gap-6 w-full">

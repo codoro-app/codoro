@@ -37,13 +37,17 @@ import { useEffect, useState } from 'react'
 import { DEFAULT_PREFERENCES, loadProfile } from '../../storage'
 import { TraceRunner } from './TraceRunner'
 import { useMediaQuery } from '../useMediaQuery'
-import { CENTERED_PAGE_SHELL_CLASS } from '../PageShell'
 
-// Layout-shell fix (redesign, 2026-09-18): centers content instead of
-// anchoring to the top, fixing the dead space on Trace's start screen —
-// same mechanism proven on CompetePage.tsx, see PageShell.tsx's
-// CENTERED_PAGE_SHELL_CLASS doc comment for the full reasoning.
-const PAGE_SHELL_CLASS = CENTERED_PAGE_SHELL_CLASS
+// Layout-shell centering (redesign, 2026-09-18) was tried here and reverted
+// the same day: CENTERED_PAGE_SHELL_CLASS's `lg:self-stretch` fills the
+// entire viewport-height column on desktop, and `justify-center` then
+// dead-centers this page's content within it — live-confirmed (in-browser,
+// same symptom reported on Rush and Compete) that this reads as the content
+// "sitting lower" on screen, not as the fixed dead-space problem it was
+// meant to solve. Back to the plain top-anchored shell, matching every
+// other page.
+const PAGE_SHELL_CLASS =
+  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[var(--space-4)] px-4 pb-4'
 
 export function TracePage() {
   const [timerOnTrace, setTimerOnTrace] = useState(DEFAULT_PREFERENCES.timerOnTrace)
