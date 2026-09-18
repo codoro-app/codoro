@@ -16,6 +16,7 @@
 import { createPortal } from 'react-dom'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { RushIcon } from '../Icons'
+import { ProgressIndicator } from '../ProgressIndicator'
 import { RUSH_PUZZLE_TIME_LIMIT_MS } from './useRushSession'
 import type { RushSession } from './useRushSession'
 
@@ -38,23 +39,13 @@ export function RushActivePlay({ session, onContinue, sidebarSlot = null }: Rush
   const statusContent = (
     <>
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div
-          className="flex gap-2"
-          role="status"
-          aria-label={`${String(session.strikes)} of 3 strikes`}
-        >
-          {[0, 1, 2].map((slot) => (
-            <span
-              key={slot}
-              className={
-                slot < session.strikes
-                  ? 'w-3.5 h-3.5 rounded-full border-2 border-danger bg-danger'
-                  : 'w-3.5 h-3.5 rounded-full border-2 border-border-strong bg-transparent'
-              }
-              aria-hidden="true"
-            />
-          ))}
-        </div>
+        <ProgressIndicator
+          value={session.strikes}
+          max={3}
+          variant="dots"
+          tone="danger"
+          label={`${String(session.strikes)} of 3 strikes`}
+        />
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 text-text-1 text-sm" title="Solved this run">
             <svg
@@ -81,21 +72,13 @@ export function RushActivePlay({ session, onContinue, sidebarSlot = null }: Rush
         </div>
       </div>
       <div className="flex items-center gap-2">
-        <div
-          className="flex-1 h-1.5 rounded-full bg-surface-2 overflow-hidden"
-          role="progressbar"
-          aria-label="Time remaining for this puzzle"
-          aria-valuemin={0}
-          aria-valuemax={RUSH_PUZZLE_TIME_LIMIT_MS}
-          aria-valuenow={Math.round(session.remainingMs)}
-        >
-          <div
-            className="h-full bg-accent transition-[width] duration-100 ease-linear"
-            style={{
-              width: `${String((session.remainingMs / RUSH_PUZZLE_TIME_LIMIT_MS) * 100)}%`,
-            }}
-          />
-        </div>
+        <ProgressIndicator
+          value={session.remainingMs}
+          max={RUSH_PUZZLE_TIME_LIMIT_MS}
+          variant="bar"
+          label="Time remaining for this puzzle"
+          announceAs="progressbar"
+        />
         <span
           className="flex-none min-w-[2ch] text-right font-mono text-sm text-text-1"
           aria-hidden="true"

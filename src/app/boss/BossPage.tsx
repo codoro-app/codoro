@@ -22,7 +22,6 @@ import { ChallengeButton } from '../ChallengeButton'
 import { useChallengerName } from '../useChallengerName'
 import { saveProfile } from '../../storage'
 import { SignupPromptTrigger } from '../../auth/SignupPromptTrigger'
-import './bossPage.css'
 
 // 2b.0: was `.boss-page` in bossPage.css (max-width breakpoint matches
 // Tailwind's `lg` exactly). Not test-asserted (grep-verified).
@@ -95,7 +94,7 @@ export function BossPage() {
             card is always the "correct"/accent styling, never `--wrong`. */}
         <div className="flex flex-col gap-4 p-4 lg:py-[28px] lg:px-[30px] rounded-xl border-[1.5px] border-accent [background:linear-gradient(160deg,var(--accent-dim),var(--surface-1))]">
           <div className="flex items-center gap-3">
-            <DuckMascot pose={session.runSummary.cleared ? 'happy' : 'sad'} size={44} />
+            <DuckMascot pose={session.runSummary.cleared ? 'celebrating' : 'sad'} size={44} />
             <div className="flex flex-col gap-1">
               <p className="m-0 text-lg font-bold text-text-0">
                 {session.runSummary.cleared ? 'Boss cleared!' : 'Run complete'}

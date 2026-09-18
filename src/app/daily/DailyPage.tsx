@@ -27,6 +27,7 @@ import { useState } from 'react'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { MasteryTeaser } from '../practice/MasteryTeaser'
 import { TraceRunnerPuzzle } from '../trace/TraceRunner'
+import { ProgressIndicator } from '../ProgressIndicator'
 import { useDailySession } from './useDailySession'
 import { useMediaQuery } from '../useMediaQuery'
 import { ShareMenu } from '../ShareMenu'
@@ -299,6 +300,25 @@ export function DailyPage() {
         <p className="m-0 text-center text-xl font-bold text-text-0">
           Codoro Daily #{session.dayNumber}
         </p>
+
+        {/* Redesign Phase 1: Daily had no progress indicator at all (audit
+            finding #3) — this is a real design call, not a literal port of
+            an existing pattern like Rush/Boss/Missions got. Daily is one
+            puzzle a day, so there's no natural "N of M" to show; the closest
+            honest equivalent is "have I done today's puzzle yet", rendered
+            as the same shared ProgressIndicator every other mode uses
+            (1-of-1: hollow before the first attempt, filled after) rather
+            than inventing a Daily-only widget. */}
+        <div className="flex justify-center">
+          <ProgressIndicator
+            value={session.completedToday ? 1 : 0}
+            max={1}
+            variant="dots"
+            label={
+              session.completedToday ? "Today's puzzle: solved" : "Today's puzzle: not yet solved"
+            }
+          />
+        </div>
 
         {/* Mobile never had a sidebar to move this into — only desktop
             relocates it below. */}

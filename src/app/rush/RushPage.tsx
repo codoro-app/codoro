@@ -38,13 +38,15 @@ import type { ShareAction } from '../ShareMenu'
 import { ChallengeButton } from '../ChallengeButton'
 import { useChallengerName } from '../useChallengerName'
 import { RouteSkeleton } from '../RouteSkeleton'
+import { CENTERED_PAGE_SHELL_CLASS } from '../PageShell'
 import { trackShareClick } from '../../telemetry'
 import { saveProfile } from '../../storage'
 import { useMediaQuery } from '../useMediaQuery'
-// 2b.0: was `.rush-page` in rushPage.css (max-width breakpoint matches
-// Tailwind's `lg` exactly). Not test-asserted (grep-verified).
-const PAGE_SHELL_CLASS =
-  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[var(--space-4)] px-4 pb-4'
+// Layout-shell fix (redesign, 2026-09-18): centers content instead of
+// anchoring to the top, fixing dead space below the puzzle card on a short
+// run — same mechanism proven on CompetePage.tsx, see PageShell.tsx's
+// CENTERED_PAGE_SHELL_CLASS doc comment for the full reasoning.
+const PAGE_SHELL_CLASS = CENTERED_PAGE_SHELL_CLASS
 
 export function RushPage() {
   const session = useRushSession()

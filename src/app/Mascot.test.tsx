@@ -20,10 +20,10 @@ describe('DuckMark', () => {
 
 describe('DuckMascot', () => {
   it.each(['idle', 'happy', 'debugging', 'sad', 'celebrating'] as const)(
-    'renders the %s pose without throwing',
+    'renders the %s pose without throwing, tagged with a data-pose test hook',
     (pose) => {
       const { container } = render(<DuckMascot pose={pose} />)
-      expect(container.querySelector('svg')).toBeInTheDocument()
+      expect(container.querySelector(`svg[data-pose="${pose}"]`)).toBeInTheDocument()
     },
   )
 })
