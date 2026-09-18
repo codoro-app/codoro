@@ -47,8 +47,13 @@ import { loadProfile, saveProfile } from '../storage'
 
 type Mode = 'sign-in' | 'sign-up'
 /** 'verify-email' only ever follows a sign-up whose create() came back
- * needing email verification -- sign-in never enters it. */
-type Stage = 'credentials' | 'verify-email'
+ * needing email verification -- sign-in never enters it. 'verify-device'
+ * is the sign-in equivalent: Clerk's Device Trust returns
+ * 'needs_client_trust' when signing in from a device it hasn't seen
+ * before, even with the correct password -- this is what "works on
+ * desktop, fails on a phone with the exact same credentials" actually
+ * was (see handleSubmit). */
+type Stage = 'credentials' | 'verify-email' | 'verify-device'
 
 const RESEND_COOLDOWN_SECONDS = 30
 
@@ -188,15 +193,38 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
         if (attempt.status === 'complete') {
           await setActive({ session: attempt.createdSessionId })
           onComplete()
+        } else if (attempt.status === 'needs_client_trust') {
+          // Confirmed in production (2026-09-18): a correct password on an
+          // unrecognized device -- e.g. the first time signing in on a
+          // phone after always using desktop -- lands here, not on a wrong
+          // password. Clerk's own create() doesn't send the verification
+          // code on its own, so prepareSecondFactor has to be called
+          // explicitly, same pattern as sign-up's email verification below.
+          const emailFactor = attempt.supportedSecondFactors?.find(
+            (factor) => factor.strategy === 'email_code',
+          )
+          if (emailFactor) {
+            try {
+              await signIn.prepareSecondFactor({
+                strategy: 'email_code',
+                emailAddressId: emailFactor.emailAddressId,
+              })
+            } catch (prepareErr) {
+              setError(
+                clerkErrorMessage(
+                  prepareErr,
+                  'Could not send the verification email. Use "Resend code" to try again.',
+                ),
+              )
+            }
+            setStage('verify-device')
+            setResendCooldown(RESEND_COOLDOWN_SECONDS)
+          } else {
+            setError(
+              'This device needs to be verified, but no verification method is available. Contact support.',
+            )
+          }
         } else {
-          // Temporary diagnostic: `signIn.create()` resolving without
-          // throwing but landing on a non-'complete' status (e.g.
-          // 'needs_second_factor', 'needs_new_password') means Clerk
-          // accepted the identifier/password but wants something this form
-          // doesn't collect yet -- surfacing the real status here (instead
-          // of a generic message indistinguishable from an actual wrong
-          // password) is how we find out which one is actually happening
-          // in production before building the real handling for it.
           setError(
             `Couldn't sign you in (status: ${attempt.status ?? 'unknown'}). Contact support.`,
           )
@@ -288,6 +316,48 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
     }
   }
 
+  async function handleVerifyDevice(event: React.SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError(null)
+    if (!signIn || verifying) return
+    setVerifying(true)
+    try {
+      const attempt = await signIn.attemptSecondFactor({ strategy: 'email_code', code })
+      if (attempt.status === 'complete') {
+        await setActive({ session: attempt.createdSessionId })
+        onComplete()
+      } else {
+        setError("That code didn't work. Double-check it and try again.")
+      }
+    } catch (err) {
+      setError(clerkErrorMessage(err, "That code didn't work. Double-check it and try again."))
+    } finally {
+      setVerifying(false)
+    }
+  }
+
+  async function handleResendDevice() {
+    if (!signIn || resending || resendCooldown > 0) return
+    setError(null)
+    setResending(true)
+    try {
+      const emailFactor = signIn.supportedSecondFactors?.find(
+        (factor) => factor.strategy === 'email_code',
+      )
+      if (emailFactor) {
+        await signIn.prepareSecondFactor({
+          strategy: 'email_code',
+          emailAddressId: emailFactor.emailAddressId,
+        })
+      }
+      setResendCooldown(RESEND_COOLDOWN_SECONDS)
+    } catch (err) {
+      setError(clerkErrorMessage(err, 'Could not resend the code. Try again in a moment.'))
+    } finally {
+      setResending(false)
+    }
+  }
+
   if (stage === 'verify-email') {
     return (
       <form onSubmit={(event) => void handleVerify(event)} className="flex flex-col gap-3">
@@ -357,6 +427,70 @@ export function SignInSheet({ onComplete }: SignInSheetProps) {
           >
             Use a different email
           </button>
+        </p>
+      </form>
+    )
+  }
+
+  if (stage === 'verify-device') {
+    return (
+      <form onSubmit={(event) => void handleVerifyDevice(event)} className="flex flex-col gap-3">
+        <p className="text-xs uppercase tracking-wide text-text-2 m-0">New device</p>
+        <p className="text-xl font-bold text-text-0 m-0">Verify it's you</p>
+        <p className="text-sm text-text-1 m-0 mb-1">
+          Signing in from a new device -- we sent a 6-digit code to{' '}
+          <span className="text-text-0 font-semibold">{email}</span> to confirm it's you.
+        </p>
+
+        <label className="text-xs font-semibold text-text-1" htmlFor="auth-device-code">
+          Verification code
+        </label>
+        <input
+          id="auth-device-code"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete="one-time-code"
+          maxLength={6}
+          required
+          aria-describedby={error ? 'auth-device-error' : undefined}
+          value={code}
+          onChange={(event) => {
+            setCode(event.target.value.replace(/\D/g, '').slice(0, 6))
+          }}
+          className={`${FIELD_CLASS} tracking-[0.3em] text-center`}
+        />
+
+        {error && (
+          <p id="auth-device-error" className="text-sm text-danger m-0" role="alert">
+            {error}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          className={PRIMARY_BUTTON_CLASS}
+          disabled={verifying || code.length < 6}
+        >
+          {verifying ? 'Verifying…' : 'Verify device'}
+        </button>
+
+        <p className={SWITCH_LINE_CLASS}>
+          {resendCooldown > 0 ? (
+            <>Resend code in {resendCooldown}s</>
+          ) : (
+            <>
+              Didn't get it?{' '}
+              <button
+                type="button"
+                className={LINK_BUTTON_CLASS}
+                disabled={resending}
+                onClick={() => void handleResendDevice()}
+              >
+                {resending ? 'Sending…' : 'Resend code'}
+              </button>
+            </>
+          )}
         </p>
       </form>
     )
