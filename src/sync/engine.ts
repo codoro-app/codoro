@@ -97,8 +97,13 @@ export interface SyncEngine {
   handleOnline: () => Promise<void>
   /** Direct pull, for callers (and tests) that want it without going through a lifecycle hook. */
   pull: () => Promise<PullOutcome>
-  /** Direct push, same note as `pull`. */
-  push: () => Promise<void>
+  /**
+   * Direct push, same note as `pull`. `opts.keepalive` asks the underlying
+   * PUT to survive a tab teardown (api.ts's own doc comment) -- `flush()`
+   * is the one caller that actually needs it; every other call site omits
+   * it and gets the exact prior behavior.
+   */
+  push: (opts?: { keepalive?: boolean }) => Promise<void>
   /** T6's `remote-ahead` branch, surfaced for a future "reload to update" banner (T8b/UI work) -- this task only makes the state observable. */
   getSchemaSkew: () => { remoteSchemaVersion: number } | null
 }
@@ -561,8 +566,29 @@ export function createSyncEngine(
     return { kind: 'reset' }
   }
 
+  /**
+   * Live-diagnosed 2026-09-18: a fast practice burst re-arms
+   * `notifyMutation()`'s 5s debounce on every attempt (see that function's
+   * own comment), so `flush()`'s `visibilitychange` -> hidden call is often
+   * the ONLY push a session ever gets -- and that call races the tab's own
+   * teardown. A plain `fetch()` there was silently losing whole sessions'
+   * worth of local progress: it looked identical to success (no error, no
+   * queued retry -- the request just never finished). `keepalive: true`
+   * (api.ts) survives that, but the platform enforces a hard 64KB
+   * request-body cap on keepalive requests synchronously -- `fetch()`
+   * throws before the network call even happens for anything bigger. Stay
+   * safely under that (not exactly 64KB) and skip keepalive entirely for an
+   * oversized payload rather than trading "sometimes cut off" for "always
+   * throws" -- an oversized flush push falls back to the exact pre-fix
+   * behavior (best-effort, same as every other push), no worse than before.
+   */
+  const KEEPALIVE_MAX_BODY_BYTES = 60_000
+
   /** Unlocked -- one PUT attempt, no retry logic of its own. `push()` owns the retry/conflict loop. */
-  async function doPushOnce(userId: string | null): Promise<PushAttemptResult> {
+  async function doPushOnce(
+    userId: string | null,
+    opts: { keepalive?: boolean } = {},
+  ): Promise<PushAttemptResult> {
     const token = await resolveToken()
     if (!token) return { kind: 'error' }
 
@@ -583,11 +609,16 @@ export function createSyncEngine(
       anonId: local.profile.anonId,
     }
 
+    const keepalive =
+      (opts.keepalive ?? false) &&
+      new TextEncoder().encode(JSON.stringify(body)).byteLength <= KEEPALIVE_MAX_BODY_BYTES
+
     try {
       const response = await apiFetch<ProfilePutResponse>('/api/profile', {
         method: 'PUT',
         token,
         body,
+        keepalive,
       })
       return { kind: 'ok', revision: response.revision }
     } catch (err) {
@@ -606,7 +637,7 @@ export function createSyncEngine(
     return withLock(() => doPull(currentUserId))
   }
 
-  async function push(): Promise<void> {
+  async function push(opts: { keepalive?: boolean } = {}): Promise<void> {
     return withLock(async () => {
       if (schemaSkew !== null) {
         // Finding 2: remote-ahead means read-only sync -- no merge, no
@@ -619,7 +650,7 @@ export function createSyncEngine(
 
       const userId = currentUserId
       for (let attempt = 1; attempt <= MAX_PUSH_ATTEMPTS; attempt++) {
-        const result = await doPushOnce(userId)
+        const result = await doPushOnce(userId, opts)
 
         if (result.kind === 'ok') {
           writeSyncMeta({ userId, baseRevision: result.revision })
@@ -898,7 +929,10 @@ export function createSyncEngine(
     if (currentUserId === null) return
     const queued = readQueueEntry()?.userId === currentUserId
     if (!hadArmedDebounce && !queued) return
-    await push()
+    // Live-diagnosed 2026-09-18: this IS the tab-teardown race doPushOnce's
+    // own doc comment names -- see it for why keepalive matters here
+    // specifically (this call site is the reason that option exists at all).
+    await push({ keepalive: true })
   }
 
   async function handleOnline(): Promise<void> {
