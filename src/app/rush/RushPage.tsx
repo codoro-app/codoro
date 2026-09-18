@@ -38,15 +38,21 @@ import type { ShareAction } from '../ShareMenu'
 import { ChallengeButton } from '../ChallengeButton'
 import { useChallengerName } from '../useChallengerName'
 import { RouteSkeleton } from '../RouteSkeleton'
-import { CENTERED_PAGE_SHELL_CLASS } from '../PageShell'
 import { trackShareClick } from '../../telemetry'
 import { saveProfile } from '../../storage'
 import { useMediaQuery } from '../useMediaQuery'
-// Layout-shell fix (redesign, 2026-09-18): centers content instead of
-// anchoring to the top, fixing dead space below the puzzle card on a short
-// run — same mechanism proven on CompetePage.tsx, see PageShell.tsx's
-// CENTERED_PAGE_SHELL_CLASS doc comment for the full reasoning.
-const PAGE_SHELL_CLASS = CENTERED_PAGE_SHELL_CLASS
+// Layout-shell centering (redesign, 2026-09-18) was tried here and reverted
+// the same day: CENTERED_PAGE_SHELL_CLASS's `lg:self-stretch` fills the
+// entire viewport-height column on desktop, and `justify-center` then
+// centers Rush's active-play puzzle dead-center within it — fine for
+// Compete's short, static menu, but wrong for Rush's fast-paced,
+// height-varies-per-puzzle gameplay: confirmed live (in-browser) that this
+// reads as the puzzle "sitting a lot lower" than before, not fixed dead
+// space. Rush stays top-anchored, matching Practice/Daily's own plain shell.
+// 2b.0: was `.rush-page` in rushPage.css (max-width breakpoint matches
+// Tailwind's `lg` exactly). Not test-asserted (grep-verified).
+const PAGE_SHELL_CLASS =
+  'app-shell__main flex flex-col gap-4 w-full max-w-[var(--content-width-mobile)] lg:max-w-[var(--content-width-desktop)] mx-auto pt-[var(--space-4)] px-4 pb-4'
 
 export function RushPage() {
   const session = useRushSession()
