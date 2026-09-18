@@ -11,7 +11,7 @@
  * (`workers/README.md`: "the only anonymous write in the system, by
  * design").
  */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ApiError, apiFetch } from '../auth/api'
 import { REPORT_REASONS } from 'workers/shared/api-types'
 import type { ReportReason, ReportResponse } from 'workers/shared/api-types'
@@ -58,6 +58,32 @@ export function ReportPuzzleControl({
 }) {
   const [reason, setReason] = useState<ReportReason>(REPORT_REASONS[0])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const cardRef = useRef<HTMLDivElement | null>(null)
+
+  // Live feedback (2026-09-18): the expanded reason-picker card (5 reasons +
+  // Cancel/Send) can render tall enough that its own bottom — including the
+  // Send button — lands below the current scroll position, with nothing
+  // prompting the player to scroll for it. A plain `scrollIntoView` (even
+  // with `scroll-margin-bottom` reserving BottomNav's height) measured out
+  // to leave ~0px clearance instead of the intended ~60px — this drawer's
+  // `position: sticky` ancestor (PuzzleCardShell.tsx's FEEDBACK_DRAWER_CLASS)
+  // appears to confuse `block: 'nearest'`'s own margin accounting, so this
+  // computes the needed scroll distance directly instead: how far the
+  // card's bottom edge (plus that same reserved clearance, read back off
+  // its own resolved `scroll-margin-bottom` so the two never drift) sits
+  // past the viewport's bottom edge, then scrolls exactly that far.
+  // `window.scrollBy` is a no-op stub in jsdom (src/test/setup.ts) — safe
+  // in tests without a separate feature-detect.
+  useEffect(() => {
+    if (status !== 'expanded') return
+    const card = cardRef.current
+    if (!card) return
+    const reserve = parseFloat(window.getComputedStyle(card).scrollMarginBottom) || 0
+    const overflow = card.getBoundingClientRect().bottom + reserve - window.innerHeight
+    if (overflow > 0) {
+      window.scrollBy({ top: overflow, behavior: 'smooth' })
+    }
+  }, [status])
 
   async function send() {
     onStatusChange('sending')
@@ -106,7 +132,10 @@ export function ReportPuzzleControl({
   }
 
   return (
-    <div className="rounded-md border border-border bg-surface-1 p-3">
+    <div
+      ref={cardRef}
+      className="rounded-md border border-border bg-surface-1 p-3 scroll-mb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom))] lg:scroll-mb-0"
+    >
       <p className="m-0 mb-2 text-xs uppercase tracking-wide text-text-2">
         What&apos;s wrong with this puzzle?
       </p>

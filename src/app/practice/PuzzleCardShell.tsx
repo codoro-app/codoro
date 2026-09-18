@@ -193,8 +193,21 @@ const FEEDBACK_DRAWER_CLASS =
 // (inherited from `feedbackPanelClass`/`FEEDBACK_BASE`): the header row and
 // Continue button both get `flex-none` so only the explanation paragraph
 // (`flex-1 min-h-0 overflow-y-auto`) is the part that scrolls.
-function drawerPanelClass(correct: boolean): string {
-  return `${feedbackPanelClass(correct)} min-h-[128px] max-h-[46dvh]`
+//
+// `capHeight` (live feedback, 2026-09-18): `max-height` alone, with no
+// `overflow` set, doesn't clip — content past the cap just renders past the
+// box (`overflow: visible`, the default), which is invisible to the
+// *document's* own height/scroll-range calculation. That's harmless for the
+// explanation (it has its own real `overflow-y-auto`, so it never exceeds
+// this box), but the expanded Report card below it does grow past 46dvh on
+// a short viewport, and since that growth never counted toward the
+// document's scrollable height, there was no way to scroll far enough to
+// reveal it — a scroll-into-view effect can't create distance that doesn't
+// exist. Dropping the cap while Report is expanded/sending/error lets the
+// panel's true full height count, restoring real scrollability; ReportPuzzleControl's
+// own effect (see its doc comment) is what actually scrolls to it.
+function drawerPanelClass(correct: boolean, capHeight: boolean): string {
+  return `${feedbackPanelClass(correct)} min-h-[128px]${capHeight ? ' max-h-[46dvh]' : ''}`
 }
 
 // Desktop's inline placement (see `isDesktop` below): same button, not
@@ -760,7 +773,10 @@ export function PuzzleCardShell({
       {committed && committedPayload && !isDesktop && (
         <div ref={drawerRef} className={FEEDBACK_DRAWER_CLASS}>
           <div className="w-full max-w-[var(--content-width-mobile)] mx-auto px-4 py-3">
-            <div className={drawerPanelClass(committedPayload.correct)} role="status">
+            <div
+              className={drawerPanelClass(committedPayload.correct, reportStatus === 'collapsed')}
+              role="status"
+            >
               <FeedbackHeader correct={committedPayload.correct} ratingDelta={ratingDelta} />
               {/* flex-1 min-h-0 is what lets this shrink and scroll inside
                   the panel's flex column instead of forcing the panel past
