@@ -103,7 +103,10 @@ export function ChallengeComparison({ theirs, yours }: ChallengeComparisonProps)
     'inline-flex items-center min-h-11 py-2 px-3 rounded-sm border border-border bg-surface-1 text-accent font-semibold no-underline text-[0.9375rem] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
   return (
-    <div className="flex flex-col gap-3 text-center py-4">
+    // motion-enter (tokens.css): one of the 4 named entrance surfaces —
+    // relies on ChallengePage.tsx's own '../tokens.css' import (this
+    // component is only ever rendered as its child, same chunk).
+    <div className="flex flex-col gap-3 text-center py-4 motion-enter">
       <p className="text-text-1 font-bold text-[1.125rem] m-0">
         {verdictCopy(outcome, theirs.challengerName)}
       </p>

@@ -41,6 +41,7 @@ import { RouteSkeleton } from '../RouteSkeleton'
 import { trackShareClick } from '../../telemetry'
 import { saveProfile } from '../../storage'
 import { useMediaQuery } from '../useMediaQuery'
+import { PRESS_CLASS } from '../motion'
 // Layout-shell centering (redesign, 2026-09-18) was tried here and reverted
 // the same day: CENTERED_PAGE_SHELL_CLASS's `lg:self-stretch` fills the
 // entire viewport-height column on desktop, and `justify-center` then
@@ -201,7 +202,7 @@ export function RushPage() {
 
         <button
           type="button"
-          className="min-h-11 border-0 rounded-sm bg-accent text-accent-ink font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+          className={`min-h-11 border-0 rounded-sm bg-accent text-accent-ink font-bold cursor-pointer ${PRESS_CLASS} focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2`}
           onClick={session.handleRunItBack}
         >
           Run it back

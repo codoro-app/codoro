@@ -174,6 +174,54 @@ describe('ChallengePageForHash — intro hero (challenge redesign)', () => {
   })
 })
 
+describe('ChallengePageForHash — desktop right rail (motion foundation follow-up)', () => {
+  // Same mockMatchMedia shape as DailyPage.test.tsx's desktop-sidebar test —
+  // reports a match for every query, standing in for a >=1024px viewport.
+  function stubDesktop() {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({
+        matches: true,
+        media: '(min-width: 1024px)',
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    )
+  }
+
+  it('collapses border and padding while the sidebar slot is empty, then restores them once feedback portals in', async () => {
+    stubDesktop()
+    const user = userEvent.setup()
+    render(
+      <ChallengePageForHash
+        hash={fragmentFor([{ puzzleId: 'con-005', correct: false, time_ms: 1000 }])}
+      />,
+    )
+    await acceptChallenge(user)
+
+    const aside = await waitFor(() => {
+      const el = document.querySelector('aside.app-shell__sidebar')
+      if (!el) throw new Error('expected the desktop right rail to be mounted')
+      return el
+    })
+    // The class stays present at all times (it's a `has-[>div:empty]`
+    // selector, not conditional React logic) — what changes is whether the
+    // slot inside is empty, which is what drives the collapse.
+    expect(aside).toHaveClass('has-[>div:empty]:border-0', 'has-[>div:empty]:p-0')
+    expect(aside.querySelector('div')).toBeEmptyDOMElement()
+
+    const [firstChoice] = await screen.findAllByRole('button')
+    if (!firstChoice) throw new Error('expected at least one choice button')
+    await user.click(firstChoice)
+
+    await waitFor(() => {
+      expect(aside.querySelector('div')).not.toBeEmptyDOMElement()
+    })
+
+    vi.unstubAllGlobals()
+  })
+})
+
 describe('ChallengePageForHash — broken link states', () => {
   // A payload that fails to decode is known to be broken synchronously —
   // no getPuzzleBody call is ever made, so this state (and its telemetry)

@@ -82,6 +82,7 @@ import { FeedbackNudge } from './FeedbackNudge'
 import { useFeedbackNudge } from './useFeedbackNudge'
 import { SignupPromptTrigger } from '../auth/SignupPromptTrigger'
 import { FirstRunSequence } from './firstRun/FirstRunSequence'
+import { PRESS_CLASS } from './motion'
 
 // Launch instrumentation follow-up (feedback nudges): the fallback trigger
 // for players who never touch Daily — see DailyPage.tsx's own
@@ -114,11 +115,15 @@ function todayDateString(date = new Date()): string {
 // override each other by source order the way `.home__card--primary`
 // cascading over `.home__card` did.
 // lg:-scoped hover lift (transform only, no JS) — desktop introduces mouse
-// hover as a signal mobile doesn't have; matches the existing
-// `active:scale-[0.98]` press-feedback convention used site-wide for
-// buttons, just gated to the breakpoint where hover is a meaningful signal.
-const CARD_BASE =
-  'flex flex-col items-start min-h-11 w-full rounded-md border text-left no-underline cursor-pointer lg:transition-[transform,border-color] lg:duration-150 lg:hover:-translate-y-0.5'
+// hover as a signal mobile doesn't have, on top of PRESS_CLASS's press
+// feedback below. Motion foundation follow-up: these cards — the highest-
+// traffic tap target in the app — previously had NO press feedback at all
+// below the lg breakpoint despite an earlier comment here claiming they
+// "matched" the site's active:scale-[0.98] convention; lg:'s own
+// transition-property/duration wins at that breakpoint (Tailwind's media
+// query cascade), so PRESS_CLASS's contribution is mobile/tablet-only here —
+// desktop keeps its existing hover-lift feel, unchanged.
+const CARD_BASE = `flex flex-col items-start min-h-11 w-full rounded-md border text-left no-underline cursor-pointer ${PRESS_CLASS} lg:transition-[transform,border-color] lg:duration-150 lg:hover:-translate-y-0.5`
 const CARD_SECONDARY = `${CARD_BASE} gap-2 p-4 border-border bg-surface-1 text-text-0 lg:hover:border-border-strong`
 // Gradient (DailyPage.tsx's own heroClass treatment, reused verbatim) gives
 // the primary CTA more visual weight than a flat fill — originally desktop

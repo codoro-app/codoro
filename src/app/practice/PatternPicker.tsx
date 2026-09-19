@@ -23,6 +23,7 @@ import { PATTERN_LABELS, PATTERN_SLUGS, puzzleMeta } from '../../content'
 import type { PatternSlug } from '../../content'
 import { computeMastery, MIN_ATTEMPTS_FOR_MASTERY } from './mastery'
 import type { PatternMastery } from './mastery'
+import { PRESS_CLASS } from '../motion'
 import './practicePage.css'
 
 export interface PatternPickerProps {
@@ -136,7 +137,7 @@ export function PatternPicker({ onSelect, onBack, singleColumn = false }: Patter
 
       <button
         type="button"
-        className="min-h-11 py-3 px-4 border-0 rounded-md bg-accent text-accent-ink font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+        className={`min-h-11 py-3 px-4 border-0 rounded-md bg-accent text-accent-ink font-bold cursor-pointer ${PRESS_CLASS} focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2`}
         onClick={() => {
           onSelect(null)
         }}

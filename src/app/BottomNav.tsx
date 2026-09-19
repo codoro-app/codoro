@@ -35,6 +35,7 @@
 import { Link, useLocation } from 'wouter'
 import { CompeteIcon, DailyIcon, HomeIcon, PracticeIcon, StatsIcon } from './Icons'
 import { ROUTES } from './routes'
+import { PRESS_CLASS } from './motion'
 
 // 2026-08-26 fix: ITEM_BASE used to carry `text-text-1` unconditionally,
 // with the active state appending `text-accent` after it — relying on
@@ -42,8 +43,7 @@ import { ROUTES } from './routes'
 // stylesheet doesn't guarantee (see NavRail.tsx's own comment on the same
 // bug — `.text-text-1` lands after `.text-accent` in the built CSS, so the
 // base color always won). Fixed the same way: the two never coexist.
-const ITEM_BASE =
-  'flex-1 flex flex-col items-center justify-center gap-0.5 min-h-11 py-1.5 bg-transparent text-xs font-semibold no-underline cursor-pointer'
+const ITEM_BASE = `flex-1 flex flex-col items-center justify-center gap-0.5 min-h-11 py-1.5 bg-transparent text-xs font-semibold no-underline cursor-pointer ${PRESS_CLASS}`
 const ITEM_INACTIVE = 'text-text-1'
 const ITEM_ACTIVE = 'text-accent'
 
