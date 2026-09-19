@@ -19,7 +19,8 @@
  * cascade guarantees an `!important` declaration on those exact properties
  * always wins over any non-important value, REGARDLESS of the specificity
  * or source order of whatever set them (here, PRESS_CLASS's
- * `duration-press` utility and `.motion-enter`'s `animation` shorthand).
+ * `duration-[var(--motion-press)]` utility and `.motion-enter`'s `animation`
+ * shorthand).
  * So proving (a) that kill-switch rule still exists with its original
  * shape, and (b) that both patterns route their timing through exactly
  * `animation`/`transition-duration` (no `!important` override of their own
@@ -41,10 +42,14 @@ describe('motion foundation — reduced motion', () => {
     )
   })
 
-  it('PRESS_CLASS routes its timing through duration-press/transition — no !important escape hatch of its own', () => {
+  it('PRESS_CLASS routes its timing through duration-[var(--motion-press)]/transition — no !important escape hatch of its own', () => {
     expect(PRESS_CLASS).toContain('transition-[transform,opacity]')
-    expect(PRESS_CLASS).toContain('duration-press')
+    expect(PRESS_CLASS).toContain('duration-[var(--motion-press)]')
     expect(PRESS_CLASS).not.toContain('!')
+  })
+
+  it('PRESS_CLASS never regresses to a bare duration-press — Tailwind v4 has no --duration-* theme namespace, so that utility silently generates no CSS at all', () => {
+    expect(PRESS_CLASS).not.toContain('duration-press')
   })
 
   it('.motion-enter routes its timing through a plain animation shorthand — no !important escape hatch of its own', () => {
