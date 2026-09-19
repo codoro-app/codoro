@@ -78,13 +78,14 @@
   --radius-xl: var(--radius-xl);
   --radius-full: var(--radius-full);
 
-  /* Tailwind's `--duration-*`/`--ease-*` theme namespaces generate
-   * `duration-press`/`duration-feedback`/`duration-enter`/`ease-out`/
-   * `ease-in-out` utility classes straight off the tokens above — the same
-   * "alias, not a copy" pattern every other namespace in this block uses. */
-  --duration-press: var(--motion-press);
-  --duration-feedback: var(--motion-feedback);
-  --duration-enter: var(--motion-enter);
+  /* Tailwind's `--ease-*` theme namespace generates `ease-out`/`ease-in-out`
+   * utility classes straight off the tokens above — the same "alias, not a
+   * copy" pattern every other namespace in this block uses. There is no
+   * `--duration-*` namespace in Tailwind v4 to alias the same way, so
+   * `--motion-press`/`--motion-feedback`/`--motion-enter` are read directly
+   * instead: `duration-[var(--motion-press)]` (src/app/motion.ts) as a
+   * Tailwind arbitrary value, `var(--motion-feedback)`/`var(--motion-enter)`
+   * (tokens.css) as plain CSS in an `animation` shorthand. */
   --ease-out: var(--ease-out);
   --ease-in-out: var(--ease-in-out);
 }
