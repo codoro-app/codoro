@@ -27,6 +27,14 @@
  * mentioned because neither has shipped yet (5.3/5.5 paused). Real lawyer
  * review is still the action item this doesn't replace — see the closing
  * amendment for exactly what's outstanding and whose job it is.
+ *
+ * v5 close-out session 2 (2026-09-19): the sentence-by-sentence read-back
+ * this session's prompt required turned up one real drift since the T15
+ * pass above — PR #153 (2026-09-18) started calling posthog.identify() for
+ * signed-in players (Clerk user ID only, never email, per I4), which the
+ * page's PostHog paragraph didn't disclose. Added one sentence covering it.
+ * Nothing else in the file was found to be inaccurate against what's
+ * actually shipped; see the closing amendment for the full read-back notes.
  */
 import { Link } from 'wouter'
 import { ROUTES } from '../routes'
@@ -50,7 +58,7 @@ export function LegalPage() {
       {/* legal-page__title stays literal — App.test.tsx scopes
           findByText('Terms & privacy', { selector: '.legal-page__title' }). */}
       <h1 className="legal-page__title text-2xl text-text-0 m-0">Terms &amp; privacy</h1>
-      <p className="text-sm text-text-2 m-0">Last updated 2026-09-15</p>
+      <p className="text-sm text-text-2 m-0">Last updated 2026-09-19</p>
 
       <section>
         <h2 className={SECTION_HEADING_CLASS}>Terms</h2>
@@ -74,7 +82,10 @@ export function LegalPage() {
           sent off your device while playing signed out is anonymous usage events (which screen
           you're on, whether an answer was right or wrong, that kind of thing) via PostHog, carrying
           an app-generated anonymous ID stored on your device — it contains no personal information
-          and is never linked to a name, email, or account.
+          and is never linked to a name, email, or account. Once you sign in, those same usage
+          events are linked to your account instead of staying anonymous — by Clerk's internal user
+          ID only, never your email or name — so we can tell it's the same returning signed-in
+          player.
         </p>
         <p className={SECTION_COPY_CLASS}>
           Signing in is optional. If you choose to, Codoro creates an account for you through{' '}
