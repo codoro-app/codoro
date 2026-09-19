@@ -19,6 +19,7 @@
  */
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { TraceRunnerPuzzle } from '../trace/TraceRunner'
+import { ProgressIndicator } from '../ProgressIndicator'
 import { useFirstRunSession } from './useFirstRunSession'
 import { FirstRunComplete } from './FirstRunComplete'
 import { useChallengerName } from '../useChallengerName'
@@ -116,9 +117,22 @@ export function FirstRunSequence({ onComplete }: FirstRunSequenceProps) {
 
   return (
     <div className={PAGE_SHELL_CLASS}>
-      <p className="m-0 text-center text-sm font-bold text-text-2 uppercase tracking-[0.04em]">
-        Puzzle {session.position} of {session.totalPuzzles}
-      </p>
+      <div className="flex flex-col items-center gap-2">
+        <p className="m-0 text-center text-sm font-bold text-text-2 uppercase tracking-[0.04em]">
+          Puzzle {session.position} of {session.totalPuzzles}
+        </p>
+        {/* Redesign Phase 4 (Part D): decorative dots alongside the text
+            above (Boss's own established pattern — see BossActivePlay.tsx)
+            — no `label` prop, so ProgressIndicator defaults to
+            aria-hidden and the visible text above stays the sole
+            accessible readout, no double announcement. */}
+        <ProgressIndicator
+          value={session.position}
+          max={session.totalPuzzles}
+          variant="dots"
+          tone="accent"
+        />
+      </div>
 
       {session.puzzle.interaction === 'scrubber' ? (
         <TraceRunnerPuzzle

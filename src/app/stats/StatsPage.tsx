@@ -324,11 +324,19 @@ export function StatsPage() {
     <div className="flex flex-col gap-2 p-4 rounded-md border border-border bg-surface-1">
       <div className="flex items-center justify-between gap-2">
         <p className="m-0 text-base font-bold">Activity</p>
-        <span className="font-mono text-xs font-bold text-warn">
-          {profile.streak.currentStreak > 0
-            ? `🔥 ${String(profile.streak.currentStreak)} day streak`
-            : 'Start your streak today'}
-        </span>
+        {/* Redesign audit #6: at zero attempts, the emptyBanner above
+            already says "you haven't solved any puzzles yet" — this
+            card's own streak label saying the same thing a second way
+            ("Start your streak today") was a duplicate empty-state
+            message. Dropped here, not the whole card, so the calendar
+            grid still renders as a stable layout anchor. */}
+        {attempts.length > 0 && (
+          <span className="font-mono text-xs font-bold text-warn">
+            {profile.streak.currentStreak > 0
+              ? `🔥 ${String(profile.streak.currentStreak)} day streak`
+              : 'Start your streak today'}
+          </span>
+        )}
       </div>
       <div
         className="grid grid-cols-[repeat(12,1fr)] gap-1"
