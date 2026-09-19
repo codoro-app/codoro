@@ -303,8 +303,12 @@ describe('ChallengePageForHash — duplicate puzzle id regression', () => {
 
     // The second occurrence must render fresh — no feedback panel until it
     // is actually answered. Under the bug this was already present, stale,
-    // the instant the second occurrence mounted.
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    // the instant the second occurrence mounted. Scoped to the feedback
+    // panel's own stable classname (not a bare role=status query): the
+    // redesign's ChallengePage progress indicator (Part D) also carries
+    // role="status" now, permanently, and isn't what this regression guard
+    // is checking for.
+    expect(document.querySelector('.feedback-panel')).not.toBeInTheDocument()
 
     const [secondChoice] = await screen.findAllByRole('button')
     if (!secondChoice)

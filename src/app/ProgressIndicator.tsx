@@ -2,7 +2,7 @@
  * Shared "how am I doing / how many left" indicator — redesign Phase 1.
  * Unifies four previously-unrelated widgets: Rush's strikes dots + per-puzzle
  * timer bar, Boss's health bar + puzzle-position pip row, and Missions'
- * StageTracker pill-dot stepper (see docs/redesign/phase8-content-status.md,
+ * StageTracker pill-dot stepper (see docs/redesign/ui-redesign-audit-2026-09-17.md,
  * "Four unrelated progress/lives indicators for one mechanic"). One prop
  * shape — `value`/`max` plus a `variant` ('dots' for discrete counts,
  * 'bar' for a continuous fill) and a `tone` ('accent' for progress-is-good,

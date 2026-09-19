@@ -39,7 +39,7 @@ export interface BossActivePlayProps {
 /**
  * Redesign (2026-09-18): Boss's bespoke "Glitch" character (BOSS_NAME +
  * BossCharacterIcon, a local one-off SVG) is retired now that DuckMascot is
- * the single app-wide mascot — see docs/redesign/phase8-content-status.md's
+ * the single app-wide mascot — see docs/redesign/ui-redesign-audit-2026-09-17.md's
  * "Glitch vs. the duck" open decision, resolved. `answered` tracks whether
  * the CURRENT puzzle instance has been answered yet, reset whenever the
  * puzzle identity changes (a fresh puzzle always starts unanswered) — this

@@ -261,10 +261,259 @@ async function run() {
   console.log("state-gated surfaces this crawl can't reach on its own.")
 }
 
-run().catch((error: unknown) => {
-  console.error(error)
-  process.exitCode = 1
-})
+run()
+  .then(() => runPhase4Extras())
+  .catch((error: unknown) => {
+    console.error(error)
+    process.exitCode = 1
+  })
+
+// ---------------------------------------------------------------------
+// Phase 4 remaining-pages pass (docs/redesign/ui-redesign-audit-2026-09-17.md)
+// — scenario-specific captures the generic route crawl above can't produce:
+// seeded mastery data for Browse's grouping, a zero-attempts profile for
+// Stats' empty-state fix, one /puzzle/:id per interaction type, and real
+// /challenge payloads (intro/mid-puzzle/comparison/broken-link) built with
+// the exact codec algorithm from src/challenge/codec.ts (duplicated inline,
+// not imported — this script runs outside Vite's module graph under tsx,
+// same constraint as SKIP_FIRST_RUN_SCRIPT's own hand-rolled IndexedDB
+// access below). Writes into docs/redesign/mockups/ (committed, unlike this
+// script's own OUT_DIR) with a `--before`/`--after` suffix taken from the
+// PHASE4_TAG env var so before/after pairs are easy to diff by filename.
+// ---------------------------------------------------------------------
+
+const PHASE4_OUT_DIR = './docs/redesign/mockups'
+const PHASE4_TAG = process.env.PHASE4_TAG ?? 'before'
+
+const SEED_MASTERY_SCRIPT = `
+(async () => {
+  const rows = [
+    ['off-by-one', 'oob-001', 5, 5],
+    ['null-undefined', 'nul-001', 6, 5],
+    ['type-coercion', 'tc-001', 5, 3],
+    ['mutable-state', 'mut-001', 5, 2],
+    ['scope-closures', 'scl-001', 5, 1],
+    ['concurrency', 'con-001', 5, 0],
+  ]
+  const attempts = []
+  let seq = 0
+  for (const [pattern, puzzleId, count, correctCount] of rows) {
+    for (let i = 0; i < count; i++) {
+      seq += 1
+      attempts.push({
+        id: 'seed-' + String(seq),
+        puzzleId,
+        puzzleRating: 1200,
+        mode: 'practice',
+        correct: i < correctCount,
+        time_ms: 1000,
+        choice_index: null,
+        checkpoint_results: null,
+        userRatingBefore: 1200,
+        userRatingAfter: 1200,
+        localDateString: '2026-09-18',
+        createdAt: '2026-09-18T00:00:00.000Z',
+      })
+    }
+  }
+  await new Promise((resolve, reject) => {
+    const req = indexedDB.open('codoro')
+    req.onerror = () => reject(req.error)
+    req.onsuccess = () => {
+      const db = req.result
+      const tx = db.transaction('attempts', 'readwrite')
+      const store = tx.objectStore('attempts')
+      for (const a of attempts) store.put(a)
+      tx.oncomplete = () => { db.close(); resolve(undefined) }
+      tx.onerror = () => { db.close(); reject(tx.error) }
+    }
+  })
+})()
+`
+
+function base64UrlEncode(json: string): string {
+  const bytes = new TextEncoder().encode(json)
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return Buffer.from(binary, 'binary')
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '')
+}
+
+const TWO_PUZZLE_CHALLENGE_HASH = base64UrlEncode(
+  JSON.stringify({
+    v: 2,
+    ids: ['con-005', 'cf-016'], // mcq, then scrubber
+    results: [
+      { correct: true, time_ms: 4200 },
+      { correct: false, time_ms: 9100 },
+    ],
+    totalMs: 13300,
+    challengerName: 'Sam',
+  }),
+)
+
+async function phase4Shot(page: Page, name: string) {
+  await page.waitForTimeout(350)
+  await page.screenshot({ path: `${PHASE4_OUT_DIR}/${name}--${PHASE4_TAG}.png`, fullPage: true })
+  console.log(`phase4  ok  ${name}--${PHASE4_TAG}.png`)
+}
+
+async function runPhase4Extras() {
+  await mkdir(PHASE4_OUT_DIR, { recursive: true })
+  const browser = await chromium.launch()
+
+  for (const viewport of VIEWPORTS) {
+    const newPage = async () =>
+      browser.newPage({ viewport: { width: viewport.width, height: viewport.height } })
+
+    // Browse: all-new profile (zero attempts everywhere).
+    {
+      const page = await newPage()
+      await skipFirstRun(page, BASE_URL)
+      await page.goto(`${BASE_URL}/browse`, { waitUntil: 'networkidle' })
+      await phase4Shot(page, `browse-allnew--${viewport.name}`)
+      await page.close()
+    }
+
+    // Browse: mixed mastery (mastered/learning/weak/new all present).
+    {
+      const page = await newPage()
+      await skipFirstRun(page, BASE_URL)
+      await page.evaluate(SEED_MASTERY_SCRIPT)
+      await page.goto(`${BASE_URL}/browse`, { waitUntil: 'networkidle' })
+      await phase4Shot(page, `browse-mixed--${viewport.name}`)
+      await page.close()
+    }
+
+    // Stats: zero attempts.
+    {
+      const page = await newPage()
+      await skipFirstRun(page, BASE_URL)
+      await page.goto(`${BASE_URL}/stats`, { waitUntil: 'networkidle' })
+      await phase4Shot(page, `stats-zero--${viewport.name}`)
+      await page.close()
+    }
+
+    // Stats: with attempts (confirms the fix doesn't regress the non-empty case).
+    {
+      const page = await newPage()
+      await skipFirstRun(page, BASE_URL)
+      await page.evaluate(SEED_MASTERY_SCRIPT)
+      await page.goto(`${BASE_URL}/stats`, { waitUntil: 'networkidle' })
+      await phase4Shot(page, `stats-withattempts--${viewport.name}`)
+      await page.close()
+    }
+
+    // Practice: chip-row fade affordance check (audit P0 note). Two shots:
+    // fullPage (matches every other capture here) and viewport-only (a
+    // fullPage capture stitches together scroll positions, which visually
+    // duplicates BottomNav's fixed positioning over mid-page content — the
+    // viewport-only shot is what a player actually sees on load, unscrolled).
+    {
+      const page = await newPage()
+      await skipFirstRun(page, BASE_URL)
+      await page.goto(`${BASE_URL}/practice`, { waitUntil: 'networkidle' })
+      await page.waitForTimeout(350)
+      await page.screenshot({
+        path: `${PHASE4_OUT_DIR}/practice-chiprow-viewport--${viewport.name}--${PHASE4_TAG}.png`,
+      })
+      await phase4Shot(page, `practice-chiprow--${viewport.name}`)
+      await page.close()
+    }
+
+    // /puzzle/:id — one real bundled puzzle per interaction type, plus not-found.
+    const puzzleCases: readonly [string, string][] = [
+      ['con-002', 'puzzle-tapline'],
+      ['con-012', 'puzzle-dragorder'],
+      ['con-005', 'puzzle-mcq'],
+      ['cf-016', 'puzzle-scrubber'],
+      ['does-not-exist', 'puzzle-notfound'],
+    ]
+    for (const [id, slug] of puzzleCases) {
+      const page = await newPage()
+      await page.goto(`${BASE_URL}/puzzle/${id}`, { waitUntil: 'networkidle' })
+      await phase4Shot(page, `${slug}--${viewport.name}`)
+      await page.close()
+    }
+
+    // /challenge — intro hero.
+    {
+      const page = await newPage()
+      await page.goto(`${BASE_URL}/challenge#${TWO_PUZZLE_CHALLENGE_HASH}`, {
+        waitUntil: 'networkidle',
+      })
+      await phase4Shot(page, `challenge-intro--${viewport.name}`)
+      await page.close()
+    }
+
+    // /challenge — mid-puzzle, ghost bar visible (puzzle 1 has a their-result).
+    {
+      const page = await newPage()
+      await page.goto(`${BASE_URL}/challenge#${TWO_PUZZLE_CHALLENGE_HASH}`, {
+        waitUntil: 'networkidle',
+      })
+      await page.locator('button:has-text("Accept Challenge")').first().click()
+      await phase4Shot(page, `challenge-midpuzzle--${viewport.name}`)
+      await page.close()
+    }
+
+    // /challenge — comparison screen, reached by really answering both puzzles
+    // (mcq then scrubber) through the live UI.
+    {
+      const page = await newPage()
+      await page.goto(`${BASE_URL}/challenge#${TWO_PUZZLE_CHALLENGE_HASH}`, {
+        waitUntil: 'networkidle',
+      })
+      await page.locator('button:has-text("Accept Challenge")').first().click()
+      await page.waitForTimeout(300)
+      await page.locator('.puzzle-card button').first().click()
+      await page.waitForTimeout(200)
+      await page.locator('button:has-text("Next puzzle")').first().click()
+      await page.waitForTimeout(300)
+      for (let i = 0; i < 30; i++) {
+        if ((await page.locator('button:has-text("Next puzzle")').count()) > 0) break
+        const choice = page.locator('.checkpoint-choice:not([disabled])').first()
+        if ((await choice.count()) > 0) {
+          await choice.click()
+          await page.waitForTimeout(150)
+          continue
+        }
+        // The scrubber's forward-step control's visible glyph is '›' —
+        // its "Next step" text only exists as an aria-label/tooltip, so
+        // this must match by accessible name (getByRole), not :has-text()
+        // (which checks rendered textContent and would never match it).
+        const next = page.getByRole('button', { name: 'Next step', exact: true })
+        if ((await next.count()) > 0 && (await next.isEnabled())) {
+          await next.click()
+          await page.waitForTimeout(150)
+          continue
+        }
+        break
+      }
+      const finishBtn = page.locator('button:has-text("Next puzzle")').first()
+      if ((await finishBtn.count()) > 0) {
+        await finishBtn.click()
+        await page.waitForTimeout(300)
+      }
+      await phase4Shot(page, `challenge-comparison--${viewport.name}`)
+      await page.close()
+    }
+
+    // /challenge — broken link.
+    {
+      const page = await newPage()
+      await page.goto(`${BASE_URL}/challenge#!not-valid-base64url!`, { waitUntil: 'networkidle' })
+      await phase4Shot(page, `challenge-broken--${viewport.name}`)
+      await page.close()
+    }
+  }
+
+  await browser.close()
+  console.log('phase4 done')
+}
 
 // ---------------------------------------------------------------------
 // Manual checklist — surfaces found by grepping src/app that only appear

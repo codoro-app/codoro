@@ -246,11 +246,35 @@ describe('StatsPage', () => {
       ...baseProfile(),
       streak: { currentStreak: 0, longestStreak: 23, lastActiveDate: null },
     })
+    // A lapsed streak (currentStreak: 0) with real history — distinct from
+    // the true first-timer case below, which has zero attempts and now
+    // hides this label entirely (audit #6) rather than showing it.
+    vi.mocked(listAttempts).mockResolvedValue([attempt({ id: '1', localDateString: '2026-08-10' })])
     render(<StatsPage />)
     await waitFor(() => {
       expect(screen.getByText('1487')).toBeInTheDocument()
     })
     expect(screen.getByText('Start your streak today')).toBeInTheDocument()
     expect(screen.queryByText(/day streak/)).not.toBeInTheDocument()
+  })
+
+  // Redesign audit #6: the top emptyBanner ("You haven't solved any puzzles
+  // yet…") and the Activity card's streak label said the same thing two
+  // ways at zero attempts. The card itself stays (a stable layout anchor
+  // with its calendar grid still visible), but the redundant label is gone.
+  it('hides the Activity streak label entirely at zero attempts, not just the zero-day case', async () => {
+    vi.mocked(loadProfile).mockResolvedValue({
+      ...baseProfile(),
+      streak: { currentStreak: 0, longestStreak: 23, lastActiveDate: null },
+    })
+    render(<StatsPage />)
+    await waitFor(() => {
+      expect(screen.getByText('1487')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Start your streak today')).not.toBeInTheDocument()
+    expect(screen.queryByText(/day streak/)).not.toBeInTheDocument()
+    // The card itself (heading + calendar grid) is still there.
+    expect(screen.getByText('Activity')).toBeInTheDocument()
+    expect(screen.getByLabelText(/activity calendar/i)).toBeInTheDocument()
   })
 })

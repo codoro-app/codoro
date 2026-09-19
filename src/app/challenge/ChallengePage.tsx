@@ -48,6 +48,7 @@ import { ChallengeComparison } from './ChallengeComparison'
 import { GhostBar } from './GhostBar'
 import { PuzzleCardShell } from '../practice/PuzzleCardShell'
 import { TraceRunnerPuzzle } from '../trace/TraceRunner'
+import { ProgressIndicator } from '../ProgressIndicator'
 import { useMediaQuery } from '../useMediaQuery'
 import { PATTERN_LABELS } from '../../content'
 import { CloseIcon } from '../Icons'
@@ -188,6 +189,26 @@ export function ChallengePageForSession({ session, onQuit }: ChallengePageForSes
             Quit
           </button>
         )}
+        {/* Redesign Phase 4 (audit #3): this used to be plain text ("Puzzle
+            N of M") shown ONLY in the desktop right rail below — mobile had
+            no progress indication at all, the same gap the audit found on
+            Daily. Now one shared row at both breakpoints: the visible text
+            stays (still the clearest "N of M" readout at a glance) but is
+            `aria-hidden` so it doesn't double-announce alongside
+            ProgressIndicator's own accessible name below it. */}
+        <div className="flex items-center gap-2">
+          <span aria-hidden="true" className="text-sm font-bold text-text-1">
+            Puzzle {session.puzzleIndex + 1} of {totalPuzzles}
+          </span>
+          <ProgressIndicator
+            value={session.puzzleIndex + 1}
+            max={totalPuzzles}
+            variant="dots"
+            tone="accent"
+            label={`Puzzle ${String(session.puzzleIndex + 1)} of ${String(totalPuzzles)}`}
+            announceAs="status"
+          />
+        </div>
         {/* Ghost race (async-challenge feel pass): races the challenger's
             own recorded time for THIS puzzle position — self-hides when the
             payload has no result there (defensive; ids/results are
@@ -236,13 +257,12 @@ export function ChallengePageForSession({ session, onQuit }: ChallengePageForSes
 
       {isDesktop && (
         // v4 Phase 4.5 ("the right rail") — new sidebar, Challenge had none
-        // before. Progress line is page-owned (session already exposes the
-        // numbers); the feedback/Continue block below it portals in from
-        // whichever shell is active above.
+        // before. The feedback/Continue block portals in from whichever
+        // shell is active above. Redesign Phase 4: the progress line that
+        // used to live here alone moved into the shared row above (now
+        // shown at both breakpoints, not desktop-only) — see that row's
+        // own comment.
         <aside className="app-shell__sidebar flex flex-col gap-4 py-6 px-4 border-l border-border self-start">
-          <p className="m-0 text-sm font-bold text-text-1">
-            Puzzle {session.puzzleIndex + 1} of {totalPuzzles}
-          </p>
           <div ref={setSidebarSlotEl} className="empty:hidden flex flex-col gap-4" />
         </aside>
       )}

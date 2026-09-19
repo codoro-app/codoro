@@ -52,6 +52,41 @@ function emptyRow(pattern: PatternSlug): PatternMastery {
   return { pattern, attemptCount: 0, accuracy: null }
 }
 
+interface PatternSection {
+  key: 'in-progress' | 'not-started' | 'mastered'
+  heading: string
+  rows: PatternMastery[]
+}
+
+/**
+ * Redesign Phase 4 (audit's Browse row: "long flat list, no visual
+ * hierarchy between not-started and in-progress patterns"): buckets the
+ * fixed-order `PATTERN_SLUGS` rows into three sections instead of one flat
+ * list. In-progress (learning + weak) sorts weakest-first via `Array#sort`'s
+ * guaranteed stability (ES2019) — ties (equal accuracy) fall back to `rows`'
+ * own PATTERN_SLUGS order rather than an arbitrary one. Not-started and
+ * mastered keep PATTERN_SLUGS order outright (no ranking signal to sort by
+ * within either bucket). Empty sections are dropped by the caller, not
+ * here, so this stays a pure grouping function independent of rendering.
+ */
+function groupPatternRows(rows: PatternMastery[]): PatternSection[] {
+  const inProgress = rows
+    .filter((row) => {
+      const state = masteryState(row)
+      return state === 'learning' || state === 'weak'
+    })
+    .sort((a, b) => (a.accuracy ?? 0) - (b.accuracy ?? 0))
+  const notStarted = rows.filter((row) => masteryState(row) === 'new')
+  const mastered = rows.filter((row) => masteryState(row) === 'mastered')
+
+  const sections: PatternSection[] = [
+    { key: 'in-progress', heading: 'In progress', rows: inProgress },
+    { key: 'not-started', heading: 'Not started', rows: notStarted },
+    { key: 'mastered', heading: 'Mastered', rows: mastered },
+  ]
+  return sections.filter((section) => section.rows.length > 0)
+}
+
 // 2b.0: was `.pattern-picker__badge` (base) + `--new`/`--mastered`/
 // `--learning`/`--weak` in practicePage.css.
 function badgeClass(state: MasteryState): string {
@@ -109,53 +144,65 @@ export function PatternPicker({ onSelect, onBack, singleColumn = false }: Patter
         Practice all patterns
       </button>
 
-      <div
-        className={
-          singleColumn
-            ? 'flex flex-col gap-2'
-            : 'flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3'
-        }
-      >
-        {PATTERN_SLUGS.map((slug) => {
-          const row = rows?.find((candidate) => candidate.pattern === slug) ?? emptyRow(slug)
-          const state = masteryState(row)
-          const accuracyText =
-            row.accuracy === null
-              ? `Not enough data (${String(row.attemptCount)}/${String(MIN_ATTEMPTS_FOR_MASTERY)})`
-              : `${String(Math.round(row.accuracy * 100))}%`
-          const captionText = `${String(row.attemptCount)}/${String(MIN_ATTEMPTS_FOR_MASTERY)} · ${state}`
-          const fillPct = Math.min(100, (row.attemptCount / MIN_ATTEMPTS_FOR_MASTERY) * 100)
-          // Weak (accuracy < 0.4) is the only state that recolors the whole
-          // card (decision #10, UI v2 Arena plan) — was `.pattern-picker__button--weak`.
-          const buttonClass =
-            state === 'weak'
-              ? 'min-h-11 w-full py-3 px-4 rounded-md border border-danger bg-danger-dim text-text-0 text-left text-md flex flex-col gap-3 cursor-pointer'
-              : 'min-h-11 w-full py-3 px-4 rounded-md border border-border bg-surface-1 text-text-0 text-left text-md flex flex-col gap-3 cursor-pointer'
+      {groupPatternRows(
+        PATTERN_SLUGS.map((slug) => rows?.find((r) => r.pattern === slug) ?? emptyRow(slug)),
+      ).map((section) => (
+        <div key={section.key} className="flex flex-col gap-2">
+          <h3 className="m-0 text-sm font-bold text-text-2 uppercase tracking-[0.04em]">
+            {section.heading}
+          </h3>
+          <div
+            className={
+              singleColumn
+                ? 'flex flex-col gap-2'
+                : 'flex flex-col gap-2 lg:grid lg:grid-cols-2 lg:gap-3'
+            }
+          >
+            {section.rows.map((row) => {
+              const slug = row.pattern
+              const state = masteryState(row)
+              const accuracyText =
+                row.accuracy === null
+                  ? `Not enough data (${String(row.attemptCount)}/${String(MIN_ATTEMPTS_FOR_MASTERY)})`
+                  : `${String(Math.round(row.accuracy * 100))}%`
+              const captionText = `${String(row.attemptCount)}/${String(MIN_ATTEMPTS_FOR_MASTERY)} · ${state}`
+              const fillPct = Math.min(100, (row.attemptCount / MIN_ATTEMPTS_FOR_MASTERY) * 100)
+              // Weak (accuracy < 0.4) is the only state that recolors the
+              // whole card (decision #10, UI v2 Arena plan) — was
+              // `.pattern-picker__button--weak`.
+              const buttonClass =
+                state === 'weak'
+                  ? 'min-h-11 w-full py-3 px-4 rounded-md border border-danger bg-danger-dim text-text-0 text-left text-md flex flex-col gap-3 cursor-pointer'
+                  : 'min-h-11 w-full py-3 px-4 rounded-md border border-border bg-surface-1 text-text-0 text-left text-md flex flex-col gap-3 cursor-pointer'
 
-          return (
-            <button
-              key={slug}
-              type="button"
-              className={buttonClass}
-              onClick={() => {
-                onSelect(slug)
-              }}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold text-base text-text-0">{PATTERN_LABELS[slug]}</span>
-                <span className={badgeClass(state)}>{accuracyText}</span>
-              </div>
-              <div className="h-[5px] rounded-[3px] bg-surface-2 overflow-hidden">
-                <div
-                  className={`h-full rounded-[3px] ${fillClass(state)}`}
-                  style={{ width: `${String(fillPct)}%` }}
-                />
-              </div>
-              <span className="font-mono text-xs text-text-2">{captionText}</span>
-            </button>
-          )
-        })}
-      </div>
+              return (
+                <button
+                  key={slug}
+                  type="button"
+                  className={buttonClass}
+                  onClick={() => {
+                    onSelect(slug)
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-base text-text-0">
+                      {PATTERN_LABELS[slug]}
+                    </span>
+                    <span className={badgeClass(state)}>{accuracyText}</span>
+                  </div>
+                  <div className="h-[5px] rounded-[3px] bg-surface-2 overflow-hidden">
+                    <div
+                      className={`h-full rounded-[3px] ${fillClass(state)}`}
+                      style={{ width: `${String(fillPct)}%` }}
+                    />
+                  </div>
+                  <span className="font-mono text-xs text-text-2">{captionText}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
