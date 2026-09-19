@@ -38,6 +38,14 @@ describe('LegalPage', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('discloses that signed-in usage events are linked to the account by Clerk user ID, never email (PR #153)', () => {
+    render(<LegalPage />)
+    expect(
+      screen.getByText(/linked to your account instead of staying anonymous/i),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/clerk's internal user id only, never your email/i)).toBeInTheDocument()
+  })
+
   it('names the feedback form, hosted by Tally, with an optional email used only for product updates', () => {
     render(<LegalPage />)
     expect(

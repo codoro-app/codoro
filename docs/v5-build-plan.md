@@ -99,6 +99,14 @@ v5 gives players an identity and — the part that actually serves retention —
 
 ## Phase 5.3 — Public identity + named leaderboards (2 sessions)
 
+> **Deferred, 2026-09-19 (direct user decision).** v5 closes at 5.4 + 5.6-lite;
+> this phase is not built this version. Reopen trigger: ≥500 registered
+> users, **or** the decision to build leaderboards, **or** v8 async duels
+> starting — whichever is first. This section and
+> `docs/prompts/claude_code_prompt_v5_t9_usernames.md` stay on disk
+> unmodified, ready to run when the trigger fires. See
+> `docs/v5-closeout-decision.md`.
+
 **Build:**
 
 1. **Usernames**: unique, case-insensitive, reserved-word + profanity denylist (allowlist thinking per the OD-2 lesson: strict charset, length bounds), rate-limited changes.
@@ -120,9 +128,17 @@ v3 Phase 4 item 5, carried unchanged: per-route and per-puzzle `<title>`/descrip
 
 **DoD:**
 
-- [x] ~~Unfurls verified with real debuggers (Slack/Discord/X) against staging `/puzzle/:id` and `/challenge` URLs~~ **verified 2026-09-15** — `/challenge` was verified this way at ship time (PR #110); `/puzzle/:id` verified via direct HTTP fetch of the live Cloudflare Pages preview deployment showing the correctly rewritten `<title>`/`og:*`/`twitter:*`/description tags (a live third-party debugger screenshot was deprioritized this session for cost reasons — the raw-HTTP check is strictly more precise proof of the same claim). See the Phase 5.4 + 5.6 closing amendment in `docs/superpowers/plans/2026-09-15-v5-phase-5.4-5.6-implementation-plan.md`.
+- [x] ~~Unfurls verified with real debuggers (Slack/Discord/X) against staging `/puzzle/:id` and `/challenge` URLs~~ **verified 2026-09-15, real-debugger check completed 2026-09-19** — `/challenge` was verified this way at ship time (PR #110); `/puzzle/:id` was first verified via direct HTTP fetch (2026-09-15, real debugger screenshot deprioritized that session for cost reasons), then verified for real against **production** (`getcodoro.com/puzzle/con-001` and `/puzzle/cf-005`, two distinct puzzles) via opengraph.xyz's Facebook, Discord, and X preview renderers — correct per-puzzle title/description/branded-card in all three, zero errors from the meta-tag inspector, screenshots recorded in the 2026-09-19 close-out amendment. Unknown puzzle id (`/puzzle/not-a-real-puzzle-id`) confirmed 200 + generic fallback title, not an error. See the Phase 5.4 + 5.6 closing amendment in `docs/superpowers/plans/2026-09-15-v5-phase-5.4-5.6-implementation-plan.md` and the 2026-09-19 close-out session's amendment.
 
 ## Phase 5.5 — Email re-engagement (1–2 sessions)
+
+> **Deferred, 2026-09-19 (direct user decision).** v5 closes at 5.4 + 5.6-lite;
+> this phase is not built this version. Reopen trigger: ≥500 registered
+> users **and** a measured day-7 return rate above 10% (both, not either).
+> Note: the `scores` table pruning originally specced to ride on this
+> phase's Workers Cron trigger now has no pruner — real but irrelevant for
+> years at current volume; reopens with 5.5, or sooner if `scores` passes
+> 100k rows. See `docs/v5-closeout-decision.md`.
 
 **Build:**
 

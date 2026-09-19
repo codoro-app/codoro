@@ -2,11 +2,13 @@
 
 The whole arc, v1 through multiplayer. No dates — versions are gated by decisions and outcomes, not the calendar. Each version has an **entry gate**: the thing that must be true before its work starts. Detailed phase plans are written one version at a time; later versions are sketched here at phase granularity and get their own build plan when their gate opens.
 
-The one-line strategy: **v2 makes the game worth playing, v3 polishes and hardens it, v4 makes it feel finished and controllable, v5 gives players an identity and a comeback channel, v6 makes it a game people return to — and launches it, v7 lets them play each other.**
+The one-line strategy: **v2 makes the game worth playing, v3 polishes and hardens it, v4 makes it feel finished and controllable, v5 gives players an identity and a comeback channel, v6 makes it worth paying for, v7 makes it a game people return to — and launches it, v8 lets them play each other.**
 
 > **Resequenced 2026-08-26 (direct user decision).** The launch moves from v3's tail to v6's. Reason, recorded honestly: the app in its current state plays like a flashcard exam, not a game — launching it would spend the one-shot launch audience on a product that doesn't retain. Accounts (v5) and gamification/retention (v6) are built first; the launch fires when the game earns it. This consciously waives the old evidence gates for v5 (retention data cannot exist pre-launch) — an exception to sequencing principle 1, mitigated by v6's closed beta, which produces retention evidence before any loud post. v3 Phase 4's anonymous-only backend is superseded: the backend is built once, authenticated, in v5 (`docs/v5-build-plan.md`). The prior version numbering (v5=accounts, v6=multiplayer) shifts: multiplayer is now v7.
 
 > **Resequenced again 2026-08-27 (direct user decision).** A UI/polish version is inserted as **v4** (`docs/v4-build-plan.md`), pushing accounts to v5, gamification/launch to v6, multiplayer to v7. Reason: every item on `docs/todo.md` is client-only with no backend dependency, so it ships incrementally instead of waiting out 10–14 sessions of invisible infrastructure — and two of those items (the Settings rebuild, the app-feel/optimistic-rendering work) are surfaces v5's 5.1 and 5.3 would otherwise build on and then have rebuilt underneath them. The accounts plan is unchanged in substance; only its number and phase labels moved. This does not delay the launch, which is behind v6 either way.
+
+> **Resequenced a third time 2026-09-19 (direct user decision).** A monetization version is inserted as **v6 — The Coach** (`docs/v6-build-plan.md`), pushing gamification/launch to **v7** and multiplayer to **v8**. Reason: Thomas set a hard six-month deadline (to ~March 2027) — if Codoro has made no money by then he stops the project, which makes the old "build retention for months, then launch, then monetize" sequence unaffordable. v5 is also cut short: it closes at 5.4 + 5.6-lite, with 5.3 (profiles) and 5.5 (email) deferred behind written reopen triggers. See `docs/v5-closeout-decision.md`. **Numbering has now changed three times — trust `docs/roadmap.md` over any other document, and treat a version number in a doc written before 2026-09-19 as suspect.**
 
 ---
 
@@ -32,14 +34,14 @@ Originally "Launch: get users" — the launch machinery it carried (readiness ga
 
 **Entry gate: open** (2026-08-27 decision). Scope is exactly `docs/todo.md`'s open items and nothing else. Nothing here needs a backend; every phase ships to production the day it merges.
 
-| Phase | What |
-| --- | --- |
-| 4.0 | Desktop & keyboard control: Enter to submit/advance, arrow-key interaction per type, the desktop rails (right sidebar sticky), the Practice scroll defect |
-| 4.1 | Settings, for real: a first-class route with actual preferences, export/import folded in, preferences stored in the versioned export format so v5's sync gets them free |
-| 4.2 | Difficulty filter on Browse (deliberately *not* the rated flow) |
-| 4.3 | Daily, made hard: mcq and swipe-binary dropped (firm), calendar rebuilt around scrubber/drag-order/tap-line, rule enforced in CI. **Gated on a content batch** — commissioned on day one, so this phase lands last |
-| 4.4 | Affordances: drag-handle target + first-use hint, tooltips where a control isn't self-evident, accessible names on icon-only controls |
-| 4.5 | The verification tail: v3's 2b.8 QA pass, todo item 19's mobile defects (verify before fixing), Thomas's device backlog, regression sweep over 4.0–4.4 |
+| Phase | What                                                                                                                                                                                                               |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 4.0   | Desktop & keyboard control: Enter to submit/advance, arrow-key interaction per type, the desktop rails (right sidebar sticky), the Practice scroll defect                                                          |
+| 4.1   | Settings, for real: a first-class route with actual preferences, export/import folded in, preferences stored in the versioned export format so v5's sync gets them free                                            |
+| 4.2   | Difficulty filter on Browse (deliberately _not_ the rated flow)                                                                                                                                                    |
+| 4.3   | Daily, made hard: mcq and swipe-binary dropped (firm), calendar rebuilt around scrubber/drag-order/tap-line, rule enforced in CI. **Gated on a content batch** — commissioned on day one, so this phase lands last |
+| 4.4   | Affordances: drag-handle target + first-use hint, tooltips where a control isn't self-evident, accessible names on icon-only controls                                                                              |
+| 4.5   | The verification tail: v3's 2b.8 QA pass, todo item 19's mobile defects (verify before fixing), Thomas's device backlog, regression sweep over 4.0–4.4                                                             |
 
 Deliberately **not** in v4: skeleton loaders, caching and optimistic rendering (todo 9/10/11) — local-first means there is no latency to mask and no response to cache; they become real work in v5. Report-a-puzzle (todo 18) moved to v5, where a real endpoint costs an hour instead of a `mailto:` hack. Privacy policy and ToS (todo 15/16) stay in v5's single lawyer review. "Make Daily better" beyond its interaction mix belongs to v6's game-feel definition session. The full independent-scroll desktop shell was considered for 4.0 and rejected — it destabilizes the shell right before v5 builds on it; if still wanted, it belongs in v6.
 
@@ -47,39 +49,60 @@ Deliberately **not** in v4: skeleton loaders, caching and optimistic rendering (
 
 **Entry gate: v4 shipped** (2026-08-27; the old retention-evidence gate stays consciously waived per the 2026-08-26 note — only the version immediately in front of it changed). One backend, built once, authenticated from day one; guest-first stays law — an account is never required to play.
 
-| Phase | What |
-| --- | --- |
-| 5.0 | Backend foundation: `workers/` package, Clerk JWT verification, D1 schema, rate limiting, CI deploy, puzzle-report endpoint (unauthenticated by design) |
-| 5.1 | Client auth: Clerk React, guest-first UX (signup only at value moments), account settings + deletion, report-a-puzzle control |
-| 5.2 | Progress sync: versioned export format as payload, anonymous→account migration keeps rating/history, merge rules, multi-device |
-| 5.3 | Public identity: usernames, opt-in profiles, named Daily/Rush/Boss leaderboards, privacy controls |
-| 5.4 | Edge OG meta injection (carried v3 item — covers `/challenge` unfurls) |
-| 5.5 | Email re-engagement: streak-at-risk nudge, challenge-answered notify, weekly digest (Resend; preferences + one-click unsubscribe from day one) |
-| 5.6 | Hardening: load test + 1×/10×/100× cost curve (incl. Clerk/Resend), authz suite, `/legal` PII delta, lawyer review engaged |
+| Phase | What                                                                                                                                                    |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5.0   | Backend foundation: `workers/` package, Clerk JWT verification, D1 schema, rate limiting, CI deploy, puzzle-report endpoint (unauthenticated by design) |
+| 5.1   | Client auth: Clerk React, guest-first UX (signup only at value moments), account settings + deletion, report-a-puzzle control                           |
+| 5.2   | Progress sync: versioned export format as payload, anonymous→account migration keeps rating/history, merge rules, multi-device                          |
+| 5.3   | Public identity: usernames, opt-in profiles, named Daily/Rush/Boss leaderboards, privacy controls                                                       |
+| 5.4   | Edge OG meta injection (carried v3 item — covers `/challenge` unfurls)                                                                                  |
+| 5.5   | Email re-engagement: streak-at-risk nudge, challenge-answered notify, weekly digest (Resend; preferences + one-click unsubscribe from day one)          |
+| 5.6   | Hardening: load test + 1×/10×/100× cost curve (incl. Clerk/Resend), authz suite, `/legal` PII delta, lawyer review engaged                              |
 
-## v6 — Make it a game people return to — then launch
+**Closed early, 2026-09-19.** v5 does not run this table to the end. It closes at **5.4 + 5.6-lite**: the `/legal` accounts delta (live and inaccurate since 5.1), the authz/security sweep, and per-puzzle OG. **5.3 (profiles), 5.5 (email) and 5.6's load test are deferred behind written reopen triggers** — see `docs/v5-closeout-decision.md`. Their prompts and plan sections stay on disk unmodified, ready to run when a trigger fires.
 
-**Entry gate:** v5 shipped (sync + identity + email live on staging). **Exit state: launched**, with retention evidence from a closed beta preceding any loud post. This is the version that answers the "flashcard exam" problem head-on; it gets its own build plan when the gate opens, preceded by a **game-feel definition session** (the repo's convention: no build without the definition on paper).
+## v6 — The Coach: explanations, diagnosis, and the first paid tier (`docs/v6-build-plan.md`)
 
-| Phase | What (sketch — the definition session binds, this doesn't) |
-| --- | --- |
-| 6.0 | **Game-feel definition session** (blocking): what "feels like a game, not an exam" means operationally — session shape, difficulty curve, reward cadence, failure UX; audits every current surface against it |
-| 6.1 | **Progression spine — curated tracks & levels**: named tracks (Interview Prep, JS Fundamentals, React, …) composed of short sessionized levels with a visible map, clear/CLEARED payoff moments, and mastery stars; Missions/Boss become structures inside tracks rather than parallel modes |
-| 6.2 | **New puzzle interactions**: fill-in-the-blank (cloze code), debug-it mode (a wrong answer drops you into a console to find *why* — the "X" becomes a puzzle), fix-the-bug; content pipeline + `validate:content` extended to the new formats |
-| 6.3 | **Reward systems**: streaks with freezes, badges/achievements (filling v5's profile slots), daily quests, leaderboard seasons — every reward wired to a real accomplishment (the no-fake-numbers rule holds) |
-| 6.4 | **Comeback loops**: daily quest + streak + new-content hooks plugged into v5's email channel; re-engagement measured, not assumed |
-| 6.5 | **Closed beta**: 10–20 real users, retention dashboards (day-2/day-7 return, session length, puzzles/session) — the evidence loop the waived v5 gate deferred; iterate until the numbers say "game," not "exam" |
-| 6.6 | **Launch tail** (carried from old v3): launch-readiness verification, scaling validation gate with measured numbers, SEO/prerender pass, staggered launch posts (r/webdev, r/learnprogramming, HN Show, X), reel videos, then the growth loop (feedback channel, weekly content drops, dashboard watch) |
+**Entry gate:** v5 closed at 5.4 + 5.6-lite (`docs/v5-closeout-decision.md`). **Exit state:** a paid tier is live and has either taken real money from someone who isn't Thomas, or produced a written decision that it won't. Only "we never found out" is a failure.
 
-## v7 — Multiplayer
+The thesis: people don't pay for more puzzles — free alternatives have unlimited content and Codoro will never win on volume. They pay for something that replaces a human. When a player gets a puzzle wrong, the app says what the bug was; it doesn't say **why the answer they chose was wrong**. Every interaction type here has a bounded wrong-answer space (no free text anywhere in the schema), so those explanations can be generated once, offline, and shipped as static content — zero runtime cost, no per-request token bill, works offline. Full design: `docs/superpowers/plans/2026-09-19-wrong-answer-explanations-spec.md`.
 
-**Entry gate:** launched (v6) and an active player base — multiplayer with no one online is worse than no multiplayer.
+**The law this version must not break: the paid tier adds, it never removes.** The existing per-puzzle `explanation` stays free and unchanged for everyone. Guest-first is unaffected.
 
-| Phase | What |
-| --- | --- |
-| 7.0 | Async duels: challenge links upgraded with accounts + server-stored challenges — persistent history, tamper-proof results, answered-challenge notifications (the v5 email/notify channel already carries these) |
-| 7.1 | Live head-to-head: realtime Rush-style races (Durable Objects + WebSockets on the existing Cloudflare stack), Elo-based matchmaking reusing the rating engine |
-| 7.2 | Competitive structure: seasons, ladders, private rooms/clubs (classrooms and interview-prep groups are the obvious wedge) |
+| Phase | What                                                                                                             |
+| ----- | ---------------------------------------------------------------------------------------------------------------- |
+| 6.0   | Wrong-answer explanation content: generation pipeline + the mcq/tap-line batch (745 explanations)                |
+| 6.1   | The coach surface: rendering in the existing feedback drawer, free/paid split, metered free taste                |
+| 6.2   | Entitlements + Stripe: D1 table, Checkout, signature-verified webhook, deletion-cancels-subscription             |
+| 6.3   | Weakness diagnostic: misconception-level accuracy and targeted drills, built on 6.0's generated labels           |
+| 6.4   | Repositioning: this is a bug-spotting product, not an algorithms product — landing copy, OG text, manifest       |
+| 6.5   | Private cohort: 20–30 real players, day-2/day-7 return and conversion, with the decision rule written in advance |
+
+Running in parallel, not phases: instructor conversations about a classroom tier (zero engineering time, highest dollar-per-sale in the plan), and continued content authoring.
+
+## v7 — Make it a game people return to — then launch
+
+**Entry gate:** v6 shipped — a paid tier is live and the 6.5 cohort cleared its day-7 bar (`docs/v6-build-plan.md`). **Exit state: launched**, with retention evidence from a closed beta preceding any loud post. This is the version that answers the "flashcard exam" problem head-on; it gets its own build plan when the gate opens, preceded by a **game-feel definition session** (the repo's convention: no build without the definition on paper).
+
+| Phase | What (sketch — the definition session binds, this doesn't)                                                                                                                                                                                                                                              |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 7.0   | **Game-feel definition session** (blocking): what "feels like a game, not an exam" means operationally — session shape, difficulty curve, reward cadence, failure UX; audits every current surface against it                                                                                           |
+| 7.1   | **Progression spine — curated tracks & levels**: named tracks (Interview Prep, JS Fundamentals, React, …) composed of short sessionized levels with a visible map, clear/CLEARED payoff moments, and mastery stars; Missions/Boss become structures inside tracks rather than parallel modes            |
+| 7.2   | **New puzzle interactions**: fill-in-the-blank (cloze code), debug-it mode (a wrong answer drops you into a console to find _why_ — the "X" becomes a puzzle), fix-the-bug; content pipeline + `validate:content` extended to the new formats                                                           |
+| 7.3   | **Reward systems**: streaks with freezes, badges/achievements (filling v5's profile slots), daily quests, leaderboard seasons — every reward wired to a real accomplishment (the no-fake-numbers rule holds)                                                                                            |
+| 7.4   | **Comeback loops**: daily quest + streak + new-content hooks plugged into v5's email channel; re-engagement measured, not assumed                                                                                                                                                                       |
+| 7.5   | **Closed beta**: 10–20 real users, retention dashboards (day-2/day-7 return, session length, puzzles/session) — the evidence loop the waived v5 gate deferred; iterate until the numbers say "game," not "exam"                                                                                         |
+| 7.6   | **Launch tail** (carried from old v3): launch-readiness verification, scaling validation gate with measured numbers, SEO/prerender pass, staggered launch posts (r/webdev, r/learnprogramming, HN Show, X), reel videos, then the growth loop (feedback channel, weekly content drops, dashboard watch) |
+
+## v8 — Multiplayer
+
+**Entry gate:** launched (v7) and an active player base — multiplayer with no one online is worse than no multiplayer.
+
+| Phase | What                                                                                                                                                                                                            |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 8.0   | Async duels: challenge links upgraded with accounts + server-stored challenges — persistent history, tamper-proof results, answered-challenge notifications (the v5 email/notify channel already carries these) |
+| 8.1   | Live head-to-head: realtime Rush-style races (Durable Objects + WebSockets on the existing Cloudflare stack), Elo-based matchmaking reusing the rating engine                                                   |
+| 8.2   | Competitive structure: seasons, ladders, private rooms/clubs (classrooms and interview-prep groups are the obvious wedge)                                                                                       |
 
 ---
 
