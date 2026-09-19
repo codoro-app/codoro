@@ -52,6 +52,7 @@ import { ProgressIndicator } from '../ProgressIndicator'
 import { useMediaQuery } from '../useMediaQuery'
 import { PATTERN_LABELS } from '../../content'
 import { CloseIcon } from '../Icons'
+import { PRESS_CLASS } from '../motion'
 import '../tokens.css'
 
 // 2b.0: was `.challenge-page` (challengePage.css, max-width breakpoint
@@ -64,12 +65,14 @@ const CTA_CLASS =
 // treatment (reused verbatim by Rush/Boss's own end-of-run cards) — the
 // intro hero is this same visual language's first use ahead of a run
 // instead of after one.
+// motion-enter (tokens.css): one of the 4 entrance-pattern surfaces named by
+// the motion foundation pass — this hero is the first thing a challenge
+// recipient sees, worth the same fade+rise `.feedback-panel` already uses.
 const INTRO_HERO_CLASS =
-  'flex flex-col items-center gap-4 p-4 lg:py-[28px] lg:px-[30px] rounded-xl border-[1.5px] border-accent [background:linear-gradient(160deg,var(--accent-dim),var(--surface-1))] text-center'
+  'flex flex-col items-center gap-4 p-4 lg:py-[28px] lg:px-[30px] rounded-xl border-[1.5px] border-accent [background:linear-gradient(160deg,var(--accent-dim),var(--surface-1))] text-center motion-enter'
 const CHIP_CLASS =
   'inline-flex items-center min-h-8 py-1 px-3 rounded-full bg-surface-0 border border-border text-text-1 text-sm font-semibold'
-const ACCEPT_BUTTON_CLASS =
-  'min-h-11 py-2 px-5 border-0 rounded-sm bg-accent text-accent-ink font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+const ACCEPT_BUTTON_CLASS = `min-h-11 py-2 px-5 border-0 rounded-sm bg-accent text-accent-ink font-bold cursor-pointer ${PRESS_CLASS} focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2`
 // Same pill-chip idiom as PracticePage.tsx's "Clear filters" chip — a
 // self-quit control needs no confirmation here (Compete races are
 // unrated/client-only, nothing server-side to lose), just legible placement.
@@ -261,8 +264,14 @@ export function ChallengePageForSession({ session, onQuit }: ChallengePageForSes
         // shell is active above. Redesign Phase 4: the progress line that
         // used to live here alone moved into the shared row above (now
         // shown at both breakpoints, not desktop-only) — see that row's
-        // own comment.
-        <aside className="app-shell__sidebar flex flex-col gap-4 py-6 px-4 border-l border-border self-start">
+        // own comment. Motion foundation follow-up: unlike the other pages
+        // sharing this `app-shell__sidebar` markup, Challenge's slot is
+        // genuinely empty on first render (nothing portals in until an
+        // answer is submitted) — `border-l`/padding used to render
+        // unconditionally, leaving a borderless-content stub with just a
+        // vertical line. `has-[>div:empty]` collapses border+padding along
+        // with the slot itself so an empty aside takes up no visible space.
+        <aside className="app-shell__sidebar flex flex-col gap-4 py-6 px-4 border-l border-border self-start has-[>div:empty]:border-0 has-[>div:empty]:p-0">
           <div ref={setSidebarSlotEl} className="empty:hidden flex flex-col gap-4" />
         </aside>
       )}

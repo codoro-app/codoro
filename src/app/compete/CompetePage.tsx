@@ -35,6 +35,7 @@ import { TraceRunnerPuzzle } from '../trace/TraceRunner'
 import { CloseIcon, CompeteIcon, MonitorIcon, PeopleIcon } from '../Icons'
 import { LevelPicker } from './LevelPicker'
 import { useCompeteSession } from './useCompeteSession'
+import { PRESS_CLASS } from '../motion'
 
 // Layout-shell centering (redesign, 2026-09-17) was tried here and reverted
 // 2026-09-18: CENTERED_PAGE_SHELL_CLASS's `lg:self-stretch` fills the
@@ -52,8 +53,13 @@ const PAGE_SHELL_CLASS =
 // mockups/Compete*.png) show a plain neutral border on both door cards, not
 // a lime accent border. lg:flex-1 (paired with the menu's own lg:flex-row
 // wrapper below) is what lays the two cards side-by-side on desktop.
-const DOOR_CARD_CLASS =
-  'flex flex-col items-start gap-2 min-h-11 w-full lg:flex-1 p-5 rounded-md border border-border bg-surface-1 text-left text-text-0 cursor-pointer lg:transition-[transform,border-color] lg:duration-150 lg:hover:-translate-y-0.5 lg:hover:border-border-strong active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
+// Motion foundation follow-up: previously had bare `active:scale-[0.98]`
+// with no transition-duration of its own outside the lg:-scoped hover-lift
+// — a mobile press snapped instantly instead of easing. PRESS_CLASS below
+// supplies that (and active:opacity-90); lg:'s own transition-property/
+// duration still wins at that breakpoint, so desktop's hover-lift feel is
+// unchanged (same reasoning as Home.tsx's identical CARD_BASE follow-up).
+const DOOR_CARD_CLASS = `flex flex-col items-start gap-2 min-h-11 w-full lg:flex-1 p-5 rounded-md border border-border bg-surface-1 text-left text-text-0 cursor-pointer ${PRESS_CLASS} lg:transition-[transform,border-color] lg:duration-150 lg:hover:-translate-y-0.5 lg:hover:border-border-strong focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2`
 
 const ICON_BADGE_CLASS =
   'flex items-center justify-center flex-none w-10 h-10 rounded-md bg-accent-dim text-accent'

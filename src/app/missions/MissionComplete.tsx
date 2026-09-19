@@ -18,6 +18,7 @@ import { DuckMascot } from '../Mascot'
 import { MISSION_STAGE_META } from './missionStageMeta'
 import type { MissionSession } from './useMissionSession'
 import type { MissionStageStats } from '../../storage'
+import '../tokens.css'
 
 function recapDetail(stats: MissionStageStats): string {
   switch (stats.stageId) {
@@ -46,7 +47,7 @@ export function MissionComplete({ missionSession }: MissionCompleteProps) {
   return (
     // 2b.0: was `.daily-hero`/`.daily-hero__*` (dailyPage.css) — always the
     // "correct"/accent styling here, never `--wrong`.
-    <div className="flex flex-col gap-4 p-4 lg:py-[28px] lg:px-[30px] rounded-xl border-[1.5px] border-accent [background:linear-gradient(160deg,var(--accent-dim),var(--surface-1))]">
+    <div className="flex flex-col gap-4 p-4 lg:py-[28px] lg:px-[30px] rounded-xl border-[1.5px] border-accent [background:linear-gradient(160deg,var(--accent-dim),var(--surface-1))] motion-enter">
       <div className="flex items-center gap-3">
         <DuckMascot pose={duckPose} size={44} />
         <div className="flex flex-col gap-1">

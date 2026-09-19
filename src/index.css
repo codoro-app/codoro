@@ -77,6 +77,16 @@
   --radius-lg: var(--radius-lg);
   --radius-xl: var(--radius-xl);
   --radius-full: var(--radius-full);
+
+  /* Tailwind's `--duration-*`/`--ease-*` theme namespaces generate
+   * `duration-press`/`duration-feedback`/`duration-enter`/`ease-out`/
+   * `ease-in-out` utility classes straight off the tokens above — the same
+   * "alias, not a copy" pattern every other namespace in this block uses. */
+  --duration-press: var(--motion-press);
+  --duration-feedback: var(--motion-feedback);
+  --duration-enter: var(--motion-enter);
+  --ease-out: var(--ease-out);
+  --ease-in-out: var(--ease-in-out);
 }
 
 @font-face {
@@ -218,6 +228,23 @@
    * AppShell's footer) that needs to clear the bar on a device with a home
    * indicator. Bump this if BottomNav's padding/type size ever changes. */
   --bottom-nav-height: 60px;
+
+  /* --- motion (redesign motion foundation) ---
+   * Single source of truth for every duration/easing in the app — audit
+   * guidance (docs/redesign/ui-redesign-audit-2026-09-17.md, "Animation &
+   * motion principles"): ~120-180ms for taps/presses, ~250-350ms for
+   * entrances, with `.feedback-panel`'s pre-existing 0.18s kept as the
+   * feedback baseline rather than picked fresh. `--ease-out`'s value matches
+   * Tailwind's own built-in `ease-out` utility exactly (its default theme,
+   * not a new choice) so mapping it below is a pure rename, not a visual
+   * change. Reduced motion doesn't read these values at all — the
+   * `[data-reduced-motion='true']` rule below collapses transition-duration/
+   * animation-duration globally regardless of what any of these resolve to. */
+  --motion-press: 150ms;
+  --motion-feedback: 0.18s;
+  --motion-enter: 300ms;
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 :root {
