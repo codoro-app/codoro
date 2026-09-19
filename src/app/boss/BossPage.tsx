@@ -22,6 +22,7 @@ import { ChallengeButton } from '../ChallengeButton'
 import { useChallengerName } from '../useChallengerName'
 import { saveProfile } from '../../storage'
 import { SignupPromptTrigger } from '../../auth/SignupPromptTrigger'
+import { PRESS_CLASS } from '../motion'
 
 // 2b.0: was `.boss-page` in bossPage.css (max-width breakpoint matches
 // Tailwind's `lg` exactly). Not test-asserted (grep-verified).
@@ -136,7 +137,7 @@ export function BossPage() {
 
         <button
           type="button"
-          className="min-h-11 border-0 rounded-sm bg-accent text-accent-ink font-bold cursor-pointer transition-[transform,opacity] duration-[0.05s] ease-out active:scale-[0.98] active:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+          className={`min-h-11 border-0 rounded-sm bg-accent text-accent-ink font-bold cursor-pointer ${PRESS_CLASS} focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2`}
           onClick={session.handleRunItBack}
         >
           Run it back

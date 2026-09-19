@@ -69,10 +69,34 @@
 }
 
 .feedback-panel {
-  animation: feedback-panel-slide-in 0.18s ease-out;
+  animation: feedback-panel-slide-in var(--motion-feedback) var(--ease-out);
 }
 
 @keyframes feedback-panel-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Motion foundation (redesign): the one shared card/panel entrance pattern —
+ * same fade + small-rise shape as feedback-panel-slide-in above, just on
+ * --motion-enter's longer duration instead of --motion-feedback's. Kept as
+ * its own named keyframe (not feedback-panel-slide-in reused verbatim) since
+ * the two are conceptually different triggers (a result appearing after an
+ * answer vs. a whole surface mounting) even though the motion shape matches
+ * — same reasoning tokens.css's own doc comment gives for why
+ * `.feedback-panel` keeps a bare classname instead of a Tailwind utility:
+ * custom keyframes have no arbitrary-value equivalent worth reaching for. */
+.motion-enter {
+  animation: app-entrance var(--motion-enter) var(--ease-out);
+}
+
+@keyframes app-entrance {
   from {
     opacity: 0;
     transform: translateY(8px);

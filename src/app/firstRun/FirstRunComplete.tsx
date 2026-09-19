@@ -32,6 +32,7 @@ import type { ChallengeAttemptInput } from '../../challenge'
 import { ChallengeButton } from '../ChallengeButton'
 import { ROUTES } from '../routes'
 import { PracticeIcon } from '../Icons'
+import '../tokens.css'
 
 export interface FirstRunCompleteProps {
   profile: UserProfile
@@ -62,7 +63,7 @@ export function FirstRunComplete({
   onExit,
 }: FirstRunCompleteProps) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 motion-enter">
       <div className={HERO_CLASS}>
         <div className="flex items-center gap-3">
           <div

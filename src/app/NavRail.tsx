@@ -54,6 +54,7 @@ import {
 import { DuckMark } from './Mascot'
 import { ROUTES } from './routes'
 import { Tooltip } from './Tooltip'
+import { PRESS_CLASS } from './motion'
 
 const COLLAPSED_KEY = 'codoro:nav-rail-collapsed'
 
@@ -92,8 +93,7 @@ function writeCollapsed(collapsed: boolean): void {
 // both pairs coexist on one element — ITEM_BASE now carries only the
 // properties that don't vary by state, and the active/inactive pair is
 // chosen once, not layered on top of a competing default.
-const ITEM_BASE =
-  'flex items-center gap-2.5 min-h-11 py-3 rounded-sm text-md font-semibold text-left no-underline cursor-pointer'
+const ITEM_BASE = `flex items-center gap-2.5 min-h-11 py-3 rounded-sm text-md font-semibold text-left no-underline cursor-pointer ${PRESS_CLASS}`
 const ITEM_INACTIVE = 'bg-transparent text-text-1'
 const ITEM_ACTIVE = 'bg-accent text-accent-ink'
 
@@ -222,7 +222,7 @@ export function NavRail() {
         <Tooltip label="Settings">
           <Link
             href={ROUTES.settings.path}
-            className="min-w-11 min-h-11 flex items-center justify-center border border-border rounded-sm bg-transparent cursor-pointer no-underline"
+            className={`min-w-11 min-h-11 flex items-center justify-center border border-border rounded-sm bg-transparent cursor-pointer no-underline ${PRESS_CLASS}`}
             aria-current={location === ROUTES.settings.path ? 'page' : undefined}
             aria-label="Settings"
           >
@@ -238,7 +238,7 @@ export function NavRail() {
         <Tooltip label={collapsed ? 'Expand navigation' : 'Collapse navigation'}>
           <button
             type="button"
-            className="min-w-11 min-h-11 flex items-center justify-center border border-border rounded-sm bg-transparent text-text-1 cursor-pointer"
+            className={`min-w-11 min-h-11 flex items-center justify-center border border-border rounded-sm bg-transparent text-text-1 cursor-pointer ${PRESS_CLASS}`}
             aria-pressed={collapsed}
             aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
             onClick={() => {
