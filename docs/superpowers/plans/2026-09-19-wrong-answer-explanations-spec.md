@@ -270,9 +270,15 @@ sampled across patterns, difficulty bands and both interaction types. An LLM-gen
 that is confidently and subtly wrong is _worse than none_, because a paying user has been told to
 trust it. Zod cannot catch a plausible-sounding false claim about Python's slice semantics.
 
-Record in the amendment: how many were read, how many were wrong, what kind of wrong, and what was
-regenerated. If more than 2 of 20 are substantively wrong, the prompt is broken — fix it and
-regenerate the batch rather than patching individual files.
+**The generating session must not be the grading session.** A model checking its own output for
+confident-but-wrong claims about language semantics is the weakest possible reviewer for exactly
+the failure mode that matters. 6.0 _stages_ the sample — a readable file with 20 stratified
+entries and a blank verdict column — and the read is performed by Thomas or a fresh-context
+session.
+
+Record: how many were read, how many were wrong, what kind of wrong, and what was regenerated. If
+more than 2 of 20 are substantively wrong, the prompt is broken — fix it and regenerate the batch
+rather than patching individual files.
 
 ## 9. Footgun register
 

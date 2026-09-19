@@ -12,12 +12,14 @@ entitlements, or Stripe — those are 6.1 and 6.2.
 
 ## Pieces
 
-**Piece 0 — verify two assumptions before writing anything.** The spec is written from a read of
-the repo, not from running it. Confirm: (a) `Mcq.tsx` shuffles choices per serving via
-`shuffledIndices` and maps back through `originalIndex`, so a canonical index is the right key
-(F35); (b) `llmBackend.ts`'s `buildCliChildEnv` still strips the Anthropic auth vars, so the CLI
-backend bills the subscription rather than the Console account (F33). If either is wrong, stop and
-say so before generating anything — both change the design.
+**Piece 0 — verify one assumption before writing anything.** Confirm that `llmBackend.ts`'s
+`buildCliChildEnv` still strips the Anthropic auth vars, so the CLI backend bills the subscription
+rather than the Console account (F33). Symptom if this has regressed: a silent Console bill and no
+error. Stop and say so if it has.
+
+(F35 — that `Mcq.tsx` shuffles choices per serving via `shuffledIndices` and maps back through
+`originalIndex` — was verified against the working tree on 2026-09-19 and needs no re-check. Key
+entries by the canonical index into `puzzle.choices`.)
 
 **Piece 1 — `src/content/explanationSchema.ts`.** The Zod schemas in §3.2, following `schema.ts`'s
 conventions. Unit-tested at the bounds like `schema.test.ts` is.
@@ -39,16 +41,27 @@ content entered any pre-existing chunk — measured, not asserted.
 **Piece 5 — run the first batch.** mcq (60 puzzles, 185 wrong choices) then tap-line (39 puzzles,
 ~560 wrong lines). Batch by pattern. Report generated/skipped/failed counts.
 
-**Piece 6 — the human read.** §8's stratified sample of ≥20 across patterns, difficulty bands and
-both interaction types. Read them as a skeptical engineer, not as a proofreader: the failure mode
-is a confident, fluent, factually wrong claim about language semantics, and Zod cannot see it.
-Record in the amendment how many were read, how many were wrong, what kind of wrong. **If more
-than 2 of 20 are substantively wrong, the prompt is broken — fix the prompt and regenerate the
-batch rather than hand-patching files.**
+**Piece 6 — prepare the human read, do not perform it.** §8 requires a skeptical read of ≥20
+explanations before the batch ships. **The session that generated them must not be the session
+that grades them** — a model checking its own output for confident-but-wrong claims about language
+semantics is the weakest possible reviewer for exactly the failure mode that matters.
+
+So this session's job is to _stage_ the read, not do it:
+
+- Write `docs/redesign/../explanation-sample-<date>.md` (or anywhere sensible under `docs/`) with a
+  stratified sample of 20 — across patterns, difficulty bands, and both interaction types — each
+  entry showing the snippet, the wrong answer being explained, and the generated `why_wrong` and
+  `misconception`, formatted for reading top to bottom.
+- Leave a verdict column blank for each.
+- State plainly in the amendment that the read is outstanding and is Thomas's (or a fresh-context
+  session's) action item, not something this session performed.
+
+**The bar, for whoever does the read: if more than 2 of 20 are substantively wrong, the prompt is
+broken — fix the prompt and regenerate the whole batch rather than hand-patching files.**
 
 ## DoD
 
-- [ ] Piece 0's two assumptions confirmed in writing (or the design corrected)
+- [ ] Piece 0's F33 check confirmed in writing (or the design corrected)
 - [ ] Every mcq and tap-line puzzle has a schema-valid explanation file
 - [ ] No entry targets a correct answer anywhere in the batch
 - [ ] No ordinal references ("option B", "the second choice") survive validation
@@ -56,7 +69,7 @@ batch rather than hand-patching files.**
 - [ ] `barrelBoundary.test.ts` fails if the explanation loader is imported from a barrel path
 - [ ] Production build measured: zero explanation bytes in any pre-existing chunk
 - [ ] Zero changes to any file under `src/content/puzzles/`
-- [ ] The ≥20-sample human read done and recorded with findings
+- [ ] The 20-explanation sample file written and the read flagged as outstanding
 - [ ] `pnpm validate` green
 - [ ] Amendment written, including the open decisions from §11 that this session did not settle
 
