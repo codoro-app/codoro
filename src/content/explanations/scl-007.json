@@ -1,0 +1,123 @@
+{
+  "puzzle_id": "scl-007",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:34:53.028Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This just declares the createLogger function and its prefix parameter; nothing gets copied or frozen on a function signature line.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This line just creates the mutable currentPrefix variable that setPrefix will later reassign — declaring it here doesn't freeze anything. The staleness comes from a later line that copies its value into a separate const before setPrefix runs, not from this initial assignment.",
+      "misconception": "blames-mutable-declaration"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This is a blank line with no code, so it can't be where a value gets snapshotted.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This is just the function signature for log; it declares the function but doesn't read or copy any values.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This line reads currentPrefix directly every time log runs, which is exactly why log correctly reflects updates from setPrefix. The bug lives in the sibling function that copies the value into a separate binding instead of reading it live.",
+      "misconception": "blames-correct-live-read"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This is just the closing brace for log; it has no logic of its own.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This is a blank line with no code, so it can't be where a value gets snapshotted.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This is just the function signature for setPrefix; it declares the function but doesn't yet reassign anything.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "This reassignment is exactly what keeps currentPrefix live for log — it's working as intended. The bug isn't here; it's in the closure that copied the old value into a separate variable before this mutation could ever reach it.",
+      "misconception": "blames-correct-mutation"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This is just the closing brace for setPrefix; it has no logic of its own.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This is a blank line with no code, so it can't be where a value gets snapshotted.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This is just the function signature for withTimestamp; the snapshot that causes the bug happens on the line inside the function body, not on the declaration itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 13,
+      "why_wrong": "Returning an inner function here isn't itself the problem — closures can absolutely stay live over a mutable variable. The staleness comes from the line just above, which already copied currentPrefix into a separate const before this function was even returned.",
+      "misconception": "blames-returned-closure"
+    },
+    {
+      "target": 14,
+      "why_wrong": "Interpolating label into the template string here just prints whatever value label already holds; this line has no say in whether that value is fresh or stale. The freezing already happened one line earlier, when label was assigned from currentPrefix.",
+      "misconception": "blames-interpolation-site"
+    },
+    {
+      "target": 15,
+      "why_wrong": "This is just the closing brace of the returned inner function; it doesn't read or assign any values.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 16,
+      "why_wrong": "This is just the closing brace for withTimestamp; it has no logic of its own.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 17,
+      "why_wrong": "This is a blank line with no code, so it can't be where a value gets snapshotted.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 18,
+      "why_wrong": "Calling withTimestamp(log) here does happen before setPrefix runs, which is correct timing — the issue isn't when this call happens but what happens inside withTimestamp, where currentPrefix's value gets copied into a separate const instead of staying live.",
+      "misconception": "blames-invocation-site"
+    },
+    {
+      "target": 19,
+      "why_wrong": "This is just the closing brace for createLogger; it has no logic of its own.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 20,
+      "why_wrong": "This is a blank line with no code, so it can't be where a value gets snapshotted.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 21,
+      "why_wrong": "This just constructs the logger with an initial prefix of 'APP'; the bug only manifests after setPrefix is called, which hasn't happened yet on this line.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 22,
+      "why_wrong": "This call correctly updates currentPrefix to 'SERVICE', which is why log still works fine afterward. The stale copy inside timestampedLog was already made earlier, when withTimestamp(log) ran during logger construction — this line can't fix or break something that already happened.",
+      "misconception": "blames-correct-update-call"
+    },
+    {
+      "target": 23,
+      "why_wrong": "This just invokes the already-built timestampedLog function and prints whatever label it closed over; the value was frozen long before this call runs. The actual bug is where label got assigned from currentPrefix, not where the resulting function is later invoked.",
+      "misconception": "blames-output-call-site"
+    }
+  ]
+}

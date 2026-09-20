@@ -1,0 +1,28 @@
+{
+  "puzzle_id": "oob-008",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:30:00.764Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line just declares the function and its parameter; it doesn't touch the loop's start or end bounds at all. The actual off-by-one comes from how `i` is initialized and compared inside the `for` statement, not from the function signature.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "`arr[i]` is exactly how you're supposed to index into the array — the read itself isn't wrong, it just gets fed a bad range of `i` values. The real problem is upstream, where `i` starts at 1 instead of 0 and is allowed to reach `arr.length`.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This is only the closing brace that ends the loop body; it has no effect on which indices get iterated over. The skipped-first/overrun-last behavior is fully determined by the `for` header on line 1, not by where the block ends.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This brace simply closes the function definition and has no bearing on the loop's bounds. The out-of-bounds access and skipped first element trace back to the `i = 1` start and `i <= arr.length` condition, both set earlier in the loop header.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

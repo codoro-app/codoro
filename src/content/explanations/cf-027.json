@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "cf-027",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:28:46.321Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "Swapping to `>=` doesn't touch the real problem: `best` still only gets created inside the branch, so a list with no positive numbers leaves `best` undefined at `return best`. The strict-vs-inclusive comparison is irrelevant here since there's no tie-breaking logic being tested.",
+      "misconception": "wrong-comparison-operator-focus"
+    },
+    {
+      "target": 2,
+      "why_wrong": "The loop's linear scan isn't the issue being tested, and `sorted()` would still need `nums` to be non-empty to index into safely — it wouldn't fix the crash. The bug is about a variable never being initialized before it's read, not about algorithmic complexity.",
+      "misconception": "performance-not-correctness"
+    },
+    {
+      "target": 3,
+      "why_wrong": "`best = n` runs on every iteration where `n > 0`, without ever comparing against the previous `best`, so it ends up holding the last positive value scanned, not the first. Either way, that's a separate concern from the actual defect: when no positive exists at all, `best` is never assigned and referencing it raises `UnboundLocalError`.",
+      "misconception": "reassignment-without-comparison"
+    }
+  ]
+}

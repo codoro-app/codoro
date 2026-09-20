@@ -1,0 +1,38 @@
+{
+  "puzzle_id": "str-004",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:48:55.769Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line just pulls in the standard I/O declarations so `printf` and `snprintf` are available; it contains no formatting logic at all, so the format-string vulnerability can't originate here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This is a blank line separating the include from the function definition, so there's no code here that could pass user input as a format string.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This is just the function signature declaring `user_input` as a parameter; it doesn't call any formatting function, so it can't be where user data gets misused as a format string.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This only reserves 256 bytes of stack space for `buffer`; no data is written or formatted yet, so the vulnerability can't live in this declaration.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This call is actually safe: it uses a fixed literal format string `\"[LOG] %s\"` with a bounded size, so `user_input` is inserted as data via `%s` rather than being interpreted as format directives itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This is just the closing brace ending the function body; it performs no operation and can't be the site of the format-string misuse.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

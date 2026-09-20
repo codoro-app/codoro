@@ -1,0 +1,28 @@
+{
+  "puzzle_id": "rec-008",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:43:47.086Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This is just the function signature declaring the parameter `n` — it doesn't perform any recursive call or modify anything, so it can't be the source of infinite recursion.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This line correctly defines the base case, checking whether `n` has reached zero or below and returning if so. The problem isn't that this check is wrong — it's that `n` never changes between calls, so this condition never gets a chance to become true.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This line just logs the current value of `n` to the console and has no effect on the recursion or on `n`'s value, so it can't be causing the infinite loop.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This is only the closing brace that ends the function body — it contains no logic and can't be responsible for the recursion never terminating.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

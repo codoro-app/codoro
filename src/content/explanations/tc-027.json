@@ -1,0 +1,113 @@
+{
+  "puzzle_id": "tc-027",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:34:00.851Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line only declares `computeRatios` and its `events` parameter, with no arithmetic or comparison happening yet, so it can't be where ratios get overcounted.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "You're treating the `NaN` result here as the mistake itself, but `0 / 0` producing `NaN` is a legitimate, expected value for a zero-impression event, not a bug. The actual defect is downstream, in how the dedupe logic fails to recognize that two `NaN` values are 'the same' ratio.",
+      "misconception": "blames-nan-source"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This is just the closing brace of `computeRatios`, ending the function block with no logic of its own.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This is a blank spacer line between functions and contains no executable code at all.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This line only declares `removeDuplicateRatios` and its `ratios` parameter; the dedupe comparison hasn't happened yet at this point.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This just creates an empty `unique` array before the loop starts, with no comparison logic that could cause overcounting.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This line only sets up iteration over `ratios`, handing each value to the loop body; the flawed equality check that fails on `NaN` lives inside the loop, not in the loop header itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "This just appends a ratio to `unique` after the `indexOf` check already decided it looked new; the push itself is correct, it's just acting on a bad decision made one line earlier.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This is only the closing brace of the `if` block and performs no comparison or arithmetic.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This is only the closing brace of the `for` loop and performs no comparison or arithmetic.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This just returns the `unique` array that was already built; whatever count it holds was determined earlier in the loop, not here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 12,
+      "why_wrong": "This is only the closing brace of `removeDuplicateRatios`, ending the function with no logic of its own.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 13,
+      "why_wrong": "This is a blank spacer line between functions and contains no executable code at all.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 14,
+      "why_wrong": "This line only declares `summarizeCampaign` and its `events` parameter, before any ratios have even been computed.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 15,
+      "why_wrong": "This just calls `computeRatios` and stores the result; `computeRatios` itself correctly computes every ratio including `NaN`, so nothing goes wrong here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 16,
+      "why_wrong": "You're pointing at the call site itself, but this line only forwards `ratios` into `removeDuplicateRatios` and stores whatever comes back. The actual flaw lives inside that function's `indexOf` comparison, not in how it's invoked here.",
+      "misconception": "blames-call-not-implementation"
+    },
+    {
+      "target": 17,
+      "why_wrong": "This just opens the object literal being returned and contains no counting logic itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 18,
+      "why_wrong": "This reports `ratios.length`, the raw total count, which is unaffected by the dedupe bug since it never removes anything.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 19,
+      "why_wrong": "This is where the inflated number surfaces, but you're flagging the symptom rather than the cause — `distinct` is simply reading `uniqueRatios.length` after the array was already built wrong. The actual defect is the `indexOf` check upstream that fails to collapse repeated `NaN` values.",
+      "misconception": "blames-symptom-not-cause"
+    },
+    {
+      "target": 20,
+      "why_wrong": "This is only the closing brace of the returned object literal and contains no logic.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 21,
+      "why_wrong": "This is only the closing brace of `summarizeCampaign` and contains no logic.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

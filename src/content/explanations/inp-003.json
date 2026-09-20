@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "inp-003",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:26:55.215Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "You're picturing old JavaScript engines where a missing radix made strings like \"010\" parse as octal — but modern engines default to base 10 unless the string starts with \"0x\", so leading zeros aren't the issue here. The real problem is that `parseInt` happily reads a numeric prefix and throws away everything after it, so \"25abc\" still comes back as 25 regardless of radix.",
+      "misconception": "assumes-implicit-octal-parsing"
+    },
+    {
+      "target": 2,
+      "why_wrong": "`isNaN()` isn't deprecated and swapping in `Number.isNaN()` wouldn't change the outcome here — both would still see a valid number, not NaN, because `parseInt` already stripped away the junk before the check ever runs. The bug is upstream: `parseInt` turns \"25abc\" into 25, so `isNaN(25)` is falsy and the invalid string sails through.",
+      "misconception": "irrelevant-isnan-variant"
+    },
+    {
+      "target": 3,
+      "why_wrong": "A validator returning a boolean is exactly what's wanted here — `isValidAge` is meant to answer yes/no, not hand back the parsed number, so there's no return-type mismatch to fix. The actual defect is upstream in what counts as valid: `parseInt` accepts strings with trailing garbage like \"25abc\" as if they were clean integers.",
+      "misconception": "conflates-validator-with-parser"
+    }
+  ]
+}

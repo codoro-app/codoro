@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "dsm-024",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:25:39.694Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "That's true for primitive `int`, but `a` and `b` here are boxed `Integer` objects, so `==` checks whether they're the same object in memory, not whether they hold the same number. Two separately boxed `Integer`s with the same value can still be different objects, which is exactly why `eq` comes out false here.",
+      "misconception": "reference-equality-mistaken-for-value-equality"
+    },
+    {
+      "target": 2,
+      "why_wrong": "`Integer` can hold any `int` value, including 1000 — there's no capacity limit at play here. The relevant fact is about the autoboxing cache (only -128 to 127 are pooled), not about what values an `Integer` object is capable of storing.",
+      "misconception": "cache-range-confused-with-storage-limit"
+    },
+    {
+      "target": 3,
+      "why_wrong": "That only holds for values in the cached range of -128 to 127, where autoboxing reuses shared objects so `==` happens to succeed. 1000 falls outside that cache, so each `Integer` gets its own object and `==` compares references that differ, making `eq` false.",
+      "misconception": "overgeneralized-integer-cache-behavior"
+    }
+  ]
+}

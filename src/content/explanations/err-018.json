@@ -1,0 +1,143 @@
+{
+  "puzzle_id": "err-018",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:43:13.363Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This just imports `BlockingQueue`, a type declaration with no runtime behavior, so it can't be responsible for losing the interrupt signal.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This is a blank line with no code on it, so it can't contain the missing interrupt restoration.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This opens the `TaskWorker` class declaration and contains no logic of its own, so it can't be where the interrupt signal gets dropped.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This just declares the `queue` field reference; it holds no logic about interrupt handling, so the bug can't live here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This declares the cooperative `running` flag used for explicit `shutdown()` calls, a separate mechanism from the interrupt status that `take()` clears, so it isn't where the signal gets lost.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This blank line separates fields from the constructor and contains no code, so it can't be the bug site.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This is just the constructor's signature, declaring how a `TaskWorker` is built; it has no interrupt-handling logic.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This line only assigns the incoming queue to the field; it runs once at construction and never touches interrupt status.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "This is just the closing brace of the constructor, with no logic that could affect interrupt handling.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This blank line separates the constructor from `shutdown()` and contains no code.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This is only the `shutdown()` method's signature; it declares the method but doesn't touch interrupt status.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 11,
+      "why_wrong": "Close — this line does exactly what it should: it flips the cooperative `running` flag so the loop exits cleanly on an explicit `shutdown()` call. That flag is a completely different signal from the thread's interrupt status, which is the one `take()` clears when it throws — nothing here touches that.",
+      "misconception": "conflates-flag-with-interrupt-status"
+    },
+    {
+      "target": 12,
+      "why_wrong": "This is just the closing brace of `shutdown()`, with no logic that could drop the interrupt signal.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 13,
+      "why_wrong": "This blank line separates `shutdown()` from `run()` and has no code in it.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 14,
+      "why_wrong": "The `@Override` annotation is metadata for the compiler, not executable code, so it can't be responsible for the missing interrupt restoration.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 15,
+      "why_wrong": "This is just the `run()` method's signature; the actual loop and interrupt handling live further down.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 16,
+      "why_wrong": "This line only checks the `running` flag to decide whether to loop again; that flag is a separate signal from the thread's interrupt status, so it isn't where the interrupt gets discarded.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 17,
+      "why_wrong": "This just opens the `try` block; the exception handling that drops the interrupt happens further down, not here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 18,
+      "why_wrong": "Tapping the call that blocks and throws is a natural instinct, but `take()` is behaving correctly here — throwing `InterruptedException` (and clearing the interrupt flag as part of doing so) is exactly what a blocking call is supposed to do. The bug is in how the surrounding catch responds to that exception, not in the call itself.",
+      "misconception": "blames-the-throwing-call"
+    },
+    {
+      "target": 19,
+      "why_wrong": "This runs the dequeued task and has nothing to do with interrupt handling; the swallowed signal comes from how the `InterruptedException` catch responds, not from executing the task.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 21,
+      "why_wrong": "That comment describes the buggy intent, but it's just documentation — it never executes and can't itself be responsible for dropping the interrupt status. The actual defect is that the enclosing catch block never calls `Thread.currentThread().interrupt()` before falling through to poll again.",
+      "misconception": "comment-not-code"
+    },
+    {
+      "target": 22,
+      "why_wrong": "This is a separate `catch` clause for general exceptions unrelated to interruption; it correctly logs unexpected failures and never touches interrupt status.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 23,
+      "why_wrong": "This just logs an error message for the generic-exception branch; it has nothing to do with `InterruptedException` or interrupt status.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 24,
+      "why_wrong": "This is only the closing brace for the try/catch block, with no logic that could restore or drop the interrupt status.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 25,
+      "why_wrong": "This is just the closing brace of the `while` loop; it doesn't run any code related to handling the interruption.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 26,
+      "why_wrong": "This is only the closing brace of the `run()` method; it contains no logic itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 27,
+      "why_wrong": "This is just the closing brace of the class definition and has no executable logic in it.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

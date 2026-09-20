@@ -1,0 +1,133 @@
+{
+  "puzzle_id": "mut-028",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-19T23:57:31.374Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line only opens the class definition — the shared-list bug comes from what's declared inside the class body, not from the class statement itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This is just a blank line separating the class attribute from `__init__`, so it holds no code that could create or share a list.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This line only declares the constructor's parameters and never touches `items`, so it can't be the place where the shared list gets created.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This line assigns `owner` directly onto the instance, which is exactly the correct per-instance pattern `items` is missing, so it isn't where the bug lives.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This line assigns `discount_applied` directly onto the instance inside `__init__`, so it behaves correctly and isn't part of the bug. The problem is specific to `items`, which never gets a matching per-instance assignment and instead falls back to the one list living on the class itself.",
+      "misconception": "overgeneralized-shared-state"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This blank line separates two method definitions and holds no logic that could cause carts to share items.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This line just names the `add_item` method and its parameter — the bug is in what `items` refers to, not in this method header.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "Calling `.append()` here is completely normal — mutating a list you're appending to isn't itself the mistake. The real defect is upstream: because `self.items` was never assigned in `__init__`, this call silently mutates the single list attribute owned by `ShoppingCart` itself rather than one belonging to `self`.",
+      "misconception": "blames-usage-not-declaration"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This blank line separates two method definitions and contains no code relevant to the shared list.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This line only declares the `apply_discount` method; it has nothing to do with how `items` is stored or shared.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This just checks the discount code string and has no connection to how `items` is created or shared.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 12,
+      "why_wrong": "Setting `discount_applied` here works fine because it's a genuine per-instance assignment — this line isn't where carts leak items between each other. The actual bug is that `items` never gets assigned in `__init__`, so it keeps resolving to the one list attached to the class.",
+      "misconception": "overgeneralized-shared-state"
+    },
+    {
+      "target": 13,
+      "why_wrong": "This blank line separates methods and contains no code relevant to the shared list.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 14,
+      "why_wrong": "This line only names the `total_items` method; the bug lives in how `items` was declared, not in this signature.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 15,
+      "why_wrong": "This line just reports the length of whatever `self.items` points to — it correctly reads the count, it just happens to be reading the class-wide shared list because no instance list was ever created. The defect is where `items` gets declared, not where its length is read.",
+      "misconception": "blames-usage-not-declaration"
+    },
+    {
+      "target": 16,
+      "why_wrong": "This is a blank line outside any method body, so it can't be the source of the shared-list bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 17,
+      "why_wrong": "This is a blank line between the class and the function below it, holding no code that touches `items`.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 18,
+      "why_wrong": "This line only declares the `checkout_all` function and its parameter; it doesn't touch `ShoppingCart.items` at all.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 19,
+      "why_wrong": "This `[]` creates a brand-new local list every time `checkout_all` runs, which is completely different from `items = []` sitting in the class body and being shared by every instance. A fresh list literal inside a function is safe; the bug only happens when a mutable default lives on the class and gets mutated in place.",
+      "misconception": "confuses-local-list-with-class-attr"
+    },
+    {
+      "target": 20,
+      "why_wrong": "This just iterates over the carts passed in; it doesn't read or write `items` directly.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 21,
+      "why_wrong": "This appends a per-call receipt dict to a fresh local list, unrelated to how `ShoppingCart.items` ends up shared across instances.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 22,
+      "why_wrong": "This just reads the cart's `owner` attribute, a normal per-instance value with no shared-state problem.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 23,
+      "why_wrong": "This just calls `total_items()` and stores whatever value it returns — it faithfully reports the count rather than causing it to be wrong. The inflated number comes from `add_item` mutating a list shared across every `ShoppingCart` instance, not from how this receipt is built.",
+      "misconception": "blames-usage-not-declaration"
+    },
+    {
+      "target": 24,
+      "why_wrong": "This is just the closing bracket for the receipt dictionary literal and executes no logic itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 25,
+      "why_wrong": "This returns the already-built receipts list; the shared-cart bug happened earlier, when `cart.total_items()` was computed.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

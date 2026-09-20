@@ -1,0 +1,43 @@
+{
+  "puzzle_id": "err-002",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:40:55.441Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line only declares the function's name and parameter, with no error handling involved, so it can't be where a silent-catch bug lives.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This just declares the `config` variable with no value assigned yet; the bug is about how a later error is handled, not about this declaration.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This line only opens the `try` block that wraps the risky `JSON.parse` call; opening a protected block isn't itself a mistake, so the bug isn't here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "Tapping here treats the parse call as the culprit, but `JSON.parse` throwing on bad input is expected, correct behavior. The real problem is what happens immediately after it throws — the catch block swallows that error instead of doing anything with it.",
+      "misconception": "blames-throwing-call"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This is just the closing brace of the catch block; the bug is that everything between the opening and closing braces is empty, not the brace itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This is where the confusing `TypeError` actually fires, so it looks like the fault, but `config` is only `undefined` here because an earlier parse failure was already swallowed silently. The bug is upstream, in the handler that let a real error disappear without a trace.",
+      "misconception": "blames-symptom-not-cause"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This line simply closes the function body and has no role in how the JSON parsing error is caught or reported above.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

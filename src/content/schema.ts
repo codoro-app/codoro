@@ -24,7 +24,10 @@ import { PATTERN_SLUGS } from './patterns'
 export const MIN_DIFFICULTY = 800
 export const MAX_DIFFICULTY = 2400
 
-const IdSchema = z
+// Exported so explanationSchema.ts (src/content/explanations/<puzzle-id>.json)
+// can key ExplanationSetSchema's puzzle_id off the same id shape, rather than
+// duplicating the regex and risking drift between the two.
+export const IdSchema = z
   .string()
   .min(1)
   .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, 'id must be lowercase kebab-case (e.g. "tp-014")')

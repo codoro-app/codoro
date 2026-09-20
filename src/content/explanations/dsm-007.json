@@ -1,0 +1,143 @@
+{
+  "puzzle_id": "dsm-007",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:47:01.886Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line just imports the java.util package so `Map`, `HashMap`, and `Objects` are available — it has no runtime behavior and can't cause a hashing bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This is a blank line separating the import from the class body; it contains no code and can't be the source of the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This line only declares the `Cache` class and opens its body; it performs no action on the map or the key, so it can't be where the lookup breaks.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This is just the `main` method's signature, declaring the entry point; no map or key logic runs on this line.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "Using `HashMap` here isn't the problem — any hash-based map would behave the same way, since this isn't about which collection type was chosen. The map only breaks once the key object itself changes after it's already been placed in a bucket.",
+      "misconception": "blames-map-implementation"
+    },
+    {
+      "target": 5,
+      "why_wrong": "The values `1` and `2` passed in here are fine and aren't what breaks the lookup. The key only becomes unusable later, when one of its fields is mutated in place after the object has already been inserted.",
+      "misconception": "blames-initial-key-values"
+    },
+    {
+      "target": 6,
+      "why_wrong": "The `put` call itself works correctly — it hashes `p` with `x=1, y=2` and stores the entry in the matching bucket. The map only breaks afterward, when `p`'s field is mutated and its hash code no longer matches the bucket it's sitting in.",
+      "misconception": "blames-insertion-not-mutation"
+    },
+    {
+      "target": 8,
+      "why_wrong": "`get` is just reading from the map as designed — it recomputes `p`'s current hash and looks in that bucket, which is exactly why it fails here. The real damage happened earlier, when `p`'s field was changed after insertion, not in this call itself.",
+      "misconception": "blames-symptom-not-cause"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This closing brace only ends the `main` method's block and has no effect on the map or key.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This brace just closes the `Cache` class definition and executes nothing.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This is an empty line between the two classes and contains no logic.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 12,
+      "why_wrong": "This line only declares the `Point` class and opens its body; it doesn't touch the map.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 13,
+      "why_wrong": "This declares the mutable fields themselves, but merely declaring them doesn't corrupt anything — the map only breaks once one of these fields is actually changed after the object is used as a key.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 14,
+      "why_wrong": "This constructor just assigns the passed-in values to `x` and `y` when `p` is created, running once at construction, well before the later mutation causes trouble.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 15,
+      "why_wrong": "This blank line separates the constructor from the overridden methods and contains no logic.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 16,
+      "why_wrong": "This annotation only tells the compiler that `hashCode` overrides the superclass method; it has no runtime effect.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 17,
+      "why_wrong": "This is just the `hashCode` method's signature; the actual hashing logic lives on the next line, not here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 18,
+      "why_wrong": "This `hashCode` implementation is written correctly, deriving the hash from `x` and `y` exactly as it should. The bug isn't in how the hash is computed — it's that this computation runs again with a changed `x` after the object was already stored under its old hash.",
+      "misconception": "blames-correct-hashcode-impl"
+    },
+    {
+      "target": 19,
+      "why_wrong": "This brace only closes the `hashCode` method body and runs nothing itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 20,
+      "why_wrong": "This blank line separates `hashCode` from `equals` and contains no logic.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 21,
+      "why_wrong": "This annotation just marks `equals` as overriding `Object`'s version; it has no effect on the map's behavior.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 22,
+      "why_wrong": "This is only the `equals` method's signature; the comparison logic lives in the lines below it.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 23,
+      "why_wrong": "This `instanceof` check is a standard, correct guard against comparing to a non-`Point` object, so it isn't the flaw here. The lookup actually fails before `equals` is ever consulted, because `p`'s mutated hash code sends `get` to the wrong bucket entirely.",
+      "misconception": "blames-equals-type-check"
+    },
+    {
+      "target": 24,
+      "why_wrong": "This line just casts `o` to `Point` after the `instanceof` check confirmed it's safe; it performs no comparison and can't be the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 25,
+      "why_wrong": "Comparing `x == other.x && y == other.y` is exactly the right way to implement equality here, so this logic isn't at fault. The map never even reaches this comparison for the mutated key, because its recomputed hash sends `get` to a different bucket entirely.",
+      "misconception": "blames-correct-equals-impl"
+    },
+    {
+      "target": 26,
+      "why_wrong": "This brace only closes the `equals` method body and has no bearing on the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 27,
+      "why_wrong": "This brace simply closes the `Point` class definition and executes nothing.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

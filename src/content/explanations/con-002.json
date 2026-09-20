@@ -1,0 +1,58 @@
+{
+  "puzzle_id": "con-002",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:36:35.974Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line just declares the class itself and holds no shared state or logic, so it can't be the source of a threading bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This is a blank line with no code on it, so it can't contain the concurrency bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This just declares the get() method's signature; it doesn't touch the shared cache field or introduce any race on its own.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "Tapping the containsKey check treats this as a race caused by bad branching logic, but even flawless logic here would still race. The real hazard is that `cache` is a plain HashMap, so two threads that both see containsKey() return false can then corrupt its internal bucket structure when they call put() concurrently.",
+      "misconception": "blames-check-then-act-branch"
+    },
+    {
+      "target": 5,
+      "why_wrong": "Computing the value here can mean two threads redundantly call computeExpensiveValue for the same key, but that's wasted work, not a thread-safety bug. The actual danger comes after, when both threads call put() on a plain HashMap at the same time.",
+      "misconception": "confuses-perf-with-safety"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This put() call is written correctly — the danger is that it's invoked on a plain HashMap, which isn't safe under concurrent writes. Two threads calling put() here simultaneously can corrupt the map's internal bucket structure; the same call would be safe if `cache` were a ConcurrentHashMap.",
+      "misconception": "blames-operation-not-datastructure"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This closing brace just ends the if block and executes nothing itself, so it can't be where the race occurs.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "Reading with get() here is fine on its own — the unsafe part is that this plain HashMap's internal structure can already be corrupted by concurrent put() calls elsewhere in the method. If `cache` were a ConcurrentHashMap, this same get() call would be perfectly safe.",
+      "misconception": "blames-operation-not-datastructure"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This brace only closes the get() method body and performs no operation, so it isn't where the unsafe behavior originates.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This brace merely closes the class definition and contains no logic, so it can't be the unsafe line.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

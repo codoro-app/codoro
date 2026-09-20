@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "nul-007",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:18:09.502Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "`Array.prototype.find` isn't deprecated — it's a standard, widely-supported method for locating an element in an array. The real issue is what happens after the lookup: when no element matches, `find` returns undefined, and calling `.name` on that undefined value is what throws.",
+      "misconception": "false-deprecation-claim"
+    },
+    {
+      "target": 2,
+      "why_wrong": "The arrow function `u => u.id === id` is valid JavaScript — a single parameter without parentheses and an implicit-return expression are both normal syntax. The bug isn't in how the predicate is written, it's in trusting that `find` always returns a match before reading `user.name`.",
+      "misconception": "valid-syntax-misread"
+    },
+    {
+      "target": 3,
+      "why_wrong": "Switching to `==` wouldn't fix anything here — `id` values typically match cleanly on type, so loose vs strict equality isn't the problem. The crash comes from not handling the case where no user matches at all, leaving `user` as undefined before `.name` is accessed.",
+      "misconception": "loose-equality-red-herring"
+    }
+  ]
+}

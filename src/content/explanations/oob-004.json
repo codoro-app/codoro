@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "oob-004",
+  "interaction": "mcq",
+  "generated_at": "2026-09-19T23:53:01.311Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "Swapping in a for loop wouldn't fix anything here — the bug isn't about how you access the array, it's about which index you access. A loop that still stops at `i <= arr.length` would hit the exact same out-of-bounds read.",
+      "misconception": "blames-syntax-style-not-value"
+    },
+    {
+      "target": 2,
+      "why_wrong": "`arr.length` is already correct syntax; `length` is a property on arrays, not a function you call. The real problem is the value used as the index, not how `length` is accessed — `arr.length` points one slot past the last valid element.",
+      "misconception": "length-as-method-not-property"
+    },
+    {
+      "target": 3,
+      "why_wrong": "A null check would guard against calling this on `undefined` or `null`, but that's a separate concern from what's actually broken here. Even with a perfectly valid array passed in, `arr[arr.length]` still reads past the end and returns `undefined`.",
+      "misconception": "assumes-missing-null-guard"
+    }
+  ]
+}

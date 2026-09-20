@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "res-001",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:22:24.923Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "Calling `f.read()` again won't pull in more data — the first call already reads the file to its end, so a second call just returns an empty string. The actual defect here isn't about how much gets read, it's that the file object itself is never closed after `read()` finishes.",
+      "misconception": "double-read-for-more-data"
+    },
+    {
+      "target": 2,
+      "why_wrong": "Returning `f` instead of `data` would hand back the file object rather than its contents, which breaks the function's purpose of returning config text — and it still leaves the file unclosed. The bug isn't about which variable gets returned, it's that nothing ever closes the handle before (or after) the function exits.",
+      "misconception": "return-value-confusion"
+    },
+    {
+      "target": 3,
+      "why_wrong": "`open(path)` already defaults to text read mode (`'r'`), so no second argument is required for this to work correctly. The real issue lives after the read succeeds: the opened file is never closed, so the descriptor leaks on every call.",
+      "misconception": "assumes-mode-arg-required"
+    }
+  ]
+}

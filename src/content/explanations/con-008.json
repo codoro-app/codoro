@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "con-008",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:21:56.213Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "Marking count as final would stop it from being reassigned to a new variable, but that's not what's happening here — the field's value is still mutated in place via count++. The real issue is that increment() performs a read-modify-write that isn't atomic, so concurrent threads can interleave and lose updates regardless of final.",
+      "misconception": "final-prevents-mutation"
+    },
+    {
+      "target": 2,
+      "why_wrong": "count++ does add exactly 1 each time it runs to completion — there's no arithmetic mistake in the expression itself. The bug is that this single-threaded-looking statement is actually three separate steps (read, increment, write), and threads can interleave those steps so an increment gets overwritten and lost, not doubled.",
+      "misconception": "misreads-race-as-arithmetic-error"
+    },
+    {
+      "target": 3,
+      "why_wrong": "Integer overflow is a real phenomenon in Java, but it wraps around silently rather than crashing the JVM, and it isn't what this snippet is exhibiting. The actual concurrency bug is that count++ splits into a read, increment, and write that aren't synchronized, so simultaneous threads can clobber each other's updates and the count ends up lower than expected.",
+      "misconception": "conflates-overflow-with-race-condition"
+    }
+  ]
+}

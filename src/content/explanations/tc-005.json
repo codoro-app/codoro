@@ -1,0 +1,33 @@
+{
+  "puzzle_id": "tc-005",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:33:00.409Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line only declares the function and its parameter; there's no comparison here at all, so it can't be the check that silently fails.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This line just returns `true` after the `if` condition has already been decided; the broken part is the comparison that gates it, not the return statement itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This is only the closing brace of the `if` block, a purely structural marker with no logic, so it can't be the faulty comparison.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This line just returns `false` as the fallback exit and never performs any comparison, so it can't be the check that never behaves as intended.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This is simply the closing brace of the function, with no expression evaluated on it, so it can't contain the broken equality check.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "tc-006",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:18:45.636Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "sort() does mutate the array in place, but that's not what breaks this function — the returned array still contains all four scores. The real problem is the ordering itself: without a comparator, `[10, 9, 2, 21]` gets compared as strings, so `10` sorts before `2`.",
+      "misconception": "blames-mutation-not-comparator"
+    },
+    {
+      "target": 2,
+      "why_wrong": "Switching to a for loop would just mean writing your own sort algorithm from scratch — sort() itself can absolutely handle numeric arrays correctly. It just needs an explicit comparator like `(a, b) => a - b` instead of relying on the default lexicographic string comparison.",
+      "misconception": "avoids-builtin-instead-of-fixing-comparator"
+    },
+    {
+      "target": 3,
+      "why_wrong": "sort() never throws on numbers; it happily accepts any array and just calls a default comparison that treats every element as a string. That silent string coercion, not a crash, is why `[10, 9, 2, 21]` comes out as `[10, 2, 21, 9]`.",
+      "misconception": "assumes-type-error-instead-of-silent-coercion"
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "puzzle_id": "mut-001",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-19T23:56:01.230Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line only opens the `Team` class declaration; no reference is stored or copied here, so no aliasing can happen on it.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This just declares the `members` field's type; the field being a `List` isn't itself the bug — the bug is how it gets assigned later.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This is a blank line with no code, so it can't introduce or fix any aliasing.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This is just the constructor's signature declaring a parameter named `members`; no assignment happens on this line, so no reference is shared yet.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This is the closing brace of the constructor body; it doesn't perform any assignment, so it can't be where the aliasing is created.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This is a blank line separating methods; it contains no logic that could alias state.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This is only the method signature for `getMembers()`; the actual return logic below is what matters, not this declaration line.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "You're blaming the accessor, but this line is actually the fix pattern in miniature — wrapping `members` in `new ArrayList<>(...)` returns a fresh copy so callers can't mutate the internal list through it. The hidden aliasing already happened earlier, when the constructor stored the caller's list directly instead of copying it.",
+      "misconception": "blames-defensive-copy-site"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This is just the closing brace of `getMembers()`; it has no effect on how `members` was stored, so it isn't where the bug lives.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This is the closing brace of the `Team` class itself and contains no assignment or logic, so it can't be the source of the aliasing.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This is a blank line between the two classes; there's no code here to introduce a bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 12,
+      "why_wrong": "This only opens the `Main` class; it's structural boilerplate with no state being shared or copied.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 13,
+      "why_wrong": "This is just the `main` method's signature; the calls inside the body are what matter, not this declaration line.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 14,
+      "why_wrong": "This only creates a fresh, empty `ArrayList` and assigns it to `names`; nothing is shared with `Team` yet at this point.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 15,
+      "why_wrong": "This adds `\"Alice\"` to `names` before the `Team` even exists, so it can't be responsible for the later aliasing between `names` and `team`.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 16,
+      "why_wrong": "You're pointing at where `names` gets handed to the constructor, but passing a reference here isn't itself the bug — Java always passes list references, so this call is unavoidable and fine on its own. The problem is that the constructor then keeps that exact reference instead of copying it, which happens inside `Team`, not at this call site.",
+      "misconception": "blames-call-site-reference-pass"
+    },
+    {
+      "target": 17,
+      "why_wrong": "This mutation is what exposes the bug's symptom by adding `\"Bob\"` after `team` was built, but the line itself is just normal list mutation — it's only a problem because `team` secretly still points at this same list. The actual defect is upstream, where the constructor failed to copy `members` before storing it.",
+      "misconception": "conflates-trigger-with-root-cause"
+    },
+    {
+      "target": 18,
+      "why_wrong": "This line only prints the result of `getMembers()`, which itself defensively copies the list; printing here just reveals the surprising `Bob` entry, it doesn't cause it.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 19,
+      "why_wrong": "This is the closing brace of the `main` method and executes no logic, so it can't be where a reference gets aliased.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 20,
+      "why_wrong": "This is the closing brace of the `Main` class with no code in it, so it has nothing to do with how `members` was stored.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "puzzle_id": "rec-003",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:43:36.812Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line just defines the function's name and parameter — it has no say in when recursion stops. The termination bug lives in the base-case condition that checks `n`, further down.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This only runs after the base case has already fired — it just prints a message and doesn't decide whether that base case is reached. The actual defect is in the condition guarding entry to this block, not the print.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This return statement just exits once the base case is triggered; it has no influence over whether `n` ever satisfies that base case. The bug is in the condition checked before this branch runs.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This just prints the current value of `n` on the way down and doesn't affect whether the recursion ever stops. The termination bug is in the equality check that decides when to stop, not in this output line.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "It's tempting to blame the `-2` step since that's what makes `n` skip over zero for odd inputs, but decrementing by any amount is fine as long as the base case can catch it. The real defect is that the guard only checks `n == 0` instead of `n <= 0`, so it can't catch values that jump past zero.",
+      "misconception": "blames-step-not-guard"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This is just a blank line separating the function from its call — it contains no logic and can't be the site of a termination bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 7,
+      "why_wrong": "Starting with an odd value like 7 is what exposes the bug, but this call site isn't itself broken — `countdown` should terminate correctly for any input. The real defect is that the base case's equality check can't catch values that step past zero, regardless of what's passed in here.",
+      "misconception": "blames-caller-not-guard"
+    }
+  ]
+}

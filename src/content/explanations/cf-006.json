@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "cf-006",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:28:19.349Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "A missing `default` case isn't the issue here — `size` is always one of the three recognized strings in this scenario, so there's no unrecognized-value path to worry about. The actual problem is that `case \"small\"` has no `break`, so it falls through into `case \"medium\"` and overwrites `price` to 10.",
+      "misconception": "blames-missing-default"
+    },
+    {
+      "target": 2,
+      "why_wrong": "Removing `let price = 0` wouldn't fix anything — that initialization is what gives `price` a defined value before the `switch` runs, and it's harmless. The bug is the missing `break` after `price = 5` in `case \"small\"`, which lets execution fall through and overwrite the value in `case \"medium\"`.",
+      "misconception": "blames-unrelated-declaration"
+    },
+    {
+      "target": 3,
+      "why_wrong": "Moving `break` before the assignment would just exit the switch before `price` ever gets set, which is worse, not better — `break` has to come after the code you want to run for that case. The real fix is adding the missing `break` after `price = 5` in `case \"small\"`, since its absence lets execution fall through into `case \"medium\"`.",
+      "misconception": "break-placement-confusion"
+    }
+  ]
+}

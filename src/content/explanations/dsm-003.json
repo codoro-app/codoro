@@ -1,0 +1,108 @@
+{
+  "puzzle_id": "dsm-003",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:45:40.231Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line simply opens the Point class definition and contains no comparison or hashing logic that could cause the failure.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This line only declares the x and y fields Point holds, so it has no effect on how two Point instances are compared or hashed.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This constructor just assigns the constructor's arguments to x and y, and has no role in how equals() or hashCode() behave.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This line is blank, so there's no code here that could cause duplicate detection to fail.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "The @Override annotation is only a compiler check confirming a method overrides its superclass version — it doesn't change equals()'s behavior or affect hashCode() at all.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "You're suspecting the type guard, but `instanceof Point` correctly rejects non-Point objects and isn't where this bug lives. The real failure happens before equals() is even called: Point's missing hashCode() means two equal-looking points can land in different HashSet buckets, so this check never runs on them.",
+      "misconception": "assumes-equals-body-broken"
+    },
+    {
+      "target": 7,
+      "why_wrong": "Casting `o` to Point here is safe and unrelated to the failure — it only runs after the instanceof check already confirmed the type. The bug is that Point has no hashCode() override, so HashSet often never reaches this line for two logically-equal points.",
+      "misconception": "assumes-equals-body-broken"
+    },
+    {
+      "target": 8,
+      "why_wrong": "The field comparison `x == p.x && y == p.y` is exactly correct equals() logic and isn't the problem. Because Point never overrides hashCode(), HashSet frequently puts duplicate points in different buckets and never even calls this comparison on them.",
+      "misconception": "assumes-equals-body-broken"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This brace only closes the equals() method body after its (correct) logic has already run, so it isn't where the bug lives.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This brace simply ends the Point class definition and contains no executable logic of its own.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This is a blank line with no code, so it can't be responsible for the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 12,
+      "why_wrong": "This line only declares the hasDuplicate method's name and parameters, without performing any comparison or hashing.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 13,
+      "why_wrong": "Creating a HashSet<> here isn't the mistake — HashSet is a perfectly reasonable choice for this job. The real gap is that Point overrides equals() without overriding hashCode(), so this set's bucketing can't recognize logically-equal Points as the same key.",
+      "misconception": "blames-collection-choice"
+    },
+    {
+      "target": 14,
+      "why_wrong": "This for-loop just iterates over the points list in order, which works correctly regardless of the underlying bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 15,
+      "why_wrong": "This is where the failure becomes visible, but seen.add(p) is just following the contract HashSet gives it — the cause sits earlier, in Point's missing hashCode() override. Without a consistent hashCode(), add() computes a different bucket for each duplicate and never triggers the equals() check that would catch it.",
+      "misconception": "conflates-symptom-with-cause"
+    },
+    {
+      "target": 16,
+      "why_wrong": "This return only fires after seen.add(p) has already reported a collision, so it's a downstream effect rather than the cause.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 17,
+      "why_wrong": "This brace only closes the if block and contains no logic of its own.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 18,
+      "why_wrong": "This brace only closes the for-loop and contains no logic of its own.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 19,
+      "why_wrong": "Returning false here is the correct fallback once the loop finishes without detecting a duplicate, and it isn't where the bug happens.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 20,
+      "why_wrong": "This brace only closes the hasDuplicate method and contains no logic of its own.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

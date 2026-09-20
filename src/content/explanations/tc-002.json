@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "tc-002",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:18:30.631Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "In-place mutation is real but harmless here since the result is reassigned and used directly; that's not what makes the output wrong. The actual problem is that `sort()` with no comparator compares elements as strings, so it garbles the numeric order regardless of whether it mutates or copies.",
+      "misconception": "assumes-mutation-is-the-bug"
+    },
+    {
+      "target": 2,
+      "why_wrong": "Reversing wouldn't help because the array isn't simply backwards from what you want — `[10, 2, 33, 4]` isn't a reversed version of `[2, 4, 10, 33]`. The output is scrambled because `sort()` without a comparator turns each number into a string and compares them character by character, like `\"10\" < \"2\"`.",
+      "misconception": "reverse-fixes-order-confusion"
+    },
+    {
+      "target": 3,
+      "why_wrong": "`Array.prototype.sort()` never throws just because an array has duplicate numeric values — it runs silently and returns a result either way. The real issue is that without a comparator it stringifies elements and sorts them lexicographically, which is why `[10, 2, 33, 4]` comes out in the wrong numeric order.",
+      "misconception": "invents-throw-behavior"
+    }
+  ]
+}

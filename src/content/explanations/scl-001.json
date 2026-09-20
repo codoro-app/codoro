@@ -1,0 +1,28 @@
+{
+  "puzzle_id": "scl-001",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:20:08.939Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "Anonymous functions are completely valid event listeners — `addEventListener` binds them just fine, and they'd log correctly if `i` itself pointed to the right value. The real issue is that `var i` is shared by every iteration, so every one of those anonymous functions closes over the same final value of `i` instead of failing to bind.",
+      "misconception": "anon-function-cant-be-listener"
+    },
+    {
+      "target": 2,
+      "why_wrong": "`buttons.length` being read once isn't the problem here — all the buttons already exist in the DOM before the loop runs, so every one of them gets a listener attached. The bug is that those listeners all close over the same `var i`, which has already reached its final value by the time any click fires.",
+      "misconception": "stale-collection-length"
+    },
+    {
+      "target": 3,
+      "why_wrong": "The click event doesn't race the loop's increment — by the time a user can even click a button, the entire `for` loop has long since finished running. Every handler shares the same `var i`, so they all read its final post-loop value, not some in-between state from before an increment.",
+      "misconception": "event-fires-before-increment"
+    },
+    {
+      "target": 4,
+      "why_wrong": "String concatenation with `+` doesn't turn a number into `NaN` — coercing a number to a string works fine and would produce a real digit if `i` held the right value at call time. The actual problem is that all handlers share one `var i`, so they all print the same final index, not `NaN`.",
+      "misconception": "concat-coerces-to-nan"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "scl-003",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:20:22.049Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "The order the functions run in isn't the problem here — `push` correctly appends in order, and swapping it for `unshift` would only reverse that order, not fix the values returned. The actual issue is that every closure reads the same `i`, which has already reached 3 by the time any of them run.",
+      "misconception": "wrong-bug-call-order"
+    },
+    {
+      "target": 2,
+      "why_wrong": "Changing the bound to `i <= 3` would make the loop run one extra time and push a fourth function, not fix what the existing three return. The three closures already return 3 each because they all share one `var i` binding that keeps updating, independent of where the loop stops.",
+      "misconception": "off-by-one-inclusive-bound"
+    },
+    {
+      "target": 3,
+      "why_wrong": "Switching to arrow functions wouldn't help on its own — an arrow function closing over the same `var i` would capture the exact same shared binding and still return 3 three times. What actually needs to change is how `i` is scoped (`let` instead of `var`), not the syntax used to define the callback.",
+      "misconception": "wrong-fix-arrow-vs-var"
+    }
+  ]
+}

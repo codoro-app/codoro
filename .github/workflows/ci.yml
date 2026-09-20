@@ -29,6 +29,9 @@ jobs:
       - name: Validate content
         run: pnpm validate:content
 
+      - name: Validate explanations
+        run: pnpm validate:explanations
+
       - name: Test
         run: pnpm test:coverage
 

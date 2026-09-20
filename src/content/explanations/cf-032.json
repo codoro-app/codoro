@@ -1,0 +1,153 @@
+{
+  "puzzle_id": "cf-032",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T01:14:41.345Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line just imports the `java.util` classes used elsewhere in the file; it contains no control-flow logic that could skip a log entry.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This is a blank line with no code, so it can't be responsible for the missing audit entries.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This line only opens the `ApplicantScreener` class body; it doesn't run any conditional logic that could prevent logging.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This line just declares and initializes the empty `auditLog` list. The missing entries come from `logScreening` never running for inactive applicants, not from how the list itself is created.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This is a blank line with no code, so it can't be where the missing audit entries come from.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This line only declares the `isEligible` method and its parameter; the actual bug lives in the boolean expression inside the method body, not in the signature itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "`applicant.isActive()` itself isn't broken — it correctly reports each applicant's status. The real issue is what Java does once this returns `false`: `&&` short-circuits the rest of the expression, skipping the call to `logScreening` and every entry for inactive applicants along with it.",
+      "misconception": "blames-leading-condition"
+    },
+    {
+      "target": 8,
+      "why_wrong": "The age comparison runs fine whenever an applicant is active, regardless of their age, so it isn't what's swallowing audit entries. Entries go missing earlier, when `applicant.isActive()` is `false` and `&&` short-circuits before Java ever reaches `logScreening`.",
+      "misconception": "blames-trailing-condition"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This is just the closing brace of `isEligible`; it has no logic of its own to blame for the missing entries.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This is a blank line with no code, so it isn't where the audit entries go missing.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This line only declares the `logScreening` method. Its body correctly logs an entry whenever it's called — the problem is that `&&` short-circuiting prevents it from being called for inactive applicants, not anything wrong with this signature.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 12,
+      "why_wrong": "The `add` call itself is correct and does write a proper audit entry — the logging statement isn't the bug. The problem is upstream: `&&` short-circuiting means this line simply never executes for inactive applicants.",
+      "misconception": "blames-log-statement"
+    },
+    {
+      "target": 13,
+      "why_wrong": "This line only returns `true` from `logScreening` after logging succeeds; it runs correctly whenever the method is invoked, so it isn't the site of the missing-entry bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 14,
+      "why_wrong": "This is just the closing brace of `logScreening`; it has no conditional logic that could cause entries to be skipped.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 15,
+      "why_wrong": "This is a blank line with no code, so it isn't where the audit entries go missing.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 16,
+      "why_wrong": "This line only declares the `screenApplicants` method and its parameter; the actual bug is inside `isEligible`, which this method calls.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 17,
+      "why_wrong": "This line just creates an empty list to hold eligible applicants; it has nothing to do with writing audit-log entries.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 18,
+      "why_wrong": "The for-loop iterates over every applicant, active or not, and calls `isEligible` for each one — it isn't filtering anyone out at this stage. The missing entries come from inside `isEligible`, where `&&` short-circuits past `logScreening` once `isActive()` is `false`.",
+      "misconception": "blames-loop-filtering"
+    },
+    {
+      "target": 19,
+      "why_wrong": "This condition calls `isEligible` for every applicant in the list, so it does invoke the check that's supposed to trigger logging — it isn't skipping inactive applicants here. Whether an entry gets logged is decided inside `isEligible` itself, where `&&` short-circuits past `logScreening`.",
+      "misconception": "blames-eligibility-check-call"
+    },
+    {
+      "target": 20,
+      "why_wrong": "This only adds an applicant to the separate `eligible` output list once they've passed the check; it has nothing to do with writing entries to `auditLog`.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 21,
+      "why_wrong": "This is just the closing brace of the `if` block; it contains no logic that could suppress a log entry.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 22,
+      "why_wrong": "This is just the closing brace of the for-loop; it doesn't run any logic that could cause entries to be skipped.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 23,
+      "why_wrong": "This line just returns the `eligible` list built during screening; it has no effect on what gets written to `auditLog`.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 24,
+      "why_wrong": "This is just the closing brace of `screenApplicants`; it has no logic of its own that could drop audit entries.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 25,
+      "why_wrong": "This is a blank line with no code, so it isn't where the audit entries go missing.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 26,
+      "why_wrong": "This line only declares the `getAuditLog` method; it doesn't decide which entries end up in the list.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 27,
+      "why_wrong": "This line just returns the `auditLog` list as-is without filtering or altering it, so it can't be why entries for inactive applicants were never added in the first place.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 28,
+      "why_wrong": "This is just the closing brace of `getAuditLog`; it has no logic that could remove or skip entries.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 29,
+      "why_wrong": "This is just the closing brace of the class itself; it contains no logic at all.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

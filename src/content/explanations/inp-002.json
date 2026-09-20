@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "inp-002",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:26:39.807Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "You're assuming `parseInt` returns `NaN` whenever the input isn't a clean number, so `!isNaN` would be redundant. It doesn't — `parseInt` happily parses the leading digits and stops, so `\"5abc\"` becomes `5`, not `NaN`, and sails right past that check.",
+      "misconception": "isnan-catches-all-invalid"
+    },
+    {
+      "target": 2,
+      "why_wrong": "That's a real design question about whether zero counts as a valid quantity, but it's not what's broken here. The actual failure is that `parseInt` truncates strings like `\"5abc\"` down to `5` instead of rejecting them, letting garbage input slip through regardless of the lower bound you pick.",
+      "misconception": "misdiagnosed-range-check"
+    },
+    {
+      "target": 3,
+      "why_wrong": "You're thinking of the old pre-ES5 behavior where a leading `0` made `parseInt` guess octal — modern JS engines default to base 10 and no longer do that. The real problem is that `parseInt` still stops at the first non-digit character, so trailing text like `\"abc\"` in `\"5abc\"` gets silently dropped instead of failing validation.",
+      "misconception": "assumes-legacy-octal-parseint"
+    }
+  ]
+}

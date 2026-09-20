@@ -1,0 +1,33 @@
+{
+  "puzzle_id": "inp-005",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:49:48.627Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line only declares the function and names its parameter; no property access or comparison happens here, so nothing can throw yet.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This just returns `true` once the length check has already passed without error, so it can't be the line that crashes on bad input.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This is only the closing brace of the `if` block; it has no logic of its own and can't throw anything.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This returns `false` after the length check has already succeeded, meaning `password` was already safely accessed earlier, so this line is unreachable when the crash occurs.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This is just the closing brace of the function definition and contains no executable statement that could throw.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

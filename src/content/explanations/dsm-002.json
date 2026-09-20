@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "dsm-002",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:25:10.884Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "Swapping the whole structure isn't necessary — the dict itself is fine, it's just that this particular key type can't be hashed. Converting `arg_list` to a `tuple` before using it as a key keeps the dict and fixes the crash.",
+      "misconception": "overcorrects-structure-instead-of-key"
+    },
+    {
+      "target": 2,
+      "why_wrong": "Changing `results` to a list wouldn't relate to the crash at all — the error happens because `arg_list` is used as a dict key, not because of what `results` is. A list also can't reproduce the lookup-by-key behavior this function is going for.",
+      "misconception": "misidentifies-crashing-variable"
+    },
+    {
+      "target": 3,
+      "why_wrong": "The function does return `results` at the end, so a missing return isn't what raises the exception. The crash happens earlier, on the line assigning into `results[arg_list]`, before the return is ever reached.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

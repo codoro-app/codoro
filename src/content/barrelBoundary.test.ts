@@ -6,17 +6,19 @@ import { join, relative, sep } from 'node:path'
  * Mechanical enforcement of the content barrel/pools split — the one thing
  * this branch's critical-path fix depended on that nothing checked.
  *
- * `puzzlePool`/`quizPool`/`scrubberPool` (./pools) and `DEV_STUB_PUZZLES`
- * (./devPuzzles) are deliberately NOT re-exported from ./index, and must be
- * deep-imported. ES modules evaluate per *file*, not per binding: importing
- * any of these through the barrel makes the whole eager module reachable
- * from the importer's chunk, so all 214 puzzle bodies (or the dev stub
- * puzzles) land on every route that touches the barrel — even where an
- * `import.meta.env.DEV` guard means the binding is never read. Measured:
- * 79.74 KB and 214 static puzzle imports with the re-export, 53.84 KB and
- * zero without. The final whole-branch review found `DEV_STUB_PUZZLES` back
- * in the production entry chunk exactly this way, past three separate
- * comments saying not to do it — hence a test rather than a fourth comment.
+ * `puzzlePool`/`quizPool`/`scrubberPool` (./pools), `DEV_STUB_PUZZLES`
+ * (./devPuzzles), and `getExplanationSet` (./explanations, v6 Phase 6.0) are
+ * deliberately NOT re-exported from ./index, and must be deep-imported. ES
+ * modules evaluate per *file*, not per binding: importing any of these
+ * through the barrel makes the whole eager (or, for explanations, lazy-glob)
+ * module reachable from the importer's chunk, so all 214 puzzle bodies (or
+ * the dev stub puzzles, or every explanation chunk) land on every route that
+ * touches the barrel — even where an `import.meta.env.DEV` guard means the
+ * binding is never read. Measured: 79.74 KB and 214 static puzzle imports
+ * with the re-export, 53.84 KB and zero without. The final whole-branch
+ * review found `DEV_STUB_PUZZLES` back in the production entry chunk exactly
+ * this way, past three separate comments saying not to do it — hence a test
+ * rather than a fourth comment.
  *
  * The intended home for this is an eslint `no-restricted-imports` rule
  * (an `importNames` list on a glob group matching any path ending at
@@ -33,7 +35,13 @@ import { join, relative, sep } from 'node:path'
 
 const SRC_DIR = join(process.cwd(), 'src')
 
-const FORBIDDEN_NAMES = ['puzzlePool', 'quizPool', 'scrubberPool', 'DEV_STUB_PUZZLES']
+const FORBIDDEN_NAMES = [
+  'puzzlePool',
+  'quizPool',
+  'scrubberPool',
+  'DEV_STUB_PUZZLES',
+  'getExplanationSet',
+]
 
 // Matches `import ... from '<path ending in /content or exactly ../content>'`
 // and the `export ... from` form, capturing the braced clause. Deep paths
@@ -101,12 +109,20 @@ describe('content barrel boundary', () => {
     expect(findViolations(alsoBad, 'fake.ts')).toEqual([
       { file: 'fake.ts', name: 'DEV_STUB_PUZZLES' },
     ])
+
+    const explanationsBad = "import { getExplanationSet } from '../../content'\n"
+    expect(findViolations(explanationsBad, 'fake.ts')).toEqual([
+      { file: 'fake.ts', name: 'getExplanationSet' },
+    ])
   })
 
   it('allows the deep-import paths that are the supported way in', () => {
     expect(findViolations("import { puzzlePool } from '../../content/pools'\n", 'f.ts')).toEqual([])
     expect(
       findViolations("import { DEV_STUB_PUZZLES } from '../../content/devPuzzles'\n", 'f.ts'),
+    ).toEqual([])
+    expect(
+      findViolations("import { getExplanationSet } from '../../content/explanations'\n", 'f.ts'),
     ).toEqual([])
     // Type-only imports are erased and can never drag a module into a chunk.
     expect(findViolations("import type { quizPool } from '../../content'\n", 'f.ts')).toEqual([])

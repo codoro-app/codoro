@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "inp-006",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:27:02.461Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "Changing the bound to `percent >= 100` would still only guard the upper end and would actually break the legitimate case of a 100% discount. The real gap is on the other side of the range entirely: nothing stops a negative percent from sneaking through.",
+      "misconception": "fixates-on-upper-bound"
+    },
+    {
+      "target": 2,
+      "why_wrong": "Type-checking `price` would guard against a totally different failure mode, like someone passing a string or `undefined`, but that's not what's happening here. `percent` is a valid number in the bug scenario — it's just an out-of-range one that slips past the existing check.",
+      "misconception": "wrong-parameter-blamed"
+    },
+    {
+      "target": 3,
+      "why_wrong": "Floating-point imprecision would cause tiny rounding discrepancies in the result, not a discount that flips into a price increase. The actual failure is a missing range check, letting a negative `percent` invert the math entirely.",
+      "misconception": "blames-float-precision"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "puzzle_id": "con-005",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:21:14.515Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "The outer check isn't the problem — it's actually the whole point of the pattern, letting most calls skip the synchronized block once `instance` is set. Removing it would force every call through synchronization forever, which is a performance regression, not a fix; the real defect is that the field lacks `volatile` so the outer read can see a half-built object.",
+      "misconception": "misreads-perf-optimization-as-bug"
+    },
+    {
+      "target": 2,
+      "why_wrong": "There's no `this` to synchronize on here — `getInstance()` is a static method, so `this` doesn't exist and synchronizing on the class object (`Singleton.class`) is the correct way to lock across all threads calling it. The actual issue isn't which monitor is used; it's that `instance` isn't `volatile`, letting a thread read a reference before the constructor's writes are visible.",
+      "misconception": "static-context-lock-target-confusion"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This doesn't deadlock: `synchronized` blocks threads competing for the same lock one at a time, and each thread releases the lock as soon as it exits the block, so there's no circular wait or held-and-wait condition. The real hazard is visibility, not locking — without `volatile`, a thread can see a non-null `instance` whose constructor hasn't finished running.",
+      "misconception": "mutex-contention-mistaken-for-deadlock"
+    },
+    {
+      "target": 4,
+      "why_wrong": "Returning a fresh instance every call would defeat the entire purpose of a singleton — caching one shared instance is the intended behavior, not a flaw. The bug isn't about whether the instance is reused; it's that `instance` isn't `volatile`, so a thread can observe the cached reference before the object it points to is fully initialized.",
+      "misconception": "singleton-caching-mistaken-for-bug"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "puzzle_id": "con-004",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:37:16.282Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line just opens the `Counter` class definition and declares no state or behavior of its own, so there's no operation here that multiple threads could race on.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "Declaring `count` here just creates the shared field, and the problem isn't the missing `volatile` keyword — even a `volatile int` wouldn't fix this bug. The real issue is that `count++` in `increment()` reads, adds, and writes back in three separate steps, and volatile only guarantees visibility, not atomicity of that sequence.",
+      "misconception": "assumes-volatile-fixes-race"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This is a blank line separating the field from the `increment` method, so it doesn't execute anything a thread could contend over.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This line only declares the `increment` method's signature and doesn't yet perform the read-modify-write on `count` that causes the race.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This is just the closing brace of `increment()`, marking the end of the method body rather than performing any operation on `count`.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This blank line separates `increment` from `getCount` and has no code that touches shared state.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This line is only the signature for `getCount()`, declaring the method without yet reading `count`.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "Reading `count` here is a single load of an int field, not a compound operation, so it isn't where the interleaving problem lives. The actual race is in `increment()`, where `count++` splits into a read, an add, and a write-back, letting two threads read the same value before either writes its result and silently dropping an update.",
+      "misconception": "assumes-simple-read-is-unsafe"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This is the closing brace of `getCount()`, which ends the method but performs no access to `count` itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This line closes the `Counter` class overall and contains no executable statement that could race.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}
