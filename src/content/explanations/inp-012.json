@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "You're thinking about float precision, but `amount / 2` doesn't quietly lose accuracy here — it crashes outright. The real problem is that `amount` can be a string like `'10'`, and dividing a `str` by an `int` raises `TypeError` before precision is ever a concern.",
-      "misconception": "conflates-precision-with-type-error"
+      "misconception": "assumes-wrong-throw-behavior"
     },
     {
       "target": 2,
       "why_wrong": "Marking `amount` as unreassignable wouldn't stop anything bad from happening, since nothing in this function mutates it. The actual issue is that `amount` might arrive as a string from user input, and dividing a `str` by `2` raises `TypeError` with no conversion or check in place.",
-      "misconception": "misapplied-immutability-fix"
+      "misconception": "assumes-wrong-throw-behavior"
     },
     {
       "target": 3,
       "why_wrong": "There's no float-vs-int mismatch to worry about, because the function never gets far enough to return a value when `amount` is a string. `'10' / 2` raises `TypeError` immediately, since Python won't implicitly convert a string operand for division.",
-      "misconception": "assumes-return-type-mismatch"
+      "misconception": "assumes-wrong-throw-behavior"
     }
   ]
 }

@@ -22,7 +22,7 @@
     {
       "target": 3,
       "why_wrong": "Tapping here treats the parse call as the culprit, but `JSON.parse` throwing on bad input is expected, correct behavior. The real problem is what happens immediately after it throws — the catch block swallows that error instead of doing anything with it.",
-      "misconception": "blames-throwing-call"
+      "misconception": "caught-error-silently-discarded"
     },
     {
       "target": 5,
@@ -32,7 +32,7 @@
     {
       "target": 6,
       "why_wrong": "This is where the confusing `TypeError` actually fires, so it looks like the fault, but `config` is only `undefined` here because an earlier parse failure was already swallowed silently. The bug is upstream, in the handler that let a real error disappear without a trace.",
-      "misconception": "blames-symptom-not-cause"
+      "misconception": "caught-error-silently-discarded"
     },
     {
       "target": 7,

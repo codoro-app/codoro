@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "That mixes up `json.load` with `json.dumps` — `json.load` parses the file's JSON content and hands back a Python dict (or list, etc.), not a string. The return type here isn't the problem; the bug is what happens when parsing fails.",
-      "misconception": "confuses-load-with-dumps"
+      "misconception": "caught-error-silently-discarded"
     },
     {
       "target": 2,
       "why_wrong": "The `with open(path) as f:` block is exactly what guarantees the file gets closed, even if an exception happens inside it — that's the whole point of using a context manager here. The real issue is what the surrounding `except` does after the file handling, not the file handling itself.",
-      "misconception": "doubts-with-statement-cleanup"
+      "misconception": "caught-error-silently-discarded"
     },
     {
       "target": 3,
       "why_wrong": "The `open()` call is already inside the `try` block, not before it — `with open(path) as f:` sits directly under `try:`. Moving things around wouldn't help anyway; the problem is that the `except` clause catches everything and throws the details away instead of distinguishing expected failures from bugs.",
-      "misconception": "misreads-try-scope"
+      "misconception": "caught-error-silently-discarded"
     }
   ]
 }

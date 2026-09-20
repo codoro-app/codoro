@@ -347,6 +347,9 @@ export function DailyPage() {
             onContinue={session.handleRetry}
             continueDestination="retry"
             sidebarSlot={sidebarSlotEl}
+            coachEligible={true}
+            coachAvailable={session.coachAvailable}
+            onCoachExplanationShown={session.markCoachExplanationShown}
           />
         )}
       </div>

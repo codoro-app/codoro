@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "The `low > high` base case is actually fine — it's precisely the condition that should eventually fire once the search range shrinks to nothing. Tightening it to `low >= high` wouldn't fix anything here; the real defect is that the right-half branch passes `mid` back as `low` instead of `mid + 1`, so that crossing point never gets reached.",
-      "misconception": "wrong-base-case-boundary"
+      "misconception": "recursion-never-reaches-base-case"
     },
     {
       "target": 2,
       "why_wrong": "The rounding direction of `mid` isn't the problem — `(low + high) // 2` converges fine as long as each recursive call actually shrinks the range. The real bug is that the 'search right half' call passes `mid` as the new `low` instead of `mid + 1`, so when `low == high == mid` the arguments never change no matter how `mid` was rounded.",
-      "misconception": "rounding-fix-misapplied"
+      "misconception": "recursion-never-reaches-base-case"
     },
     {
       "target": 3,
       "why_wrong": "Swapping `==` for `is` would compare object identity instead of value equality — the wrong tool for checking array contents, and it could actually break the match for large integers Python doesn't cache. The equality check isn't where this bug lives; it's in the right-half recursive call, which passes `mid` instead of `mid + 1` and can stall the range forever.",
-      "misconception": "is-vs-equality-confusion"
+      "misconception": "recursion-never-reaches-base-case"
     }
   ]
 }

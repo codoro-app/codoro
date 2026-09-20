@@ -24,6 +24,7 @@ const validProfile = {
   anonId: 'test-anon-id-1',
   challengerName: null,
   firstRunCompleted: true,
+  coachMeter: { weekStart: '2026-07-14', used: 0 },
 }
 
 const validAttempt = {

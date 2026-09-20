@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "A missing `default` isn't the issue here — every value 1 through 7 is already handled by an explicit case, so there's no unmatched input silently falling through the bottom. The real problem is fallthrough *between* the handled cases: case 5 runs into case 6 and 7 and gets its `count` overwritten to 2.",
-      "misconception": "assumes-default-required"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 2,
       "why_wrong": "Changing `count` to a `double` wouldn't fix anything, since the function only ever needs to hold one of two distinct values (1 or 2) at a time, not a value in between. The bug is that fallthrough overwrites the weekday assignment before the function returns, not that `int` lacks enough precision.",
-      "misconception": "treats-logic-bug-as-type-bug"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 3,
       "why_wrong": "Java's `switch` statement allows integer (and char/enum/String) case labels just fine — the numeric labels `1` through `7` here are perfectly legal and this code compiles. The actual defect is missing `break` statements causing case 5 to fall into case 6, not any restriction on label types.",
-      "misconception": "invents-syntax-constraint"
+      "misconception": "break-doesnt-exit-as-expected"
     }
   ]
 }

@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "Naming a `Thread` is purely cosmetic — it's just a label used in debuggers and logs, and an unnamed thread runs exactly the same as a named one. The real problem here is that `worker` never gets asked to run concurrently at all, since the code calls `run()` instead of `start()`.",
-      "misconception": "thread-name-required"
+      "misconception": "run-called-instead-of-start"
     },
     {
       "target": 2,
       "why_wrong": "It's `start()` that can only be called once per `Thread` and throws `IllegalThreadStateException` on a second call — `run()` has no such restriction, since it's just a plain method you can invoke as many times as you like. Here `run()` is called a single time and executes fine, it just does so on the caller's own thread instead of a new one.",
-      "misconception": "confuses-run-and-start-restrictions"
+      "misconception": "run-called-instead-of-start"
     },
     {
       "target": 3,
       "why_wrong": "There's nothing here to leak — no new OS thread is ever created, so there's no lingering resource to clean up or stop. The actual issue is the opposite of over-allocation: the `Thread` object is built but never launched, so `task` just runs synchronously on the calling thread.",
-      "misconception": "invents-cleanup-leak-bug"
+      "misconception": "run-called-instead-of-start"
     }
   ]
 }

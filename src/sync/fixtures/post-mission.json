@@ -1,8 +1,8 @@
 {
-  "schema_version": 13,
+  "schema_version": 14,
   "exportedAt": "2026-09-12T14:17:23.052Z",
   "profile": {
-    "schema_version": 13,
+    "schema_version": 14,
     "rating": 1200,
     "ratedAttemptCount": 0,
     "streak": {
@@ -32,7 +32,8 @@
     },
     "anonId": "6057bb34-b425-4e62-bdb5-a199f602610f",
     "challengerName": null,
-    "firstRunCompleted": false
+    "firstRunCompleted": false,
+    "coachMeter": { "weekStart": "", "used": 0 }
   },
   "attempts": [
     {

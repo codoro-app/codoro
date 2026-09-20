@@ -7,22 +7,22 @@
     {
       "target": 1,
       "why_wrong": "You're treating this as a print-ordering issue, but where `console.log` sits relative to the recursive call has no effect on whether recursion ever stops. The crash comes from `n` sailing past `0` for odd starting values, not from when the number gets printed.",
-      "misconception": "confuses-output-order-with-termination"
+      "misconception": "recursion-never-reaches-base-case"
     },
     {
       "target": 2,
       "why_wrong": "Swapping to `n - 1` isn't a performance tweak here — the step size determines whether `n` can ever land exactly on `0`. The real issue is that `n - 2` skips over `0` entirely for odd inputs, so the base case never fires, not that the countdown runs slowly.",
-      "misconception": "mistakes-correctness-fix-for-performance"
+      "misconception": "recursion-never-reaches-base-case"
     },
     {
       "target": 3,
       "why_wrong": "`countDown` is meant to run for its side effects (the `console.log` calls), so not returning a value is normal and isn't what crashes the program. The crash is a stack overflow from recursion that never reaches its base case, which is unrelated to return values.",
-      "misconception": "assumes-missing-return-causes-crash"
+      "misconception": "recursion-never-reaches-base-case"
     },
     {
       "target": 4,
       "why_wrong": "Calling `countDown(n)` with no decrement would make every call recurse forever, but that's not the bug described — this function actually works for even inputs and only fails for odd ones. The real flaw is that `n - 2` can jump past `0` without ever equaling it, not that `n` fails to change at all.",
-      "misconception": "overgeneralizes-infinite-recursion"
+      "misconception": "recursion-never-reaches-base-case"
     }
   ]
 }

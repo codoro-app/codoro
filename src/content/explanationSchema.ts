@@ -23,6 +23,7 @@
  */
 import { z } from 'zod'
 import { IdSchema } from './schema'
+import { MISCONCEPTION_SLUGS } from './misconceptions'
 
 /**
  * Crude on purpose (spec §8, item 6): "option A/B/C", "first/second/third
@@ -56,10 +57,14 @@ export const ExplanationEntrySchema = z.object({
       'why_wrong must not reference ordinal/positional choice language (e.g. "option B", "the second choice") — mcq choices are shuffled per serving',
     ),
 
-  // Short kebab-case label for the underlying misconception, reused across
-  // puzzles wherever the same confusion appears — the taxonomy the 6.3
-  // diagnostic is built on.
-  misconception: z.string().regex(/^[a-z0-9-]{3,48}$/),
+  // The underlying misconception, drawn from the locked vocabulary in
+  // misconceptions.ts (v6 Phase 6.1, spec §3.2a) — reused across puzzles
+  // wherever the same confusion appears, the taxonomy the 6.3 diagnostic is
+  // built on. A closed enum, not a free-form regex: 6.0's free-form version
+  // produced 274 non-filler labels across 292 entries, 96% singletons,
+  // useless as an aggregation taxonomy. See MISCONCEPTION_SLUGS's own doc
+  // comment for the full history.
+  misconception: z.enum(MISCONCEPTION_SLUGS),
 })
 
 export const ExplanationSetSchema = z

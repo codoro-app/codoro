@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "You're reading this as always returning false, but `username.length > 0` is true for any non-empty string, so normal usernames do return true. The real gap isn't the return logic — it's that a string of only spaces also satisfies that same length check and passes right along with them.",
-      "misconception": "misreads-return-logic"
+      "misconception": "length-check-doesnt-catch-whitespace"
     },
     {
       "target": 2,
       "why_wrong": "JavaScript strings don't have a `.size` property at all, so there's no such bug to fix here — `.length` is the correct and only way to get a string's character count. The actual defect is about what that length check lets through: a whitespace-only string still has `length > 0` and gets accepted as valid.",
-      "misconception": "confuses-length-with-size"
+      "misconception": "length-check-doesnt-catch-whitespace"
     },
     {
       "target": 3,
       "why_wrong": "Swapping to `===` wouldn't change which strings pass, since `length === 0` and `length > 0` just test the same empty/non-empty boundary from opposite sides. The problem isn't the comparison operator — it's that a whitespace-only string still has a length greater than zero and slips through untrimmed.",
-      "misconception": "operator-swap-non-fix"
+      "misconception": "length-check-doesnt-catch-whitespace"
     }
   ]
 }

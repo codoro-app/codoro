@@ -47,12 +47,12 @@
     {
       "target": 9,
       "why_wrong": "It's tempting to blame the array since that's where the numeric `id` values come from, but declaring `id: 1` as a number here is perfectly valid. The real problem isn't how this data is typed — it's that the later comparison uses strict `===` and never converts one side to match the other.",
-      "misconception": "blames-data-definition"
+      "misconception": "strict-equality-no-coercion"
     },
     {
       "target": 10,
       "why_wrong": "You might suspect the quoted `'2'` itself is the mistake, but query params always arrive as strings, so this line is doing exactly what it should. The actual bug is downstream, where `===` compares this string directly against a numeric `id` without ever converting either side.",
-      "misconception": "blames-string-literal"
+      "misconception": "strict-equality-no-coercion"
     },
     {
       "target": 11,

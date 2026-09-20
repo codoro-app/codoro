@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "You're focused on `f.read()`'s scope, but that call does read the entire file into memory by default — it doesn't stop at the first line, so nothing is missing from `data`. The actual defect isn't about how much gets read, it's that the file object `f` is never closed after reading.",
-      "misconception": "wrong-method-behavior-assumption"
+      "misconception": "resource-cleanup-not-guaranteed"
     },
     {
       "target": 2,
       "why_wrong": "Decoding isn't the issue here: `open(path)` in text mode already returns `str` data, so there's no bytes object left to decode. The real problem is unrelated to encoding — it's that `f` is opened and never closed, leaking the file descriptor.",
-      "misconception": "invented-encoding-issue"
+      "misconception": "resource-cleanup-not-guaranteed"
     },
     {
       "target": 3,
       "why_wrong": "Switching to `'rb'` would just change `data` from `str` to `bytes`, which isn't what's broken in this function. The bug has nothing to do with the file mode — it's that the handle returned by `open()` is never closed once reading finishes.",
-      "misconception": "wrong-fix-mode-instead-of-close"
+      "misconception": "resource-cleanup-not-guaranteed"
     }
   ]
 }

@@ -81,6 +81,41 @@ const ExplanationSetSchema = z.object({
 })
 ```
 
+### 3.2a — AMENDMENT 2026-09-20: `misconception` must be a controlled vocabulary
+
+**The first batch proved the free-form version does not work.** Measured over the shipped 745
+entries: 275 distinct labels, 263 of them used exactly once. Excluding the `not-the-bug-site`
+filler, 292 entries produced 274 distinct labels — **96% singletons, with only 11 labels ever
+reused.** The mcq half is worse in isolation: 185 entries, 182 labels, 180 singletons.
+
+Root cause is a spec bug, not a generation bug. §3.2 originally specified `misconception` as a
+free-form `^[a-z0-9-]{3,48}$` string, and the generator runs one call per puzzle with no knowledge
+of what labels other calls chose. Free-form generation cannot converge on a shared vocabulary.
+
+Consequence: **Phase 6.3's diagnostic cannot be built on this field as it stands.** A diagnostic
+keyed on a 96%-singleton taxonomy tells a player "you made 40 different mistakes, once each,"
+which is useless and would violate the repo's standing no-fake-numbers rule.
+
+**Fix — a consolidation pass, not a regeneration.** The expensive and hard part (745 pieces of
+`why_wrong` prose) is done and its quality is good; only the labels are wrong. So:
+
+1. Cluster the existing 274 non-filler labels into a canonical vocabulary of roughly 25–40, in one
+   pass over the label list itself — not over the puzzles.
+2. Commit that vocabulary as a literal array in `src/content/misconceptions.ts`, beside
+   `patterns.ts`, which is the file it is modelled on.
+3. Change `ExplanationEntrySchema.misconception` from the free regex to `z.enum(MISCONCEPTION_SLUGS)`,
+   so the constraint is mechanical from here on and a future generation run cannot reintroduce
+   the problem.
+4. Rewrite each entry's `misconception` to its canonical label. `why_wrong` prose is **not**
+   touched.
+5. `generateExplanations.ts`'s prompt takes the vocabulary as a closed list and picks from it.
+
+`not-the-bug-site` stays as a first-class member of the vocabulary — at 452 of 745 entries it is
+by far the most common, and it is a real signal (a player who repeatedly taps unrelated lines is
+not reading the snippet).
+
+---
+
 `misconception` is the sleeper feature. It gives Phase 6.3's diagnostic a grain finer than the 13
 pattern slugs — "you consistently read `len(x)` as the last valid index" is a far more useful
 thing to tell a player than "you are 62% on off-by-one." Generating it now costs nothing extra

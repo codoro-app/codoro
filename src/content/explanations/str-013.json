@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "That comma is just a character sitting inside the string literal `\", count: \"` — Python doesn't parse commas inside quotes as code, so there's no syntax error there. The real problem is what comes after the string: concatenating the int `times` onto it with `+` raises a `TypeError`.",
-      "misconception": "confuses-string-content-with-syntax"
+      "misconception": "string-plus-int-typeerror"
     },
     {
       "target": 2,
       "why_wrong": "`name` is a variable holding a string that was passed in, not a string literal you write in the source — wrapping it in quotes would turn it into the literal text `\"name\"` instead of the argument's value. The actual failure is unrelated to `name`; it's `times` being an int that Python refuses to `+` onto a string.",
-      "misconception": "quotes-variable-vs-literal"
+      "misconception": "string-plus-int-typeerror"
     },
     {
       "target": 3,
       "why_wrong": "The function does have a `return` statement right there, so a missing return isn't the issue. It never gets to return anything because building that return value first tries to concatenate the int `times` onto a string, which raises `TypeError` before any value comes back.",
-      "misconception": "assumes-missing-return"
+      "misconception": "string-plus-int-typeerror"
     }
   ]
 }

@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "`len()` doesn't quietly fall back to 0 for missing input, it raises `TypeError: object of type 'NoneType' has no len()` and the call never completes. Since nothing catches or checks for `None` first, the function crashes instead of returning any number at all.",
-      "misconception": "assumes-len-defaults-to-zero"
+      "misconception": "assumes-none-behaves-like-zero-or-valid"
     },
     {
       "target": 2,
       "why_wrong": "The problem isn't which collection type `items` is supposed to be, `len()` works fine on lists, strings, tuples, and dicts alike. The bug is that `items` can be `None` at call time and nothing checks for that before `len(items)` runs, so any type choice still crashes the same way.",
-      "misconception": "wrong-type-not-missing-value"
+      "misconception": "assumes-none-behaves-like-zero-or-valid"
     },
     {
       "target": 3,
       "why_wrong": "This mixes up crashing with returning `None`, when `items` is `None` the call raises `TypeError` and execution stops right there, it never reaches a return statement at all. For any valid, non-`None` input the function does correctly return the real length, so it doesn't 'always' return `None` either way.",
-      "misconception": "conflates-exception-with-return-value"
+      "misconception": "assumes-none-behaves-like-zero-or-valid"
     }
   ]
 }

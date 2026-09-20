@@ -40,6 +40,8 @@ import {
 import type { CheckpointResult } from '../../engine'
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, UserProfile } from '../../storage'
+import { isEntitledToCoach } from '../../coach/entitlement'
+import { coachMeterRemaining, consumeCoachMeterUse } from '../../coach/coachMeter'
 import { DAILY_CALENDAR } from '../../content'
 import { isDevPuzzleModeEnabled, resolveDailyStubPuzzle } from '../devTools/devPuzzleMode'
 import type { Puzzle as ContentPuzzle } from '../../content'
@@ -89,6 +91,10 @@ export interface DailySession {
   handleAnswered: (payload: CommitPayload) => void
   handleRetry: () => void
   retryLoad: () => void
+  /** v6 Phase 6.1 — see usePracticeSession.ts's identical field for the full doc comment. */
+  coachAvailable: boolean
+  /** v6 Phase 6.1 — see usePracticeSession.ts's identical field for the full doc comment. */
+  markCoachExplanationShown: () => void
 }
 
 export function useDailySession(): DailySession {
@@ -382,6 +388,25 @@ export function useDailySession(): DailySession {
   // be a redundant, always-true condition against isComplete's own type.
   const solved = isComplete ? scoreScrubberAttempt(checkpointResults) : null
 
+  // v6 Phase 6.1 — see usePracticeSession.ts's identical pair for the full
+  // doc comment; kept in sync deliberately rather than shared, same posture
+  // as this hook's other Practice-mirrored logic (no cross-mode hook here).
+  const coachAvailable =
+    profile !== null &&
+    (isEntitledToCoach() || coachMeterRemaining(profile.coachMeter, new Date()) > 0)
+
+  const markCoachExplanationShown = useCallback(() => {
+    if (!profile || isEntitledToCoach()) return
+    const updatedProfile: UserProfile = {
+      ...profile,
+      coachMeter: consumeCoachMeterUse(profile.coachMeter, new Date()),
+    }
+    setProfile(updatedProfile)
+    saveProfile(updatedProfile).catch((error: unknown) => {
+      trackError(error, 'useDailySession: saveProfile (coach meter) failed')
+    })
+  }, [profile])
+
   return {
     status,
     profile,
@@ -399,5 +424,7 @@ export function useDailySession(): DailySession {
     handleAnswered,
     handleRetry,
     retryLoad,
+    coachAvailable,
+    markCoachExplanationShown,
   }
 }

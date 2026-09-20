@@ -320,3 +320,175 @@ broken, fix and regenerate, don't hand-patch) restated at the top of the file.
    swipe-binary end-to-end (the schema, the prompt, and the target logic all handle it), so
    running it later is `pnpm generate:explanations --interaction=swipe-binary` and nothing more —
    but that run, and its own human-read sample, has not happened.
+
+# Amendment — 2026-09-20: Phase 6.1 built — misconception vocabulary + coach surface
+
+Executed against `docs/prompts/claude_code_prompt_v6_phase6_1_coach_surface.md` and
+`docs/superpowers/plans/2026-09-19-wrong-answer-explanations-spec.md` (including its §3.2a
+amendment, applied as part of this same session), on branch `feat/v6-phase6-1-coach-surface`
+(from `main` at `aa2745f`, which already carries 6.0). All four pieces done.
+
+## Piece 0 — misconception vocabulary consolidation
+
+274 non-filler labels across 292 entries, 96% singletons, clustered into 39 canonical labels plus
+`not-the-bug-site` (40 total) — one canonical label per puzzle, since 6.0's one-call-per-puzzle
+generation means every non-filler entry within a puzzle already shares the same underlying bug.
+Full method, final vocabulary with entry counts, and the raw→canonical mapping for all 292 entries:
+`docs/v6-misconception-vocabulary-2026-09-20.md`.
+
+- `src/content/misconceptions.ts` (new) — `MISCONCEPTION_SLUGS`, `MisconceptionSlug`,
+  `MISCONCEPTION_LABELS`, modelled on `patterns.ts`.
+- `src/content/explanationSchema.ts` — `misconception` changed from
+  `z.string().regex(/^[a-z0-9-]{3,48}$/)` to `z.enum(MISCONCEPTION_SLUGS)`.
+- All 745 entries across 99 files rewritten in place — 292 `misconception` fields changed, 453
+  `not-the-bug-site` fillers untouched. **DoD's byte-identical proof, run against `f1a0b92` (6.0's
+  ship commit):** every changed line in `git diff f1a0b92 -- src/content/explanations/` matches
+  `"misconception":`; zero changed lines touch `why_wrong` or any other field.
+- `src/content/tools/generateExplanations.ts` — the prompt's misconception rules now render the
+  40-label closed list from `misconceptions.ts` (never hand-duplicated) with an explicit
+  "pick the closest fit, never invent a new slug" instruction. `GENERATOR_VERSION` bumped 1 → 2.
+- Largest canonical label: `break-doesnt-exit-as-expected` at 26/292 = 8.9% of the non-filler
+  pool — comfortably under the 25% re-split threshold, so the clustering didn't collapse too far.
+
+## Piece 1 — the coach panel
+
+- `src/app/practice/CoachPanel.tsx` (new) — fetches via `coachExplanationCache.ts` (new,
+  mirrors `puzzleBodyCache.ts`'s shared-promise-per-id cache exactly), which deep-imports
+  `getExplanationSet` from `../../content/explanations`, never the barrel.
+  `barrelBoundary.test.ts` still passes unmodified — this deep-import path is the one it already
+  covers.
+- `PuzzleCardShell.tsx` renders `<CoachPanel>` in both post-commit placements: desktop's
+  normal-flow panel (below the free explanation, before `ReportPuzzleControl`) and mobile's sticky
+  drawer. The drawer's previously-`<p>` scroll region (`overflow-y-auto`, capped by
+  `drawerPanelClass`'s `max-h-[46dvh]`) became a `<div>` wrapping the free-explanation `<p>` plus
+  the coach block, so the coach content scrolls inside the exact same region — no second scroll
+  container, per spec §5.3.
+- Three new optional `PuzzleCardShellProps` — `coachEligible`, `coachAvailable`,
+  `onCoachExplanationShown` — all default to off/no-op, so every existing caller (Rush, Boss,
+  and the 34 pre-existing `PuzzleCardShell.test.tsx` cases) is provably unaffected; that test file
+  still passes unmodified, 34/34.
+
+## Piece 2 — fetch timing and the meter
+
+- `src/storage/schema.ts` — `CoachMeterSchema`/`CoachMeter` (`{ weekStart: string, used: number }`),
+  added to `UserProfileSchema`/`UserProfile`. `CURRENT_SCHEMA_VERSION` 13 → 14.
+  `createDefaultProfile()` seeds `{ weekStart: '', used: 0 }` — an empty `weekStart` never equals a
+  real computed week boundary, so it always reads as "0 used" until the first real consume, the
+  same "stale reads as reset" convention `dailyCompletion` already uses.
+- `src/storage/migrations.ts` — `migrateV13ToV14` gives every existing profile the same neutral
+  starting point. Both the full v1→v14 chain test and a new dedicated `MIGRATIONS[13]` unit test
+  (mirroring every prior migration's own isolated test) pass.
+- `src/sync/merge.ts` — new `'week-then-max'` merge rule: same `weekStart` on both sides →
+  `Math.max(used)` (the same monotonic-counter convention as `bestRunStreak`); different
+  `weekStart` → the more recent week wins wholesale (mirrors `dailyCompletion`'s date-mismatch
+  branch). All three real sync fixtures (`fresh-install`/`long-lived`/`post-mission.json`) updated
+  to v14 with `coachMeter`; the fast-check property tests over them (`merge(a,a)` stability,
+  `merge(a,b) === merge(b,a)` commutativity, monotonic-never-decreases) all pass unmodified.
+- `src/coach/entitlement.ts` (new) — `isEntitledToCoach()`, hardcoded `false`. The single
+  injectable predicate the prompt asked for; no UI code branches on how it's implemented.
+- `src/coach/coachMeter.ts` (new) — `currentUtcWeekStart`, `coachMeterRemaining`,
+  `consumeCoachMeterUse`. Pure, unit-tested (`coachMeter.test.ts`, 11 cases: week-boundary math
+  including a month rollover, remaining-floors-at-0, stale-week-reads-as-fresh, consume-rolls-a-
+  stale-week-onto-the-current-one).
+- `usePracticeSession.ts`/`useDailySession.ts` each grow `coachAvailable` (derived:
+  `isEntitledToCoach() || coachMeterRemaining(profile.coachMeter, new Date()) > 0`) and
+  `markCoachExplanationShown` (a no-op when entitled; otherwise consumes one use and
+  `saveProfile`s it — same optimistic-update-then-persist shape as
+  `usePracticeSession.ts`'s pre-existing `setSoundPreference`, deliberately not shared between
+  the two hooks, matching `useDailySession.ts`'s existing "kept in sync deliberately rather than
+  shared" posture for its other Practice-mirrored logic).
+- `PracticePage.tsx`/`DailyPage.tsx` pass `coachEligible={true}` plus the two hook values through
+  to `PuzzleCardShell`. `RushActivePlay.tsx`/`BossActivePlay.tsx` were not touched — omitting the
+  prop defaults `coachEligible` to `false`, which is how "Rush shows no coach panel at all" is
+  satisfied structurally rather than by a conditional.
+- **Scope call on Boss/Missions, not asked, recorded here:** the build prompt's settled-decisions
+  list says "Coach applies to Practice and Daily... Boss and Missions follow Practice's behavior
+  where they reuse its surfaces." Boss's own `AttemptMode` is `'boss'`, distinct from `'practice'`
+  — it is not literally in the "applies to" list, and Boss's health-bar/strike-limit pressure is
+  the same "fights the clock" shape the spec explicitly excludes Rush for. Missions' quiz-shaped
+  stages route exclusively through `BossStage`→`BossActivePlay` or `SpeedStage`→`RushActivePlay`
+  (traced via `src/app/missions/*Stage.tsx`; there is no plain-mcq mission stage), so leaving Boss
+  untouched means Missions shows no coach panel either, by the same structural mechanism — read as
+  consistent with "follow Practice's behavior," not a contradiction of it. Not in this phase's DoD
+  checklist either way. If Boss should get the coach layer, it's the same one-line
+  `coachEligible={true}` + two hook fields `BossPage.tsx`'s own session hook would need — not
+  attempted here, flagged for whoever decides it.
+- **Live-verified, not just unit-tested:** built and ran the app (`pnpm dev`), answered real mcq
+  puzzles wrong through the browser. Network tab: zero `/content/explanations/*` requests on
+  puzzle load or a correct answer; exactly one such request, for the puzzle just answered, on a
+  wrong answer (`nul-011.json`, confirmed by URL). Coach panel rendered the real fetched
+  `why_wrong` text and misconception label below the free explanation; Next-puzzle/Continue stayed
+  visible in both cases observed.
+
+## Piece 3 — the free-tier treatment
+
+**Deviation from the prompt's literal text, decided with Thomas mid-session, recorded here so it
+isn't re-litigated:** Piece 2's DoD line ("zero explanation network requests for a spent-meter
+viewer") and Piece 3's literal text ("show the misconception label... when the meter is spent")
+are in direct conflict — the label only exists inside the same per-puzzle JSON chunk as
+`why_wrong`, one fetch, no way to read one field without the other. Asked Thomas directly; chose
+**zero-fetch wins**: a spent-meter viewer sees a plain honest line only ("You've used your 3 coach
+explanations this week. More next week." — `WEEKLY_COACH_LIMIT` interpolated, not hardcoded) and
+no misconception label, no fetch. `CoachPanel.test.tsx` asserts this directly:
+`loadCoachExplanationSet` is never called when `coachAvailable` is `false`. **6.2 or a later
+session revisiting this: the label-for-spent-viewers idea in the original spec is not implemented;
+either accept the honest-line-only version as final, or build the "lightweight label-only index"
+option that was explicitly not attempted here (separate build artifact, its own barrel-boundary
+case) if the label is judged worth the added surface.**
+
+## DoD
+
+- [x] Piece 0's four DoD lines, including the byte-identical `why_wrong` proof (see above)
+- [x] Coach panel renders below the free explanation, inside the existing scroll region (mobile
+      drawer restructured to a wrapping `<div>`, one scroll container; desktop unaffected — it was
+      never capped/scrolling to begin with)
+- [x] Continue button stays visible — live-verified with real fetched content (a 3-sentence,
+      ~330-character coach block plus the free explanation); the exact single longest `why_wrong`
+      in the library (404 chars, `mut-022`) was not individually pixel-tested, but is protected by
+      the same `max-h-[46dvh]` + inner-`overflow-y-auto` structural cap already proven for the free
+      explanation, which the coach block now shares rather than duplicates
+- [x] A free viewer's first `WEEKLY_COACH_LIMIT` (3) wrong answers of the week show the coach; the
+      next shows the label-less honest line — proven by composition of two independently unit-
+      tested pieces (`coachMeter.test.ts`'s remaining/consume arithmetic +
+      `CoachPanel.test.tsx`'s fetch-gating on `coachAvailable`), not a 4-click manual playthrough
+- [x] Zero explanation network requests for a spent-meter viewer — verified twice: `CoachPanel.test.tsx`
+      asserts the mock is never called when `coachAvailable={false}`, and live in devtools (see
+      Piece 2)
+- [x] Rush shows no coach panel at all — structural (prop never passed, defaults to off), plus the
+      full Rush/Boss/Missions suite (120 tests) passes unmodified
+- [x] Play-path bundle size measured against a real build, before/after via a clean `main`
+      worktree: `PuzzleCardShell-*.js` 164.04 KB → 181.61 KB raw (52.48 → 57.28 KB gzip, +4.80 KB
+      gzip) — the new coach-layer code (CoachPanel + cache + coach/* + the 40-label
+      misconceptions.ts data), not a content leak. `content-*.js` and `storage-*.js` grew <0.2 KB
+      each. `index.html`'s `<link rel="modulepreload">` count is identical (3) in both builds —
+      zero puzzle/explanation chunks eagerly preloaded either way. Grepped both the eager chunks
+      and a real `why_wrong` sentence fragment across `dist/assets/`: present only in its own
+      per-puzzle chunk, absent from `content-*.js`/`PuzzleCardShell-*.js`/`index-*.js` — F32 held.
+- [x] The entitlement predicate is one injectable function (`isEntitledToCoach`), defaulting
+      `false`, with no UI code depending on its implementation
+- [~] `pnpm validate` green — typecheck, lint (0 errors on the real repo; the only lint failures
+  were the same pre-existing `.claude/worktrees/*` noise 6.0's own amendment already
+  documented and explicitly declined to clean up unilaterally), `validate:content`,
+  `validate:explanations` (99 OK), the production build, and `workers`' own
+  typecheck/lint/test (83 passed) are all green. `vitest run` (2823 tests) passed cleanly on a
+  full standalone run; two tests in `PuzzleCardShell.test.tsx` flaked once under the full
+  `pnpm validate` chain's thread contention (both pass 34/34 in isolation, and the full suite
+  re-ran clean immediately after) — the same flake class `src/test/setup.ts`'s own header
+  comment documents for this exact area, not a regression from this session's changes.
+  Environment note: the full `pnpm validate` chain OOM'd on `eslint` twice in this session
+  (default heap limit against a machine with ~5 GB free at the time, likely leftover Chrome/
+  dev-server processes from this same session's live-verification step) — worked around with
+  `NODE_OPTIONS=--max-old-space-size`, not a code issue.
+- [x] Amendment written (this section), listing what 6.2 must swap in (below)
+
+## What 6.2 must swap in
+
+1. **`src/coach/entitlement.ts`'s `isEntitledToCoach()`** — replace the hardcoded `false` with a
+   real check against the cached `GET /api/entitlement` result, 7-day fail-open grace window per
+   spec F36. No other file in the coach layer changes: `CoachPanel`, `usePracticeSession.ts`,
+   `useDailySession.ts` all call this function, none inline a check of their own.
+2. **The Piece 3 deviation above** — decide whether the honest-line-only spent-meter treatment is
+   final, or build the lightweight label-only index this session explicitly didn't attempt.
+3. Everything already out of scope per the build prompt: Stripe, the entitlements table, the
+   webhook, the 6.3 diagnostic, scrubber/drag-order explanations, swipe-binary generation — none
+   of it was touched or assumed by this session's work.

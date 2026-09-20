@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "That's a mix-up between crashing and miscomputing. The function never gets a chance to produce `NaN` or any coerced value — for `n === 0` it just keeps calling itself with `-1, -2, -3, ...` since none of those ever equal 1, and the crash comes from blowing the call stack, not from arithmetic on the wrong type.",
-      "misconception": "confuses-stack-overflow-with-nan-coercion"
+      "misconception": "recursion-never-reaches-base-case"
     },
     {
       "target": 2,
       "why_wrong": "The decrement `n - 1` is actually correct — factorial recursion has to count down toward the base case. The real problem is that the base case only recognizes `n === 1`, so a starting value like `0` or a negative number sails right past it and recurses forever instead of the direction of the recursive call being wrong.",
-      "misconception": "blames-decrement-direction"
+      "misconception": "recursion-never-reaches-base-case"
     },
     {
       "target": 3,
       "why_wrong": "Large positive inputs aren't the trigger here — big factorials just lose precision or grow toward `Infinity` in JavaScript, they don't crash the recursion. The actual failure is specific to `n === 0` or negative starting values, where the sequence of calls counts down past 1 and the base case `n === 1` never fires.",
-      "misconception": "overflow-for-large-input"
+      "misconception": "recursion-never-reaches-base-case"
     }
   ]
 }

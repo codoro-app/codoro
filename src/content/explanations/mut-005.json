@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "`summary.total` is initialized to `0` right where `summary` is declared, so there's no `NaN` here — the numbers accumulate correctly. The real problem is that every push into `results` stores a reference to that one shared object, so all entries end up showing the same final total once the loop finishes.",
-      "misconception": "assumes-missing-initialization"
+      "misconception": "shared-reference-not-independent-copy"
     },
     {
       "target": 2,
       "why_wrong": "Swapping `for...of` for an index-based loop wouldn't change anything, since the loop construct isn't what's causing the aliasing. `summary` is still created once outside the loop and the same reference still gets pushed on every pass, regardless of how you iterate.",
-      "misconception": "blames-loop-construct"
+      "misconception": "shared-reference-not-independent-copy"
     },
     {
       "target": 3,
       "why_wrong": "Pushing `summary.total` would only paper over the symptom by dropping the `items` list entirely, and it still wouldn't give per-order snapshots — you'd just get the same final running total copied into every slot instead of an object. The fix needs a fresh object per iteration, not a narrower one.",
-      "misconception": "reduce-to-scalar-workaround"
+      "misconception": "shared-reference-not-independent-copy"
     }
   ]
 }

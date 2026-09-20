@@ -17,7 +17,7 @@
     {
       "target": 3,
       "why_wrong": "It's tempting to blame the `.test()` call itself since that's where a result gets returned, but this line does exactly what it should every time it runs. The alternation comes from the fact that `EMAIL_PATTERN` is a single shared `RegExp` object whose `lastIndex` carries over between calls — that state lives on the pattern declared with the `g` flag, not in how it's invoked here.",
-      "misconception": "blames-call-site-not-shared-state"
+      "misconception": "shared-regex-lastindex-state"
     },
     {
       "target": 4,
@@ -42,12 +42,12 @@
     {
       "target": 8,
       "why_wrong": "The word 'every other' makes the loop feel like the culprit, as if the iteration itself skips or mishandles alternating items, but this `for...of` faithfully calls `isValidEmail` once per email in order. The alternation actually comes from `EMAIL_PATTERN`'s `lastIndex` toggling between matches and no-matches across those sequential calls, not from anything in how the loop iterates.",
-      "misconception": "blames-loop-for-alternation"
+      "misconception": "shared-regex-lastindex-state"
     },
     {
       "target": 9,
       "why_wrong": "This line just records whatever `isValidEmail(email)` returns into the results array — it doesn't decide validity itself, so blaming the push/object-literal logic misses the real cause. The true issue is that every call shares one `RegExp` object whose `lastIndex` persists from the previous call because of the `g` flag.",
-      "misconception": "blames-call-site-not-shared-state"
+      "misconception": "shared-regex-lastindex-state"
     },
     {
       "target": 10,

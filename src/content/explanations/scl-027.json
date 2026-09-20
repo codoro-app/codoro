@@ -17,17 +17,17 @@
     {
       "target": 3,
       "why_wrong": "Tapping here treats the returned arrow function as the point of failure, but closures don't automatically give you private state — they just capture whatever variables already exist in the surrounding scope. Since `timer` lives at module scope, every closure `debounce` returns captures that same variable; the fix is where `timer` is declared, not this closure boundary.",
-      "misconception": "assumes-closure-isolates-state"
+      "misconception": "shared-binding-not-fresh-per-use"
     },
     {
       "target": 4,
       "why_wrong": "Blaming this line treats clearing the timeout as the mistake, but cancelling a pending timeout is exactly what a debounce should do. The real issue is that `timer` isn't private to each debounced function, so this call can end up cancelling a completely different function's scheduled run.",
-      "misconception": "symptom-line-not-declaration"
+      "misconception": "shared-binding-not-fresh-per-use"
     },
     {
       "target": 5,
       "why_wrong": "Reassigning `timer` here is normal, correct debounce behavior — every call needs somewhere to store its new timeout handle. The actual problem is that this 'somewhere' is a single module-level variable shared by both debounced functions instead of one declared inside `debounce` so each call gets its own.",
-      "misconception": "reassignment-flagged-as-bug"
+      "misconception": "shared-binding-not-fresh-per-use"
     },
     {
       "target": 6,

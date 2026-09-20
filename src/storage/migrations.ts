@@ -218,6 +218,19 @@ function migrateV12ToV13(raw: Record<string, unknown>): Record<string, unknown> 
 }
 
 /**
+ * v13 -> v14: v6 Phase 6.1's coach layer adds `coachMeter` — see
+ * src/storage/schema.ts's CoachMeterSchema doc comment. Every existing
+ * profile gets the same neutral starting point `createDefaultProfile()`
+ * gives a brand-new one (`weekStart: ''`, `used: 0`) — an empty `weekStart`
+ * never equals a real computed week boundary, so it always reads as "0 used
+ * this week" until the player's first coach explanation this week stamps a
+ * real one. Every existing field is passed through unchanged.
+ */
+function migrateV13ToV14(raw: Record<string, unknown>): Record<string, unknown> {
+  return { ...raw, schema_version: 14, coachMeter: { weekStart: '', used: 0 } }
+}
+
+/**
  * Keyed by the version each migration migrates *from*. The first real entry:
  * schema v1 predates Daily mode, so any profile still on v1 gets a null
  * dailyCompletion (equivalent to "no Daily attempt recorded yet").
@@ -235,4 +248,5 @@ export const MIGRATIONS: Record<number, Migration> = {
   10: migrateV10ToV11,
   11: migrateV11ToV12,
   12: migrateV12ToV13,
+  13: migrateV13ToV14,
 }

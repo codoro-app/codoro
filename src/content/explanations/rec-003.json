@@ -27,7 +27,7 @@
     {
       "target": 5,
       "why_wrong": "It's tempting to blame the `-2` step since that's what makes `n` skip over zero for odd inputs, but decrementing by any amount is fine as long as the base case can catch it. The real defect is that the guard only checks `n == 0` instead of `n <= 0`, so it can't catch values that jump past zero.",
-      "misconception": "blames-step-not-guard"
+      "misconception": "recursion-never-reaches-base-case"
     },
     {
       "target": 6,
@@ -37,7 +37,7 @@
     {
       "target": 7,
       "why_wrong": "Starting with an odd value like 7 is what exposes the bug, but this call site isn't itself broken — `countdown` should terminate correctly for any input. The real defect is that the base case's equality check can't catch values that step past zero, regardless of what's passed in here.",
-      "misconception": "blames-caller-not-guard"
+      "misconception": "recursion-never-reaches-base-case"
     }
   ]
 }

@@ -17,7 +17,7 @@
     {
       "target": 3,
       "why_wrong": "You're blaming the copy step itself, but `result.push(arr[i])` faithfully copies whatever index `i` currently is — it never decides which indices get visited. The real flaw is upstream in the loop header, which hands this line `i = 1` first (skipping `arr[0]`) and `i = arr.length` last (reading past the end).",
-      "misconception": "blames-loop-body-not-bounds"
+      "misconception": "off-by-one-boundary-error"
     },
     {
       "target": 4,

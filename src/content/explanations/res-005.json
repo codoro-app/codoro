@@ -22,7 +22,7 @@
     {
       "target": 4,
       "why_wrong": "Nothing is wrong with this call itself — `f.close()` correctly targets the open handle and would release it fine if execution ever reached it. The real problem is that `return data` above it already exits the function first, so this line is dead code that never runs on any call.",
-      "misconception": "blames-unreachable-cleanup-call"
+      "misconception": "resource-cleanup-not-guaranteed"
     }
   ]
 }

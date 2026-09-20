@@ -40,6 +40,8 @@ import type { Puzzle as EnginePuzzle, SelectionSource } from '../../engine'
 import { appendAttempt, loadProfile, saveProfile } from '../../storage'
 import type { Attempt, UserProfile } from '../../storage'
 import { quizMeta } from '../../content'
+import { isEntitledToCoach } from '../../coach/entitlement'
+import { coachMeterRemaining, consumeCoachMeterUse } from '../../coach/coachMeter'
 // Deep-imported, not via the '../../content' barrel: a barrel re-export puts
 // the stub puzzles in the production entry chunk no matter what the
 // `import.meta.env.DEV` guards below do (module inclusion is per-file, not
@@ -217,6 +219,21 @@ export interface PracticeSession {
   retryLoad: () => void
   /** Optimistically flips preferences.sound and persists it — the StatusBar mute toggle's write path (see StatusBar.tsx). */
   setSoundPreference: (enabled: boolean) => void
+  /**
+   * v6 Phase 6.1 (coach surface): whether there's coach budget right now —
+   * entitled (always false today, see src/coach/entitlement.ts) OR the
+   * weekly meter has remaining uses. Passed straight through to
+   * PuzzleCardShell's `coachAvailable` prop; `false` before `profile` has
+   * loaded (no meter to check yet).
+   */
+  coachAvailable: boolean
+  /**
+   * PuzzleCardShell's `onCoachExplanationShown` callback: consumes one
+   * weekly meter use and persists it — a no-op for an entitled caller (none
+   * exist yet), mirroring `setSoundPreference`'s optimistic-update-then-
+   * persist shape immediately above it.
+   */
+  markCoachExplanationShown: () => void
 }
 
 export function usePracticeSession(): PracticeSession {
@@ -495,6 +512,25 @@ export function usePracticeSession(): PracticeSession {
     [profile],
   )
 
+  // v6 Phase 6.1: false before `profile` loads — no meter to check yet, and
+  // PuzzleCardShell never mounts a CoachPanel before a commit exists anyway,
+  // so this only matters once profile is real.
+  const coachAvailable =
+    profile !== null &&
+    (isEntitledToCoach() || coachMeterRemaining(profile.coachMeter, new Date()) > 0)
+
+  const markCoachExplanationShown = useCallback(() => {
+    if (!profile || isEntitledToCoach()) return
+    const updatedProfile: UserProfile = {
+      ...profile,
+      coachMeter: consumeCoachMeterUse(profile.coachMeter, new Date()),
+    }
+    setProfile(updatedProfile)
+    saveProfile(updatedProfile).catch((error: unknown) => {
+      trackError(error, 'usePracticeSession: saveProfile (coach meter) failed')
+    })
+  }, [profile])
+
   const handleAnswered = useCallback(
     (payload: CommitPayload) => {
       if (!profile || !puzzle) return
@@ -753,5 +789,7 @@ export function usePracticeSession(): PracticeSession {
     handleContinue,
     retryLoad,
     setSoundPreference,
+    coachAvailable,
+    markCoachExplanationShown,
   }
 }

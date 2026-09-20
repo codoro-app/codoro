@@ -12,7 +12,7 @@
     {
       "target": 1,
       "why_wrong": "You're treating the `NaN` result here as the mistake itself, but `0 / 0` producing `NaN` is a legitimate, expected value for a zero-impression event, not a bug. The actual defect is downstream, in how the dedupe logic fails to recognize that two `NaN` values are 'the same' ratio.",
-      "misconception": "blames-nan-source"
+      "misconception": "silent-coercion-produces-wrong-result"
     },
     {
       "target": 2,
@@ -82,7 +82,7 @@
     {
       "target": 16,
       "why_wrong": "You're pointing at the call site itself, but this line only forwards `ratios` into `removeDuplicateRatios` and stores whatever comes back. The actual flaw lives inside that function's `indexOf` comparison, not in how it's invoked here.",
-      "misconception": "blames-call-not-implementation"
+      "misconception": "silent-coercion-produces-wrong-result"
     },
     {
       "target": 17,
@@ -97,7 +97,7 @@
     {
       "target": 19,
       "why_wrong": "This is where the inflated number surfaces, but you're flagging the symptom rather than the cause — `distinct` is simply reading `uniqueRatios.length` after the array was already built wrong. The actual defect is the `indexOf` check upstream that fails to collapse repeated `NaN` values.",
-      "misconception": "blames-symptom-not-cause"
+      "misconception": "silent-coercion-produces-wrong-result"
     },
     {
       "target": 20,

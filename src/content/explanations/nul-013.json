@@ -37,7 +37,7 @@
     {
       "target": 7,
       "why_wrong": "It's tempting to blame the multiplication itself since `NaN` first appears when this line runs, but `*` is behaving exactly as JavaScript defines it — multiplying by `undefined` always yields `NaN`. The real problem is that `unitPrice` was already broken one line earlier, before this arithmetic ever ran.",
-      "misconception": "blames-multiplication-not-lookup"
+      "misconception": "nan-propagates-silently"
     },
     {
       "target": 8,
@@ -67,7 +67,7 @@
     {
       "target": 13,
       "why_wrong": "This is where the bad value gets folded into the running total, but the accumulation logic itself is correct — adding a `NaN` to any number correctly produces `NaN`. The actual defect is upstream, in the lookup that produced that `NaN` in the first place, not in how the sum is built.",
-      "misconception": "blames-accumulation-not-source"
+      "misconception": "nan-propagates-silently"
     },
     {
       "target": 14,
@@ -97,17 +97,17 @@
     {
       "target": 19,
       "why_wrong": "This line just stores whatever `computeOrderTotal` hands back — it has no way to know that value is `NaN` instead of a real total, and reassigning it wouldn't fix anything. The value was already corrupted several calls earlier, at the point where a price lookup silently failed.",
-      "misconception": "blames-assignment-not-source"
+      "misconception": "nan-propagates-silently"
     },
     {
       "target": 20,
       "why_wrong": "It looks like the guard's condition is too weak, but `total > 0` is a perfectly normal way to check for a positive charge — the real flaw is that nobody ever checks whether `total` is `NaN`, and `NaN > 0` always evaluates to `false`. Tightening this comparison wouldn't catch the missing-price case; only validating the lookup itself would.",
-      "misconception": "blames-nan-comparison-guard"
+      "misconception": "nan-propagates-silently"
     },
     {
       "target": 21,
       "why_wrong": "This branch only runs when `total > 0` is true, and for the bugged order that condition is `false`, so this line never even executes — it can't be responsible for the customer getting checked out for free. The fault sits earlier, in whatever made `total` become `NaN` in the first place.",
-      "misconception": "blames-untaken-branch"
+      "misconception": "nan-propagates-silently"
     },
     {
       "target": 22,
@@ -117,7 +117,7 @@
     {
       "target": 23,
       "why_wrong": "This line is also the normal, correct path for a genuinely empty or zero-cost cart, so it isn't broken on its own — it's just following the guard's verdict. The real issue is that `total` became `NaN` upstream from an unrecognized SKU, which this branch has no way to detect.",
-      "misconception": "blames-default-branch-not-source"
+      "misconception": "nan-propagates-silently"
     },
     {
       "target": 24,

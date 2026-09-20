@@ -32,17 +32,17 @@
     {
       "target": 6,
       "why_wrong": "You're suspecting the type guard, but `instanceof Point` correctly rejects non-Point objects and isn't where this bug lives. The real failure happens before equals() is even called: Point's missing hashCode() means two equal-looking points can land in different HashSet buckets, so this check never runs on them.",
-      "misconception": "assumes-equals-body-broken"
+      "misconception": "hash-collection-contract-violation"
     },
     {
       "target": 7,
       "why_wrong": "Casting `o` to Point here is safe and unrelated to the failure — it only runs after the instanceof check already confirmed the type. The bug is that Point has no hashCode() override, so HashSet often never reaches this line for two logically-equal points.",
-      "misconception": "assumes-equals-body-broken"
+      "misconception": "hash-collection-contract-violation"
     },
     {
       "target": 8,
       "why_wrong": "The field comparison `x == p.x && y == p.y` is exactly correct equals() logic and isn't the problem. Because Point never overrides hashCode(), HashSet frequently puts duplicate points in different buckets and never even calls this comparison on them.",
-      "misconception": "assumes-equals-body-broken"
+      "misconception": "hash-collection-contract-violation"
     },
     {
       "target": 9,
@@ -67,7 +67,7 @@
     {
       "target": 13,
       "why_wrong": "Creating a HashSet<> here isn't the mistake — HashSet is a perfectly reasonable choice for this job. The real gap is that Point overrides equals() without overriding hashCode(), so this set's bucketing can't recognize logically-equal Points as the same key.",
-      "misconception": "blames-collection-choice"
+      "misconception": "hash-collection-contract-violation"
     },
     {
       "target": 14,
@@ -77,7 +77,7 @@
     {
       "target": 15,
       "why_wrong": "This is where the failure becomes visible, but seen.add(p) is just following the contract HashSet gives it — the cause sits earlier, in Point's missing hashCode() override. Without a consistent hashCode(), add() computes a different bucket for each duplicate and never triggers the equals() check that would catch it.",
-      "misconception": "conflates-symptom-with-cause"
+      "misconception": "hash-collection-contract-violation"
     },
     {
       "target": 16,

@@ -21,7 +21,7 @@ import { generateAnonId } from './anonId'
  * migrated through migrations.ts — see AttemptSchema's own doc comment for
  * why `checkpoint_results` (the v4 addition) doesn't go through this chain.
  */
-export const CURRENT_SCHEMA_VERSION = 13
+export const CURRENT_SCHEMA_VERSION = 14
 
 /** Mirrors engine's StreakState shape. */
 export const StreakStateSchema = z.object({
@@ -274,6 +274,32 @@ export const DEFAULT_PREFERENCES: Preferences = {
   autoAdvance: true,
 }
 
+/**
+ * v6 Phase 6.1 (coach surface): the weekly free-tier meter for wrong-answer
+ * coach explanations — spec §6, "metered taste, not a time trial." Same
+ * stored-date-plus-live-comparison convention `dailyCompletion` already uses
+ * (see its own doc comment and `useDailySession.ts`'s `todayDateString`):
+ * `weekStart` is the ISO date (YYYY-MM-DD) of the UTC week boundary in
+ * effect the last time `used` was incremented. A caller comparing this
+ * against the CURRENT week boundary (src/coach/coachMeter.ts) treats a
+ * stale `weekStart` as "0 used this week" without this schema needing to
+ * know about weeks at all — no reset job, no cron, just a live comparison
+ * at read time, exactly like "not completed today" falls out of a stale
+ * `dailyCompletion.date`.
+ */
+export const CoachMeterSchema = z.object({
+  // Not `.min(1)`: `''` is the deliberate sentinel `createDefaultProfile()`
+  // and `migrateV13ToV14` both use for "no real week stamped yet" — see this
+  // schema's own doc comment above.
+  weekStart: z.string(),
+  used: z.number().int().nonnegative(),
+})
+
+export interface CoachMeter {
+  weekStart: string
+  used: number
+}
+
 export const UserProfileSchema = z.object({
   // z.literal, not z.number(): reaching full validation implies migration has
   // already brought the record onto the current version.
@@ -323,6 +349,8 @@ export const UserProfileSchema = z.object({
   // again. `createDefaultProfile()` starts every genuinely new profile at
   // `false`.
   firstRunCompleted: z.boolean(),
+  /** v6 Phase 6.1 — see CoachMeterSchema's own doc comment. */
+  coachMeter: CoachMeterSchema,
 })
 
 export interface UserProfile {
@@ -353,6 +381,8 @@ export interface UserProfile {
   challengerName: string | null
   /** True once this profile has completed the curated first-run sequence (or is assumed to have — see UserProfileSchema's own doc comment on this field). */
   firstRunCompleted: boolean
+  /** v6 Phase 6.1 — see CoachMeterSchema's own doc comment. */
+  coachMeter: CoachMeter
 }
 
 /**
@@ -454,5 +484,12 @@ export function createDefaultProfile(): UserProfile {
     // Home's gate (attempts.length === 0 && !firstRunCompleted) is what
     // actually serves it. See UserProfileSchema's own doc comment.
     firstRunCompleted: false,
+    // Empty `weekStart` never equals a real computed week boundary, so this
+    // always reads as "0 used this week" until the first real consume stamps
+    // an actual week — same "neutral, always-stale" starting point as
+    // `dailyCompletion: null` above, without schema.ts needing to import
+    // src/coach's week-boundary helper (which itself needs no knowledge of
+    // storage — see CoachMeterSchema's own doc comment).
+    coachMeter: { weekStart: '', used: 0 },
   }
 }

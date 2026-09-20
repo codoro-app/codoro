@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "That's a style preference about the method's return type, not a concurrency issue — `add()` returning `void` is perfectly normal for a logger and wouldn't cause any bug on its own. The actual problem is that multiple threads mutate the shared static `ArrayList` with no synchronization, which can corrupt its internal state regardless of what `add()` returns.",
-      "misconception": "return-value-design-not-bug"
+      "misconception": "unsynchronized-shared-state"
     },
     {
       "target": 2,
       "why_wrong": "Swapping `List` for an array wouldn't help — arrays aren't thread-safe either, and resizing one under concurrent writes is just as dangerous as `ArrayList`'s internal array growth. The real issue is the missing synchronization around a shared mutable static field, not the choice of collection type.",
-      "misconception": "wrong-collection-type"
+      "misconception": "unsynchronized-shared-state"
     },
     {
       "target": 3,
       "why_wrong": "Look again — `log` is declared exactly once, as a single `private static List<String>` field. The bug isn't a duplicate declaration; it's that this one shared static list gets mutated by many threads at once with no locking or concurrent-safe structure.",
-      "misconception": "hallucinated-duplicate-declaration"
+      "misconception": "unsynchronized-shared-state"
     }
   ]
 }

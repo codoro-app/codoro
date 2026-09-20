@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "You're reasoning about what the check should validate rather than what's actually broken in the code. The real problem isn't which property to test — `if (str = null)` assigns `null` to `str` instead of comparing, so by the time any check would run, `str` has already been clobbered.",
-      "misconception": "conflates-null-check-with-length-check"
+      "misconception": "assignment-instead-of-comparison"
     },
     {
       "target": 2,
       "why_wrong": "JavaScript's automatic semicolon insertion means a missing semicolon on that return wouldn't cause a syntax error, so that's not what's failing here. The actual fault is `if (str = null)`, which assigns `null` to `str` and lets execution fall through to `str.length` on a null value.",
-      "misconception": "assumes-missing-semicolon-error"
+      "misconception": "assignment-instead-of-comparison"
     },
     {
       "target": 3,
       "why_wrong": "There's no outer-scope `str` being shadowed in this snippet — parameter shadowing isn't in play here. The crash comes from `str = null` inside the condition, which overwrites the parameter itself before `str.length` runs.",
-      "misconception": "invents-variable-shadowing"
+      "misconception": "assignment-instead-of-comparison"
     }
   ]
 }

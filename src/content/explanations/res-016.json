@@ -32,17 +32,17 @@
     {
       "target": 5,
       "why_wrong": "Creating the `BufferedReader` here isn't the mistake — opening a resource is expected and fine. The leak comes later, from a code path that can return before ever reaching the matching `close()`.",
-      "misconception": "blames-resource-creation"
+      "misconception": "resource-cleanup-not-guaranteed"
     },
     {
       "target": 6,
       "why_wrong": "Calling `readLine()` here just reads the first line into `firstLine`; it doesn't touch the file handle's lifecycle at all. The leak happens afterward, when the value of `firstLine` sends execution down a branch that skips the close.",
-      "misconception": "blames-read-call"
+      "misconception": "resource-cleanup-not-guaranteed"
     },
     {
       "target": 7,
       "why_wrong": "This condition correctly detects an empty or blank first line — that logic isn't broken. The real problem is what happens inside the branch it opens: it returns before the reader ever gets closed.",
-      "misconception": "condition-blamed-not-missing-close"
+      "misconception": "resource-cleanup-not-guaranteed"
     },
     {
       "target": 9,
@@ -52,17 +52,17 @@
     {
       "target": 10,
       "why_wrong": "Trimming the header string is harmless and only runs on the non-blank path, which does eventually reach `close()`. The leak is on the other branch, the one that skips past this line entirely.",
-      "misconception": "blames-happy-path-line"
+      "misconception": "resource-cleanup-not-guaranteed"
     },
     {
       "target": 11,
       "why_wrong": "This `close()` call works fine for the path that reaches it — the mistake isn't in how it's written. The problem is that it's the only call to `close()` in the method, so any branch that returns earlier never triggers it.",
-      "misconception": "single-close-call-blamed"
+      "misconception": "resource-cleanup-not-guaranteed"
     },
     {
       "target": 12,
       "why_wrong": "By the time this line runs, `reader.close()` has already executed on the line above, so the file handle is fine here. The leak comes from a different return statement that exits before that close ever happens.",
-      "misconception": "blames-post-close-return"
+      "misconception": "resource-cleanup-not-guaranteed"
     },
     {
       "target": 13,
@@ -97,7 +97,7 @@
     {
       "target": 19,
       "why_wrong": "Calling `readHeader` here just invokes the method once per path — the loop isn't where resources are mismanaged. The leak lives inside `readHeader` itself, on the branch that returns before its own reader is closed.",
-      "misconception": "blames-caller-loop"
+      "misconception": "resource-cleanup-not-guaranteed"
     },
     {
       "target": 20,

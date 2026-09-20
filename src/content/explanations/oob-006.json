@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "Integer division truncation isn't the problem here — `(low + high) / 2` is the standard midpoint formula and works fine for locating candidates in both even and odd length ranges. The real defect is in the loop's exit condition, which cuts the search off one iteration too early rather than mis-locating the midpoint.",
-      "misconception": "integer-division-rounding-blamed"
+      "misconception": "off-by-one-boundary-error"
     },
     {
       "target": 2,
       "why_wrong": "The `<` and `>` branches are wired correctly: when `arr[mid] < target` the search moves right via `low = mid + 1`, and otherwise it moves left via `high = mid - 1`. The bug isn't a direction mix-up, it's that the loop can terminate before those comparisons ever get to run against the final candidate.",
-      "misconception": "comparison-direction-swapped"
+      "misconception": "off-by-one-boundary-error"
     },
     {
       "target": 3,
       "why_wrong": "Returning `-1` for a not-found result is a normal, valid convention for this kind of search, not a contract violation. The actual failure is that a present value can still get skipped entirely because the loop stops checking one index too soon, so it wrongly falls through to that `-1`.",
-      "misconception": "return-value-contract-confusion"
+      "misconception": "off-by-one-boundary-error"
     }
   ]
 }

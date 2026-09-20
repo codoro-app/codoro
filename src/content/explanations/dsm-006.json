@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "You're patching the wrong end of the pair here — `push()` already appends to the end of the array, which is exactly what a stack's push should do. The mismatch comes from `pop()` calling `shift()` instead of `pop()` on the array, so fixing the push side doesn't address where the FIFO behavior actually creeps in.",
-      "misconception": "misidentifies-buggy-method"
+      "misconception": "wrong-end-of-structure-manipulated"
     },
     {
       "target": 2,
       "why_wrong": "Swapping the initial value to `null` wouldn't touch the actual problem at all — an empty array is a perfectly valid, idiomatic way to start a stack's backing storage. The bug isn't about what `this.items` starts as, it's about which end `pop()` removes from once items are in it.",
-      "misconception": "unrelated-init-choice"
+      "misconception": "wrong-end-of-structure-manipulated"
     },
     {
       "target": 3,
       "why_wrong": "`super()` is only required when a constructor extends another class, and this `Stack` has no parent class to call up to, so there's nothing missing here. The actual bug lives inside `pop()`'s use of `shift()`, not in how the constructor sets up the object.",
-      "misconception": "unnecessary-super-call"
+      "misconception": "wrong-end-of-structure-manipulated"
     }
   ]
 }

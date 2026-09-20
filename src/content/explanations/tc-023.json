@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "There's no evidence base is a string here — it's used as a numeric price, and `*` between a number and a bool doesn't do string repetition at all. The real issue is that `is_member` (a bool) gets coerced to `0` or `1` in the multiplication, silently zeroing out or fully charging the price.",
-      "misconception": "assumes-string-repeat-operator"
+      "misconception": "silent-coercion-produces-wrong-result"
     },
     {
       "target": 2,
       "why_wrong": "Converting `is_member` to a string wouldn't fix anything — multiplying a number by a string raises a `TypeError` in Python, it doesn't apply a discount. The actual problem is that `is_member` stays a bool and silently coerces to `0` or `1`, so the price ends up either free or full, never discounted.",
-      "misconception": "wrong-fix-type-conversion"
+      "misconception": "silent-coercion-produces-wrong-result"
     },
     {
       "target": 3,
       "why_wrong": "This code runs without any exception — `bool` is a subclass of `int` in Python, so `base * is_member` is perfectly legal arithmetic, not a type error. That's exactly the danger: it silently reduces `is_member` to `0` or `1` and produces a wrong price instead of crashing.",
-      "misconception": "bool-int-mult-raises-typeerror"
+      "misconception": "silent-coercion-produces-wrong-result"
     }
   ]
 }

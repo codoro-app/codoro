@@ -37,7 +37,7 @@
     {
       "target": 6,
       "why_wrong": "Calling `order.archive()` here is exactly what should happen for a cancelled order, so that part of the logic is correct. The real bug is what happens right after this call: the `break` only exits the `switch`, so execution still falls through to the notification code below instead of skipping it.",
-      "misconception": "blames-action-not-control-flow"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 8,
@@ -57,7 +57,7 @@
     {
       "target": 11,
       "why_wrong": "This `break` is doing its job correctly — PENDING orders are supposed to fall through to `notifiedCount++` and `notifyStatusChange()`, so exiting the switch here is intended. The actual problem is a different `break`, the one on the CANCELLED branch, where falling through to those same lines is not supposed to happen.",
-      "misconception": "treats-every-break-as-suspect"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 12,
@@ -72,7 +72,7 @@
     {
       "target": 14,
       "why_wrong": "This `break` is correct as written — COMPLETED orders should continue on to the notification steps after the switch, so exiting here is intentional. The actual bug is the CANCELLED branch's `break`, which should instead skip that shared code with `continue`.",
-      "misconception": "treats-every-break-as-suspect"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 15,
@@ -82,12 +82,12 @@
     {
       "target": 16,
       "why_wrong": "Incrementing `notifiedCount` here is correct behavior for orders that should be notified — the line itself isn't broken. The real issue is upstream: the CANCELLED branch's `break` fails to skip this line, so cancelled orders get counted here when they shouldn't.",
-      "misconception": "blames-symptom-not-cause"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 17,
       "why_wrong": "This call correctly notifies orders of status changes for the cases meant to reach it — it isn't itself buggy. Cancelled orders only reach it because the `break` in the CANCELLED branch exits the switch instead of skipping the rest of the loop body, so the fix belongs there, not here.",
-      "misconception": "blames-symptom-not-cause"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 18,
