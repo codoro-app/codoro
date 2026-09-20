@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "You're right that `sort()` mutates in place, but that's just how the method always works and isn't what breaks this output. The actual problem is what it compares: with no comparator, `sort()` turns 10, 2, 1 into strings and orders them as `'1'`, `'10'`, `'2'`.",
-      "misconception": "blames-mutation-not-comparator"
+      "misconception": "silent-coercion-produces-wrong-result"
     },
     {
       "target": 2,
       "why_wrong": "Switching to a for loop would mean hand-rolling a whole sort algorithm, which isn't necessary here — `sort()` itself is the right tool. The real issue is that it's missing a comparator, so it compares stringified values instead of numbers; passing `(a, b) => a - b` fixes it without ditching `sort()`.",
-      "misconception": "overcorrects-avoids-builtin"
+      "misconception": "silent-coercion-produces-wrong-result"
     },
     {
       "target": 3,
       "why_wrong": "`sort()` doesn't throw based on array length; it happily runs on arrays of any size, including this three-element one, and returns a value without erroring. What actually goes wrong is silent: no comparator means elements are compared as strings, so `10` sorts before `2`.",
-      "misconception": "invents-runtime-error"
+      "misconception": "silent-coercion-produces-wrong-result"
     }
   ]
 }

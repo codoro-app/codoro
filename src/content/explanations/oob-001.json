@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "`len` is a builtin that's always available — Python never requires an import for it, so that's not what's throwing here. The actual failure is that `len(items)` is one past the last valid index, so indexing with it raises an IndexError.",
-      "misconception": "assumes-builtin-needs-import"
+      "misconception": "off-by-one-boundary-error"
     },
     {
       "target": 2,
       "why_wrong": "Direct element access on a list is 0-based too, just like slicing — there's no separate rule that makes `items[k]` fail while slices work. The real problem is the value used: `len(items)` sits one past the last valid index (0 to n-1), so the lookup raises an IndexError.",
-      "misconception": "slice-vs-index-rule-confusion"
+      "misconception": "off-by-one-boundary-error"
     },
     {
       "target": 3,
       "why_wrong": "Naming a parameter `items` doesn't shadow anything Python treats specially, and shadowing a name isn't what triggers a runtime error here anyway. The crash comes from indexing with `len(items)`, which is one past the last valid index for the list.",
-      "misconception": "harmless-shadowing-blamed"
+      "misconception": "off-by-one-boundary-error"
     }
   ]
 }

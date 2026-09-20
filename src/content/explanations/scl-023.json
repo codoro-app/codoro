@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "This assumes each lambda snapshots `i` at the moment it's created, like capturing by value. Lambdas in Python close over the variable itself, not its current contents, so all three functions share the same cell and read whatever `i` is when they finally run — which is 2.",
-      "misconception": "closure-captures-value-not-reference"
+      "misconception": "shared-binding-not-fresh-per-use"
     },
     {
       "target": 2,
       "why_wrong": "The loop actually completes in full before `build_actions()` returns anything; `range(3)` finishes and `i` ends at 2 well before the function hits its `return` statement. The bug isn't about timing of the return, it's that the lambdas all reference that same leftover `i` instead of freezing their own copy.",
-      "misconception": "confuses-return-timing-with-closure-binding"
+      "misconception": "shared-binding-not-fresh-per-use"
     },
     {
       "target": 3,
       "why_wrong": "`i` doesn't fall out of scope here — it's a variable in `build_actions`'s enclosing scope, and Python closures keep that variable alive as long as a function references it, so there's no `UnboundLocalError`. The real problem is that all three lambdas share that one surviving `i`, which has settled at 2 by the time they're called.",
-      "misconception": "assumes-closure-variable-goes-out-of-scope"
+      "misconception": "shared-binding-not-fresh-per-use"
     }
   ]
 }

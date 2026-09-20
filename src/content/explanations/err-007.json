@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "That's mistaking this for a resource-cleanup problem, but nothing here needs guaranteed cleanup — there's no file handle or connection to release. The real defect is that `a / b` never throws in the first place, so `catch` (and any `finally` you add) simply never runs when `b` is zero.",
-      "misconception": "assumes-cleanup-is-missing"
+      "misconception": "assumes-wrong-throw-behavior"
     },
     {
       "target": 2,
       "why_wrong": "`console.log` is a completely safe call and never throws a `TypeError`, so this invents a failure mode that doesn't exist in the code. The actual issue is the opposite direction: the catch block is unreachable because division by zero in JavaScript never raises an exception to begin with.",
-      "misconception": "invents-nonexistent-exception"
+      "misconception": "assumes-wrong-throw-behavior"
     },
     {
       "target": 3,
       "why_wrong": "That rule applies to typed languages like Java or C#, not JavaScript — a bare `catch (e)` with no type annotation is completely valid and won't throw a `SyntaxError`. The real problem is that this catch block is dead code, since `a / b` returns `Infinity` or `NaN` instead of throwing anything for it to catch.",
-      "misconception": "assumes-typed-catch-clause"
+      "misconception": "assumes-wrong-throw-behavior"
     }
   ]
 }

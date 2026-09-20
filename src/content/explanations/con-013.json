@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "The locks aren't wasted work here — without them, both threads could read and write `balance` at the same time and corrupt it. The real problem isn't that locking happens, it's the order it happens in: `this` then `other`, which lets two transfers deadlock each other.",
-      "misconception": "synchronization-seen-as-overhead"
+      "misconception": "lock-ordering-deadlock"
     },
     {
       "target": 2,
       "why_wrong": "`volatile` only guarantees that reads see the latest write across threads — it doesn't make `balance -= amount` atomic or stop two threads from blocking on each other's locks. The bug here is about lock acquisition order causing a deadlock, not about visibility of `balance`.",
-      "misconception": "volatile-fixes-atomicity"
+      "misconception": "lock-ordering-deadlock"
     },
     {
       "target": 3,
       "why_wrong": "There's nothing in the snippet suggesting `amount` or `balance` is large enough to overflow an int, and the explanation doesn't mention arithmetic bounds at all. The actual issue is that two threads calling `transfer()` in opposite directions grab `this` and `other` in reverse order and deadlock waiting on each other.",
-      "misconception": "unrelated-overflow-bug"
+      "misconception": "lock-ordering-deadlock"
     }
   ]
 }

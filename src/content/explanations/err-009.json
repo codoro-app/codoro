@@ -17,7 +17,7 @@
     {
       "target": 3,
       "why_wrong": "You're pointing at the `await` itself, as if it needs its own error handling to reach the outer `catch`. That await is fine on its own — the real defect is that whatever calls this async callback throws away the promise it returns, so a rejection here never gets forwarded to anything watching for it, including the surrounding try/catch.",
-      "misconception": "blames-await-for-uncaught-error"
+      "misconception": "assumes-wrong-throw-behavior"
     },
     {
       "target": 4,
@@ -27,7 +27,7 @@
     {
       "target": 5,
       "why_wrong": "Tapping the catch clause suggests you think a synchronous-looking catch can't intercept an async rejection — but catch blocks do catch awaited rejections just fine once the promise chain actually reaches them. The real break is upstream: the per-item promise from the callback is never connected to this try/catch at all, so there's nothing for this catch to receive.",
-      "misconception": "assumes-catch-cant-see-async-rejections"
+      "misconception": "assumes-wrong-throw-behavior"
     },
     {
       "target": 6,

@@ -7,22 +7,22 @@
     {
       "target": 1,
       "why_wrong": "The `continue` in `default` doesn't skip any tickets — it just moves on to the next loop iteration, which is exactly what you want for non-urgent tickets. The real problem is on the other side of the switch: once a match is found, `break` only exits the switch, not the for loop, so scanning continues and later urgent tickets overwrite the earlier result.",
-      "misconception": "continue-skips-element"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 2,
       "why_wrong": "`i < tickets.length` is the correct bound here; changing it to `<=` would make the loop read past the end of the array and access `undefined`. The actual bug has nothing to do with the loop's range — it's that `break` inside the `'urgent'` case only exits the switch, so the loop keeps running after a match and lets a later urgent ticket overwrite `result`.",
-      "misconception": "off-by-one-inclusive-bound"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 3,
       "why_wrong": "`result` is initialized right away with `let result = null`, so there's no ReferenceError — it's always defined by the time the loop runs. The bug is instead that the `break` inside the `'urgent'` case only exits the switch statement, so the loop doesn't stop at the first match and later urgent tickets keep overwriting `result`.",
-      "misconception": "assumes-let-uninitialized-throws"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 4,
       "why_wrong": "`switch` already compares with strict equality under the hood, so there's no type coercion happening between `tickets[i].priority` and `'urgent'` to fix here. The actual defect is that `break` in the `'urgent'` case only exits the switch, not the surrounding for loop, so scanning continues and the last urgent ticket ends up overwriting the first.",
-      "misconception": "switch-coercion-confusion"
+      "misconception": "break-doesnt-exit-as-expected"
     }
   ]
 }

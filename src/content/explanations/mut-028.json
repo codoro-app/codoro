@@ -27,7 +27,7 @@
     {
       "target": 5,
       "why_wrong": "This line assigns `discount_applied` directly onto the instance inside `__init__`, so it behaves correctly and isn't part of the bug. The problem is specific to `items`, which never gets a matching per-instance assignment and instead falls back to the one list living on the class itself.",
-      "misconception": "overgeneralized-shared-state"
+      "misconception": "shared-reference-not-independent-copy"
     },
     {
       "target": 6,
@@ -42,7 +42,7 @@
     {
       "target": 8,
       "why_wrong": "Calling `.append()` here is completely normal — mutating a list you're appending to isn't itself the mistake. The real defect is upstream: because `self.items` was never assigned in `__init__`, this call silently mutates the single list attribute owned by `ShoppingCart` itself rather than one belonging to `self`.",
-      "misconception": "blames-usage-not-declaration"
+      "misconception": "shared-reference-not-independent-copy"
     },
     {
       "target": 9,
@@ -62,7 +62,7 @@
     {
       "target": 12,
       "why_wrong": "Setting `discount_applied` here works fine because it's a genuine per-instance assignment — this line isn't where carts leak items between each other. The actual bug is that `items` never gets assigned in `__init__`, so it keeps resolving to the one list attached to the class.",
-      "misconception": "overgeneralized-shared-state"
+      "misconception": "shared-reference-not-independent-copy"
     },
     {
       "target": 13,
@@ -77,7 +77,7 @@
     {
       "target": 15,
       "why_wrong": "This line just reports the length of whatever `self.items` points to — it correctly reads the count, it just happens to be reading the class-wide shared list because no instance list was ever created. The defect is where `items` gets declared, not where its length is read.",
-      "misconception": "blames-usage-not-declaration"
+      "misconception": "shared-reference-not-independent-copy"
     },
     {
       "target": 16,
@@ -97,7 +97,7 @@
     {
       "target": 19,
       "why_wrong": "This `[]` creates a brand-new local list every time `checkout_all` runs, which is completely different from `items = []` sitting in the class body and being shared by every instance. A fresh list literal inside a function is safe; the bug only happens when a mutable default lives on the class and gets mutated in place.",
-      "misconception": "confuses-local-list-with-class-attr"
+      "misconception": "shared-reference-not-independent-copy"
     },
     {
       "target": 20,
@@ -117,7 +117,7 @@
     {
       "target": 23,
       "why_wrong": "This just calls `total_items()` and stores whatever value it returns — it faithfully reports the count rather than causing it to be wrong. The inflated number comes from `add_item` mutating a list shared across every `ShoppingCart` instance, not from how this receipt is built.",
-      "misconception": "blames-usage-not-declaration"
+      "misconception": "shared-reference-not-independent-copy"
     },
     {
       "target": 24,

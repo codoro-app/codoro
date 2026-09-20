@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "Swapping to `switch (weight)` wouldn't fix anything — `switch (true)` with relational `case` expressions is a legitimate idiom for range checks like `weight <= 5`. The actual defect is that none of the cases `break`, so control falls through every branch and `default` always overwrites `cost` with 25.",
-      "misconception": "blames-switch-true-idiom"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 2,
       "why_wrong": "`const` vs `let` has nothing to do with the output here, and it would actually make things worse: because execution falls through every case, `cost` gets assigned multiple times, which `const` doesn't allow. The real problem is the missing `break` statements causing that repeated fallthrough assignment.",
-      "misconception": "const-vs-let-irrelevant"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 3,
       "why_wrong": "Changing `<=` to `<` would only shift where a boundary weight lands, but it wouldn't stop the function from returning 25 for every input. Since there's no `break`, execution always falls through past whichever case matches and into `default`, so the comparison operators never even get a chance to matter.",
-      "misconception": "boundary-operator-misdiagnosis"
+      "misconception": "break-doesnt-exit-as-expected"
     }
   ]
 }

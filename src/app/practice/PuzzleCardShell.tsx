@@ -22,6 +22,7 @@ import { useNumberTween } from './useNumberTween'
 import { highlightSnippet } from './highlightSnippet'
 import { renderInlineMarkdown } from './inlineMarkdown'
 import { CodeSnippet } from './CodeSnippet'
+import { CoachPanel } from './CoachPanel'
 import { Mcq } from './interactions/Mcq'
 import { SwipeBinary } from './interactions/SwipeBinary'
 import { TapLine } from './interactions/TapLine'
@@ -97,6 +98,34 @@ export interface PuzzleCardShellProps {
   onAutoAdvanceResolved?: (cancelled: boolean) => void
   /** data-impact variant (feel.ts's ImpactVariant) to stamp on .puzzle-card once committed — drives practice.css's motion keyframes. Omitted/null renders no attribute (every non-Practice caller). */
   impact?: ImpactVariant | null
+  /**
+   * v6 Phase 6.1 (coach surface): whether this puzzle-card instance is
+   * eligible for the coach layer at all — Practice and Daily pass `true`;
+   * Rush omits it (spec's explicit "Rush is timed, a coach panel fights the
+   * clock" exclusion). Independent of `coachAvailable`: eligible-but-
+   * unavailable (meter spent, not entitled) still renders the free-tier
+   * honest-line treatment; ineligible renders nothing from the coach layer
+   * at all, not even that line. Defaults `false` so every existing caller
+   * is unaffected until it opts in.
+   */
+  coachEligible?: boolean
+  /**
+   * Whether there is coach budget to actually fetch+show an explanation
+   * right now — entitled OR has weekly meter remaining. Caller-resolved
+   * (this shell has no profile/entitlement access of its own) via the
+   * injectable predicate + coachMeter (src/coach/*). Ignored when
+   * `coachEligible` is false. Defaults `false` (spent/no access) — a
+   * caller that sets `coachEligible` must compute this explicitly.
+   */
+  coachAvailable?: boolean
+  /**
+   * Fires once, the instant the coach panel actually renders a real fetched
+   * explanation (never for the spent-meter line, never for a correct
+   * answer, never when coachEligible/coachAvailable is false) — lets the
+   * caller decide whether to consume a weekly meter use (a no-op for an
+   * entitled caller) and persist it. See CoachPanel.tsx's identical prop.
+   */
+  onCoachExplanationShown?: () => void
 }
 
 interface CommitState {
@@ -432,6 +461,9 @@ export function PuzzleCardShell({
   autoAdvanceMs,
   onAutoAdvanceResolved,
   impact = null,
+  coachEligible = false,
+  coachAvailable = false,
+  onCoachExplanationShown,
 }: PuzzleCardShellProps) {
   const [commit, setCommit] = useState<CommitState | null>(null)
   // Lifted out of ReportPuzzleControl (2026-09-17 answered-layout redesign)
@@ -669,6 +701,14 @@ export function PuzzleCardShell({
           <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">
             {renderInlineMarkdown(puzzle.explanation)}
           </p>
+          {coachEligible && !committedPayload.correct && (
+            <CoachPanel
+              puzzle={puzzle}
+              committedPayload={committedPayload}
+              coachAvailable={coachAvailable}
+              onCoachExplanationShown={() => onCoachExplanationShown?.()}
+            />
+          )}
           {/* T5 (v2 todo item 18): low-prominence, placed alongside the
               reveal/explanation rather than the pre-answer interaction body
               — reporting a puzzle as wrong/broken is only actionable once
@@ -780,13 +820,27 @@ export function PuzzleCardShell({
               <FeedbackHeader correct={committedPayload.correct} ratingDelta={ratingDelta} />
               {/* flex-1 min-h-0 is what lets this shrink and scroll inside
                   the panel's flex column instead of forcing the panel past
-                  its max-height cap — see drawerPanelClass's doc comment. */}
-              <p
-                className="m-0 flex-1 min-h-0 overflow-y-auto text-text-0 text-[0.9375rem] leading-[1.45]"
+                  its max-height cap — see drawerPanelClass's doc comment.
+                  The coach block (v6 Phase 6.1) renders INSIDE this same
+                  scrolling div, below the free explanation — see
+                  CoachPanel.tsx's own doc comment for why this can never be
+                  a second, sibling scroll container. */}
+              <div
+                className="flex-1 min-h-0 overflow-y-auto"
                 style={{ WebkitOverflowScrolling: 'touch' }}
               >
-                {renderInlineMarkdown(puzzle.explanation)}
-              </p>
+                <p className="m-0 text-text-0 text-[0.9375rem] leading-[1.45]">
+                  {renderInlineMarkdown(puzzle.explanation)}
+                </p>
+                {coachEligible && !committedPayload.correct && (
+                  <CoachPanel
+                    puzzle={puzzle}
+                    committedPayload={committedPayload}
+                    coachAvailable={coachAvailable}
+                    onCoachExplanationShown={() => onCoachExplanationShown?.()}
+                  />
+                )}
+              </div>
               {/* Answered-layout declutter (live feedback, 2026-09-18): all
                   three secondary actions — Challenge, Share, Report — now
                   share one compact row, leaving Continue as the sole,

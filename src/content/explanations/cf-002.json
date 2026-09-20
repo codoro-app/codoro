@@ -17,22 +17,22 @@
     {
       "target": 2,
       "why_wrong": "The outer loop's condition is fine — it's supposed to scan every row for a match. The real issue is that nothing tells this loop to stop once a match is found in an earlier row; that's the job of the `break` inside, which only reaches the inner loop.",
-      "misconception": "blames-loop-condition"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 3,
       "why_wrong": "The inner loop's bounds are correct — it needs to check every column `j` in the current row. The bug isn't how far this loop scans, it's that finding a match here doesn't stop the outer loop from moving on to the next row.",
-      "misconception": "blames-inner-loop-bounds"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 4,
       "why_wrong": "The `===` comparison here correctly identifies a match; it isn't producing false positives or missing real ones. The wrong-match bug comes from what happens after a match is found — a later row's match still overwrites this one.",
-      "misconception": "suspects-comparison-logic"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 5,
       "why_wrong": "Assigning `result = [i, j]` here is correct — it records the current match. The problem is that this same line runs again for any later row that also matches, silently overwriting the earlier value because nothing exits the outer loop.",
-      "misconception": "blames-overwrite-assignment"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 7,
@@ -52,7 +52,7 @@
     {
       "target": 10,
       "why_wrong": "Returning `result` after both loops finish is intentional, not a bug — the function is meant to return once scanning ends. The wrong value comes from `result` getting overwritten earlier, not from where or when it's returned.",
-      "misconception": "blames-return-placement"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 11,

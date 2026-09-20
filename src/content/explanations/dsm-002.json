@@ -7,12 +7,12 @@
     {
       "target": 1,
       "why_wrong": "Swapping the whole structure isn't necessary — the dict itself is fine, it's just that this particular key type can't be hashed. Converting `arg_list` to a `tuple` before using it as a key keeps the dict and fixes the crash.",
-      "misconception": "overcorrects-structure-instead-of-key"
+      "misconception": "hash-collection-contract-violation"
     },
     {
       "target": 2,
       "why_wrong": "Changing `results` to a list wouldn't relate to the crash at all — the error happens because `arg_list` is used as a dict key, not because of what `results` is. A list also can't reproduce the lookup-by-key behavior this function is going for.",
-      "misconception": "misidentifies-crashing-variable"
+      "misconception": "hash-collection-contract-violation"
     },
     {
       "target": 3,

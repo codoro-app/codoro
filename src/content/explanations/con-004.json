@@ -12,7 +12,7 @@
     {
       "target": 1,
       "why_wrong": "Declaring `count` here just creates the shared field, and the problem isn't the missing `volatile` keyword — even a `volatile int` wouldn't fix this bug. The real issue is that `count++` in `increment()` reads, adds, and writes back in three separate steps, and volatile only guarantees visibility, not atomicity of that sequence.",
-      "misconception": "assumes-volatile-fixes-race"
+      "misconception": "non-atomic-counter-increment"
     },
     {
       "target": 2,
@@ -42,7 +42,7 @@
     {
       "target": 8,
       "why_wrong": "Reading `count` here is a single load of an int field, not a compound operation, so it isn't where the interleaving problem lives. The actual race is in `increment()`, where `count++` splits into a read, an add, and a write-back, letting two threads read the same value before either writes its result and silently dropping an update.",
-      "misconception": "assumes-simple-read-is-unsafe"
+      "misconception": "non-atomic-counter-increment"
     },
     {
       "target": 9,

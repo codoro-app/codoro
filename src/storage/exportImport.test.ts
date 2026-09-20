@@ -31,6 +31,7 @@ function makeProfile(overrides: Partial<UserProfile> = {}): UserProfile {
     anonId: 'anon-fixture-1',
     challengerName: null,
     firstRunCompleted: true,
+    coachMeter: { weekStart: '', used: 0 },
     ...overrides,
   }
 }

@@ -27,7 +27,7 @@
     {
       "target": 5,
       "why_wrong": "You're pointing at where an `IOException` from `readLine()` could actually surface, but the loop's read-and-check logic is exactly right — reading until null is the normal, correct way to drain a file. The real problem is upstream: nothing guarantees `reader` gets closed if this call throws.",
-      "misconception": "blames-exception-trigger-not-missing-guarantee"
+      "misconception": "resource-cleanup-not-guaranteed"
     },
     {
       "target": 6,
@@ -42,7 +42,7 @@
     {
       "target": 8,
       "why_wrong": "The `close()` call here is correct on its own — the mistake is assuming this is the faulty line rather than noticing it's unreachable whenever `readLine()` throws mid-loop. The real gap is that nothing besides normal fall-through execution reaches this line, so any exception before it skips cleanup entirely.",
-      "misconception": "blames-cleanup-call-not-missing-guarantee"
+      "misconception": "resource-cleanup-not-guaranteed"
     },
     {
       "target": 9,

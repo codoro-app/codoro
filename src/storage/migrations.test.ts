@@ -68,7 +68,7 @@ describe('runMigrations', () => {
 })
 
 describe('MIGRATIONS: full chain from v1 to the current version', () => {
-  it('v1 -> v13, stamping schema_version 13, adding null dailyCompletion + rushStats + bestRunStreak 0 + bossStats + missionProgress + missionStats + DEFAULT_PREFERENCES (incl. sound + autoAdvance) + null challengerName + true firstRunCompleted + a generated anonId, and preserving every existing field untouched', () => {
+  it('v1 -> v14, stamping schema_version 14, adding null dailyCompletion + rushStats + bestRunStreak 0 + bossStats + missionProgress + missionStats + DEFAULT_PREFERENCES (incl. sound + autoAdvance) + null challengerName + true firstRunCompleted + an empty coachMeter + a generated anonId, and preserving every existing field untouched', () => {
     const v1Profile = {
       schema_version: 1,
       rating: 1342.75,
@@ -85,7 +85,7 @@ describe('MIGRATIONS: full chain from v1 to the current version', () => {
     expect((anonId as string).length).toBeGreaterThan(0)
     expect(rest).toEqual({
       ...v1Profile,
-      schema_version: 13,
+      schema_version: 14,
       dailyCompletion: null,
       rushStats: null,
       bestRunStreak: 0,
@@ -95,6 +95,57 @@ describe('MIGRATIONS: full chain from v1 to the current version', () => {
       preferences: DEFAULT_PREFERENCES,
       challengerName: null,
       firstRunCompleted: true,
+      coachMeter: { weekStart: '', used: 0 },
+    })
+  })
+})
+
+describe('MIGRATIONS[13]: v13 -> v14 (v6 Phase 6.1 coach layer: adds coachMeter)', () => {
+  it('stamps schema_version 14, adds an empty coachMeter, and preserves every existing field untouched', () => {
+    const v13Profile = {
+      schema_version: 13,
+      rating: 1702.0,
+      ratedAttemptCount: 61,
+      streak: { currentStreak: 9, longestStreak: 30, lastActiveDate: '2026-09-01' },
+      requeueState: [{ puzzleId: 'p9', stage: 2, served: 4 }],
+      storagePersisted: true,
+      dailyCompletion: { date: '2026-09-01', attemptId: 'a30', correct: true },
+      rushStats: { bestScore: 70, bestStreak: 40, runs: 20, lastRunAt: '2026-08-30T09:00:00.000Z' },
+      bestRunStreak: 22,
+      bossStats: {
+        bestDepth: 10,
+        clears: 4,
+        runs: 10,
+        lastRunAt: '2026-08-31T12:00:00.000Z',
+        bestRunSplits: [800, 1700, 2600],
+      },
+      missionProgress: null,
+      missionStats: {
+        completions: 3,
+        lastRunAt: '2026-08-29T10:00:00.000Z',
+        lastCompletedAt: '2026-08-29T10:05:00.000Z',
+      },
+      preferences: {
+        timerOnTrace: true,
+        reducedMotion: true,
+        codeFontSize: 'lg',
+        theme: 'blue',
+        sound: true,
+        autoAdvance: true,
+      },
+      anonId: 'anon-feel-1',
+      challengerName: 'Alex',
+      firstRunCompleted: true,
+    }
+
+    const v13Migration = MIGRATIONS[13]
+    if (!v13Migration) throw new Error('MIGRATIONS[13] is not registered')
+    const migrated = v13Migration(v13Profile)
+
+    expect(migrated).toEqual({
+      ...v13Profile,
+      schema_version: 14,
+      coachMeter: { weekStart: '', used: 0 },
     })
   })
 })

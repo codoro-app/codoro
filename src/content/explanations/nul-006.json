@@ -17,17 +17,17 @@
     {
       "target": 2,
       "why_wrong": "You're right that `= 'Guest'` only kicks in on `undefined`, not `null`, but that gap is harmless here — `displayName` is just returned untouched with no method called on it. A `null` value would pass through silently instead of throwing, unlike the field that later gets `.trim()`'d.",
-      "misconception": "defaults-treated-as-uniformly-safe"
+      "misconception": "unguarded-access-on-nullable-value"
     },
     {
       "target": 3,
       "why_wrong": "Same default syntax, same null-vs-undefined gap, but `bio` is only spread straight into the returned object with nothing calling a method on it. Even stuck as `null`, nothing downstream would throw the way the trimmed field does.",
-      "misconception": "defaults-treated-as-uniformly-safe"
+      "misconception": "unguarded-access-on-nullable-value"
     },
     {
       "target": 5,
       "why_wrong": "This line doesn't declare a default value at all — `email` is destructured with no `=` fallback, so there's no default here that could silently fail. It's also just passed through untouched, so a `null` value wouldn't trigger a crash on it.",
-      "misconception": "assumes-default-exists"
+      "misconception": "unguarded-access-on-nullable-value"
     },
     {
       "target": 6,
@@ -47,22 +47,22 @@
     {
       "target": 9,
       "why_wrong": "This is just the shorthand property in the returned object, not a default value declaration — any default for `displayName` was already resolved above. It's also only returned as-is with no method call, so it wouldn't throw even if left `null`.",
-      "misconception": "confuses-return-shorthand-with-default"
+      "misconception": "unguarded-access-on-nullable-value"
     },
     {
       "target": 10,
       "why_wrong": "This is only the shorthand for including `bio` in the returned object, not where any default is declared. `bio` is returned untouched here with no method call, so it can't be the line that lets a bad value crash.",
-      "misconception": "confuses-return-shorthand-with-default"
+      "misconception": "unguarded-access-on-nullable-value"
     },
     {
       "target": 11,
       "why_wrong": "This is where the crash actually happens — calling `.trim()` on `avatarUrl` throws when it's `null` — but the prompt asks for the default value that fails to protect against it, which is declared earlier in the destructuring, not consumed here.",
-      "misconception": "crash-site-not-declaration-site"
+      "misconception": "unguarded-access-on-nullable-value"
     },
     {
       "target": 12,
       "why_wrong": "This is just the shorthand for returning `email`, not a place where a default is declared or applied. Since nothing calls a method on `email` here, a `null` value would flow through quietly instead of causing the failure you're hunting for.",
-      "misconception": "confuses-return-shorthand-with-default"
+      "misconception": "unguarded-access-on-nullable-value"
     },
     {
       "target": 13,

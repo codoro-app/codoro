@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "Template literals like `/api/users/${id}` just coerce `id` to a string and concatenate it — they don't validate or throw on 'special characters', so this isn't a real failure mode here. The actual bug is downstream: once an error is thrown and caught, it's only logged, so the function silently returns `undefined` on failure.",
-      "misconception": "template-literal-throws-myth"
+      "misconception": "assumes-wrong-throw-behavior"
     },
     {
       "target": 2,
       "why_wrong": "`fetch` only rejects on network-level failures like a DNS error or no connectivity — a 404 or 500 response still resolves successfully, which is exactly why the `res.ok` check is needed to catch HTTP error statuses. The real bug is what happens after that check fires: the thrown error is caught and just logged instead of being rethrown or surfaced to the caller.",
-      "misconception": "fetch-rejects-on-http-error"
+      "misconception": "assumes-wrong-throw-behavior"
     },
     {
       "target": 3,
       "why_wrong": "Awaiting inside a try block is the standard way to turn a rejected promise into a catchable exception, so it prevents unhandled rejections rather than causing them. The bug lives in the catch block itself, which logs the error and lets the function fall through to an implicit `undefined` return instead of rethrowing.",
-      "misconception": "await-causes-unhandled-rejection"
+      "misconception": "assumes-wrong-throw-behavior"
     }
   ]
 }

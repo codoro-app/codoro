@@ -38,6 +38,7 @@ import type { ExplanationEntry, ExplanationSet } from '../explanationSchema'
 import type { Puzzle } from '../schema'
 import { PATTERN_SLUGS } from '../patterns'
 import type { PatternSlug } from '../patterns'
+import { MISCONCEPTION_LABELS, MISCONCEPTION_SLUGS } from '../misconceptions'
 import { loadRawPuzzleFiles } from './loadPuzzles'
 import { validatePuzzleFiles } from './validatePuzzles'
 import { costOf, createBackend, parseBackendArg } from './llmBackend'
@@ -48,8 +49,14 @@ import { wrongTargetsFor } from './explanationTargets'
 const GENERATE_MODEL = 'claude-sonnet-5'
 const MAX_GENERATION_ATTEMPTS = 3
 
-/** Bump when the prompt below changes materially — carried into every generated set's `generator_version`. */
-const GENERATOR_VERSION = 1
+/**
+ * Bump when the prompt below changes materially — carried into every
+ * generated set's `generator_version`. v2 (Phase 6.1, spec §3.2a): the
+ * "misconception" rule switched from free-form kebab-case to a closed list —
+ * see MISCONCEPTION_SLUGS's own doc comment for why the v1 free-form version
+ * produced an unusable 96%-singleton taxonomy.
+ */
+const GENERATOR_VERSION = 2
 
 /** The three interactions an explanation set can target — mirrors ExplanationSetSchema's `interaction` enum, not PuzzleSchema's full union (drag-order/scrubber are deferred, see the spec's §10). */
 type ExplainableInteraction = 'mcq' | 'tap-line' | 'swipe-binary'
@@ -90,6 +97,18 @@ const EntriesRequestSchema = z.object({
   entries: z.array(ExplanationEntrySchema).min(1),
 })
 
+/**
+ * Renders MISCONCEPTION_SLUGS as a closed, numbered menu the model picks
+ * from — one line per label, slug plus its human-readable gloss so the model
+ * has semantic grounding beyond the bare slug. Generated from
+ * misconceptions.ts, never hand-duplicated, so a future vocabulary edit
+ * (docs/v6-misconception-vocabulary-2026-09-20.md's amendment path) updates
+ * this prompt for free.
+ */
+function misconceptionMenu(): string {
+  return MISCONCEPTION_SLUGS.map((slug) => `- ${slug}: ${MISCONCEPTION_LABELS[slug]}`).join('\n')
+}
+
 function buildSystemPrompt(): string {
   return `You are writing the "coach" layer for Codoro, a spot-the-bug trivia
 app for working software engineers. The player already answered a puzzle
@@ -117,11 +136,24 @@ Rules for every "why_wrong" entry:
   bold, links, headers, or other spans.
 
 Rules for "misconception":
-- A short kebab-case label (lowercase letters/digits/hyphens, 3-48 chars).
-- This is a taxonomy, reused across puzzles wherever the same underlying
-  confusion appears — prefer a label that would also fit other puzzles with
-  the same confusion (e.g. "off-by-one-inclusive-bound",
-  "reads-len-as-last-index") over a puzzle-specific caption.
+- CLOSED LIST. You must return exactly one of the slugs below — anything
+  else fails validation and the whole set is rejected. This is deliberate:
+  the field is a shared taxonomy across the entire puzzle library, and a
+  free-form version already produced an unusable one (274 distinct labels
+  across 292 entries, 96% never reused).
+- Pick the single closest-fitting label, even when the fit feels approximate
+  — that is expected for a fixed vocabulary this size. Do not invent a new
+  slug under any circumstance, including a close paraphrase of an existing
+  one.
+- Escape hatch: if a puzzle's actual misconception is not represented by ANY
+  label below (not just an imperfect fit — genuinely absent), pick the
+  closest one anyway and leave the puzzle id out of this run's summary notes
+  for a human to review; growing the vocabulary is a deliberate, reviewed
+  edit to misconceptions.ts (see its own doc comment), never something this
+  pipeline does automatically.
+
+Available misconceptions:
+${misconceptionMenu()}
 
 Interaction-specific rules:
 - "mcq": target is the canonical index into the puzzle's "choices" array —

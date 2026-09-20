@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "Switching to bracket notation doesn't change anything here — `user['address']['city']` fails for the exact same reason `user.address.city` does. The real issue isn't how you access the property, it's that `address` itself can be `null` or `undefined`, so any access into it throws.",
-      "misconception": "bracket-vs-dot-notation-confusion"
+      "misconception": "unguarded-access-on-nullable-value"
     },
     {
       "target": 2,
       "why_wrong": "The function does return a value — `return user.address.city;` is a valid return statement. What can actually stop execution is the line before it ever returns: if `user.address` is missing, the property access itself throws before any return happens.",
-      "misconception": "return-statement-mistaken-for-missing"
+      "misconception": "unguarded-access-on-nullable-value"
     },
     {
       "target": 3,
       "why_wrong": "Property name casing isn't the problem — `city` matches how the field is presumably defined on the address object, and renaming it wouldn't fix anything. The actual failure happens one level up, when `address` doesn't exist and `.city` is accessed on `null` or `undefined`.",
-      "misconception": "property-naming-red-herring"
+      "misconception": "unguarded-access-on-nullable-value"
     }
   ]
 }

@@ -62,7 +62,7 @@
     {
       "target": 11,
       "why_wrong": "Close — this line does exactly what it should: it flips the cooperative `running` flag so the loop exits cleanly on an explicit `shutdown()` call. That flag is a completely different signal from the thread's interrupt status, which is the one `take()` clears when it throws — nothing here touches that.",
-      "misconception": "conflates-flag-with-interrupt-status"
+      "misconception": "interrupt-status-mishandled"
     },
     {
       "target": 12,
@@ -97,7 +97,7 @@
     {
       "target": 18,
       "why_wrong": "Tapping the call that blocks and throws is a natural instinct, but `take()` is behaving correctly here — throwing `InterruptedException` (and clearing the interrupt flag as part of doing so) is exactly what a blocking call is supposed to do. The bug is in how the surrounding catch responds to that exception, not in the call itself.",
-      "misconception": "blames-the-throwing-call"
+      "misconception": "interrupt-status-mishandled"
     },
     {
       "target": 19,
@@ -107,7 +107,7 @@
     {
       "target": 21,
       "why_wrong": "That comment describes the buggy intent, but it's just documentation — it never executes and can't itself be responsible for dropping the interrupt status. The actual defect is that the enclosing catch block never calls `Thread.currentThread().interrupt()` before falling through to poll again.",
-      "misconception": "comment-not-code"
+      "misconception": "interrupt-status-mishandled"
     },
     {
       "target": 22,

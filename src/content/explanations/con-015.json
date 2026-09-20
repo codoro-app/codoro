@@ -47,7 +47,7 @@
     {
       "target": 8,
       "why_wrong": "Checking `key in pending` is exactly the right way to detect an in-flight or cached request, so the test itself isn't broken. The real problem is that when three coroutines for the same symbol start together, none of them has reached the line that actually writes to `pending` yet, so all three see this check fail before any write occurs.",
-      "misconception": "race-blamed-on-cache-read"
+      "misconception": "async-check-then-act-race"
     },
     {
       "target": 9,
@@ -57,7 +57,7 @@
     {
       "target": 10,
       "why_wrong": "Awaiting `fetcher(key)` here is correct and necessary — that's where the actual network call has to happen. The real defect is that nothing writes to `pending` before this await starts, so by the time execution suspends here, all three coroutines have already independently decided to fetch.",
-      "misconception": "await-point-blamed-not-write-order"
+      "misconception": "async-check-then-act-race"
     },
     {
       "target": 12,
@@ -117,12 +117,12 @@
     {
       "target": 23,
       "why_wrong": "Building one get_or_fetch coroutine per symbol here is fine, even when a symbol repeats — deduping duplicate calls is supposed to be get_or_fetch's job via the pending dict. The bug is that get_or_fetch never records the in-flight request before awaiting the fetch, so the fix doesn't belong in how this list is built.",
-      "misconception": "dedupe-blamed-on-task-creation"
+      "misconception": "async-check-then-act-race"
     },
     {
       "target": 24,
       "why_wrong": "Running the tasks concurrently with gather isn't the flaw — concurrent refreshes for the same key are supposed to share a single in-flight fetch. The real gap is upstream in get_or_fetch, which never marks a key as in-flight until after its await, so gather's concurrency just exposes that gap rather than causing it.",
-      "misconception": "concurrency-itself-blamed"
+      "misconception": "async-check-then-act-race"
     }
   ]
 }

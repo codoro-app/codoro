@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "malloc() does not zero its memory — that's calloc()'s job — so this claim doesn't hold, and even if the buffer's contents were the issue, that's unrelated to what happens after this function runs. The real problem isn't what's in `buf`, it's that the allocation is never released on either return path.",
-      "misconception": "malloc-zeroes-memory"
+      "misconception": "resource-cleanup-not-guaranteed"
     },
     {
       "target": 2,
       "why_wrong": "Swapping in realloc() would just resize or move the same unfreed allocation — it doesn't address disposal at all. The bug here is a missing `free(buf)` before both returns, not the choice of allocation function.",
-      "misconception": "wrong-fix-allocator-swap"
+      "misconception": "resource-cleanup-not-guaranteed"
     },
     {
       "target": 3,
       "why_wrong": "There's no ownership-transfer convention here — `process(buf)` just reads/uses the buffer passed to it and returns, it doesn't take responsibility for freeing memory it didn't allocate. Because nothing frees `buf` on any path, the caller (`load`) remains on the hook for calling `free(buf)` itself.",
-      "misconception": "assumes-callee-frees-pointer"
+      "misconception": "resource-cleanup-not-guaranteed"
     }
   ]
 }

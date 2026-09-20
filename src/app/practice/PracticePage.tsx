@@ -614,6 +614,9 @@ export function PracticePage() {
                 autoAdvanceMs={autoAdvanceMs}
                 impact={impact}
                 onAutoAdvanceResolved={handleAutoAdvanceResolved}
+                coachEligible={true}
+                coachAvailable={session.coachAvailable}
+                onCoachExplanationShown={session.markCoachExplanationShown}
               />
             </motion.div>
           </AnimatePresence>

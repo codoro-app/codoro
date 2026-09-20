@@ -27,22 +27,22 @@
     {
       "target": 4,
       "why_wrong": "Using `HashMap` here isn't the problem — any hash-based map would behave the same way, since this isn't about which collection type was chosen. The map only breaks once the key object itself changes after it's already been placed in a bucket.",
-      "misconception": "blames-map-implementation"
+      "misconception": "hash-collection-contract-violation"
     },
     {
       "target": 5,
       "why_wrong": "The values `1` and `2` passed in here are fine and aren't what breaks the lookup. The key only becomes unusable later, when one of its fields is mutated in place after the object has already been inserted.",
-      "misconception": "blames-initial-key-values"
+      "misconception": "hash-collection-contract-violation"
     },
     {
       "target": 6,
       "why_wrong": "The `put` call itself works correctly — it hashes `p` with `x=1, y=2` and stores the entry in the matching bucket. The map only breaks afterward, when `p`'s field is mutated and its hash code no longer matches the bucket it's sitting in.",
-      "misconception": "blames-insertion-not-mutation"
+      "misconception": "hash-collection-contract-violation"
     },
     {
       "target": 8,
       "why_wrong": "`get` is just reading from the map as designed — it recomputes `p`'s current hash and looks in that bucket, which is exactly why it fails here. The real damage happened earlier, when `p`'s field was changed after insertion, not in this call itself.",
-      "misconception": "blames-symptom-not-cause"
+      "misconception": "hash-collection-contract-violation"
     },
     {
       "target": 9,
@@ -92,7 +92,7 @@
     {
       "target": 18,
       "why_wrong": "This `hashCode` implementation is written correctly, deriving the hash from `x` and `y` exactly as it should. The bug isn't in how the hash is computed — it's that this computation runs again with a changed `x` after the object was already stored under its old hash.",
-      "misconception": "blames-correct-hashcode-impl"
+      "misconception": "hash-collection-contract-violation"
     },
     {
       "target": 19,
@@ -117,7 +117,7 @@
     {
       "target": 23,
       "why_wrong": "This `instanceof` check is a standard, correct guard against comparing to a non-`Point` object, so it isn't the flaw here. The lookup actually fails before `equals` is ever consulted, because `p`'s mutated hash code sends `get` to the wrong bucket entirely.",
-      "misconception": "blames-equals-type-check"
+      "misconception": "hash-collection-contract-violation"
     },
     {
       "target": 24,
@@ -127,7 +127,7 @@
     {
       "target": 25,
       "why_wrong": "Comparing `x == other.x && y == other.y` is exactly the right way to implement equality here, so this logic isn't at fault. The map never even reaches this comparison for the mutated key, because its recomputed hash sends `get` to a different bucket entirely.",
-      "misconception": "blames-correct-equals-impl"
+      "misconception": "hash-collection-contract-violation"
     },
     {
       "target": 26,

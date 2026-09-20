@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "You're treating `switch` like a sequence of `if/else` checks where order decides which branch wins, but `default` is only ever used when no `case` value matches, regardless of where it sits in the block. Moving it earlier wouldn't change gold customers falling into the silver rate — the real problem is the missing `break` letting `case 'gold':` flow straight into `case 'silver':`.",
-      "misconception": "case-order-determines-match"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 2,
       "why_wrong": "`discount` is reassigned inside the switch branches, so it has to stay a `let` — swapping in `const` would actually throw a runtime error, not fix anything. The bug isn't about how the variable is declared; it's that `case 'gold':` has no `break` and falls through into the `silver` branch, overwriting the value.",
-      "misconception": "const-vs-let-confusion"
+      "misconception": "break-doesnt-exit-as-expected"
     },
     {
       "target": 3,
       "why_wrong": "`switch` compares `tier` to each `case` value with strict equality, and that works fine for strings like `'gold'` or `'silver'` — there's no comparison failure here. The actual defect is structural: `case 'gold':` lacks a `break`, so it falls through and gets overwritten by the `silver` case's assignment.",
-      "misconception": "switch-string-comparison-doubt"
+      "misconception": "break-doesnt-exit-as-expected"
     }
   ]
 }

@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "You're thinking of the common gotcha where someone writes `items = items.append(item)` and loses the list because `append()` returns `None`. That's not what's happening here — this code correctly does `items.append(item)` on its own line, then `return items` separately, so the returned value is fine. The actual problem is that the `items` list itself is a single shared object reused across every call.",
-      "misconception": "confuses-append-return-with-function-return"
+      "misconception": "shared-reference-not-independent-copy"
     },
     {
       "target": 2,
       "why_wrong": "Hashability only matters when a value needs to be a dict key or set member, and nothing here does that — `items` is only ever appended to and returned, so it never needs to be hashed. The real issue is unrelated to the list/tuple distinction: it's that the same list object persists between calls because it's created once at function-definition time.",
-      "misconception": "irrelevant-hashability-concern"
+      "misconception": "shared-reference-not-independent-copy"
     },
     {
       "target": 3,
       "why_wrong": "There's no loop or index arithmetic in `add_item()` at all, so there's nowhere for an off-by-one error to occur — `append()` always adds to the end, it can't skip the first element. What actually goes wrong is that the default `[]` is built once when the function is defined and then reused by every call that omits `items`, so old items linger instead of being dropped.",
-      "misconception": "assumes-loop-off-by-one"
+      "misconception": "shared-reference-not-independent-copy"
     }
   ]
 }

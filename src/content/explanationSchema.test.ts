@@ -5,7 +5,7 @@ function validEntry(overrides: Record<string, unknown> = {}): unknown {
   return {
     target: 1,
     why_wrong: 'This checks `i <= len` which reads one element past the array bound.',
-    misconception: 'off-by-one-inclusive-bound',
+    misconception: 'off-by-one-boundary-error',
     ...overrides,
   }
 }

@@ -20,6 +20,7 @@ export type {
   MissionProgress,
   MissionStats,
   Preferences,
+  CoachMeter,
 } from './schema'
 
 export { loadProfile, onProfileSaved, saveProfile } from './profile'

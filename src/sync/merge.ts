@@ -32,6 +32,7 @@
  * | `anonId` | **keep local** — never overwritten by a pulled value (mirrors T7's server-side first-write-wins) |
  * | `challengerName` | **latest wins** |
  * | `firstRunCompleted` | **OR** — once true anywhere, true everywhere; no legitimate path back to false |
+ * | `coachMeter` | **same week: max(`used`)** (monotonic per-period counter, same convention as `bestRunStreak`/`rushStats`); **different week: the more recent `weekStart` wins wholesale**, same as `dailyCompletion`'s date-mismatch branch |
  *
  * `attempts` (a sibling of `UserProfile` in `ExportedData`, not a profile
  * field) is **unioned by `id`, then re-sorted by `createdAt`** — this has to
@@ -115,6 +116,7 @@ export type MergeRuleTag =
   | 'non-null-then-latest'
   | 'keep-local'
   | 'or'
+  | 'week-then-max'
 
 /**
  * Exhaustive by construction: `Record<keyof UserProfile, MergeRuleTag>`
@@ -141,6 +143,7 @@ const FIELD_MERGE_RULES: Record<keyof UserProfile, MergeRuleTag> = {
   anonId: 'keep-local',
   challengerName: 'latest-wins',
   firstRunCompleted: 'or',
+  coachMeter: 'week-then-max',
 }
 
 const KNOWN_PROFILE_KEYS = new Set<string>(Object.keys(FIELD_MERGE_RULES))
@@ -190,6 +193,26 @@ function mergeDailyCompletion(
   if (remote === null) return local
   if (local.date !== remote.date) return local.date > remote.date ? local : remote
   return localIsLater ? local : remote
+}
+
+/**
+ * `used` is a monotonic per-week counter, never decreasing on a single
+ * device within one week — so a same-week merge takes `Math.max`, the same
+ * convention `bestRunStreak`/`mergeRushStats` already use for monotonic
+ * counters, rather than summing (which would double-count a use that was
+ * already synced once) or latest-wins (which would silently drop whichever
+ * side incremented more). A `weekStart` mismatch means one side is stale —
+ * that side's `used` no longer means anything, so the newer week wins
+ * wholesale, same as `mergeDailyCompletion`'s date-mismatch branch.
+ */
+function mergeCoachMeter(
+  local: UserProfile['coachMeter'],
+  remote: UserProfile['coachMeter'],
+): UserProfile['coachMeter'] {
+  if (local.weekStart !== remote.weekStart) {
+    return local.weekStart > remote.weekStart ? local : remote
+  }
+  return { weekStart: local.weekStart, used: Math.max(local.used, remote.used) }
 }
 
 function mergeRushStats(
@@ -377,6 +400,7 @@ export function merge(local: ExportedData, remote: ExportedData): MergeOutcome {
     anonId: local.profile.anonId,
     challengerName: localIsLater ? local.profile.challengerName : remoteProfile.challengerName,
     firstRunCompleted: local.profile.firstRunCompleted || remoteProfile.firstRunCompleted,
+    coachMeter: mergeCoachMeter(local.profile.coachMeter, remoteProfile.coachMeter),
   }
 
   return {

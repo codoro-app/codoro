@@ -54,6 +54,7 @@ function baseProfile(): UserProfile {
     anonId: 'test-anon-id',
     challengerName: null,
     firstRunCompleted: true,
+    coachMeter: { weekStart: '', used: 0 },
   }
 }
 

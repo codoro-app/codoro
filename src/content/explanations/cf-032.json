@@ -37,12 +37,12 @@
     {
       "target": 6,
       "why_wrong": "`applicant.isActive()` itself isn't broken — it correctly reports each applicant's status. The real issue is what Java does once this returns `false`: `&&` short-circuits the rest of the expression, skipping the call to `logScreening` and every entry for inactive applicants along with it.",
-      "misconception": "blames-leading-condition"
+      "misconception": "short-circuit-skips-side-effect"
     },
     {
       "target": 8,
       "why_wrong": "The age comparison runs fine whenever an applicant is active, regardless of their age, so it isn't what's swallowing audit entries. Entries go missing earlier, when `applicant.isActive()` is `false` and `&&` short-circuits before Java ever reaches `logScreening`.",
-      "misconception": "blames-trailing-condition"
+      "misconception": "short-circuit-skips-side-effect"
     },
     {
       "target": 9,
@@ -62,7 +62,7 @@
     {
       "target": 12,
       "why_wrong": "The `add` call itself is correct and does write a proper audit entry — the logging statement isn't the bug. The problem is upstream: `&&` short-circuiting means this line simply never executes for inactive applicants.",
-      "misconception": "blames-log-statement"
+      "misconception": "short-circuit-skips-side-effect"
     },
     {
       "target": 13,
@@ -92,12 +92,12 @@
     {
       "target": 18,
       "why_wrong": "The for-loop iterates over every applicant, active or not, and calls `isEligible` for each one — it isn't filtering anyone out at this stage. The missing entries come from inside `isEligible`, where `&&` short-circuits past `logScreening` once `isActive()` is `false`.",
-      "misconception": "blames-loop-filtering"
+      "misconception": "short-circuit-skips-side-effect"
     },
     {
       "target": 19,
       "why_wrong": "This condition calls `isEligible` for every applicant in the list, so it does invoke the check that's supposed to trigger logging — it isn't skipping inactive applicants here. Whether an entry gets logged is decided inside `isEligible` itself, where `&&` short-circuits past `logScreening`.",
-      "misconception": "blames-eligibility-check-call"
+      "misconception": "short-circuit-skips-side-effect"
     },
     {
       "target": 20,

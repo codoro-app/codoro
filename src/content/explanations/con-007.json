@@ -7,17 +7,17 @@
     {
       "target": 1,
       "why_wrong": "The outer null check isn't redundant — it's what lets threads skip acquiring the lock entirely once `instance` is already set, which is the whole performance point of double-checked locking. The real problem isn't that this check exists, it's that without `volatile` a thread can pass that same check and see a reference whose constructor hasn't actually finished running yet.",
-      "misconception": "removes-dcl-perf-check"
+      "misconception": "dcl-missing-volatile"
     },
     {
       "target": 2,
       "why_wrong": "Synchronizing the whole method would sidestep the issue, but that's not what's broken here — the bug isn't about where the lock boundary sits, it's that `instance` can become visible to other threads before its constructor has fully completed. That's a memory-visibility problem caused by the missing `volatile` modifier, not a locking-granularity problem.",
-      "misconception": "misidentifies-bug-as-lock-scope"
+      "misconception": "dcl-missing-volatile"
     },
     {
       "target": 3,
       "why_wrong": "The inner check isn't dead code — mutual exclusion only guarantees one thread runs the constructor, it says nothing about whether a *different* thread reading `instance` outside the lock has seen a fully-published object. Because reads/writes of `instance` aren't `volatile`, a thread can slip past the outer check with a non-null but partially-constructed reference, which is the actual bug here.",
-      "misconception": "assumes-single-threaded-after-lock"
+      "misconception": "dcl-missing-volatile"
     }
   ]
 }

@@ -44,6 +44,7 @@ function profile(overrides: Partial<UserProfile> = {}): UserProfile {
     anonId: 'test-anon-id',
     challengerName: null,
     firstRunCompleted: true,
+    coachMeter: { weekStart: '', used: 0 },
     ...overrides,
   }
 }

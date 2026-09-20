@@ -22,7 +22,7 @@
     {
       "target": 3,
       "why_wrong": "You might think declaring `taskIds` as `List<Integer>` is itself the flaw, but that field type is exactly what you want for storing ids. The real problem shows up later, when `remove` is called with a primitive `int` and the compiler picks the index-based overload instead of the value-based one.",
-      "misconception": "blames-list-declaration"
+      "misconception": "autobox-remove-overload-ambiguity"
     },
     {
       "target": 4,
@@ -37,7 +37,7 @@
     {
       "target": 6,
       "why_wrong": "You might expect `add` to have the same overload trap as `remove`, but `List<Integer>` only offers `add(E element)` and a two-argument `add(int index, E element)`. A single `int` argument here can only match the one-parameter version and autoboxes correctly, so this line stores the id fine — unlike the ambiguous single-argument `remove` overloads.",
-      "misconception": "assumes-add-remove-symmetry"
+      "misconception": "autobox-remove-overload-ambiguity"
     },
     {
       "target": 7,
@@ -52,7 +52,7 @@
     {
       "target": 9,
       "why_wrong": "You might think declaring the parameter as a primitive `int` is itself the bug, but a method signature alone doesn't remove anything. The actual overload confusion only happens on the next line, when that `int` is handed to `remove` and Java picks the index-based version over the value-based one.",
-      "misconception": "blames-signature-not-call"
+      "misconception": "autobox-remove-overload-ambiguity"
     },
     {
       "target": 11,
@@ -127,7 +127,7 @@
     {
       "target": 25,
       "why_wrong": "You might think passing `2` here is wrong, but `2` is exactly the id you want removed. The mistake isn't in what value is passed — it's that inside `removeTaskById`, that same `2` gets handed to `remove` as a primitive `int`, so Java resolves it to the index-based overload instead of the value-based one.",
-      "misconception": "blames-call-site-argument"
+      "misconception": "autobox-remove-overload-ambiguity"
     },
     {
       "target": 26,

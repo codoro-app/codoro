@@ -74,6 +74,7 @@ function baseProfile(): UserProfile {
     // NORMAL Home content, not the first-run gate — see the dedicated
     // "first-run sequence gate" describe block below for that.
     firstRunCompleted: true,
+    coachMeter: { weekStart: '', used: 0 },
   }
 }
 
