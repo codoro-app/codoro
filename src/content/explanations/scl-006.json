@@ -1,0 +1,28 @@
+{
+  "puzzle_id": "scl-006",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:20:38.589Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "You're right that `var`-scoped loop counters cause stale-closure bugs, but swapping `const` for `let` on `field` doesn't touch the actual problem. The `validate` function never even reads `field` — it re-reads `fields[i]`, so the fix has to change what index gets captured, not how `field` is declared.",
+      "misconception": "wrong-variable-targeted-for-fix"
+    },
+    {
+      "target": 2,
+      "why_wrong": "Object keys aren't the issue here — each field presumably has a distinct `name`, so `validators[field.name]` assigns each validator to its own slot without clobbering earlier ones. The real failure happens later, inside the closure, when it looks up `fields[i]` with a stale index.",
+      "misconception": "assumes-key-collision"
+    },
+    {
+      "target": 3,
+      "why_wrong": "Changing the loop to `i <= fields.length` would actually make things worse by reading past the end of the array on the final pass — that's a different class of bug than the one here. The loop bounds are fine; the problem is that the stored function reads `i` only after the loop has already finished running.",
+      "misconception": "off-by-one-inclusive-bound"
+    },
+    {
+      "target": 4,
+      "why_wrong": "Capturing `field` with `const` inside the loop does create a fresh binding each iteration, but that only helps if the closure actually uses it. `validate` ignores `field` entirely and reads `fields[i]` instead, so that fresh per-iteration variable never gets used and the closure still falls victim to `i` being `var`-scoped.",
+      "misconception": "believes-per-iteration-const-fixes-closure"
+    }
+  ]
+}

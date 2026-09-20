@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "inp-013",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:27:39.556Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "Speed isn't the issue here — `scanf` is plenty fast for reading a single word, and the program would still crash even if it ran instantly. The real problem is that `%s` has no length limit, so a 30-character word overruns the 16-byte `name` buffer and corrupts adjacent stack memory.",
+      "misconception": "conflates-performance-with-memory-safety"
+    },
+    {
+      "target": 2,
+      "why_wrong": "Zero-initializing `name` wouldn't help — the crash comes from writing too much data into it, not from reading stale bytes before it's filled. Even a fully zeroed 16-byte buffer still overflows once `scanf(\"%s\", name)` writes a 30-character word into it.",
+      "misconception": "assumes-uninitialized-read-not-overflow"
+    },
+    {
+      "target": 3,
+      "why_wrong": "`%d` is for reading integers, and `name` is a `char` array meant to hold text, so swapping to `%d` would just make `scanf` fail to parse a word at all — it wouldn't touch the actual bug. The overflow happens because `%s` has no width cap, letting input longer than 16 bytes overwrite memory past the buffer.",
+      "misconception": "wrong-format-specifier-type-mismatch"
+    }
+  ]
+}

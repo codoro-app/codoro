@@ -1,0 +1,128 @@
+{
+  "puzzle_id": "con-015",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:38:18.895Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line only imports the asyncio module so the file can use async/await and gather; it never touches the pending cache or the fetch call, so it can't be the race-condition site.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This is just a blank line for spacing between the import and the price table, so it holds no logic and can't cause the duplicate fetches.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This line only defines the static symbol-to-price lookup table; it's inert data read by fetch_price after the race has already happened, so it isn't where the stampede occurs.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This line only creates the empty pending dict once, at module load time, before any requests run. The bug is about when entries get written into it during concurrent calls, not about how the dict itself is initialized.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This just initializes the counter used to measure how many times fetch_price actually ran; it's a symptom-tracking variable, not part of the logic that causes the duplicate fetches.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This is a blank spacer line between the module-level variables and the get_or_fetch function, so it contains no executable logic that could cause the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This is another blank spacer line before the get_or_fetch definition; it has no code in it, so it can't be responsible for the duplicate network calls.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This line only declares get_or_fetch's name and parameters; the actual race happens in the statements inside the function body, not in the signature itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "Checking `key in pending` is exactly the right way to detect an in-flight or cached request, so the test itself isn't broken. The real problem is that when three coroutines for the same symbol start together, none of them has reached the line that actually writes to `pending` yet, so all three see this check fail before any write occurs.",
+      "misconception": "race-blamed-on-cache-read"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This line only runs on a cache hit, returning an already-stored value, and it never executes during the stampede scenario because all three coroutines take the miss branch instead.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "Awaiting `fetcher(key)` here is correct and necessary — that's where the actual network call has to happen. The real defect is that nothing writes to `pending` before this await starts, so by the time execution suspends here, all three coroutines have already independently decided to fetch.",
+      "misconception": "await-point-blamed-not-write-order"
+    },
+    {
+      "target": 12,
+      "why_wrong": "This just returns the freshly fetched value to whichever coroutine called it; by this point the duplicate fetches have already happened, so the return statement can't be the cause.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 13,
+      "why_wrong": "This is a blank spacer line after get_or_fetch's closing return, so it contains no logic that could produce the duplicate fetches.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 14,
+      "why_wrong": "This is another blank spacer line before the fetch_price definition, with no executable code in it.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 15,
+      "why_wrong": "This line only declares the fetch_price coroutine's parameter; whether it gets called once or three times is decided earlier, inside get_or_fetch, before fetch_price is ever invoked.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 16,
+      "why_wrong": "This just declares that fetch_count refers to the module-level variable so the increment below can mutate it; it has nothing to do with why fetch_price ends up getting called three times.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 17,
+      "why_wrong": "This line only simulates network latency so the three concurrent calls have time to overlap; the sleep itself isn't the flaw, it just gives the real timing bug in get_or_fetch room to show up.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 18,
+      "why_wrong": "This just increments the counter each time fetch_price actually runs; it only records that three fetches happened, it doesn't decide whether they should have happened once or three times.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 19,
+      "why_wrong": "This only looks up the static price after a fetch has already been made, well after the decision to fetch three times was already locked in inside get_or_fetch.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 20,
+      "why_wrong": "This is a blank spacer line after fetch_price, containing no logic relevant to the duplicate-fetch bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 21,
+      "why_wrong": "This is another blank spacer line before the refresh_quotes definition, with no executable code in it.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 22,
+      "why_wrong": "This line only declares refresh_quotes' parameter; the concurrency behavior comes from how the task list is built and awaited below, not from the function signature.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 23,
+      "why_wrong": "Building one get_or_fetch coroutine per symbol here is fine, even when a symbol repeats — deduping duplicate calls is supposed to be get_or_fetch's job via the pending dict. The bug is that get_or_fetch never records the in-flight request before awaiting the fetch, so the fix doesn't belong in how this list is built.",
+      "misconception": "dedupe-blamed-on-task-creation"
+    },
+    {
+      "target": 24,
+      "why_wrong": "Running the tasks concurrently with gather isn't the flaw — concurrent refreshes for the same key are supposed to share a single in-flight fetch. The real gap is upstream in get_or_fetch, which never marks a key as in-flight until after its await, so gather's concurrency just exposes that gap rather than causing it.",
+      "misconception": "concurrency-itself-blamed"
+    }
+  ]
+}

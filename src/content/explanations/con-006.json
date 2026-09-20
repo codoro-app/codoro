@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "con-006",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:21:30.012Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "You're assuming `join()` needs to come before `start()`, but joining a thread that hasn't started yet would actually raise a `RuntimeError` — the code already starts every thread first and joins them afterward, which is the correct order. The real bug has nothing to do with ordering; it's that `counter += 1` isn't atomic, so concurrent threads clobber each other's updates.",
+      "misconception": "start-join-order-confusion"
+    },
+    {
+      "target": 2,
+      "why_wrong": "You're treating this like a fencepost bug where the loop needs one more iteration, but `range(100000)` already runs exactly 100000 times per thread, which is correct. Each thread's own loop count is fine — the lost increments happen because `counter += 1` isn't atomic across threads, not because any single thread undercounts.",
+      "misconception": "off-by-one-fencepost"
+    },
+    {
+      "target": 3,
+      "why_wrong": "You're assuming `print(counter)` races ahead of the worker threads, but the second `for t in threads: t.join()` loop explicitly blocks until every thread has finished before execution reaches `print`. Timing isn't the issue here — the low count comes from `counter += 1` being a non-atomic read-modify-write that lets threads overwrite each other's updates.",
+      "misconception": "assumes-missing-join-sync"
+    }
+  ]
+}

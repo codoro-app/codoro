@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "str-005",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:26:08.092Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "`toFixed(2)` doesn't throw on negative numbers — it happily formats them, just prepending a minus sign like `(-3.14159).toFixed(2)` → \"-3.14\". The real problem here has nothing to do with the sign of `price`; it's that `toFixed` rounds based on the number's binary floating-point storage, so values like 1.005 round the 'wrong' way regardless of whether they're positive or negative.",
+      "misconception": "tofixed-throws-on-negative"
+    },
+    {
+      "target": 2,
+      "why_wrong": "Template literals don't need a `+` to concatenate — `${}` already evaluates the expression inside and splices the result into the string, so `$${price.toFixed(2)}` is valid syntax that runs fine. The actual bug is inside that expression: `toFixed(2)` rounds using the number's binary representation, which makes values like 1.005 come out as \"1.00\" instead of \"1.01\".",
+      "misconception": "template-literal-needs-plus"
+    },
+    {
+      "target": 3,
+      "why_wrong": "`toFixed(2)` does perform rounding, not truncation — `(1.999).toFixed(2)` correctly returns \"2.00\", not \"1.99\", so it isn't simply chopping off digits. The subtle failure instead comes from binary floating-point storage: certain values like 1.005 aren't stored exactly, so the rounding step operates on a slightly-off internal value and rounds down when you'd expect it to round up.",
+      "misconception": "tofixed-always-truncates"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "res-013",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:22:44.224Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "You're flagging a real style nitpick — `getBytes()` uses the platform default charset — but that's a portability concern, not what breaks when the disk is full. The actual failure is that a thrown `IOException` from `write()` skips `out.close()` entirely, leaking the descriptor regardless of what charset was used.",
+      "misconception": "charset-mistaken-for-resource-bug"
+    },
+    {
+      "target": 2,
+      "why_wrong": "Unbuffered writes are a throughput concern, not a correctness one — `FileOutputStream` writing straight to the OS has nothing to do with what happens when disk space runs out. The real issue is that when `write()` throws, execution never reaches `out.close()`, so the file handle stays open no matter how fast or slow the writes were.",
+      "misconception": "performance-mistaken-for-resource-leak"
+    },
+    {
+      "target": 3,
+      "why_wrong": "Calling `close()` twice wouldn't help — `close()` is idempotent and a single call already fully releases the stream. The bug is that `close()` never gets called at all when `write()` throws, because the code has no try/finally or try-with-resources to guarantee it runs on the error path.",
+      "misconception": "double-close-misunderstanding"
+    }
+  ]
+}

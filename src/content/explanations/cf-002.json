@@ -1,0 +1,63 @@
+{
+  "puzzle_id": "cf-002",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:51:26.974Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This just declares the function's name and parameters; it doesn't execute any logic that could cause the wrong match to be returned.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This only initializes `result` before the search runs; it can't be the reason a later match silently overwrites an earlier one.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "The outer loop's condition is fine — it's supposed to scan every row for a match. The real issue is that nothing tells this loop to stop once a match is found in an earlier row; that's the job of the `break` inside, which only reaches the inner loop.",
+      "misconception": "blames-loop-condition"
+    },
+    {
+      "target": 3,
+      "why_wrong": "The inner loop's bounds are correct — it needs to check every column `j` in the current row. The bug isn't how far this loop scans, it's that finding a match here doesn't stop the outer loop from moving on to the next row.",
+      "misconception": "blames-inner-loop-bounds"
+    },
+    {
+      "target": 4,
+      "why_wrong": "The `===` comparison here correctly identifies a match; it isn't producing false positives or missing real ones. The wrong-match bug comes from what happens after a match is found — a later row's match still overwrites this one.",
+      "misconception": "suspects-comparison-logic"
+    },
+    {
+      "target": 5,
+      "why_wrong": "Assigning `result = [i, j]` here is correct — it records the current match. The problem is that this same line runs again for any later row that also matches, silently overwriting the earlier value because nothing exits the outer loop.",
+      "misconception": "blames-overwrite-assignment"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This just closes the `if` block after a match is recorded; it has no effect on whether the outer loop keeps running afterward.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "This closes the inner `for` loop over columns; it doesn't control whether the outer loop continues scanning after a match.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This closes the outer `for` loop itself, marking where iteration ends — it doesn't cause the earlier match to be overwritten.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "Returning `result` after both loops finish is intentional, not a bug — the function is meant to return once scanning ends. The wrong value comes from `result` getting overwritten earlier, not from where or when it's returned.",
+      "misconception": "blames-return-placement"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This closes the function body after `result` has already been returned; it has no bearing on which match ended up in `result`.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

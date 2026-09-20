@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "scl-008",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:20:50.780Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "`price` is already declared right there in the parameter list — `calculateDiscount(price)` — so the function has access to it throughout the body. The actual problem is with `discount`, which is declared inside the `if` block and never escapes it, leaving the `return` line referencing a name that doesn't exist.",
+      "misconception": "overlooks-existing-parameter"
+    },
+    {
+      "target": 2,
+      "why_wrong": "The multiplier itself is fine — `price * 0.1` correctly computes a 10% discount when that line actually runs. The bug isn't about the math being wrong, it's that `discount` is block-scoped to the `if` and unreachable on the `return` line, so the function throws before any multiplication result matters.",
+      "misconception": "misidentifies-magic-number"
+    },
+    {
+      "target": 3,
+      "why_wrong": "Adding an `else` wouldn't fix anything here — JavaScript doesn't require every `if` to have a matching `else`, and the code would run fine without one if `discount` were properly scoped. The real issue is that `const discount` is trapped inside the `if` block, so the unconditional `return price - discount` can't see it whether or not an `else` exists.",
+      "misconception": "assumes-missing-else-required"
+    }
+  ]
+}

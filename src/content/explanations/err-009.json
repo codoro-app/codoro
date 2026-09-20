@@ -1,0 +1,48 @@
+{
+  "puzzle_id": "err-009",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:41:55.066Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line just declares the async function and its `items` parameter — no processing or error handling happens here, so it can't be where the catch guarantee breaks.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This line only opens the `try` block that's meant to catch failures; it doesn't execute any logic on its own, so the guarantee can't fail here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "You're pointing at the `await` itself, as if it needs its own error handling to reach the outer `catch`. That await is fine on its own — the real defect is that whatever calls this async callback throws away the promise it returns, so a rejection here never gets forwarded to anything watching for it, including the surrounding try/catch.",
+      "misconception": "blames-await-for-uncaught-error"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This line is just the closing `})` for the callback and the `forEach` call — pure syntax that closes brackets, not a place where an error could get lost.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "Tapping the catch clause suggests you think a synchronous-looking catch can't intercept an async rejection — but catch blocks do catch awaited rejections just fine once the promise chain actually reaches them. The real break is upstream: the per-item promise from the callback is never connected to this try/catch at all, so there's nothing for this catch to receive.",
+      "misconception": "assumes-catch-cant-see-async-rejections"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This is only the logging call inside `catch`; it runs fine whenever the catch block actually fires, so it isn't where the failure to catch happens.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This line just closes the `catch` block itself — it's boilerplate syntax, not a place where the error-catching guarantee could fail.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "This is only the closing brace for the whole function; there's no logic here that could affect whether an error gets caught.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

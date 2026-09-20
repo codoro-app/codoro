@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "str-008",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:49:11.429Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line just declares the `greet` function and its `name` parameter — nothing here formats or outputs a string, so there's no interpolation syntax to get wrong. The actual bug is in how the string literal builds its output, not in how the function or parameter is defined.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This line only returns whatever value `message` already holds — it doesn't build or format the string, so it can't be where an interpolation typo happens. The broken `{name}` placeholder was already baked into the string one line earlier, before this return ever runs.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This is just the closing brace ending the function body; it contains no string or expression at all. A missing `$` in template interpolation can only occur inside the template literal itself, not on a line that merely closes a block.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

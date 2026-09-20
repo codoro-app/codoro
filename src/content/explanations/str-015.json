@@ -1,0 +1,103 @@
+{
+  "puzzle_id": "str-015",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:49:38.056Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line only defines the string of characters that will later be passed to `.strip()`; the actual mangling happens where that string is used as a character set, not where it's declared.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This is a blank spacing line between the module-level constant and the function definition, so it runs no code and can't be responsible for the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This is another blank spacing line before the function definition, so it executes nothing and can't be where names get mangled.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This line only names the function and its parameter; it performs no stripping or transformation itself, so it can't be the source of the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This is a docstring comment describing intent; it's never executed as logic, so it can't be what's eating characters from names.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "`.strip()` here is called with no arguments, so it only removes actual leading/trailing whitespace, not letters like the ones getting eaten from names like `Ross`.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 7,
+      "why_wrong": "By this point `without_title` has already had its characters stripped incorrectly; `.title()` only recapitalizes words and doesn't remove any characters itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "This is a blank spacing line between function definitions, so it runs no code and can't be responsible for stripping characters.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This is another blank spacing line before the next function, so it has no effect on how names are processed.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This line just declares the `build_greeting` function and its parameter; it delegates the actual name cleanup elsewhere, so no character removal happens here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This line calls `format_display_name`, where the character-set bug actually lives, but the call itself doesn't strip anything from the name.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 12,
+      "why_wrong": "This line just builds the final greeting string from whatever `name` was already computed; by this point any damage from `.strip(TITLE_CHARS)` has already happened upstream.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 13,
+      "why_wrong": "This is a blank spacing line between function definitions, so it executes nothing and can't be the source of the mangled names.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 14,
+      "why_wrong": "This is another blank spacing line before the next function, contributing no logic to how names are processed.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 15,
+      "why_wrong": "This line only declares the `build_roster_greetings` function and its parameter; it performs no name transformation itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 16,
+      "why_wrong": "This line just initializes an empty list to collect results; it doesn't touch any individual name's characters.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 17,
+      "why_wrong": "This line only iterates over the list of raw names; the actual stripping logic lives inside the functions it calls, not in the loop itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 18,
+      "why_wrong": "This line calls `build_greeting`, which eventually reaches the buggy strip call, but the append and function call here don't remove any characters themselves.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 19,
+      "why_wrong": "This line just returns the already-built list of greetings; whatever mangling occurred happened earlier in the pipeline, not here.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

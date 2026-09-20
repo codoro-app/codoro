@@ -1,0 +1,38 @@
+{
+  "puzzle_id": "tc-007",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:33:19.429Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This is just the function signature declaring the parameter; it performs no comparison, so it can't be where the NaN equality mistake happens.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This line only converts `value` into a number with `Number()`, which works fine whether or not the result ends up NaN; the faulty logic is in the comparison that follows, not the conversion itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "`return true` only ever runs as a consequence of the condition above being true, and since `num == NaN` is never true, this line is unreachable — the mistake lives in the check, not in what happens when it passes.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This is just the closing brace for the if block; it has no logic of its own and can't be the site of a comparison bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This fallback return runs correctly for every input because the broken check above never triggers, so the return itself isn't where the bug lives.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This is purely the closing brace of the function, with no comparison or logic to be faulty.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "puzzle_id": "tc-001",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:32:11.373Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line just declares the function and names its parameter; no comparison or coercion happens here yet, so it can't be the source of the type-coercion bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This is only the return statement executed when the condition above is true; it just returns a literal boolean and performs no comparison, so the coercion itself can't happen here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This is just the closing brace for the `if` block; it has no comparison logic of its own and can't be where the coercion occurs.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This return statement only fires as the fallback when the `if` condition is false, and it doesn't compare `value` to anything, so it can't be where the loose-equality coercion happens.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This is the closing brace for the whole function; it contains no logic at all, so it can't be responsible for the coercion bug.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "puzzle_id": "oob-003",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:29:49.740Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This is just the function signature declaring the `arr` parameter; no indexing or looping happens here yet, so the off-by-one can't originate on this line.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This line only creates an empty array to hold the results; it doesn't touch `arr` or any index, so it can't be where an off-by-one boundary error lives.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "You're blaming the copy step itself, but `result.push(arr[i])` faithfully copies whatever index `i` currently is — it never decides which indices get visited. The real flaw is upstream in the loop header, which hands this line `i = 1` first (skipping `arr[0]`) and `i = arr.length` last (reading past the end).",
+      "misconception": "blames-loop-body-not-bounds"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This brace just closes the for-loop's body; it has no condition or index logic of its own, so the boundary mistake can't be sitting here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "By the time execution reaches `return result;`, the loop has already finished; this line just hands back whatever array was built, so it can't be the source of the indexing mistake.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This is only the closing brace of the function body — it has no logic at all, so it can't contain a loop-bounds error.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

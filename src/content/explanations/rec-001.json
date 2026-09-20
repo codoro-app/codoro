@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "rec-001",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:24:08.789Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "Swapping the order of `console.log(n)` and the recursive call only changes whether numbers print before or after deeper calls happen — it doesn't touch what makes recursion stop. The real problem is that nothing ever checks `n` and returns early, so the calls keep piling up regardless of when you log.",
+      "misconception": "confuses-log-order-with-termination"
+    },
+    {
+      "target": 2,
+      "why_wrong": "Counting up instead of down wouldn't fix anything here; the function would still call itself forever, just heading toward positive infinity instead of negative infinity. The missing piece is a base case that stops the recursion, not which direction `n` moves.",
+      "misconception": "direction-not-termination"
+    },
+    {
+      "target": 3,
+      "why_wrong": "Whether `countdown` logs or returns a value is a separate design choice from whether it ever stops calling itself. Even a version that returns instead of logging would still recurse infinitely, because there's still no condition checking `n` and halting the calls.",
+      "misconception": "return-value-vs-termination"
+    }
+  ]
+}

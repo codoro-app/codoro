@@ -1,0 +1,98 @@
+{
+  "puzzle_id": "inp-015",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:50:42.911Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "This blank line is just whitespace separating the regex declaration from the function definition, so there's no logic here that could cause emails to alternate between valid and invalid.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This is only the function signature for `isValidEmail` — it declares the function's name and parameter but doesn't run any matching or hold any state, so it can't be the source of alternating results.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "It's tempting to blame the `.test()` call itself since that's where a result gets returned, but this line does exactly what it should every time it runs. The alternation comes from the fact that `EMAIL_PATTERN` is a single shared `RegExp` object whose `lastIndex` carries over between calls — that state lives on the pattern declared with the `g` flag, not in how it's invoked here.",
+      "misconception": "blames-call-site-not-shared-state"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This closing brace just ends the `isValidEmail` function body; no code executes on this line, so it can't be responsible for the alternating pass/fail pattern.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This is a blank line between two function definitions — pure whitespace with no logic that could touch validation state.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This is only the signature for `validateSignupBatch`, declaring its name and parameter; it doesn't perform any validation or hold state itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This line just initializes an empty results array before the loop starts — it doesn't touch the regex or `isValidEmail` in any way that could produce alternating results.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "The word 'every other' makes the loop feel like the culprit, as if the iteration itself skips or mishandles alternating items, but this `for...of` faithfully calls `isValidEmail` once per email in order. The alternation actually comes from `EMAIL_PATTERN`'s `lastIndex` toggling between matches and no-matches across those sequential calls, not from anything in how the loop iterates.",
+      "misconception": "blames-loop-for-alternation"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This line just records whatever `isValidEmail(email)` returns into the results array — it doesn't decide validity itself, so blaming the push/object-literal logic misses the real cause. The true issue is that every call shares one `RegExp` object whose `lastIndex` persists from the previous call because of the `g` flag.",
+      "misconception": "blames-call-site-not-shared-state"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This brace only closes the `for...of` loop body and contains no logic of its own, so it can't be where the alternating validation outcomes originate.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 11,
+      "why_wrong": "By the time this line runs, every email has already been validated (correctly or not); returning `results` here just hands back an array that was already built, so it can't be the source of the alternation.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 12,
+      "why_wrong": "This closing brace simply ends `validateSignupBatch`'s function body and executes no logic, so it isn't where the bug lives.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 13,
+      "why_wrong": "This is a blank line separating two function definitions — whitespace only, with nothing that could affect validation state.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 14,
+      "why_wrong": "This is just the signature for `rejectedEmails`, declaring the function and its parameter; it runs no validation logic on its own.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 15,
+      "why_wrong": "This line calls `validateSignupBatch` to get its already-computed array of results; by that point the alternating true/false pattern is already baked in, so returning it here doesn't create the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 16,
+      "why_wrong": "This `.filter()` only keeps entries where `valid` is already `false` — it operates on results that were determined earlier, so it can't be what causes some valid emails to be marked invalid.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 17,
+      "why_wrong": "This `.map()` just extracts the `email` string from each already-filtered result object; it has no involvement in deciding whether an email was valid or not.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 18,
+      "why_wrong": "This closing brace only ends the `rejectedEmails` function and contains no executable logic, so the alternating validation bug can't originate here.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

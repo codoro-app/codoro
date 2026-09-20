@@ -1,0 +1,148 @@
+{
+  "puzzle_id": "dsm-028",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:48:42.297Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line just imports the `java.util` collection classes so `List` and `ArrayList` are available; it doesn't call any method, so it can't decide which `remove` overload runs.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This is a blank line separating the import from the class body — it contains no executable code, so it can't be responsible for removing the wrong task.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This line only opens the `TaskQueue` class declaration; it performs no removal logic and can't be where the wrong overload gets picked.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "You might think declaring `taskIds` as `List<Integer>` is itself the flaw, but that field type is exactly what you want for storing ids. The real problem shows up later, when `remove` is called with a primitive `int` and the compiler picks the index-based overload instead of the value-based one.",
+      "misconception": "blames-list-declaration"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This blank line just separates the field declaration from `addTask`; it has no code, so it can't be where the wrong element gets removed.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This is just the `addTask` method signature — it declares how new ids come in and has nothing to do with how `removeTaskById` later resolves its overload.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "You might expect `add` to have the same overload trap as `remove`, but `List<Integer>` only offers `add(E element)` and a two-argument `add(int index, E element)`. A single `int` argument here can only match the one-parameter version and autoboxes correctly, so this line stores the id fine — unlike the ambiguous single-argument `remove` overloads.",
+      "misconception": "assumes-add-remove-symmetry"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This is just the closing brace of `addTask`; it has no logic of its own and can't be where the wrong task gets removed.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "This blank line sits between two methods and contains no code, so it can't be responsible for the incorrect removal.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 9,
+      "why_wrong": "You might think declaring the parameter as a primitive `int` is itself the bug, but a method signature alone doesn't remove anything. The actual overload confusion only happens on the next line, when that `int` is handed to `remove` and Java picks the index-based version over the value-based one.",
+      "misconception": "blames-signature-not-call"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This is just the closing brace of `removeTaskById`; it runs no code and can't be where the wrong overload is chosen.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 12,
+      "why_wrong": "This blank line separates two methods and contains no executable statement, so it can't cause the wrong task to be removed.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 13,
+      "why_wrong": "This is only the signature of `getTaskIds`; it doesn't touch the list's contents and can't be where an element gets removed incorrectly.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 14,
+      "why_wrong": "This line simply returns the existing `taskIds` reference for inspection; it doesn't modify the list, so it can't be responsible for the wrong removal.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 15,
+      "why_wrong": "This is just the closing brace of `getTaskIds`; it contains no logic that could remove the wrong element.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 16,
+      "why_wrong": "This blank line separates `getTaskIds` from `main` and has no code, so it can't be where the bug happens.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 17,
+      "why_wrong": "This is just the `main` method signature; it starts the program but doesn't itself call `remove`, so it can't be the responsible line.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 18,
+      "why_wrong": "This line only constructs a new, empty `TaskQueue`; no ids exist yet, so it can't be where a task is wrongly removed.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 19,
+      "why_wrong": "This just appends the id `104` to build the test data; it happens well before any removal and can't be where the bug occurs.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 20,
+      "why_wrong": "This only inserts the first task with id `2` into the list as setup data; adding a duplicate-later id is not itself a bug, so this line can't be responsible for the faulty removal.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 21,
+      "why_wrong": "This just appends the id `88` while building the test list; it happens before removal is even called and can't be the culprit.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 22,
+      "why_wrong": "This only adds the id `205` as part of setting up test data; it has no bearing on which overload `remove` later resolves to.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 23,
+      "why_wrong": "This appends the second task with id `2`, which is valid test setup, not a bug — lists are allowed to hold duplicate values, so this line isn't where the faulty removal happens.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 24,
+      "why_wrong": "This blank line separates the setup calls from the removal call and contains no code, so it can't be responsible for the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 25,
+      "why_wrong": "You might think passing `2` here is wrong, but `2` is exactly the id you want removed. The mistake isn't in what value is passed — it's that inside `removeTaskById`, that same `2` gets handed to `remove` as a primitive `int`, so Java resolves it to the index-based overload instead of the value-based one.",
+      "misconception": "blames-call-site-argument"
+    },
+    {
+      "target": 26,
+      "why_wrong": "This line only prints the final list for you to observe the bug's effect; it doesn't modify the list, so it can't be where the wrong task gets removed.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 27,
+      "why_wrong": "This is just the closing brace of `main`; it contains no logic and can't be responsible for the incorrect removal.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 28,
+      "why_wrong": "This is just the closing brace of the `TaskQueue` class; it has no executable code and can't be where the wrong overload is picked.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

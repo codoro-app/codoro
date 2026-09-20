@@ -1,0 +1,78 @@
+{
+  "puzzle_id": "nul-006",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:30:45.298Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line just declares the function name and its parameter; it doesn't set any default values or call any methods, so the null-default bug can't live here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This line only opens the destructuring block; the actual default values that could fail live on the following lines, not here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "You're right that `= 'Guest'` only kicks in on `undefined`, not `null`, but that gap is harmless here — `displayName` is just returned untouched with no method called on it. A `null` value would pass through silently instead of throwing, unlike the field that later gets `.trim()`'d.",
+      "misconception": "defaults-treated-as-uniformly-safe"
+    },
+    {
+      "target": 3,
+      "why_wrong": "Same default syntax, same null-vs-undefined gap, but `bio` is only spread straight into the returned object with nothing calling a method on it. Even stuck as `null`, nothing downstream would throw the way the trimmed field does.",
+      "misconception": "defaults-treated-as-uniformly-safe"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This line doesn't declare a default value at all — `email` is destructured with no `=` fallback, so there's no default here that could silently fail. It's also just passed through untouched, so a `null` value wouldn't trigger a crash on it.",
+      "misconception": "assumes-default-exists"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This line just closes the destructuring and points it at `profile`; it doesn't define any default value itself, so the bug can't be here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This is an empty line between the destructuring and the return statement, so no default value or logic lives here to fail.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "This line only opens the returned object literal; whatever defaults were going to apply were already resolved earlier during destructuring, so nothing fails on this line itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This is just the shorthand property in the returned object, not a default value declaration — any default for `displayName` was already resolved above. It's also only returned as-is with no method call, so it wouldn't throw even if left `null`.",
+      "misconception": "confuses-return-shorthand-with-default"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This is only the shorthand for including `bio` in the returned object, not where any default is declared. `bio` is returned untouched here with no method call, so it can't be the line that lets a bad value crash.",
+      "misconception": "confuses-return-shorthand-with-default"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This is where the crash actually happens — calling `.trim()` on `avatarUrl` throws when it's `null` — but the prompt asks for the default value that fails to protect against it, which is declared earlier in the destructuring, not consumed here.",
+      "misconception": "crash-site-not-declaration-site"
+    },
+    {
+      "target": 12,
+      "why_wrong": "This is just the shorthand for returning `email`, not a place where a default is declared or applied. Since nothing calls a method on `email` here, a `null` value would flow through quietly instead of causing the failure you're hunting for.",
+      "misconception": "confuses-return-shorthand-with-default"
+    },
+    {
+      "target": 13,
+      "why_wrong": "This line just closes the returned object literal and has no default value or method call attached to it.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 14,
+      "why_wrong": "This line closes the function body; it contains no default value or property access, so it can't be the source of the crash.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

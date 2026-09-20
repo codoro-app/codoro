@@ -1,0 +1,83 @@
+{
+  "puzzle_id": "mut-003",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-19T23:56:30.686Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line only declares the `createTeam` function signature — it doesn't touch cloning or aliasing, so it can't be where the shared-array bug originates.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "You're pointing at where the array is first created, but a fresh `[]` here is perfectly independent — nothing is shared yet. The aliasing only happens later, when a copy operation reuses this same array reference instead of making a new one.",
+      "misconception": "confuses-object-creation-with-copy"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This is just the closing brace of `createTeam` — it has no logic of its own and can't be responsible for two teams sharing an array.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This is a blank line between function definitions; it contains no code that could create shared state.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This is only the `cloneTeam` function signature, before any copying logic runs, so it can't be the line that causes the array to be shared.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This is the closing brace of `cloneTeam` — the actual copying already happened on the line above it, so the brace itself does nothing wrong.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This is a blank line separating functions and contains no logic that could cause shared state.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "This is just the `addScore` function signature — declaring the function's parameters doesn't create or share any array.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 9,
+      "why_wrong": "It's tempting to blame the mutation itself since `push` is what visibly changes the array, but pushing to a list is normal, expected behavior. The real problem is upstream: `teamA.scores` and `team.scores` were never separate arrays to begin with, so any push naturally shows up in both.",
+      "misconception": "blames-mutation-not-aliasing"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This is the closing brace of `addScore` — it runs after the mutation already happened and doesn't decide what gets shared.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This is a blank line before the script's top-level statements and contains no logic relevant to the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 12,
+      "why_wrong": "This line just builds `teamA` with its own fresh `scores` array via `createTeam` — no other object exists yet to share state with.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 13,
+      "why_wrong": "It's easy to blame the call itself since this is where `teamB` appears to become an independent clone, but the call only passes `teamA` into `cloneTeam` — it doesn't decide how the copy is made. The actual shallow-copy logic that lets `scores` leak through lives inside `cloneTeam`'s definition, not at this call site.",
+      "misconception": "blames-call-site-not-implementation"
+    },
+    {
+      "target": 14,
+      "why_wrong": "This line is where the shared bug becomes visible, since pushing to `teamA.scores` seems to affect `teamB` too, but the call itself is an ordinary, correct use of `addScore`. The real fault is that `teamB.scores` was already the same array as `teamA.scores` before this line ever ran.",
+      "misconception": "blames-trigger-not-cause"
+    },
+    {
+      "target": 15,
+      "why_wrong": "This just logs `teamB.scores` after the fact — it only reveals the unexpected shared state, it doesn't create it.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

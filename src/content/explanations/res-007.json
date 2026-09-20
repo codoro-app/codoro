@@ -1,0 +1,63 @@
+{
+  "puzzle_id": "res-007",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:39:37.616Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This is just the method signature declaring the return type and the checked exception — it doesn't open or close any resource, so it can't be where a handle gets leaked.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This only allocates the `ArrayList` that will hold output lines; it has nothing to do with file handles and can't leak anything.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This just iterates over the given paths — the loop header itself doesn't open, read, or close any file, so it isn't where the leak originates.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This merely declares a `String` variable to hold each line of text; it doesn't touch the `BufferedReader` or its lifecycle at all.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "You're pointing at where an `IOException` from `readLine()` could actually surface, but the loop's read-and-check logic is exactly right — reading until null is the normal, correct way to drain a file. The real problem is upstream: nothing guarantees `reader` gets closed if this call throws.",
+      "misconception": "blames-exception-trigger-not-missing-guarantee"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This just appends the current line to the results list — it's pure in-memory bookkeeping with no interaction with the open file handle.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This is only the closing brace of the while loop's body; it's structural punctuation and can't itself be responsible for leaking a resource.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "The `close()` call here is correct on its own — the mistake is assuming this is the faulty line rather than noticing it's unreachable whenever `readLine()` throws mid-loop. The real gap is that nothing besides normal fall-through execution reaches this line, so any exception before it skips cleanup entirely.",
+      "misconception": "blames-cleanup-call-not-missing-guarantee"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This is just the closing brace of the for loop over paths; it doesn't perform any resource operation itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This returns the accumulated results after the loop finishes — it runs after any resources would already be closed or leaked, so it can't be the cause.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This is only the closing brace of the method; it's not an executable statement and can't be where a resource fails to close.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

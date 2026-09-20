@@ -1,0 +1,43 @@
+{
+  "puzzle_id": "res-003",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:38:48.737Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line just imports the `json` module for later use; it doesn't open, hold, or release any resource, so it can't be the source of a leak.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This is a blank line with no code at all, so it can't be responsible for any resource leak.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This is just the function signature declaring the `path` parameter; no resource is acquired or released here, so it can't cause the leak.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This line only reads the contents of the already-open file into a string; it doesn't change whether or when the file handle gets closed, so it isn't the leak site.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "It's true that a malformed-JSON error here is what triggers the leak by skipping the rest of the function, but `json.loads` itself doesn't manage any file resource. The actual defect is upstream: the file was opened with a bare `open(path)` instead of a `with` block, so nothing guarantees cleanup once this line raises.",
+      "misconception": "blames-exception-trigger-not-cleanup-guard"
+    },
+    {
+      "target": 6,
+      "why_wrong": "`f.close()` is the right cleanup call and works fine as long as execution reaches it, so tapping it doesn't identify the flaw. The real issue is that this line can be skipped entirely if `json.loads` raises earlier, which only a `with open(path) as f:` block would prevent.",
+      "misconception": "blames-close-call-not-missing-with"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This line just returns the already-parsed result after everything else has succeeded; it has no interaction with the file handle, so it can't be the leak site.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

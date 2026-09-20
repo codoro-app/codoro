@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "err-004",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:23:04.502Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "Swapping in the async `fs.readFile` is a performance/style choice, not a fix for this bug — the sync call itself isn't broken. The actual defect is that any error it throws gets caught and discarded, so an async version with an empty callback error handler would have the exact same silent-failure problem.",
+      "misconception": "sync-vs-async-red-herring"
+    },
+    {
+      "target": 2,
+      "why_wrong": "`'utf8'` is a perfectly valid encoding string for `fs.readFileSync` and won't throw a `TypeError` — the function runs fine on a successful read. The real problem only shows up on failure, when the catch block hides the thrown error instead of doing anything with it.",
+      "misconception": "invents-unrelated-error"
+    },
+    {
+      "target": 3,
+      "why_wrong": "Where the try block's boundary sits isn't the issue here — there's only one statement in the function body anyway, so widening the try wouldn't change anything. The bug is what happens once an error is caught: the empty catch block discards it instead of logging, rethrowing, or returning a fallback.",
+      "misconception": "wrong-try-scope-focus"
+    }
+  ]
+}

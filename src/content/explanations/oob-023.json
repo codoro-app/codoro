@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "oob-023",
+  "interaction": "mcq",
+  "generated_at": "2026-09-19T23:53:28.050Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "That would only skip `items[0]`, which was never the problem — the loop already starts correctly at `i = 0`. The actual issue is at the top end: `range(len(items) + 1)` lets `i` reach `len(items)`, an index that doesn't exist.",
+      "misconception": "fixes-start-instead-of-end-bound"
+    },
+    {
+      "target": 2,
+      "why_wrong": "Shifting to `items[i - 1]` just moves which element crashes instead of removing the crash — the loop would still run one iteration too many because `range()` still goes up to `len(items)`. The fix has to shrink the range itself, not offset the index used inside it.",
+      "misconception": "shifts-index-instead-of-bound"
+    },
+    {
+      "target": 3,
+      "why_wrong": "The loop does print the first element fine, since `i` starts at 0 and `items[0]` is valid. The real failure happens on the last iteration, when `i` reaches `len(items)` and indexes one past the end of the list.",
+      "misconception": "wrong-end-diagnosed-as-start"
+    }
+  ]
+}

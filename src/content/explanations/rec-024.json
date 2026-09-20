@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "rec-024",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:25:03.815Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "This isn't a complexity problem — `sum_to` never touches an already-computed range twice, so there's no re-scanning to worry about. The real defect is structural: there's no base case to stop the recursion, so it never gets the chance to finish at any complexity.",
+      "misconception": "wrong-complexity-diagnosis"
+    },
+    {
+      "target": 2,
+      "why_wrong": "Python integers grow arbitrarily large and never overflow, so `n - 1` staying valid isn't the issue here. The actual failure is that no call ever returns without recursing further, so the stack itself runs out before any number ever could.",
+      "misconception": "assumes-fixed-width-int-overflow"
+    },
+    {
+      "target": 3,
+      "why_wrong": "Swapping in multiplication would turn this into a factorial function, not fix a summation — and it still wouldn't stop the recursion. The bug isn't which operator combines `n` with the recursive call, it's that nothing ever returns a value without making another call.",
+      "misconception": "confuses-operator-with-termination"
+    }
+  ]
+}

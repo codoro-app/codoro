@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "mut-007",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:19:28.308Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "`shift()` is already correct here — it removes the first element, which is exactly what `removeFirst` is supposed to do. The actual problem isn't which method is called, it's that `copy` and `arr` point to the same array, so that removal happens to the caller's original data too.",
+      "misconception": "wrong-array-method-for-position"
+    },
+    {
+      "target": 2,
+      "why_wrong": "Swapping which variable gets returned doesn't fix anything, since `copy` and `arr` are just two names for the identical array object. Whichever one you return, the underlying array was already mutated by `shift()` — the bug is in how `copy` was created, not in the `return` line.",
+      "misconception": "fixes-return-not-aliasing"
+    },
+    {
+      "target": 3,
+      "why_wrong": "`const` only blocks `copy` from being reassigned to point at a different array — it does nothing to protect the array's contents, and `copy.shift()` mutates that content in place without ever reassigning `copy`, so no error occurs. The real issue is that `copy` was never an independent array to begin with.",
+      "misconception": "const-prevents-mutation"
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "puzzle_id": "cf-005",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:52:43.618Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line only declares the method signature and its parameter list — it doesn't execute any logic, so it can't be responsible for orders being miscounted or renotified.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This just initializes `processedCount` to zero before the loop runs; the counting logic itself is correct, so the bug isn't in this initialization.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This only initializes `notifiedCount` to zero; the variable itself is fine — the problem is that cancelled orders shouldn't reach the line that increments it, which happens later.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This just sets up iteration over each order in the list; it doesn't decide what happens per status, so it can't be the site of the fallthrough bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This line only dispatches to the matching case block based on `order.getStatus()`; the fallthrough problem happens after a case finishes, not in the dispatch itself.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This is just the label marking where the CANCELLED branch begins; it contains no logic of its own, so it can't be what causes the fallthrough.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "Calling `order.archive()` here is exactly what should happen for a cancelled order, so that part of the logic is correct. The real bug is what happens right after this call: the `break` only exits the `switch`, so execution still falls through to the notification code below instead of skipping it.",
+      "misconception": "blames-action-not-control-flow"
+    },
+    {
+      "target": 8,
+      "why_wrong": "This is just the label marking the PENDING branch; it's inert on its own and unrelated to the CANCELLED fallthrough bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This call correctly marks a PENDING order as processing and has nothing to do with how CANCELLED orders are handled after their own case block.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "Incrementing `processedCount` here is correct for PENDING orders and completely unrelated to the CANCELLED case falling through.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This `break` is doing its job correctly — PENDING orders are supposed to fall through to `notifiedCount++` and `notifyStatusChange()`, so exiting the switch here is intended. The actual problem is a different `break`, the one on the CANCELLED branch, where falling through to those same lines is not supposed to happen.",
+      "misconception": "treats-every-break-as-suspect"
+    },
+    {
+      "target": 12,
+      "why_wrong": "This is just the label marking the COMPLETED branch; it's inert and unrelated to the CANCELLED fallthrough bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 13,
+      "why_wrong": "Incrementing `processedCount` here is correct for COMPLETED orders and has no effect on the CANCELLED case falling through afterward.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 14,
+      "why_wrong": "This `break` is correct as written — COMPLETED orders should continue on to the notification steps after the switch, so exiting here is intentional. The actual bug is the CANCELLED branch's `break`, which should instead skip that shared code with `continue`.",
+      "misconception": "treats-every-break-as-suspect"
+    },
+    {
+      "target": 15,
+      "why_wrong": "This closing brace just ends the `switch` block; it doesn't control whether execution continues into the rest of the loop body.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 16,
+      "why_wrong": "Incrementing `notifiedCount` here is correct behavior for orders that should be notified — the line itself isn't broken. The real issue is upstream: the CANCELLED branch's `break` fails to skip this line, so cancelled orders get counted here when they shouldn't.",
+      "misconception": "blames-symptom-not-cause"
+    },
+    {
+      "target": 17,
+      "why_wrong": "This call correctly notifies orders of status changes for the cases meant to reach it — it isn't itself buggy. Cancelled orders only reach it because the `break` in the CANCELLED branch exits the switch instead of skipping the rest of the loop body, so the fix belongs there, not here.",
+      "misconception": "blames-symptom-not-cause"
+    },
+    {
+      "target": 18,
+      "why_wrong": "This closing brace just ends the `for` loop body; it doesn't determine whether a given iteration falls through to the notification lines.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 19,
+      "why_wrong": "This runs only after the loop finishes and simply returns the final count; it can't be the cause of a per-iteration fallthrough bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 20,
+      "why_wrong": "This closing brace just ends the method definition; there's no logic here that could cause the fallthrough bug.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

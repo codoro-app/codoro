@@ -1,0 +1,13 @@
+{
+  "puzzle_id": "str-006",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:49:02.474Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line just defines the function's parameters, `name` and `age`, and doesn't do any formatting itself. The mismatch between placeholders and supplied values happens where the `%` operator is actually applied, inside the `print` call.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

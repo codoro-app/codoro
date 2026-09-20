@@ -1,0 +1,153 @@
+{
+  "puzzle_id": "rec-028",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:44:33.614Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line is just the function signature for `parse_expr`; it defines parameters but never touches `pos`, so it can't be where the infinite recursion happens.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This call into `parse_term` returns an updated `pos` from further down the call chain, so it isn't where progress stalls — the stall is specific to the unary-minus branch inside `parse_factor`.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This loop condition only checks for `+` or `-` at the binary-operator level, and its body always advances `pos` before recursing, so it can't be the source of the hang.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This just reads the operator token into a local variable without changing `pos`, so it can't stall anything — the hang happens later, inside `parse_factor`'s unary-minus branch.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This `pos += 1` is exactly the kind of progress-making step that's missing elsewhere in the code; here it correctly advances past the binary operator, so this line is fine.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This recursive call into `parse_term` runs only after `pos` was already incremented past the operator, so it makes real progress and isn't the site of the infinite recursion.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This line just builds the tuple representing the binary operation from already-computed values; it does no token consumption or recursion, so it can't cause a hang.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This is simply the return statement for `parse_expr`, handing back the parsed tree and position; it can't be responsible for a call chain that never terminates.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "This is a blank line separating function definitions; it contains no logic and can't be the site of the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This is another blank line between function definitions; it contains no logic and can't be the site of the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This is just the function signature for `parse_term`; it defines parameters but doesn't advance `pos` or recurse, so it can't be the site of the infinite loop.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This call into `parse_factor` returns whatever updated `pos` the underlying factor parse produces, so any hang traced through here actually originates deeper in `parse_factor`, not on this line.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 12,
+      "why_wrong": "This loop condition only checks for `*` and its body always consumes a token before looping again, so it behaves correctly and isn't the source of the unary-minus hang.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 13,
+      "why_wrong": "This `pos += 1` correctly advances past the `*` operator before the recursive call on the next line, so it's an example of progress being made, not the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 14,
+      "why_wrong": "This recursive call into `parse_factor` happens after `pos` was already advanced past the `*`, so it makes real progress each time and isn't where the infinite recursion lives.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 15,
+      "why_wrong": "This line just assembles the multiplication tuple from already-parsed operands; it performs no recursion or token consumption, so it can't be the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 16,
+      "why_wrong": "This is the return statement for `parse_term`; it just hands back the result and can't be responsible for a call that never returns.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 17,
+      "why_wrong": "This is a blank line separating function definitions; it contains no logic and can't be the site of the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 18,
+      "why_wrong": "This is another blank line between function definitions; it contains no logic and can't be the site of the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 19,
+      "why_wrong": "This is just the function signature for `parse_factor`; it declares the parameters but contains no logic, so it can't be where the recursion fails to terminate.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 20,
+      "why_wrong": "This check for an opening parenthesis is correct, and the branch beneath it advances `pos` before recursing into `parse_expr`, so parenthesized groups parse fine — this isn't the hang.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 21,
+      "why_wrong": "This `pos += 1` correctly consumes the `'('` before recursing into `parse_expr`, which is exactly the pattern the unary-minus branch fails to follow; this line itself is fine.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 22,
+      "why_wrong": "This recursive call into `parse_expr` only happens after `pos` was already advanced past the `'('`, so it makes progress and parses parenthesized expressions correctly — it's not the hang.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 23,
+      "why_wrong": "This check just validates that a closing parenthesis follows the parsed expression; it never runs on the unary-minus path that actually hangs, so it isn't involved.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 24,
+      "why_wrong": "This line only raises an error for malformed input with a missing `')'`; it never executes on the unary-minus path that hangs, so it can't be the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 25,
+      "why_wrong": "This return statement finishes the parenthesized-group case with a `pos` that was already advanced; it has nothing to do with the unary-minus branch that never terminates.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 26,
+      "why_wrong": "This condition correctly detects a leading `-` token so the parser can treat it as unary minus; the check itself is fine, the problem is what the branch beneath it does once that condition is true.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 28,
+      "why_wrong": "This is the base case for parsing a plain value token, and it does advance `pos` afterward, so it terminates correctly and isn't part of the infinite recursion.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 29,
+      "why_wrong": "This return statement for the base case correctly returns an incremented `pos`; it's unrelated to the unary-minus branch where `pos` never advances.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "puzzle_id": "tc-004",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:32:45.506Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line only defines the function's parameters and doesn't compare anything, so it can't be the source of the mismatch.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This line just controls how many times the loop runs over `users`; it performs no comparison of `id` values, so it can't be causing the failure.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This line only executes after a match has already been confirmed, simply handing back the matched user, so it plays no role in why the match never happens.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This is just the closing brace of the if block and contains no logic of its own, so it can't be where the comparison goes wrong.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This brace only closes the for loop and performs no comparison or conversion, so it isn't where the bug lives.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This line is the fallback that only runs once the loop finishes without a match — it's the symptom of the bug, not the cause.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This is the closing brace of the function definition and contains no executable logic, so the bug can't be here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "This is a blank line with no code, so it can't be responsible for any behavior in the program.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 9,
+      "why_wrong": "It's tempting to blame the array since that's where the numeric `id` values come from, but declaring `id: 1` as a number here is perfectly valid. The real problem isn't how this data is typed — it's that the later comparison uses strict `===` and never converts one side to match the other.",
+      "misconception": "blames-data-definition"
+    },
+    {
+      "target": 10,
+      "why_wrong": "You might suspect the quoted `'2'` itself is the mistake, but query params always arrive as strings, so this line is doing exactly what it should. The actual bug is downstream, where `===` compares this string directly against a numeric `id` without ever converting either side.",
+      "misconception": "blames-string-literal"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This is a blank line with no code, so it can't be responsible for any behavior in the program.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 12,
+      "why_wrong": "This line just calls `findUser` and prints whatever it returns — it doesn't perform any comparison itself, so it can't be the reason the lookup fails.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

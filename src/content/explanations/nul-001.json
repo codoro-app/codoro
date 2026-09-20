@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "nul-001",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:17:36.703Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "That's not how `||` works — it doesn't evaluate the right operand first based on precedence; it evaluates `config.timeout` first and only reaches `5000` if that value is falsy. So `timeout` isn't 'always 5000', it's whatever was passed in unless that value is falsy, which is exactly the trap: a passed-in `0` is falsy too, so it gets replaced with `5000` even though the caller meant it.",
+      "misconception": "operator-precedence-confusion"
+    },
+    {
+      "target": 2,
+      "why_wrong": "Accessing a property that doesn't exist on an object never throws in JavaScript — `config.timeout` just evaluates to `undefined` when the key is missing. The real problem isn't a crash on missing keys, it's that the fallback logic can't tell `undefined` apart from a deliberately-set `0`, so it overwrites a valid `0` with `5000`.",
+      "misconception": "property-access-throws-misconception"
+    },
+    {
+      "target": 3,
+      "why_wrong": "Adding a `typeof` check wouldn't fix anything here — the value coming in is already a number when it's provided, so type coercion isn't the issue. The actual bug is which values trigger the default: `||` falls back on any falsy value, including a legitimately-set `0`, not just on `null`/`undefined`.",
+      "misconception": "type-check-misdirection"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "str-003",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:25:49.835Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "That's mixing up old-style `%` formatting with curly-brace interpolation — `%s` placeholders only work with the `%` operator or `.format()`, they wouldn't fix the underlying issue here. The braces themselves are fine; what's missing is the `f` prefix that tells Python to actually evaluate `{name}` instead of printing it as-is.",
+      "misconception": "confuses-percent-format-with-fstring"
+    },
+    {
+      "target": 2,
+      "why_wrong": "Wrapping `name` in `str()` assumes the bug is a type mismatch, but `name` is never even read here — the literal `{name}` text is returned untouched no matter what type you pass in. The real problem is that Python isn't interpolating the placeholder at all, which is a missing `f` prefix, not a type conversion issue.",
+      "misconception": "assumes-type-conversion-needed"
+    },
+    {
+      "target": 3,
+      "why_wrong": "Switching to `+` concatenation would require restructuring the whole return statement, but that's not what's broken — the existing `{name}` placeholder syntax is exactly right for f-string interpolation. It just needs the `f` prefix on the string to activate that syntax, not a different string-building approach.",
+      "misconception": "overcorrects-with-unneeded-rewrite"
+    }
+  ]
+}

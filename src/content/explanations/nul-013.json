@@ -1,0 +1,128 @@
+{
+  "puzzle_id": "nul-013",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:31:59.126Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 0,
+      "why_wrong": "This line only opens the `Map` literal that stores known prices; no SKU lookup or arithmetic happens here, so it can't be where a missing price turns into `NaN`.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 1,
+      "why_wrong": "This is just a valid price entry for `sku-1`; the bug is about a SKU that's absent from the catalog, not about the entries that do exist here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This is just a valid price entry for `sku-2`; the bug is about a SKU that's absent from the catalog, not about the entries that do exist here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "This line only closes the `Map` literal — it's punctuation for the data structure, not logic that can produce or hide a bad price.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 4,
+      "why_wrong": "This is a blank line with no code, so it can't contain any logic responsible for the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 5,
+      "why_wrong": "This line is only the function signature for `computeLineTotal`, declaring its parameters — it runs no logic that could turn a missing price into a free order.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 7,
+      "why_wrong": "It's tempting to blame the multiplication itself since `NaN` first appears when this line runs, but `*` is behaving exactly as JavaScript defines it — multiplying by `undefined` always yields `NaN`. The real problem is that `unitPrice` was already broken one line earlier, before this arithmetic ever ran.",
+      "misconception": "blames-multiplication-not-lookup"
+    },
+    {
+      "target": 8,
+      "why_wrong": "This is just the closing brace of `computeLineTotal`; it has no logic of its own and can't be the source of the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This is a blank line with no code, so it can't contain any logic responsible for the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This line is only the function signature for `computeOrderTotal`, declaring its parameter — it runs no logic that could produce `NaN`.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This line only initializes `total` to a valid number, `0`; it isn't where a bad price ever gets introduced.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 12,
+      "why_wrong": "This line just iterates over the cart's items; it performs no price lookup or arithmetic that could go wrong.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 13,
+      "why_wrong": "This is where the bad value gets folded into the running total, but the accumulation logic itself is correct — adding a `NaN` to any number correctly produces `NaN`. The actual defect is upstream, in the lookup that produced that `NaN` in the first place, not in how the sum is built.",
+      "misconception": "blames-accumulation-not-source"
+    },
+    {
+      "target": 14,
+      "why_wrong": "This is just the closing brace of the `for` loop; it has no logic of its own and can't be the source of the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 15,
+      "why_wrong": "This line only returns whatever value `total` already holds; it doesn't decide what that value is, so it can't be where the `NaN` originates.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 16,
+      "why_wrong": "This is just the closing brace of `computeOrderTotal`; it has no logic of its own and can't be the source of the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 17,
+      "why_wrong": "This is a blank line with no code, so it can't contain any logic responsible for the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 18,
+      "why_wrong": "This line is only the function signature for `checkout`, declaring its parameter — it runs no logic that could produce a free order.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 19,
+      "why_wrong": "This line just stores whatever `computeOrderTotal` hands back — it has no way to know that value is `NaN` instead of a real total, and reassigning it wouldn't fix anything. The value was already corrupted several calls earlier, at the point where a price lookup silently failed.",
+      "misconception": "blames-assignment-not-source"
+    },
+    {
+      "target": 20,
+      "why_wrong": "It looks like the guard's condition is too weak, but `total > 0` is a perfectly normal way to check for a positive charge — the real flaw is that nobody ever checks whether `total` is `NaN`, and `NaN > 0` always evaluates to `false`. Tightening this comparison wouldn't catch the missing-price case; only validating the lookup itself would.",
+      "misconception": "blames-nan-comparison-guard"
+    },
+    {
+      "target": 21,
+      "why_wrong": "This branch only runs when `total > 0` is true, and for the bugged order that condition is `false`, so this line never even executes — it can't be responsible for the customer getting checked out for free. The fault sits earlier, in whatever made `total` become `NaN` in the first place.",
+      "misconception": "blames-untaken-branch"
+    },
+    {
+      "target": 22,
+      "why_wrong": "This is just the closing brace of the `if` block; it has no logic of its own and can't be the source of the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 23,
+      "why_wrong": "This line is also the normal, correct path for a genuinely empty or zero-cost cart, so it isn't broken on its own — it's just following the guard's verdict. The real issue is that `total` became `NaN` upstream from an unrecognized SKU, which this branch has no way to detect.",
+      "misconception": "blames-default-branch-not-source"
+    },
+    {
+      "target": 24,
+      "why_wrong": "This is just the closing brace of `checkout`; it has no logic of its own and can't be the source of the bug.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}

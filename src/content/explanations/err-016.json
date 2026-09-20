@@ -1,0 +1,23 @@
+{
+  "puzzle_id": "err-016",
+  "interaction": "mcq",
+  "generated_at": "2026-09-20T00:23:58.978Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "The return type isn't the problem here — `parse()` returns an `int`, which is exactly what `Integer.parseInt` produces, so there's no mismatch to fix. The actual issue is what happens inside the `catch`: it's broad enough to swallow a `NullPointerException` from a null `s`, not just the malformed-number case.",
+      "misconception": "wrong-return-type-assumed"
+    },
+    {
+      "target": 2,
+      "why_wrong": "There's no reason `Integer.parseInt` would need a second call — a single call either returns the parsed number or throws, and that's working as designed. The real defect is that the `catch (Exception e)` is too wide, so a `NullPointerException` from a null `s` gets treated the same as a bad number format.",
+      "misconception": "invented-double-invocation-requirement"
+    },
+    {
+      "target": 3,
+      "why_wrong": "A `finally` block is for cleanup that must run regardless of outcome, but there's no resource or state here that needs that guarantee, so its absence isn't the bug. The actual flaw is that `catch (Exception e)` is scoped too broadly and hides a `NullPointerException` alongside the intended `NumberFormatException`.",
+      "misconception": "missing-finally-assumed"
+    }
+  ]
+}

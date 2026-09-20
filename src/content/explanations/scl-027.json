@@ -1,0 +1,103 @@
+{
+  "puzzle_id": "scl-027",
+  "interaction": "tap-line",
+  "generated_at": "2026-09-20T00:35:53.051Z",
+  "generator_version": 1,
+  "entries": [
+    {
+      "target": 1,
+      "why_wrong": "This blank line has no code at all — it's just visual separation between the module-level declaration and the debounce factory, so it can't be the source of the shared-timer bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 2,
+      "why_wrong": "This line only declares debounce's parameters `fn` and `delay`, which are already correctly scoped fresh on every call — the bug lives in the `timer` variable declared outside this function, not in these parameters.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 3,
+      "why_wrong": "Tapping here treats the returned arrow function as the point of failure, but closures don't automatically give you private state — they just capture whatever variables already exist in the surrounding scope. Since `timer` lives at module scope, every closure `debounce` returns captures that same variable; the fix is where `timer` is declared, not this closure boundary.",
+      "misconception": "assumes-closure-isolates-state"
+    },
+    {
+      "target": 4,
+      "why_wrong": "Blaming this line treats clearing the timeout as the mistake, but cancelling a pending timeout is exactly what a debounce should do. The real issue is that `timer` isn't private to each debounced function, so this call can end up cancelling a completely different function's scheduled run.",
+      "misconception": "symptom-line-not-declaration"
+    },
+    {
+      "target": 5,
+      "why_wrong": "Reassigning `timer` here is normal, correct debounce behavior — every call needs somewhere to store its new timeout handle. The actual problem is that this 'somewhere' is a single module-level variable shared by both debounced functions instead of one declared inside `debounce` so each call gets its own.",
+      "misconception": "reassignment-flagged-as-bug"
+    },
+    {
+      "target": 6,
+      "why_wrong": "This line just invokes the original callback, `onSearch` or `onAutosave`, once the timer fires, and never touches the shared `timer` variable, so it isn't where the interference happens.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 7,
+      "why_wrong": "This is just the closing syntax for the `setTimeout` call, specifying the delay, and isn't a location where any variable gets declared or shared.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 8,
+      "why_wrong": "This brace only closes the returned debounced function's body and contains no logic of its own, so the shared-timer bug can't live here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 9,
+      "why_wrong": "This brace simply closes the `debounce` factory function itself; it's purely structural and holds no variable declarations that could cause the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 10,
+      "why_wrong": "This is an empty line separating the two function definitions and contains no code that could cause the sharing bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 11,
+      "why_wrong": "This line only declares `createSearchController` and its parameters `onSearch`/`onAutosave`, which are already separate per controller instance — the bug is in `debounce`'s shared `timer`, not here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 12,
+      "why_wrong": "This line just calls `debounce` to build the search-specific debounced function, and that call is written correctly; the flaw is inside `debounce` itself, where `timer` should be declared but isn't.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 13,
+      "why_wrong": "This line calls `debounce` to create the autosave-specific debounced function in exactly the same valid way as the search one; the interference comes from `debounce`'s shared `timer`, not from how this call is written.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 14,
+      "why_wrong": "This blank line separates the two debounced-function declarations from the returned object and contains no logic relevant to the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 15,
+      "why_wrong": "This line just opens the object literal that the controller returns; it doesn't declare or touch `timer`, so it can't be the bug's source.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 16,
+      "why_wrong": "This line only forwards a search query to the already-created `debouncedSearch` function; the interference was baked in earlier when `debounce` shared its `timer` variable, not by this call.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 17,
+      "why_wrong": "This line only forwards a draft to the already-created `debouncedAutosave` function; it doesn't create or share any state itself, so the bug isn't here.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 18,
+      "why_wrong": "This brace just closes the returned `{ search, autosave }` object literal and contains no logic that could cause the bug.",
+      "misconception": "not-the-bug-site"
+    },
+    {
+      "target": 19,
+      "why_wrong": "This brace simply closes the `createSearchController` function body and holds no code that could be responsible for the shared timer.",
+      "misconception": "not-the-bug-site"
+    }
+  ]
+}
