@@ -141,3 +141,39 @@ export interface ProfileGetResponse {
   payload: unknown
   updatedAt: number
 }
+
+// v6 Phase 6.2a: Stripe backend wire shapes.
+
+/** §5's two tiers -- the only values `entitlements.tier` (migration 0003) ever holds. */
+export type EntitlementTier = 'free' | 'coach'
+
+/**
+ * `GET /api/entitlement`. Authenticated. Always 200, even for a user with
+ * no `entitlements` row yet (a free/never-subscribed user) -- unlike
+ * `GET /api/profile`'s 404-on-missing, "not entitled to coach" IS a valid,
+ * expected steady state here, not an absent resource; the default response
+ * for that case is the same shape with `tier: 'free'`.
+ */
+export interface EntitlementResponse {
+  tier: EntitlementTier
+  currentPeriodEnd: number | null
+  cancelAtPeriodEnd: boolean
+}
+
+/** §2's two plans. The client names one of these, never a Stripe price id (F39). */
+export type PlanName = 'monthly' | 'annual'
+
+/** `POST /api/checkout-session`'s request body. Authenticated. */
+export interface CheckoutSessionRequest {
+  plan: PlanName
+}
+
+/** `POST /api/checkout-session`'s success response -- the Checkout page to redirect to. */
+export interface CheckoutSessionResponse {
+  url: string
+}
+
+/** `POST /api/billing-portal`'s success response (§7, F48) -- no request body. */
+export interface BillingPortalResponse {
+  url: string
+}

@@ -39,7 +39,7 @@ export interface RouteLimit {
    * `wrangler.jsonc`'s binding-level policy can't vary by call, only by
    * which binding is used -- see this file's own doc comment above).
    */
-  perIpBinding: 'RATE_LIMITER_PER_IP' | 'RATE_LIMITER_REPORT_IP'
+  perIpBinding: 'RATE_LIMITER_PER_IP' | 'RATE_LIMITER_REPORT_IP' | 'RATE_LIMITER_STRIPE_WEBHOOK_IP'
   /**
    * Per-user bucket, checked in addition to the always-on per-IP bucket --
    * only meaningful on routes where `clerkAuth()` (T3) runs before
@@ -74,6 +74,18 @@ export const ROUTE_LIMITS: Record<string, RouteLimit> = {
   // would also pay for.
   'PUT /api/profile': { perIpBinding: 'RATE_LIMITER_PER_IP', perUser: true },
   'GET /api/profile': { perIpBinding: 'RATE_LIMITER_PER_IP', perUser: true },
+  // v6 Phase 6.2a: the second unauthenticated write in the system (spec
+  // §6), after POST /api/report -- same "own distinctly-named bucket"
+  // treatment, perUser: false for the same reason report's is (no
+  // authenticated user to key on; clerkAuth() never runs in front of this
+  // route).
+  'POST /api/stripe/webhook': { perIpBinding: 'RATE_LIMITER_STRIPE_WEBHOOK_IP', perUser: false },
+  // Authenticated, not an anonymous abuse surface -- shared per-IP default
+  // plus per-user is fine, same reasoning as DELETE /api/account/PUT
+  // /api/profile above.
+  'GET /api/entitlement': { perIpBinding: 'RATE_LIMITER_PER_IP', perUser: true },
+  'POST /api/checkout-session': { perIpBinding: 'RATE_LIMITER_PER_IP', perUser: true },
+  'POST /api/billing-portal': { perIpBinding: 'RATE_LIMITER_PER_IP', perUser: true },
 }
 
 /**

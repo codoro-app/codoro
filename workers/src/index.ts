@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { clerkAuth } from './auth'
 import { deleteClerkUser } from './clerkAdmin'
-import { deleteUser, getOrCreateUser, insertReport, linkAnonIdIfUnset } from './db'
+import { deleteUser, getEntitlement, getOrCreateUser, insertReport, linkAnonIdIfUnset } from './db'
 import { routeLimit } from './limits'
 import {
   buildProfileConflictResponse,
@@ -12,10 +12,20 @@ import { profileStore } from './profileStore'
 import { VALID_PUZZLE_IDS } from './puzzleIds.generated'
 import { rateLimit } from './rateLimit'
 import { ReportBodySchema } from './report'
+import { assertStripeKeyMode, createStripeClient } from './stripeClient'
+import {
+  CheckoutSessionBodySchema,
+  createBillingPortalSession,
+  createCheckoutSession,
+} from './stripeCheckout'
+import { processStripeWebhook } from './stripeWebhook'
 import type { AuthVariables } from './auth'
 import type { Env } from './env'
 import type {
   ApiErrorResponse,
+  BillingPortalResponse,
+  CheckoutSessionResponse,
+  EntitlementResponse,
   HealthResponse,
   ProfilePutResponse,
   ReportResponse,
@@ -118,6 +128,23 @@ app.delete(
       // see this file's own Hono<> declaration), so this satisfies the
       // compiler without an unsafe assertion.
       return c.json<ApiErrorResponse>({ error: 'Unauthorized' }, 401)
+    }
+    // v6 Phase 6.2a, Piece 5 (F38): cancel at Stripe BEFORE deleting D1
+    // rows -- `ON DELETE CASCADE` removes the entitlements row and tells
+    // Stripe nothing, so without this a deleted user keeps being billed
+    // for a product whose data is gone. Deliberately not wrapped in a
+    // try/catch that swallows a cancellation failure: this is the money
+    // path, so a Stripe error here fails the whole request (500, nothing
+    // in D1 touched yet) rather than silently proceeding to delete a user
+    // who's still an active paying subscriber. Idempotent for a repeat
+    // call the same way the rest of this handler always has been: once
+    // the first call's deleteUser() cascades the entitlements row away,
+    // getEntitlement() returns null and this block is skipped entirely.
+    const entitlement = await getEntitlement(c.env.DB, userId)
+    if (entitlement?.stripe_subscription_id) {
+      assertStripeKeyMode(c.env.STRIPE_SECRET_KEY, c.env.STRIPE_MODE)
+      const stripe = createStripeClient(c.env.STRIPE_SECRET_KEY)
+      await stripe.subscriptions.cancel(entitlement.stripe_subscription_id)
     }
     await deleteUser(c.env.DB, userId)
     await deleteClerkUser(c.env.CLERK_SECRET_KEY, userId)
@@ -223,6 +250,152 @@ app.get(
     }
 
     return c.json(buildProfileGetResponse(record))
+  },
+)
+
+// v6 Phase 6.2a, Piece 3: `POST /api/stripe/webhook` — the second
+// unauthenticated write in the system, after POST /api/report (§6). Every
+// point of §6 in order:
+//   1. Raw body read as text, BEFORE any parse — `c.req.text()` is the
+//      first thing touched in this handler, full stop. A `.json()` call
+//      anywhere before signature verification would permanently break it
+//      (F45) because the body stream can't be re-read afterward.
+//   2/3. `processStripeWebhook` (stripeWebhook.ts) verifies the signature
+//      with the async constructor (F45) before any D1 access, then
+//      inserts the idempotency row BEFORE doing any work (F42).
+//   4. Every outcome from `processStripeWebhook` other than a bad
+//      signature is 200 — an unhandled type, an already-processed event,
+//      and a post-idempotency processing failure all return `{ status:
+//      200 }` from that function; this handler just forwards whatever
+//      status it returns.
+//   5. Exactly the four handled types — enforced inside
+//      stripeWebhook.ts's HANDLED_EVENT_TYPES, not here.
+//   6. rateLimit() below runs before this handler at all, same "reject
+//      before work" ordering POST /api/report already established.
+//   7. No PII stored — this route never reads or writes anything but
+//      Stripe ids (via stripe.ts's upsertEntitlement).
+app.post(
+  '/api/stripe/webhook',
+  rateLimit('POST /api/stripe/webhook', routeLimit('POST /api/stripe/webhook')),
+  async (c) => {
+    const rawBody = await c.req.text()
+    const signature = c.req.header('stripe-signature')
+    assertStripeKeyMode(c.env.STRIPE_SECRET_KEY, c.env.STRIPE_MODE)
+    const stripe = createStripeClient(c.env.STRIPE_SECRET_KEY)
+    const outcome = await processStripeWebhook(
+      c.env.DB,
+      stripe,
+      c.env.STRIPE_WEBHOOK_SECRET,
+      rawBody,
+      signature,
+    )
+    return c.body(null, outcome.status)
+  },
+)
+
+// v6 Phase 6.2a, Piece 4: `GET /api/entitlement` (§7). Always 200, even for
+// a user with no `entitlements` row yet — "not entitled to coach" is this
+// route's normal steady state for a free user, not an absent resource
+// (unlike GET /api/profile's 404-on-missing).
+app.get(
+  '/api/entitlement',
+  clerkAuth(),
+  rateLimit('GET /api/entitlement', routeLimit('GET /api/entitlement')),
+  async (c) => {
+    const userId = c.get('userId')
+    if (!userId) {
+      return c.json<ApiErrorResponse>({ error: 'Unauthorized' }, 401)
+    }
+    const row = await getEntitlement(c.env.DB, userId)
+    const body: EntitlementResponse = row
+      ? {
+          tier: row.tier,
+          currentPeriodEnd: row.current_period_end,
+          cancelAtPeriodEnd: row.cancel_at_period_end === 1,
+        }
+      : { tier: 'free', currentPeriodEnd: null, cancelAtPeriodEnd: false }
+    return c.json(body)
+  },
+)
+
+// v6 Phase 6.2a, Piece 4: `POST /api/checkout-session` (§7). `successUrl`/
+// `cancelUrl` are built server-side from `APP_ORIGINS` (the same allow-list
+// auth.ts trusts for `azp`), never taken from the request body — letting a
+// client name its own post-checkout redirect would be an open-redirect
+// surface on the one flow in this app that ends with a live payment form.
+app.post(
+  '/api/checkout-session',
+  clerkAuth(),
+  rateLimit('POST /api/checkout-session', routeLimit('POST /api/checkout-session')),
+  async (c) => {
+    const userId = c.get('userId')
+    if (!userId) {
+      return c.json<ApiErrorResponse>({ error: 'Unauthorized' }, 401)
+    }
+
+    let raw: unknown
+    try {
+      raw = await c.req.json()
+    } catch {
+      return c.json<ApiErrorResponse>({ error: 'Invalid JSON body' }, 400)
+    }
+    const parsed = CheckoutSessionBodySchema.safeParse(raw)
+    if (!parsed.success) {
+      return c.json<ApiErrorResponse>({ error: 'Invalid checkout session body' }, 400)
+    }
+
+    const appOrigin = c.env.APP_ORIGINS.split(',')[0]?.trim()
+    if (!appOrigin) {
+      return c.json<ApiErrorResponse>({ error: 'Server misconfigured' }, 500)
+    }
+
+    // T7's lazy-insert, same reasoning as PUT /api/profile: a checkout can
+    // be this user's very first authenticated write, and
+    // subscription_data.metadata.clerk_user_id (F40) must reference a real
+    // `users` row for entitlements' FK to accept the webhook's later write.
+    await getOrCreateUser(c.env.DB, userId)
+
+    assertStripeKeyMode(c.env.STRIPE_SECRET_KEY, c.env.STRIPE_MODE)
+    const stripe = createStripeClient(c.env.STRIPE_SECRET_KEY)
+    const url = await createCheckoutSession(c.env.DB, stripe, {
+      clerkUserId: userId,
+      plan: parsed.data.plan,
+      prices: { monthly: c.env.STRIPE_PRICE_MONTHLY, annual: c.env.STRIPE_PRICE_ANNUAL },
+      successUrl: `${appOrigin}/?checkout=success`,
+      cancelUrl: `${appOrigin}/?checkout=cancelled`,
+    })
+    return c.json<CheckoutSessionResponse>({ url })
+  },
+)
+
+// v6 Phase 6.2a, Piece 4: `POST /api/billing-portal` (§7, F48) — one API
+// call, no cancel/plan-change/payment-method UI built in this Worker.
+app.post(
+  '/api/billing-portal',
+  clerkAuth(),
+  rateLimit('POST /api/billing-portal', routeLimit('POST /api/billing-portal')),
+  async (c) => {
+    const userId = c.get('userId')
+    if (!userId) {
+      return c.json<ApiErrorResponse>({ error: 'Unauthorized' }, 401)
+    }
+    const entitlement = await getEntitlement(c.env.DB, userId)
+    if (!entitlement?.stripe_customer_id) {
+      return c.json<ApiErrorResponse>({ error: 'No billing account' }, 404)
+    }
+    const appOrigin = c.env.APP_ORIGINS.split(',')[0]?.trim()
+    if (!appOrigin) {
+      return c.json<ApiErrorResponse>({ error: 'Server misconfigured' }, 500)
+    }
+
+    assertStripeKeyMode(c.env.STRIPE_SECRET_KEY, c.env.STRIPE_MODE)
+    const stripe = createStripeClient(c.env.STRIPE_SECRET_KEY)
+    const url = await createBillingPortalSession(
+      stripe,
+      entitlement.stripe_customer_id,
+      `${appOrigin}/`,
+    )
+    return c.json<BillingPortalResponse>({ url })
   },
 )
 

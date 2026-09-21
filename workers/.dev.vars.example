@@ -18,3 +18,14 @@ CLERK_JWT_KEY=
 # T12 — email re-engagement (Resend + unsubscribe tokens)
 RESEND_API_KEY=
 UNSUB_HMAC_SECRET=
+
+# v6 Phase 6.2a — Stripe backend (test mode only). STRIPE_SECRET_KEY is a
+# `sk_test_...` key from the Stripe dashboard's test-mode API keys page --
+# stripeClient.ts asserts its prefix matches wrangler.jsonc's STRIPE_MODE
+# (F49), so a live key pasted here would fail loudly, not silently.
+# STRIPE_WEBHOOK_SECRET is the `whsec_...` secret for the specific webhook
+# endpoint you're testing against -- the Stripe CLI's `stripe listen` prints
+# its own, DIFFERENT secret; don't cross-wire the two (Stripe's own
+# signature-verification troubleshooting doc calls this out explicitly).
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=

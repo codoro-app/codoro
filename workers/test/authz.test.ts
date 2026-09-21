@@ -9,18 +9,31 @@
 // token, valid-token-vs-another-user} matrix in one place.
 import { env } from 'cloudflare:workers'
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { insertUser } from '../src/db'
+import { insertUser, upsertEntitlement } from '../src/db'
 import type { Env } from '../src/env'
 import { applyAllMigrations } from './support/migrations'
+import { createFakeStripe } from './support/fakeStripe'
 import { generateTestKeypair, signTestToken } from './support/jwt'
 import type { TestKeypair } from './support/jwt'
-import type { ProfileGetResponse } from '../shared/api-types'
+import type { EntitlementResponse, ProfileGetResponse } from '../shared/api-types'
 
 const deleteClerkUserMock = vi.fn<
   (secretKey: string, userId: string) => Promise<{ deleted: boolean }>
 >(() => Promise.resolve({ deleted: true }))
 vi.mock('../src/clerkAdmin', () => ({
   deleteClerkUser: (secretKey: string, userId: string) => deleteClerkUserMock(secretKey, userId),
+}))
+
+// v6 Phase 6.2a: the crossUserCheck for POST /api/checkout-session and
+// POST /api/billing-portal below exercises a VALID token, which reaches
+// past clerkAuth() into the real handler -- unlike the "no token"/"bad
+// token" cases, which 401 before ever touching Stripe. Mocked the same way
+// stripeRoutes.test.ts is, so this file never makes a real network call
+// either (F5).
+const fakeStripe = createFakeStripe()
+vi.mock('../src/stripeClient', () => ({
+  createStripeClient: () => fakeStripe,
+  assertStripeKeyMode: () => undefined,
 }))
 
 const { default: app } = await import('../src/index')
@@ -30,7 +43,15 @@ const TEST_ORIGIN = 'https://getcodoro.test'
 // deliberately leaves unauthenticated (health check must work even if
 // token verification itself is broken; report is the one anonymous write
 // in the system, by design -- see index.ts's own comments on each).
-const KNOWN_UNAUTHENTICATED_ROUTES = new Set(['GET /api/health', 'POST /api/report'])
+// v6 Phase 6.2a adds a third: POST /api/stripe/webhook (spec §6) -- Stripe
+// itself calls it, so there is no token to check, and it gets its own
+// explicit test below since this table-driven matrix structurally can't
+// cover an endpoint with no auth (Piece 6's own note).
+const KNOWN_UNAUTHENTICATED_ROUTES = new Set([
+  'GET /api/health',
+  'POST /api/report',
+  'POST /api/stripe/webhook',
+])
 
 /**
  * Every route this table exercises for the three-case matrix below. Add a
@@ -86,6 +107,11 @@ describe('authz matrix: every authenticated route (T13)', () => {
     CLERK_JWT_KEY: keypair.publicKeyPem,
     CLERK_SECRET_KEY: 'test-secret-not-real',
     APP_ORIGINS: TEST_ORIGIN,
+    STRIPE_SECRET_KEY: 'sk_test_fake',
+    STRIPE_WEBHOOK_SECRET: 'whsec_test_secret',
+    STRIPE_MODE: 'test',
+    STRIPE_PRICE_MONTHLY: 'price_monthly_test',
+    STRIPE_PRICE_ANNUAL: 'price_annual_test',
   })
 
   async function tokenFor(sub: string): Promise<string> {
@@ -140,6 +166,72 @@ describe('authz matrix: every authenticated route (T13)', () => {
         expect(res.status).toBe(404)
       },
     },
+    // v6 Phase 6.2a additions (Piece 6's authz bullet).
+    {
+      method: 'GET',
+      path: '/api/entitlement',
+      crossUserCheck: async ({ owner, caller, tokenFor: tf, ip }) => {
+        await insertUser(env.DB, { clerk_user_id: owner, created_at: Date.now() })
+        await insertUser(env.DB, { clerk_user_id: caller, created_at: Date.now() })
+        await upsertEntitlement(env.DB, {
+          clerkUserId: owner,
+          tier: 'coach',
+          stripeCustomerId: 'cus_authz_owner',
+          stripeSubscriptionId: 'sub_authz_owner',
+          stripeStatus: 'active',
+          currentPeriodEnd: null,
+          cancelAtPeriodEnd: false,
+          now: Date.now(),
+        })
+        const res = await request('GET', '/api/entitlement', await tf(caller), ip)
+        expect(res.status).toBe(200)
+        const body: EntitlementResponse = await res.json()
+        // caller's own (never-subscribed) default, never owner's 'coach'.
+        expect(body.tier).toBe('free')
+      },
+    },
+    {
+      method: 'POST',
+      path: '/api/checkout-session',
+      crossUserCheck: async ({ owner, caller, tokenFor: tf, ip }) => {
+        await insertUser(env.DB, { clerk_user_id: owner, created_at: Date.now() })
+        await insertUser(env.DB, { clerk_user_id: caller, created_at: Date.now() })
+        fakeStripe.checkout.sessions.create.mockResolvedValue({
+          url: 'https://checkout.stripe.com/authz-test',
+        })
+        const res = await request('POST', '/api/checkout-session', await tf(caller), ip, {
+          plan: 'monthly',
+        })
+        expect(res.status).toBe(200)
+        // The session created is the CALLER's, never the owner's identity.
+        expect(fakeStripe.checkout.sessions.create).toHaveBeenLastCalledWith(
+          expect.objectContaining({ client_reference_id: caller }),
+        )
+      },
+    },
+    {
+      method: 'POST',
+      path: '/api/billing-portal',
+      crossUserCheck: async ({ owner, caller, tokenFor: tf, ip }) => {
+        await insertUser(env.DB, { clerk_user_id: owner, created_at: Date.now() })
+        await insertUser(env.DB, { clerk_user_id: caller, created_at: Date.now() })
+        await upsertEntitlement(env.DB, {
+          clerkUserId: owner,
+          tier: 'coach',
+          stripeCustomerId: 'cus_authz_owner_portal',
+          stripeSubscriptionId: 'sub_authz_owner_portal',
+          stripeStatus: 'active',
+          currentPeriodEnd: null,
+          cancelAtPeriodEnd: false,
+          now: Date.now(),
+        })
+        // caller has no customer id of their own -- must 404, never reach
+        // or return owner's portal session.
+        const res = await request('POST', '/api/billing-portal', await tf(caller), ip)
+        expect(res.status).toBe(404)
+        expect(fakeStripe.billingPortal.sessions.create).not.toHaveBeenCalled()
+      },
+    },
   ]
 
   beforeAll(async () => {
@@ -150,6 +242,8 @@ describe('authz matrix: every authenticated route (T13)', () => {
 
   beforeEach(() => {
     deleteClerkUserMock.mockClear()
+    fakeStripe.checkout.sessions.create.mockReset()
+    fakeStripe.billingPortal.sessions.create.mockReset()
     testEnvGlobal = testEnv
   })
 
@@ -209,4 +303,29 @@ describe('authz matrix: every authenticated route (T13)', () => {
       })
     })
   }
+
+  // Piece 6's own note: "the webhook gets its own explicit line there
+  // since an authz suite structurally cannot cover an endpoint with no
+  // auth" -- POST /api/stripe/webhook is in KNOWN_UNAUTHENTICATED_ROUTES
+  // above (so the registry check doesn't demand a {no token, bad token,
+  // cross-user} entry for it), and this is that explicit line: it accepts
+  // requests carrying no Authorization header at all, on purpose, because
+  // Stripe itself is the caller and can't carry a Clerk session token.
+  // What actually stands in for "auth" on this route is signature
+  // verification (stripeRoutes.test.ts's dedicated suite covers that).
+  it('POST /api/stripe/webhook is unauthenticated by design -- no Authorization header is required to reach signature verification', async () => {
+    const res = await app.request(
+      '/api/stripe/webhook',
+      {
+        method: 'POST',
+        headers: { 'CF-Connecting-IP': '203.0.114.200' },
+        body: '{}',
+      },
+      testEnvGlobal(),
+    )
+    // Rejected for a missing Stripe-Signature header (§6), NOT for a
+    // missing Authorization header -- there is no clerkAuth() in front of
+    // this route at all, unlike every other route in this file.
+    expect(res.status).toBe(400)
+  })
 })

@@ -190,3 +190,128 @@ export async function insertReport(db: D1Database, input: NewReportRow): Promise
     .bind(crypto.randomUUID(), input.puzzleId, input.reason, input.appVersion, input.now)
     .run()
 }
+
+// v6 Phase 6.2a: entitlements + the webhook idempotency ledger (migration
+// 0003). §1 of the payments spec ("events are triggers, not truth") is why
+// `upsertEntitlement` is the *only* write here -- it's called from exactly
+// one place, stripe.ts's authoritative-read helper, which derives every
+// field from a freshly-retrieved Stripe Subscription object, never from a
+// webhook event's own JSON body.
+
+export type Tier = 'free' | 'coach'
+
+export interface EntitlementRow {
+  clerk_user_id: string
+  tier: Tier
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  stripe_status: string | null
+  current_period_end: number | null
+  cancel_at_period_end: 0 | 1
+  updated_at: number
+}
+
+export interface UpsertEntitlementInput {
+  clerkUserId: string
+  tier: Tier
+  stripeCustomerId: string
+  stripeSubscriptionId: string
+  stripeStatus: string
+  /** Unix seconds, from `subscription.items.data[0].current_period_end` -- see stripe.ts's own comment on why not the subscription root (Piece 0 finding). */
+  currentPeriodEnd: number | null
+  cancelAtPeriodEnd: boolean
+  now: number
+}
+
+/**
+ * Upsert-by-clerk_user_id, same shape as profileStore.ts's `put` (blind
+ * replace, not optimistic-concurrency -- there's no client-supplied
+ * revision to race against here, only Stripe's own event ordering, which
+ * §1's re-read-on-every-event design already makes safe to apply
+ * out-of-order: whichever event arrives last just triggers one more
+ * authoritative read that overwrites with the (still-correct) current
+ * state).
+ */
+export async function upsertEntitlement(
+  db: D1Database,
+  input: UpsertEntitlementInput,
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO entitlements (clerk_user_id, tier, stripe_customer_id, stripe_subscription_id, stripe_status, current_period_end, cancel_at_period_end, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT (clerk_user_id) DO UPDATE SET
+         tier = excluded.tier,
+         stripe_customer_id = excluded.stripe_customer_id,
+         stripe_subscription_id = excluded.stripe_subscription_id,
+         stripe_status = excluded.stripe_status,
+         current_period_end = excluded.current_period_end,
+         cancel_at_period_end = excluded.cancel_at_period_end,
+         updated_at = excluded.updated_at`,
+    )
+    .bind(
+      input.clerkUserId,
+      input.tier,
+      input.stripeCustomerId,
+      input.stripeSubscriptionId,
+      input.stripeStatus,
+      input.currentPeriodEnd,
+      input.cancelAtPeriodEnd ? 1 : 0,
+      input.now,
+    )
+    .run()
+}
+
+export async function getEntitlement(
+  db: D1Database,
+  clerkUserId: string,
+): Promise<EntitlementRow | null> {
+  return db
+    .prepare('SELECT * FROM entitlements WHERE clerk_user_id = ?')
+    .bind(clerkUserId)
+    .first<EntitlementRow>()
+}
+
+/**
+ * §3's fallback lookup: "store `stripe_customer_id` on the entitlements row
+ * on first write, so a customer-scoped event can be resolved by lookup even
+ * if metadata is somehow absent." Only reachable for a customer this Worker
+ * has already written a row for at least once (i.e. resolves a *later*
+ * event missing metadata, not a first-ever one -- nothing to look up before
+ * any row exists).
+ */
+export async function getEntitlementByCustomerId(
+  db: D1Database,
+  stripeCustomerId: string,
+): Promise<EntitlementRow | null> {
+  return db
+    .prepare('SELECT * FROM entitlements WHERE stripe_customer_id = ?')
+    .bind(stripeCustomerId)
+    .first<EntitlementRow>()
+}
+
+/**
+ * F42: the idempotency ledger insert, called BEFORE any work in the webhook
+ * handler (stripeWebhook.ts) -- not after. Returns `false` (not an error)
+ * when `event_id` already exists, the UNIQUE-violation-as-"already
+ * processed" contract §6 point 3 calls for. Any other failure rethrows.
+ */
+export async function tryRecordStripeEvent(
+  db: D1Database,
+  eventId: string,
+  type: string,
+  now: number,
+): Promise<boolean> {
+  try {
+    await db
+      .prepare('INSERT INTO stripe_events (event_id, type, processed_at) VALUES (?, ?, ?)')
+      .bind(eventId, type, now)
+      .run()
+    return true
+  } catch (error) {
+    if (error instanceof Error && /UNIQUE/i.test(error.message)) {
+      return false
+    }
+    throw error
+  }
+}

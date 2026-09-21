@@ -492,3 +492,54 @@ case) if the label is judged worth the added surface.**
 3. Everything already out of scope per the build prompt: Stripe, the entitlements table, the
    webhook, the 6.3 diagnostic, scrubber/drag-order explanations, swipe-binary generation — none
    of it was touched or assumed by this session's work.
+
+# Amendment — 2026-09-21: Phase 6.2a built — Stripe backend, no UI
+
+Executed against `docs/prompts/claude_code_prompt_v6_phase6_2a_stripe_backend.md` and
+`docs/superpowers/plans/2026-09-20-v6-phase6-2-payments-spec.md`, on branch
+`feat/v6-phase6-2a-stripe-backend` (from `main` at `d99fe5c`, which already carries 6.1).
+Test-mode backend only, per the spec's own three-session split (§0) — no paywall UI, no `/coach`
+route, no tutorial. Full detail, including Piece 0's findings and the exact manual Stripe-dashboard
+setup still needed before the remaining DoD items can close, lives in
+`docs/superpowers/plans/2026-09-21-v6-phase6-2a-amendment.md`; this is the short version.
+
+- **Piece 0 finding worth flagging here too**: `current_period_end` is not a field on Stripe's
+  Subscription root object (checked against the installed `stripe@22.6.2` SDK and Stripe's current
+  API docs) — it moved to each subscription item. Adapted (`items.data[0].current_period_end`),
+  documented inline in `workers/src/stripe.ts`, not silently assumed.
+- Migration `0003_entitlements.sql` (`entitlements` + `stripe_events` idempotency ledger), exactly
+  spec §4's DDL, with the same isolated seed/apply/assert test convention as 0001/0002.
+- `workers/src/stripe.ts` — `deriveTier`/`syncEntitlementFromSubscription`, the one place tier is
+  ever computed, always from a fresh Stripe read (§1), never an event's own JSON body.
+- `workers/src/stripeWebhook.ts` — `POST /api/stripe/webhook`: raw body before any parse, async
+  signature verification (`constructEventAsync`, F45), idempotency insert before work (F42), 2xx
+  for everything except a bad signature, exactly the four handled event types.
+- `workers/src/stripeCheckout.ts` / `stripeClient.ts` — `GET /api/entitlement`,
+  `POST /api/checkout-session` (plan name only, F39; both identity fields, F40; customer reuse,
+  F41), `POST /api/billing-portal` (F48), and F49's test/live key-mode assertion.
+- `DELETE /api/account` extended to cancel at Stripe before deleting D1 rows (F38, carried from
+  T13), idempotent the same way the rest of that handler already was.
+- Test matrix: every §5 status row, signature valid/invalid/missing/tampered, idempotency replay,
+  the out-of-order `subscription.updated`-before-`checkout.session.completed` case, F43/F44, an
+  unhandled type → 200/no-write, and the authz matrix (webhook gets its own explicit
+  unauthenticated-by-design line). `pnpm validate` green in `workers/` — typecheck, lint, 139
+  tests across 17 files.
+- **Not done, and why**: no Stripe account exists for Codoro yet (`workers/.dev.vars` has no
+  `STRIPE_SECRET_KEY`; `wrangler.jsonc`'s price-id vars are empty placeholders). Real dev-D1
+  migration apply, `stripe trigger` against a deployed Worker, webhook CPU-ms measurement (F47 —
+  operational, via `wrangler tail`, not an in-Worker code change), and real-API deletion evidence
+  all need that account to exist first. The detailed amendment lists the exact five setup steps.
+- Environment note, same class as 6.1's: the root `pnpm validate`'s whole-repo `eslint` pass ran
+  into the machine's default heap limit again this session (see 6.1's amendment above for the
+  precedent) — `workers/`'s own scoped `pnpm --filter workers run validate` is unaffected and
+  green; this session touched no client `src/` files, so the client-side lint/typecheck/test are
+  not expected to be affected by this branch's changes either way.
+
+## What 6.2b must wire to
+
+See the detailed amendment for the full list; the short version: `GET /api/entitlement` (always
+200, `{tier:'free',...}` default for a never-subscribed user), `POST /api/checkout-session` (takes
+`{plan}`, returns `{url}`; `success_url`/`cancel_url` currently land on `APP_ORIGINS[0]/?checkout=
+success|cancelled`, not a `/coach`-specific route, since that route doesn't exist yet),
+`POST /api/billing-portal` (404 with no customer id yet — treat as "show subscribe," not an error),
+and `src/coach/entitlement.ts`'s `isEntitledToCoach()` as the swap-in seam 6.1 already built.
