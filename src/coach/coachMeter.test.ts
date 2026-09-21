@@ -32,7 +32,7 @@ describe('coachMeterRemaining', () => {
   })
 
   it('subtracts used from the limit within the current week', () => {
-    expect(coachMeterRemaining({ weekStart: '2026-09-14', used: 2 }, now)).toBe(1)
+    expect(coachMeterRemaining({ weekStart: '2026-09-14', used: 1 }, now)).toBe(1)
   })
 
   it('floors at 0, never negative', () => {

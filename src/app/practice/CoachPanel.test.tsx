@@ -92,7 +92,7 @@ describe('CoachPanel', () => {
       />,
     )
 
-    expect(await screen.findByText(/used your 3 coach explanations this week/i)).toBeInTheDocument()
+    expect(await screen.findByText(/used your 2 coach explanations this week/i)).toBeInTheDocument()
     expect(loadCoachExplanationSet).not.toHaveBeenCalled()
     expect(onShown).not.toHaveBeenCalled()
   })

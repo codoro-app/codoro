@@ -465,6 +465,21 @@ export function trackFeedbackLinkClicked(payload: FeedbackLinkClickedPayload): v
 }
 
 /**
+ * Fired once a visitor successfully opts into the pre-launch/marketing email
+ * list (`POST /api/subscribe`) -- `EmailSubscribeCard.tsx`, shown on
+ * `ChallengeComparison.tsx` after a recipient finishes a challenge (the
+ * highest-intent moment). Same I4 rule this file already holds for sync
+ * events: surface only, never the email address itself into PostHog.
+ */
+export interface EmailSignupPayload {
+  surface: 'challenge_comparison'
+}
+
+export function trackEmailSignup(payload: EmailSignupPayload): void {
+  safeCapture('email_signup', payload)
+}
+
+/**
  * Fired once per puzzle position (1, 2, or 3) as a first-run puzzle commits
  * — the first-run sequence's (src/content/firstRun.ts) own step-level
  * telemetry, deliberately separate from a single aggregate before/after

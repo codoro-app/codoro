@@ -46,11 +46,15 @@ const TEST_ORIGIN = 'https://getcodoro.test'
 // v6 Phase 6.2a adds a third: POST /api/stripe/webhook (spec §6) -- Stripe
 // itself calls it, so there is no token to check, and it gets its own
 // explicit test below since this table-driven matrix structurally can't
-// cover an endpoint with no auth (Piece 6's own note).
+// cover an endpoint with no auth (Piece 6's own note). A fourth: POST
+// /api/subscribe -- a guest reads this opt-in before ever signing in
+// (ChallengeComparison.tsx), same "no token to check" reasoning; covered by
+// its own test file, subscribeRoutes.test.ts.
 const KNOWN_UNAUTHENTICATED_ROUTES = new Set([
   'GET /api/health',
   'POST /api/report',
   'POST /api/stripe/webhook',
+  'POST /api/subscribe',
 ])
 
 /**

@@ -39,7 +39,11 @@ export interface RouteLimit {
    * `wrangler.jsonc`'s binding-level policy can't vary by call, only by
    * which binding is used -- see this file's own doc comment above).
    */
-  perIpBinding: 'RATE_LIMITER_PER_IP' | 'RATE_LIMITER_REPORT_IP' | 'RATE_LIMITER_STRIPE_WEBHOOK_IP'
+  perIpBinding:
+    | 'RATE_LIMITER_PER_IP'
+    | 'RATE_LIMITER_REPORT_IP'
+    | 'RATE_LIMITER_STRIPE_WEBHOOK_IP'
+    | 'RATE_LIMITER_SUBSCRIBE_IP'
   /**
    * Per-user bucket, checked in addition to the always-on per-IP bucket --
    * only meaningful on routes where `clerkAuth()` (T3) runs before
@@ -86,6 +90,11 @@ export const ROUTE_LIMITS: Record<string, RouteLimit> = {
   'GET /api/entitlement': { perIpBinding: 'RATE_LIMITER_PER_IP', perUser: true },
   'POST /api/checkout-session': { perIpBinding: 'RATE_LIMITER_PER_IP', perUser: true },
   'POST /api/billing-portal': { perIpBinding: 'RATE_LIMITER_PER_IP', perUser: true },
+  // The third unauthenticated write in the system (index.ts's own doc
+  // comment), after POST /api/report and POST /api/stripe/webhook -- same
+  // "own distinctly-named bucket" treatment, perUser: false for the same
+  // reason report's is (no authenticated user to key on).
+  'POST /api/subscribe': { perIpBinding: 'RATE_LIMITER_SUBSCRIBE_IP', perUser: false },
 }
 
 /**

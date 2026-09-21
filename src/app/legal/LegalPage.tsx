@@ -35,6 +35,18 @@
  * page's PostHog paragraph didn't disclose. Added one sentence covering it.
  * Nothing else in the file was found to be inaccurate against what's
  * actually shipped; see the closing amendment for the full read-back notes.
+ *
+ * 2026-09-21: the feedback-form paragraph's closing line said email
+ * addresses collected anywhere in the app are "never added to a mailing
+ * list" -- true when written, false as of this session: a new, separate
+ * opt-in email list shipped (POST /api/subscribe, EmailSubscribeCard.tsx,
+ * shown on the post-challenge comparison screen). That old sentence is
+ * scoped to the feedback form's own email field specifically (still
+ * accurate for that one field -- Tally/feedback data is never merged into
+ * the new list), not reworded; a new paragraph below discloses the new
+ * list honestly, same "only what's actually shipped" standard the T15/
+ * close-out passes above already hold this page to. Real lawyer review is
+ * still the outstanding action item this doesn't replace.
  */
 import { Link } from 'wouter'
 import { ROUTES } from '../routes'
@@ -58,7 +70,7 @@ export function LegalPage() {
       {/* legal-page__title stays literal — App.test.tsx scopes
           findByText('Terms & privacy', { selector: '.legal-page__title' }). */}
       <h1 className="legal-page__title text-2xl text-text-0 m-0">Terms &amp; privacy</h1>
-      <p className="text-sm text-text-2 m-0">Last updated 2026-09-19</p>
+      <p className="text-sm text-text-2 m-0">Last updated 2026-09-21</p>
 
       <section>
         <h2 className={SECTION_HEADING_CLASS}>Terms</h2>
@@ -120,6 +132,22 @@ export function LegalPage() {
           one thing: telling you when Codoro has changed in a way worth coming back for. It is never
           sold, never added to a mailing list, and you can have it deleted at any time by emailing
           the address below.
+        </p>
+        <p className={SECTION_COPY_CLASS}>
+          Email list. On the screen shown after a challenge finishes, you can optionally type your
+          email address to hear about product updates — a separate, explicit opt-in from the
+          feedback form above, never pre-checked or assumed. That email is sent to{' '}
+          <a
+            className={LINK_CLASS}
+            href="https://resend.com/legal/privacy-policy"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Resend
+          </a>
+          , the service that sends those updates on our behalf — Resend's own privacy policy governs
+          how it's handled there. It's used only for that purpose, never sold, and every email sent
+          includes an unsubscribe link.
         </p>
       </section>
 

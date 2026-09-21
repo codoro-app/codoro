@@ -39,6 +39,7 @@ import { trackError } from '../../telemetry'
 import { resolveChallengeOutcome } from './challengeOutcome'
 import type { ChallengeOutcome } from './challengeOutcome'
 import { ChallengeButton } from '../ChallengeButton'
+import { EmailSubscribeCard } from '../EmailSubscribeCard'
 import { useChallengerName } from '../useChallengerName'
 
 function formatSeconds(totalMs: number): string {
@@ -127,6 +128,7 @@ export function ChallengeComparison({ theirs, yours }: ChallengeComparisonProps)
           Practice more like this
         </Link>
       </div>
+      <EmailSubscribeCard surface="challenge_comparison" />
     </div>
   )
 }

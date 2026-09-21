@@ -15,7 +15,10 @@
 CLERK_SECRET_KEY=
 CLERK_JWT_KEY=
 
-# T12 — email re-engagement (Resend + unsubscribe tokens)
+# T12 — email re-engagement (Resend + unsubscribe tokens). RESEND_API_KEY is
+# also read by the email-capture route (POST /api/subscribe) -- one key,
+# two callers. RESEND_SEGMENT_ID (which Resend Segment /api/subscribe adds
+# to) is config, not a secret, so it lives in wrangler.jsonc's vars instead.
 RESEND_API_KEY=
 UNSUB_HMAC_SECRET=
 

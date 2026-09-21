@@ -11,6 +11,7 @@ import {
 import { profileStore } from './profileStore'
 import { VALID_PUZZLE_IDS } from './puzzleIds.generated'
 import { rateLimit } from './rateLimit'
+import { addContactToSegment, createResendClient } from './resendClient'
 import { ReportBodySchema } from './report'
 import { assertStripeKeyMode, createStripeClient } from './stripeClient'
 import {
@@ -18,6 +19,7 @@ import {
   createBillingPortalSession,
   createCheckoutSession,
 } from './stripeCheckout'
+import { SubscribeBodySchema } from './subscribe'
 import { processStripeWebhook } from './stripeWebhook'
 import type { AuthVariables } from './auth'
 import type { Env } from './env'
@@ -29,6 +31,7 @@ import type {
   HealthResponse,
   ProfilePutResponse,
   ReportResponse,
+  SubscribeResponse,
 } from '../shared/api-types'
 
 const app = new Hono<{ Bindings: Env; Variables: Partial<AuthVariables> }>()
@@ -396,6 +399,47 @@ app.post(
       `${appOrigin}/`,
     )
     return c.json<BillingPortalResponse>({ url })
+  },
+)
+
+// The third unauthenticated write in the system, after POST /api/report and
+// POST /api/stripe/webhook -- same "own distinctly-named rate-limit bucket"
+// treatment (limits.ts). A guest reads this opt-in before ever signing in
+// (ChallengeComparison.tsx), so clerkAuth() never runs in front of it. The
+// honeypot check runs before the Resend call, same "reject before work"
+// ordering POST /api/report established: a filled `hp` field never reaches
+// Resend or costs a network call.
+app.post(
+  '/api/subscribe',
+  rateLimit('POST /api/subscribe', routeLimit('POST /api/subscribe')),
+  async (c) => {
+    let raw: unknown
+    try {
+      raw = await c.req.json()
+    } catch {
+      return c.json<ApiErrorResponse>({ error: 'Invalid JSON body' }, 400)
+    }
+
+    const parsed = SubscribeBodySchema.safeParse(raw)
+    if (!parsed.success) {
+      return c.json<ApiErrorResponse>({ error: 'Invalid subscribe body' }, 400)
+    }
+    if (parsed.data.hp) {
+      return c.json<ApiErrorResponse>({ error: 'Invalid subscribe body' }, 400)
+    }
+
+    try {
+      const resend = createResendClient(c.env.RESEND_API_KEY)
+      await addContactToSegment(resend, c.env.RESEND_SEGMENT_ID, parsed.data.email)
+    } catch {
+      // Never leak Resend's own error detail (bad API key, unknown segment
+      // id, network failure) to the client -- same "generic 400/500, no
+      // verbose error detail" posture POST /api/report's own doc comment
+      // establishes for this class of unauthenticated write.
+      return c.json<ApiErrorResponse>({ error: 'Could not subscribe' }, 502)
+    }
+
+    return c.json<SubscribeResponse>({ ok: true }, 201)
   },
 )
 

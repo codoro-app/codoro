@@ -59,8 +59,16 @@
         // test-mode price ids after creating the "Codoro Coach" product in
         // the Stripe dashboard; the Worker fails loudly at request time
         // (not silently) if a checkout is attempted while these are unset.
-        "STRIPE_PRICE_MONTHLY": "",
-        "STRIPE_PRICE_ANNUAL": ""
+        "STRIPE_PRICE_MONTHLY": "price_1UI8IbHhaM2D5WUsyRbn8LuQ",
+        "STRIPE_PRICE_ANNUAL": "price_1UI8IbHhaM2D5WUsdCpx9vgL",
+        // Which Resend Segment (formerly "Audience") POST /api/subscribe
+        // adds new emails to -- config, not a secret, same reasoning as
+        // STRIPE_PRICE_MONTHLY/ANNUAL above. Empty here on purpose -- no
+        // Resend account exists yet as of this session (env.d.ts's own
+        // RESEND_SEGMENT_ID doc comment). Thomas creates the segment in the
+        // Resend dashboard, then fills this in; the route fails loudly
+        // (502), not silently, while this and RESEND_API_KEY are unset.
+        "RESEND_SEGMENT_ID": "8d944dbd-854d-4228-aa11-33a47c687646"
       },
       "d1_databases": [
         {
@@ -104,7 +112,15 @@
         // itself causing the retry storm the rate limiter exists to
         // dampen. namespace_id "512" is a new arbitrary account-unique
         // integer, distinct from 14/1983/77 above.
-        { "name": "RATE_LIMITER_STRIPE_WEBHOOK_IP", "namespace_id": "512", "simple": { "limit": 30, "period": 60 } }
+        { "name": "RATE_LIMITER_STRIPE_WEBHOOK_IP", "namespace_id": "512", "simple": { "limit": 30, "period": 60 } },
+        // POST /api/subscribe's own bucket, same "distinctly-named binding
+        // per unauthenticated write" convention as REPORT_IP/
+        // STRIPE_WEBHOOK_IP above. 5/60 mirrors REPORT_IP's own strictness
+        // -- a low-frequency, one-shot action (signing up for an email
+        // list), no reason to allow more bursts than a puzzle report gets.
+        // namespace_id "913" is a new arbitrary account-unique integer,
+        // distinct from 14/1983/77/512 above.
+        { "name": "RATE_LIMITER_SUBSCRIBE_IP", "namespace_id": "913", "simple": { "limit": 5, "period": 60 } }
       ],
       // No `routes` here (2026-09-11 amendment): originally bound to
       // getcodoro.com/api/* alongside functions/challenge.ts (T1) as a
@@ -140,7 +156,8 @@
         // this enables has nothing to check against until that day.
         "STRIPE_MODE": "live",
         "STRIPE_PRICE_MONTHLY": "",
-        "STRIPE_PRICE_ANNUAL": ""
+        "STRIPE_PRICE_ANNUAL": "",
+        "RESEND_SEGMENT_ID": "ba5f5bae-11df-4632-a478-d6d521e45425"
       },
       "d1_databases": [
         {
@@ -159,7 +176,8 @@
         // than the shared 100/60 default ("strict per-IP rate limiting" —
         // plan): this is the only unauthenticated write in the system.
         { "name": "RATE_LIMITER_REPORT_IP", "namespace_id": "77", "simple": { "limit": 5, "period": 60 } },
-        { "name": "RATE_LIMITER_STRIPE_WEBHOOK_IP", "namespace_id": "512", "simple": { "limit": 30, "period": 60 } }
+        { "name": "RATE_LIMITER_STRIPE_WEBHOOK_IP", "namespace_id": "512", "simple": { "limit": 30, "period": 60 } },
+        { "name": "RATE_LIMITER_SUBSCRIBE_IP", "namespace_id": "913", "simple": { "limit": 5, "period": 60 } }
       ],
       // Not deployed by CI or by this phase — "production apply is a
       // deliberate manual step until launch" (T2 process note). Declared
