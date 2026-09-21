@@ -75,6 +75,55 @@ interface WorkerEnv {
    * it. Set via `wrangler secret put CLERK_SECRET_KEY --env <env>`.
    */
   CLERK_SECRET_KEY: string
+  /**
+   * v6 Phase 6.2a: `POST /api/stripe/webhook`'s own, distinctly-named
+   * per-IP bucket -- same reasoning as T4a's RATE_LIMITER_REPORT_IP (this
+   * file's own doc comment above), it's the second unauthenticated write in
+   * the system (spec §6). Signature verification is cheap but not free
+   * (spec §6 point 6).
+   */
+  RATE_LIMITER_STRIPE_WEBHOOK_IP: RateLimit
+  /**
+   * F49: which Stripe key mode this deployment is expected to run in.
+   * stripeClient.ts asserts STRIPE_SECRET_KEY's `sk_test_`/`sk_live_`
+   * prefix matches this at Worker startup (module scope, not per-request)
+   * so a test key can never silently serve `production`, or vice versa.
+   * Dev is always `'test'` -- v6 Phase 6.2a ships test-mode only, per the
+   * spec's own "Read first" note; live keys are a 6.2c decision (spec §12).
+   */
+  STRIPE_MODE: 'test' | 'live'
+  /**
+   * §2: Checkout maps a client-supplied plan name ('monthly' | 'annual') to
+   * one of these -- the client never names a price id directly (F39: a
+   * client that could would subscribe itself to a $0 test price). Prices
+   * are created in the Stripe dashboard, not in code (§2), so these are
+   * config, not secrets -- safe as plain wrangler.jsonc vars. **Empty in
+   * wrangler.jsonc's `dev` env as of this session**: no Stripe account/
+   * product exists yet (checked -- workers/.dev.vars has no STRIPE_* keys
+   * either). Thomas creates the "Codoro Coach" product with its two test-
+   * mode prices in the Stripe dashboard, then fills these in (see this
+   * phase's amendment doc for the full manual-setup checklist).
+   */
+  STRIPE_PRICE_MONTHLY: string
+  STRIPE_PRICE_ANNUAL: string
+  /**
+   * Stripe's secret API key. Read by stripeClient.ts's one client-
+   * construction point (same "one place, mockable" rule as
+   * CLERK_SECRET_KEY/clerkAdmin.ts). Set via `wrangler secret put
+   * STRIPE_SECRET_KEY --env <env>`, never in wrangler.jsonc, never
+   * committed to `.dev.vars`.
+   */
+  STRIPE_SECRET_KEY: string
+  /**
+   * The webhook endpoint's signing secret (`whsec_...`), from the Stripe
+   * dashboard's Webhooks page for this specific endpoint -- NOT the same
+   * value as a `stripe listen` CLI session's secret (they differ, per
+   * Stripe's own signature-verification troubleshooting doc: don't
+   * cross-wire a Dashboard-managed endpoint's secret with the CLI's).
+   * stripeWebhook.ts's only reader. Set via `wrangler secret put
+   * STRIPE_WEBHOOK_SECRET --env <env>`.
+   */
+  STRIPE_WEBHOOK_SECRET: string
 }
 
 /**

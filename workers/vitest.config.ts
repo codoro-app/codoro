@@ -57,6 +57,14 @@ export default defineConfig({
                 // test can tell "hit my own bucket" apart from "hit the
                 // shared default bucket" if the two were ever confused.
                 RATE_LIMITER_REPORT_IP: { namespace_id: '77', simple: { limit: 2, period: 10 } },
+                // v6 Phase 6.2a: same "distinct small number" reasoning,
+                // a third distinct value (4) so the webhook route's own
+                // bucket is never confused with report's (2) or the shared
+                // default (3).
+                RATE_LIMITER_STRIPE_WEBHOOK_IP: {
+                  namespace_id: '512',
+                  simple: { limit: 4, period: 10 },
+                },
               },
             },
           })),

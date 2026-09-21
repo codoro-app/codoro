@@ -20,6 +20,7 @@
   "dependencies": {
     "@clerk/backend": "^3.17.2",
     "hono": "^4.13.7",
+    "stripe": "^22.6.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {

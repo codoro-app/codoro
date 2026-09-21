@@ -161,3 +161,97 @@ describe('migration 0002 -- additive index, dry-runs the migration-application m
     expect(idx).not.toBeNull()
   })
 })
+
+describe('migration 0003 -- entitlements + stripe_events (v6 Phase 6.2a)', () => {
+  it('does not yet exist before 0003 applies', async () => {
+    await applyMigrationsUpTo(2)
+    const tables = await env.DB.prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('entitlements', 'stripe_events')",
+    ).all()
+    expect(tables.results).toHaveLength(0)
+  })
+
+  it('creates an entitlements row defaulting to free tier, cascade-deleted with its user', async () => {
+    await applyMigrationsUpTo(3)
+    const now = Date.now()
+    await env.DB.prepare('INSERT INTO users (clerk_user_id, created_at) VALUES (?, ?)')
+      .bind('user_5', now)
+      .run()
+    await env.DB.prepare('INSERT INTO entitlements (clerk_user_id, updated_at) VALUES (?, ?)')
+      .bind('user_5', now)
+      .run()
+    const row = await env.DB.prepare('SELECT * FROM entitlements WHERE clerk_user_id = ?')
+      .bind('user_5')
+      .first()
+    expect(row).toMatchObject({ tier: 'free', cancel_at_period_end: 0 })
+
+    await env.DB.prepare('DELETE FROM users WHERE clerk_user_id = ?').bind('user_5').run()
+    const afterDelete = await env.DB.prepare('SELECT * FROM entitlements WHERE clerk_user_id = ?')
+      .bind('user_5')
+      .first()
+    expect(afterDelete).toBeNull()
+  })
+
+  it('rejects an entitlements row referencing a clerk_user_id with no matching users row (FK enforced)', async () => {
+    await applyMigrationsUpTo(3)
+    await expect(
+      env.DB.prepare('INSERT INTO entitlements (clerk_user_id, updated_at) VALUES (?, ?)')
+        .bind('ghost', Date.now())
+        .run(),
+    ).rejects.toThrow(/FOREIGN KEY/i)
+  })
+
+  it('rejects an out-of-enum tier via the CHECK constraint', async () => {
+    await applyMigrationsUpTo(3)
+    await env.DB.prepare('INSERT INTO users (clerk_user_id, created_at) VALUES (?, ?)')
+      .bind('user_6', Date.now())
+      .run()
+    await expect(
+      env.DB.prepare('INSERT INTO entitlements (clerk_user_id, tier, updated_at) VALUES (?, ?, ?)')
+        .bind('user_6', 'premium', Date.now())
+        .run(),
+    ).rejects.toThrow(/CHECK/i)
+  })
+
+  it('rejects a second entitlements row reusing the same stripe_customer_id or stripe_subscription_id (UNIQUE)', async () => {
+    await applyMigrationsUpTo(3)
+    const now = Date.now()
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO users (clerk_user_id, created_at) VALUES (?, ?)').bind(
+        'user_7',
+        now,
+      ),
+      env.DB.prepare('INSERT INTO users (clerk_user_id, created_at) VALUES (?, ?)').bind(
+        'user_8',
+        now,
+      ),
+    ])
+    await env.DB.prepare(
+      'INSERT INTO entitlements (clerk_user_id, stripe_customer_id, stripe_subscription_id, updated_at) VALUES (?, ?, ?, ?)',
+    )
+      .bind('user_7', 'cus_shared', 'sub_shared', now)
+      .run()
+    await expect(
+      env.DB.prepare(
+        'INSERT INTO entitlements (clerk_user_id, stripe_customer_id, stripe_subscription_id, updated_at) VALUES (?, ?, ?, ?)',
+      )
+        .bind('user_8', 'cus_shared', 'sub_other', now)
+        .run(),
+    ).rejects.toThrow(/UNIQUE/i)
+  })
+
+  it('inserts a stripe_events row once and rejects a replayed event_id (UNIQUE -- F42 idempotency)', async () => {
+    await applyMigrationsUpTo(3)
+    const now = Date.now()
+    await env.DB.prepare(
+      'INSERT INTO stripe_events (event_id, type, processed_at) VALUES (?, ?, ?)',
+    )
+      .bind('evt_1', 'checkout.session.completed', now)
+      .run()
+    await expect(
+      env.DB.prepare('INSERT INTO stripe_events (event_id, type, processed_at) VALUES (?, ?, ?)')
+        .bind('evt_1', 'customer.subscription.updated', now)
+        .run(),
+    ).rejects.toThrow(/UNIQUE/i)
+  })
+})

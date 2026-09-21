@@ -47,7 +47,20 @@
         // verification — a mismatch is impossible to have today (no
         // production Clerk instance exists yet, see Task 0), but the field
         // exists now so /api/health's shape never changes underneath T3.
-        "CLERK_INSTANCE": "development"
+        "CLERK_INSTANCE": "development",
+        // v6 Phase 6.2a (F49): stripeClient.ts asserts STRIPE_SECRET_KEY's
+        // sk_test_/sk_live_ prefix matches this at startup, so a test key
+        // can never silently serve production. Test-mode only this phase.
+        "STRIPE_MODE": "test",
+        // §2: plan name -> price id, never a client-supplied price id
+        // (F39). Empty here on purpose — no Stripe account/product exists
+        // yet as of this session (see env.d.ts's doc comment and this
+        // phase's amendment doc). Thomas fills these in with the two
+        // test-mode price ids after creating the "Codoro Coach" product in
+        // the Stripe dashboard; the Worker fails loudly at request time
+        // (not silently) if a checkout is attempted while these are unset.
+        "STRIPE_PRICE_MONTHLY": "",
+        "STRIPE_PRICE_ANNUAL": ""
       },
       "d1_databases": [
         {
@@ -79,7 +92,19 @@
         // resource, so no Task 0 dependency). 5/60 is deliberately tighter
         // than the shared 100/60 default ("strict per-IP rate limiting" —
         // plan): this is the only unauthenticated write in the system.
-        { "name": "RATE_LIMITER_REPORT_IP", "namespace_id": "77", "simple": { "limit": 5, "period": 60 } }
+        { "name": "RATE_LIMITER_REPORT_IP", "namespace_id": "77", "simple": { "limit": 5, "period": 60 } },
+        // v6 Phase 6.2a: POST /api/stripe/webhook's own bucket, same
+        // "distinctly-named binding per unauthenticated write" convention
+        // as RATE_LIMITER_REPORT_IP above. 30/60 is looser than report's
+        // 5/60 — a real Stripe account can burst-deliver several events in
+        // quick succession for one customer action (e.g. a Checkout
+        // completion firing checkout.session.completed AND
+        // customer.subscription.created back to back), and Stripe retries
+        // on any non-2xx, so a too-tight bucket here risks the Worker
+        // itself causing the retry storm the rate limiter exists to
+        // dampen. namespace_id "512" is a new arbitrary account-unique
+        // integer, distinct from 14/1983/77 above.
+        { "name": "RATE_LIMITER_STRIPE_WEBHOOK_IP", "namespace_id": "512", "simple": { "limit": 30, "period": 60 } }
       ],
       // No `routes` here (2026-09-11 amendment): originally bound to
       // getcodoro.com/api/* alongside functions/challenge.ts (T1) as a
@@ -105,7 +130,17 @@
         // exists to make impossible; test/static's APP_ORIGINS guard
         // asserts this parses to exactly `["https://getcodoro.com"]`.
         "APP_ORIGINS": "https://getcodoro.com",
-        "CLERK_INSTANCE": "production"
+        "CLERK_INSTANCE": "production",
+        // v6 Phase 6.2a (F49): declared here so the config is correct and
+        // ready, not so it's live — same "not deployed by CI or by this
+        // phase" note as the routes block below. STRIPE_MODE is "live"
+        // because that's what this env will run once §12's live cutover
+        // happens; STRIPE_SECRET_KEY itself won't be a live key until then
+        // (no live Stripe account exists yet either), so the assertion
+        // this enables has nothing to check against until that day.
+        "STRIPE_MODE": "live",
+        "STRIPE_PRICE_MONTHLY": "",
+        "STRIPE_PRICE_ANNUAL": ""
       },
       "d1_databases": [
         {
@@ -123,7 +158,8 @@
         // resource, so no Task 0 dependency). 5/60 is deliberately tighter
         // than the shared 100/60 default ("strict per-IP rate limiting" —
         // plan): this is the only unauthenticated write in the system.
-        { "name": "RATE_LIMITER_REPORT_IP", "namespace_id": "77", "simple": { "limit": 5, "period": 60 } }
+        { "name": "RATE_LIMITER_REPORT_IP", "namespace_id": "77", "simple": { "limit": 5, "period": 60 } },
+        { "name": "RATE_LIMITER_STRIPE_WEBHOOK_IP", "namespace_id": "512", "simple": { "limit": 30, "period": 60 } }
       ],
       // Not deployed by CI or by this phase — "production apply is a
       // deliberate manual step until launch" (T2 process note). Declared
