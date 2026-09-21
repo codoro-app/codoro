@@ -1,4 +1,5 @@
 import { configDefaults, defineConfig } from 'vitest/config'
+import { loadEnv } from 'vite'
 import type { Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -163,219 +164,239 @@ function puzzleMetaPlugin(): Plugin {
 }
 
 // https://vite.dev/config/
-export default defineConfig({
-  server: {
-    proxy: {
-      // T7b/F29: only reachable via `pnpm dev` (this is `server.*` config —
-      // Vite applies it to `vite dev` only, never to `vite build`; a
-      // production build has no dev server to proxy through, and
-      // src/auth/api.ts's apiFetch() still only ever calls same-origin
-      // relative `/api/*`, unconditionally, on every build). Exists so a
-      // real browser at http://localhost:5173 can authenticate against the
-      // deployed dev Worker at all — no route hosted at getcodoro.com talks
-      // to the *development* Clerk instance, and dev has no frontend origin
-      // of its own (wrangler.jsonc's 2026-09-11 amendment). Proxying keeps
-      // the browser's own origin at localhost:5173 (what Clerk mints `azp`
-      // from) while forwarding the request server-side to the real Worker.
-      '/api': {
-        target: process.env.DEV_API_TARGET ?? 'http://127.0.0.1:8787', // local `wrangler dev --env dev` by default
-        // Rewrites only the outgoing request's Host header so Cloudflare's
-        // edge routes it to the right *.workers.dev script -- it does NOT
-        // touch the browser's Origin header, which is what `azp` is minted
-        // from. Do not "fix" this away: without it, a DEV_API_TARGET
-        // pointed at the deployed Worker gets routed by Host, and Clerk's
-        // azp check is unaffected either way.
-        changeOrigin: true,
+export default defineConfig(({ mode }) => {
+  // 2026-09-21 fix: found live while testing the dev proxy against a real
+  // deployed Worker -- a `DEV_API_TARGET` entry in `.env` was silently
+  // ignored, the proxy target below falling back to its 127.0.0.1:8787
+  // default with no error. Root cause: Vite's own automatic .env loading
+  // only ever populates `import.meta.env` for CLIENT code, and only for
+  // `VITE_`-prefixed keys -- it never touches this Node-side
+  // `process.env`, which is what the proxy target reads directly (and
+  // DEV_API_TARGET deliberately has no VITE_ prefix, same as
+  // ANTHROPIC_API_KEY above it in .env.example, so it never leaks into the
+  // browser bundle). `loadEnv(mode, cwd, '')` is Vite's own documented way
+  // to read .env files with no prefix filter; only filling in keys not
+  // already set lets a real shell-level override (`DEV_API_TARGET=...
+  // pnpm dev`) still win over `.env`, matching ordinary dotenv precedence.
+  const fileEnv = loadEnv(mode, process.cwd(), '')
+  for (const [key, value] of Object.entries(fileEnv)) {
+    process.env[key] ??= value
+  }
+
+  return {
+    server: {
+      proxy: {
+        // T7b/F29: only reachable via `pnpm dev` (this is `server.*` config —
+        // Vite applies it to `vite dev` only, never to `vite build`; a
+        // production build has no dev server to proxy through, and
+        // src/auth/api.ts's apiFetch() still only ever calls same-origin
+        // relative `/api/*`, unconditionally, on every build). Exists so a
+        // real browser at http://localhost:5173 can authenticate against the
+        // deployed dev Worker at all — no route hosted at getcodoro.com talks
+        // to the *development* Clerk instance, and dev has no frontend origin
+        // of its own (wrangler.jsonc's 2026-09-11 amendment). Proxying keeps
+        // the browser's own origin at localhost:5173 (what Clerk mints `azp`
+        // from) while forwarding the request server-side to the real Worker.
+        '/api': {
+          target: process.env.DEV_API_TARGET ?? 'http://127.0.0.1:8787', // local `wrangler dev --env dev` by default
+          // Rewrites only the outgoing request's Host header so Cloudflare's
+          // edge routes it to the right *.workers.dev script -- it does NOT
+          // touch the browser's Origin header, which is what `azp` is minted
+          // from. Do not "fix" this away: without it, a DEV_API_TARGET
+          // pointed at the deployed Worker gets routed by Host, and Clerk's
+          // azp check is unaffected either way.
+          changeOrigin: true,
+        },
       },
     },
-  },
-  build: {
-    // v2 Phase 7b: explicit floor, not Vite's own default. Vite 8's
-    // unset-target default is "baseline-widely-available", a frozen
-    // snapshot (chrome111/safari16.4/ios16.4, ~March 2023) that doesn't
-    // auto-advance — confirmed via node_modules/vite's own source, this is
-    // the actual source of a real production Lighthouse run's ~9 KiB
-    // "legacy JavaScript" flag (2026-08-09), not an injected polyfill (none
-    // exists in this repo's dependencies).
-    //
-    // This app's real support matrix is "recent iOS Safari, recent Android
-    // Chrome" only — no IE, no legacy Android. ios17/safari17 (Sept 2023)
-    // and chrome120/edge120 (Dec 2023) move the floor ~8-9 months past
-    // Vite's frozen default while staying a real margin behind whatever's
-    // current as of this change (Aug 2026) — not 'esnext', which tracks
-    // whatever the installed esbuild understands with no version floor at
-    // all, a poor fit for iOS specifically (not evergreen the way Chrome
-    // is; a phone that hasn't updated its OS in 6-12 months is common and
-    // has no separate way to update just Safari).
-    //
-    // Explicit judgment call, not telemetry-backed: this repo has no
-    // confirmed data on the actual minimum OS/browser version any real
-    // user runs. Confirmed safe against the one real device this phase's
-    // own OD-1/OD-5 verification ran on (iPhone 15 Pro, iOS 26.5.2 — far
-    // above this floor).
-    target: ['ios17', 'safari17', 'chrome120', 'edge120'],
-    modulePreload: {
-      // Native <link rel="modulepreload"> shipped in Safari 17, the last
-      // holdout browser — once the target floor above is Safari 17+, this
-      // polyfill shim is dead weight by construction.
-      polyfill: false,
-    },
-  },
-  plugins: [
-    react(),
-    // 2b.0: CSS-first Tailwind v4 — no tailwind.config.js, theme values live
-    // in index.css's @theme inline block (see that file). Must run before
-    // inlineCriticalCss() so its generated utilities land in the same
-    // bundled stylesheet that plugin inlines into <head>.
-    tailwindcss(),
-    inlineCriticalCss(),
-    puzzleMetaPlugin(),
-    VitePWA({
-      // 'prompt', not 'autoUpdate': a new SW installs and Workbox checks for
-      // it automatically in the background, but it never takes over the
-      // open tab — and so never swaps the cached shell out from under a
-      // mid-session user — until useUpdatePrompt() (src/app/pwa) calls
-      // updateServiceWorker() from the in-app "Update available" banner.
-      // Silent auto-reload is exactly the failure mode the build plan calls
-      // out: "the classic way to brick your own deploys for existing users."
-      registerType: 'prompt',
-      injectRegister: null,
-      includeAssets: ['favicon.svg', 'icons.svg'],
-      manifest: {
-        name: 'Codoro',
-        short_name: 'Codoro',
-        description: 'Daily coding puzzles that adapt to your rating.',
-        theme_color: BRAND_PURPLE,
-        background_color: BRAND_PURPLE,
-        display: 'standalone',
-        start_url: '/',
-        scope: '/',
-        icons: [
-          { src: '/pwa-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-          { src: '/pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-          {
-            src: '/pwa-maskable-192.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'maskable',
-          },
-          {
-            src: '/pwa-maskable-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable',
-          },
-        ],
-      },
-      workbox: {
-        // Puzzle content is bundled into the JS chunks (see src/content/index.ts's
-        // import.meta.glob), so the default JS/CSS/HTML/image globs below already
-        // precache app shell + content together — no separate content fetch to cache.
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
-        navigateFallback: '/index.html',
-        // Without a denylist, every navigation once the SW is installed —
-        // including a deliberately bad path — gets index.html from cache,
-        // so a 404 check behaves differently before vs. after the SW takes
-        // over. This regex allows the fallback only for the seven real
-        // routes (and '/' itself); anything else falls through to the
-        // network, matching _redirects/404.html's behavior for the same
-        // path in a plain browser tab. Built as one negative-lookahead
-        // regex (not a per-route array) because navigateFallbackDenylist
-        // is a deny-list — expressing "allow only these" any other way
-        // means enumerating the infinite complement instead.
-        //
-        // workbox-routing's NavigationRoute._match tests this against
-        // url.pathname + url.search, not pathname alone (confirmed from
-        // node_modules/workbox-routing/NavigationRoute.js) — so each
-        // alternative has to admit an optional '?...' after the route
-        // name, not just end-of-string ($), or a shared/campaign link like
-        // /practice?utm_source=twitter gets denied the offline shell where
-        // bare /practice works. The (?:\?|$) alternation covers both: end
-        // of string for a bare path, or the start of a query string for
-        // one with params.
-        //
-        // Not imported from src/app/routes.ts's ROUTE_META (which lists
-        // the same seven paths): vite.config.ts is its own isolated
-        // tsconfig.node.json project (module: nodenext, include:
-        // ["vite.config.ts"] only) and reaching into src/ from here fights
-        // module resolution for a marginal DRY win. Keep this list in sync
-        // with ROUTE_META's keys by hand — routes.test.ts asserts the
-        // same pattern.
-        //
-        // v2 Phase 1b adds /puzzle/:id, the first dynamic route — a second
-        // path segment no bare alternative above admits. The
-        // 'puzzle\/[^/?]+' alternative requires at least one non-'/'
-        // non-'?' character after 'puzzle/', so it matches /puzzle/<id>
-        // (with or without a trailing '?query') but not a bare /puzzle/
-        // (no id) — that falls through to this pattern's default "deny"
-        // branch just like an unknown top-level path, consistent with
-        // _redirects treating a bare /puzzle/ as "rewrite to the app shell,
-        // let the client router 404 it" rather than a real route of its own.
-        //
-        // v2 Phase 5c adds /challenge, a *static* route whose payload lives
-        // in the URL fragment (`/challenge#<base64url>`) — a fragment never
-        // reaches Cloudflare or the SW, so this stays a plain literal
-        // alternative here (like /legal), not a DYNAMIC_ROUTES entry.
-        //
-        // v2 Phase 7 adds /settings, another plain static route (same
-        // treatment as /legal) — the export/import UI.
-        //
-        // v3 Phase 2b.7 adds /stats, another plain static route (same
-        // treatment as /missions) — the rating-history/pattern-accuracy page.
-        navigateFallbackDenylist: [
-          /^\/(?!(?:practice|daily|rush|boss|browse|legal|trace|missions|stats|challenge|compete|settings|puzzle\/[^/?]+)?(?:\?|$))/,
-          // v5 Phase 5.0 (T1): explicit, on top of the allowlist regex above
-          // (which already denies /api/* as an unrecognized path) rather
-          // than relying on that as the only defense. A cached 401 or a
-          // stale sync payload served from the precache is silent data
-          // corruption (I8/F13) — this line stays correct even if the
-          // allowlist regex is ever restructured to no longer imply it.
-          /^\/api\//,
-        ],
-        // I8/F13: /api/* must never be served from a Workbox runtime cache
-        // either — a cached auth response or sync payload would be silent
-        // data corruption. NetworkOnly means Workbox intercepts the route
-        // but always goes to the network, never reading or writing a cache
-        // entry for it.
-        runtimeCaching: [
-          {
-            urlPattern: /^\/api\//,
-            handler: 'NetworkOnly',
-          },
-        ],
-        cleanupOutdatedCaches: true,
-      },
-    }),
-  ],
-  test: {
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
-    css: true,
-    // Vitest's default excludes don't cover .claude/ — without this it also
-    // collects test files from any git worktree checked out under
-    // .claude/worktrees/ (see superpowers:using-git-worktrees), running the
-    // whole suite a second time against a second, possibly stale, copy.
-    // workers/ has its own vitest config (@cloudflare/vitest-pool-workers,
-    // runs inside workerd) — this jsdom suite must never try to collect
-    // its test files, which would fail outside a Worker runtime.
-    // e2e/ is Playwright's own suite (@playwright/test's `test()`, not
-    // Vitest's) — without this, Vitest's default *.spec.ts glob would try
-    // to collect and run it too, and fail: the two runners' `test()` APIs
-    // aren't compatible.
-    exclude: [...configDefaults.exclude, '**/.claude/**', 'workers/**', 'e2e/**'],
-    coverage: {
-      provider: 'v8',
-      include: ['src/engine/**/*.ts', 'src/storage/**/*.ts'],
-      exclude: ['src/engine/**/*.test.ts', 'src/storage/**/*.test.ts'],
-      thresholds: {
-        statements: 100,
-        functions: 100,
-        lines: 100,
-        // db.ts's object-store-already-exists guard is structurally
-        // unreachable under a single fixed DB_VERSION — see the comment at
-        // its call site. Everything else in engine/ and storage/ is 100%.
-        branches: 96,
+    build: {
+      // v2 Phase 7b: explicit floor, not Vite's own default. Vite 8's
+      // unset-target default is "baseline-widely-available", a frozen
+      // snapshot (chrome111/safari16.4/ios16.4, ~March 2023) that doesn't
+      // auto-advance — confirmed via node_modules/vite's own source, this is
+      // the actual source of a real production Lighthouse run's ~9 KiB
+      // "legacy JavaScript" flag (2026-08-09), not an injected polyfill (none
+      // exists in this repo's dependencies).
+      //
+      // This app's real support matrix is "recent iOS Safari, recent Android
+      // Chrome" only — no IE, no legacy Android. ios17/safari17 (Sept 2023)
+      // and chrome120/edge120 (Dec 2023) move the floor ~8-9 months past
+      // Vite's frozen default while staying a real margin behind whatever's
+      // current as of this change (Aug 2026) — not 'esnext', which tracks
+      // whatever the installed esbuild understands with no version floor at
+      // all, a poor fit for iOS specifically (not evergreen the way Chrome
+      // is; a phone that hasn't updated its OS in 6-12 months is common and
+      // has no separate way to update just Safari).
+      //
+      // Explicit judgment call, not telemetry-backed: this repo has no
+      // confirmed data on the actual minimum OS/browser version any real
+      // user runs. Confirmed safe against the one real device this phase's
+      // own OD-1/OD-5 verification ran on (iPhone 15 Pro, iOS 26.5.2 — far
+      // above this floor).
+      target: ['ios17', 'safari17', 'chrome120', 'edge120'],
+      modulePreload: {
+        // Native <link rel="modulepreload"> shipped in Safari 17, the last
+        // holdout browser — once the target floor above is Safari 17+, this
+        // polyfill shim is dead weight by construction.
+        polyfill: false,
       },
     },
-  },
+    plugins: [
+      react(),
+      // 2b.0: CSS-first Tailwind v4 — no tailwind.config.js, theme values live
+      // in index.css's @theme inline block (see that file). Must run before
+      // inlineCriticalCss() so its generated utilities land in the same
+      // bundled stylesheet that plugin inlines into <head>.
+      tailwindcss(),
+      inlineCriticalCss(),
+      puzzleMetaPlugin(),
+      VitePWA({
+        // 'prompt', not 'autoUpdate': a new SW installs and Workbox checks for
+        // it automatically in the background, but it never takes over the
+        // open tab — and so never swaps the cached shell out from under a
+        // mid-session user — until useUpdatePrompt() (src/app/pwa) calls
+        // updateServiceWorker() from the in-app "Update available" banner.
+        // Silent auto-reload is exactly the failure mode the build plan calls
+        // out: "the classic way to brick your own deploys for existing users."
+        registerType: 'prompt',
+        injectRegister: null,
+        includeAssets: ['favicon.svg', 'icons.svg'],
+        manifest: {
+          name: 'Codoro',
+          short_name: 'Codoro',
+          description: 'Daily coding puzzles that adapt to your rating.',
+          theme_color: BRAND_PURPLE,
+          background_color: BRAND_PURPLE,
+          display: 'standalone',
+          start_url: '/',
+          scope: '/',
+          icons: [
+            { src: '/pwa-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: '/pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+            {
+              src: '/pwa-maskable-192.png',
+              sizes: '192x192',
+              type: 'image/png',
+              purpose: 'maskable',
+            },
+            {
+              src: '/pwa-maskable-512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable',
+            },
+          ],
+        },
+        workbox: {
+          // Puzzle content is bundled into the JS chunks (see src/content/index.ts's
+          // import.meta.glob), so the default JS/CSS/HTML/image globs below already
+          // precache app shell + content together — no separate content fetch to cache.
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
+          navigateFallback: '/index.html',
+          // Without a denylist, every navigation once the SW is installed —
+          // including a deliberately bad path — gets index.html from cache,
+          // so a 404 check behaves differently before vs. after the SW takes
+          // over. This regex allows the fallback only for the seven real
+          // routes (and '/' itself); anything else falls through to the
+          // network, matching _redirects/404.html's behavior for the same
+          // path in a plain browser tab. Built as one negative-lookahead
+          // regex (not a per-route array) because navigateFallbackDenylist
+          // is a deny-list — expressing "allow only these" any other way
+          // means enumerating the infinite complement instead.
+          //
+          // workbox-routing's NavigationRoute._match tests this against
+          // url.pathname + url.search, not pathname alone (confirmed from
+          // node_modules/workbox-routing/NavigationRoute.js) — so each
+          // alternative has to admit an optional '?...' after the route
+          // name, not just end-of-string ($), or a shared/campaign link like
+          // /practice?utm_source=twitter gets denied the offline shell where
+          // bare /practice works. The (?:\?|$) alternation covers both: end
+          // of string for a bare path, or the start of a query string for
+          // one with params.
+          //
+          // Not imported from src/app/routes.ts's ROUTE_META (which lists
+          // the same seven paths): vite.config.ts is its own isolated
+          // tsconfig.node.json project (module: nodenext, include:
+          // ["vite.config.ts"] only) and reaching into src/ from here fights
+          // module resolution for a marginal DRY win. Keep this list in sync
+          // with ROUTE_META's keys by hand — routes.test.ts asserts the
+          // same pattern.
+          //
+          // v2 Phase 1b adds /puzzle/:id, the first dynamic route — a second
+          // path segment no bare alternative above admits. The
+          // 'puzzle\/[^/?]+' alternative requires at least one non-'/'
+          // non-'?' character after 'puzzle/', so it matches /puzzle/<id>
+          // (with or without a trailing '?query') but not a bare /puzzle/
+          // (no id) — that falls through to this pattern's default "deny"
+          // branch just like an unknown top-level path, consistent with
+          // _redirects treating a bare /puzzle/ as "rewrite to the app shell,
+          // let the client router 404 it" rather than a real route of its own.
+          //
+          // v2 Phase 5c adds /challenge, a *static* route whose payload lives
+          // in the URL fragment (`/challenge#<base64url>`) — a fragment never
+          // reaches Cloudflare or the SW, so this stays a plain literal
+          // alternative here (like /legal), not a DYNAMIC_ROUTES entry.
+          //
+          // v2 Phase 7 adds /settings, another plain static route (same
+          // treatment as /legal) — the export/import UI.
+          //
+          // v3 Phase 2b.7 adds /stats, another plain static route (same
+          // treatment as /missions) — the rating-history/pattern-accuracy page.
+          navigateFallbackDenylist: [
+            /^\/(?!(?:practice|daily|rush|boss|browse|legal|trace|missions|stats|challenge|compete|settings|puzzle\/[^/?]+)?(?:\?|$))/,
+            // v5 Phase 5.0 (T1): explicit, on top of the allowlist regex above
+            // (which already denies /api/* as an unrecognized path) rather
+            // than relying on that as the only defense. A cached 401 or a
+            // stale sync payload served from the precache is silent data
+            // corruption (I8/F13) — this line stays correct even if the
+            // allowlist regex is ever restructured to no longer imply it.
+            /^\/api\//,
+          ],
+          // I8/F13: /api/* must never be served from a Workbox runtime cache
+          // either — a cached auth response or sync payload would be silent
+          // data corruption. NetworkOnly means Workbox intercepts the route
+          // but always goes to the network, never reading or writing a cache
+          // entry for it.
+          runtimeCaching: [
+            {
+              urlPattern: /^\/api\//,
+              handler: 'NetworkOnly',
+            },
+          ],
+          cleanupOutdatedCaches: true,
+        },
+      }),
+    ],
+    test: {
+      environment: 'jsdom',
+      setupFiles: ['./src/test/setup.ts'],
+      css: true,
+      // Vitest's default excludes don't cover .claude/ — without this it also
+      // collects test files from any git worktree checked out under
+      // .claude/worktrees/ (see superpowers:using-git-worktrees), running the
+      // whole suite a second time against a second, possibly stale, copy.
+      // workers/ has its own vitest config (@cloudflare/vitest-pool-workers,
+      // runs inside workerd) — this jsdom suite must never try to collect
+      // its test files, which would fail outside a Worker runtime.
+      // e2e/ is Playwright's own suite (@playwright/test's `test()`, not
+      // Vitest's) — without this, Vitest's default *.spec.ts glob would try
+      // to collect and run it too, and fail: the two runners' `test()` APIs
+      // aren't compatible.
+      exclude: [...configDefaults.exclude, '**/.claude/**', 'workers/**', 'e2e/**'],
+      coverage: {
+        provider: 'v8',
+        include: ['src/engine/**/*.ts', 'src/storage/**/*.ts'],
+        exclude: ['src/engine/**/*.test.ts', 'src/storage/**/*.test.ts'],
+        thresholds: {
+          statements: 100,
+          functions: 100,
+          lines: 100,
+          // db.ts's object-store-already-exists guard is structurally
+          // unreachable under a single fixed DB_VERSION — see the comment at
+          // its call site. Everything else in engine/ and storage/ is 100%.
+          branches: 96,
+        },
+      },
+    },
+  }
 })

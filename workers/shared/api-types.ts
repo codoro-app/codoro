@@ -177,3 +177,32 @@ export interface CheckoutSessionResponse {
 export interface BillingPortalResponse {
   url: string
 }
+
+/**
+ * `POST /api/subscribe` -- the pre-launch/marketing email list (a Resend
+ * Segment), unauthenticated by design (a guest reads this opt-in before
+ * ever signing in, same reasoning as `POST /api/report`'s own "guest-first
+ * is law" stance). `hp` is a honeypot: a hidden form field real users never
+ * fill; a non-empty value is treated as a bot and rejected, same effect as
+ * a failed validation but without giving a scripted attacker a distinct
+ * signal to learn from.
+ */
+export interface SubscribeRequest {
+  email: string
+  // `| undefined` alongside the `?` is deliberate, not redundant -- same
+  // exactOptionalPropertyTypes accommodation ProfilePutRequest's `anonId`
+  // field above documents: Zod's `.optional()` produces an inferred output
+  // type that includes explicit `undefined`, which this repo's strict
+  // tsconfig distinguishes from a bare `?`.
+  hp?: string | undefined
+}
+
+/**
+ * Always the same shape on success, regardless of whether the email was
+ * already on the list -- deliberately not distinguishing "added" from
+ * "already subscribed" in the response (a minor enumeration leak the old
+ * pre-v5 plan doc already called out to avoid).
+ */
+export interface SubscribeResponse {
+  ok: true
+}

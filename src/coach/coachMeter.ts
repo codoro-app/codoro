@@ -13,8 +13,8 @@
  */
 import type { CoachMeter } from '../storage'
 
-/** Spec §6/§11: "3 per week" — the settled recommendation, not yet a Setting. */
-export const WEEKLY_COACH_LIMIT = 3
+/** Free tier: 2 coach explanations per week (revised down from the original spec §6/§11 "3 per week"). */
+export const WEEKLY_COACH_LIMIT = 2
 
 /**
  * The ISO date (YYYY-MM-DD) of the Monday that starts the UTC week

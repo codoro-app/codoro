@@ -124,6 +124,31 @@ interface WorkerEnv {
    * STRIPE_WEBHOOK_SECRET --env <env>`.
    */
   STRIPE_WEBHOOK_SECRET: string
+  /**
+   * `POST /api/subscribe`'s own, distinctly-named per-IP bucket -- same
+   * "own bucket per unauthenticated write" reasoning as
+   * RATE_LIMITER_REPORT_IP/RATE_LIMITER_STRIPE_WEBHOOK_IP above.
+   */
+  RATE_LIMITER_SUBSCRIBE_IP: RateLimit
+  /**
+   * Resend's secret API key (`re_...`), from the dashboard's API Keys page.
+   * resendClient.ts's one client-construction point. Set via `wrangler
+   * secret put RESEND_API_KEY --env <env>`, never in wrangler.jsonc, never
+   * committed to `.dev.vars`. **Not set as of this session** -- no Resend
+   * account exists yet; the route fails loudly (502) at request time, not
+   * silently, while this is unset.
+   */
+  RESEND_API_KEY: string
+  /**
+   * Which Resend Segment (formerly "Audience" -- Resend renamed the
+   * concept; see resendClient.ts's own doc comment) new subscribers are
+   * added to. Created once in the Resend dashboard, not in code -- config,
+   * not a secret, safe as a plain wrangler.jsonc var (same reasoning
+   * STRIPE_PRICE_MONTHLY/STRIPE_PRICE_ANNUAL get). **Empty in wrangler.jsonc's
+   * `dev` env as of this session** -- Thomas creates the segment in the
+   * Resend dashboard, then fills this in alongside RESEND_API_KEY.
+   */
+  RESEND_SEGMENT_ID: string
 }
 
 /**

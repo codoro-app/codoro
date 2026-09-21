@@ -65,6 +65,14 @@ export default defineConfig({
                   namespace_id: '512',
                   simple: { limit: 4, period: 10 },
                 },
+                // Same "distinct small number" reasoning, a fourth distinct
+                // value (5) so /api/subscribe's own bucket is never confused
+                // with report's (2), the shared default (3), or the webhook
+                // route's (4).
+                RATE_LIMITER_SUBSCRIBE_IP: {
+                  namespace_id: '913',
+                  simple: { limit: 5, period: 10 },
+                },
               },
             },
           })),

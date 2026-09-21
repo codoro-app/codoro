@@ -6,6 +6,7 @@
  * trigger types (the cooldown is global, so the state has to be too).
  */
 import { useCallback, useState } from 'react'
+import { readHasAccountHint } from './accountHint'
 import {
   DEFAULT_SIGNUP_PROMPT_STATE,
   recordSignupPromptOptOut,
@@ -61,7 +62,13 @@ export function useSignupPrompt(): UseSignupPromptResult {
   const [state, setState] = useState(readState)
 
   const canShow = useCallback(
-    (trigger: SignupPromptTrigger) => shouldShowSignupPrompt(state, trigger, Date.now()),
+    (trigger: SignupPromptTrigger) =>
+      // A signed-in device should never see the "create an account" prompt
+      // again -- checked here rather than in signupPrompts.ts so that pure
+      // state machine stays free of localStorage/DOM reads (see its own doc
+      // comment). readHasAccountHint() is cheap and synchronous, and is kept
+      // current by SyncEngineHost/DeleteAccountDialog (src/auth/accountHint.ts).
+      !readHasAccountHint() && shouldShowSignupPrompt(state, trigger, Date.now()),
     [state],
   )
 

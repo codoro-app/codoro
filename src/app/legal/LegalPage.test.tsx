@@ -53,4 +53,16 @@ describe('LegalPage', () => {
     ).toBeInTheDocument()
     expect(screen.getByText(/never sold, never added to a mailing list/i)).toBeInTheDocument()
   })
+
+  it('discloses the new post-challenge email opt-in list and names Resend as the sub-processor', () => {
+    render(<LegalPage />)
+    expect(
+      screen.getByText(/email list\. on the screen shown after a challenge finishes/i),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Resend' })).toHaveAttribute(
+      'href',
+      'https://resend.com/legal/privacy-policy',
+    )
+    expect(screen.getByText(/every email sent includes an unsubscribe link/i)).toBeInTheDocument()
+  })
 })
